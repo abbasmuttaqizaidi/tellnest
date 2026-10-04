@@ -11,6 +11,7 @@ const config = defineConfig({
     tanstackStart(),
     nitro({
       preset: 'vercel',
+      errorHandler: './src/error.ts',
       vercel: {
         entryFormat: 'node',
       },

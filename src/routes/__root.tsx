@@ -12,7 +12,7 @@ import appCss from '../styles.css?url'
 const CLERK_PUBLISHABLE_KEY =
   (typeof import.meta !== 'undefined' && import.meta.env?.VITE_CLERK_PUBLISHABLE_KEY) ||
   (typeof process !== 'undefined' && process.env?.VITE_CLERK_PUBLISHABLE_KEY) ||
-  ''
+  'pk_test_aW52aXRpbmctYm9hLTg5NDIuY2xlcmsuYWNjb3VudHMuZGV2JA'
 
 const THEME_INIT_SCRIPT = `(function(){try{var stored=window.localStorage.getItem('theme');var mode=(stored==='light'||stored==='dark'||stored==='sepia'||stored==='auto')?stored:'light';var prefersDark=window.matchMedia('(prefers-color-scheme: dark)').matches;var resolved=mode==='auto'?(prefersDark?'dark':'light'):mode;var root=document.documentElement;root.classList.remove('light','dark','theme-sepia');if(resolved==='sepia'){root.classList.add('theme-sepia');}else{root.classList.add(resolved);}root.setAttribute('data-theme',resolved);root.style.colorScheme=(resolved==='dark'?'dark':'light');}catch(e){}})();`
 
