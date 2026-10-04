@@ -6,7 +6,17 @@ import { nitro } from 'nitro/vite'
 
 const config = defineConfig({
   resolve: { tsconfigPaths: true },
-  plugins: [tailwindcss(), tanstackStart(), nitro(), viteReact()],
+  plugins: [
+    tailwindcss(),
+    tanstackStart(),
+    nitro({
+      preset: 'vercel',
+      vercel: {
+        entryFormat: 'node',
+      },
+    }),
+    viteReact(),
+  ],
   build: {
     chunkSizeWarningLimit: 600,
     rollupOptions: {
