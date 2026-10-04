@@ -112,22 +112,26 @@ export default function Header() {
               >
                 Discover
               </Link>
-              <Link
-                to="/library"
-                className={`px-3 py-1.5 rounded transition-colors hover:text-[var(--ink-primary)] ${
-                  currentPath.startsWith('/library') ? 'text-[var(--ink-primary)] font-semibold' : ''
-                }`}
-              >
-                Library
-              </Link>
-              <Link
-                to="/following"
-                className={`px-3 py-1.5 rounded transition-colors hover:text-[var(--ink-primary)] ${
-                  currentPath.startsWith('/following') ? 'text-[var(--ink-primary)] font-semibold' : ''
-                }`}
-              >
-                Following
-              </Link>
+              {isSignedIn && (
+                <>
+                  <Link
+                    to="/library"
+                    className={`px-3 py-1.5 rounded transition-colors hover:text-[var(--ink-primary)] ${
+                      currentPath.startsWith('/library') ? 'text-[var(--ink-primary)] font-semibold' : ''
+                    }`}
+                  >
+                    Library
+                  </Link>
+                  <Link
+                    to="/following"
+                    className={`px-3 py-1.5 rounded transition-colors hover:text-[var(--ink-primary)] ${
+                      currentPath.startsWith('/following') ? 'text-[var(--ink-primary)] font-semibold' : ''
+                    }`}
+                  >
+                    Following
+                  </Link>
+                </>
+              )}
             </nav>
           )}
         </div>
@@ -310,22 +314,22 @@ export default function Header() {
           >
             Discover
           </Link>
-          <Link
-            to="/library"
-            onClick={() => setMobileMenuOpen(false)}
-            className="block py-1.5 text-[var(--ink-secondary)] hover:text-[var(--ink-primary)]"
-          >
-            Library
-          </Link>
-          <Link
-            to="/following"
-            onClick={() => setMobileMenuOpen(false)}
-            className="block py-1.5 text-[var(--ink-secondary)] hover:text-[var(--ink-primary)]"
-          >
-            Following
-          </Link>
           {isSignedIn && (
             <>
+              <Link
+                to="/library"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block py-1.5 text-[var(--ink-secondary)] hover:text-[var(--ink-primary)]"
+              >
+                Library
+              </Link>
+              <Link
+                to="/following"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block py-1.5 text-[var(--ink-secondary)] hover:text-[var(--ink-primary)]"
+              >
+                Following
+              </Link>
               <Link
                 to="/write"
                 onClick={() => setMobileMenuOpen(false)}

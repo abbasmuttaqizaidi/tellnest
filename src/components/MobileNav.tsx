@@ -16,9 +16,13 @@ export default function MobileNav() {
   const navItems = [
     { to: '/', label: 'Home', icon: Home, exact: true },
     { to: '/discover', label: 'Discover', icon: Compass, exact: false },
-    ...(isSignedIn ? [{ to: '/write', label: 'Write', icon: PenLine, isWrite: true }] : []),
-    { to: '/library', label: 'Library', icon: Bookmark, exact: false },
-    { to: '/following', label: 'Following', icon: Users, exact: false },
+    ...(isSignedIn
+      ? [
+          { to: '/write', label: 'Write', icon: PenLine, isWrite: true },
+          { to: '/library', label: 'Library', icon: Bookmark, exact: false },
+          { to: '/following', label: 'Following', icon: Users, exact: false },
+        ]
+      : []),
   ]
 
   return (
