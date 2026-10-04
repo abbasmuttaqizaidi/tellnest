@@ -5,6 +5,7 @@ import MobileNav from '../components/MobileNav'
 import Footer from '../components/Footer'
 import Toast from '../components/Toast'
 import { ClerkSync } from '../components/ClerkSync'
+import { ClerkAuthOverlay } from '../components/ClerkAuthOverlay'
 import { AppProvider } from '../context/AppContext'
 
 import appCss from '../styles.css?url'
@@ -85,6 +86,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   const innerContent = (
     <AppProvider>
       <ClerkSync />
+      <ClerkAuthOverlay />
       <Header />
       <main className="flex-1 w-full max-w-full overflow-x-hidden pb-16 md:pb-0 bg-[var(--bg-canvas)]">
         {children}

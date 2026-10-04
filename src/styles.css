@@ -213,3 +213,39 @@ div:has(> a[href*="dashboard.clerk.com"]:only-child) {
   display: none !important;
   content: none !important;
 }
+
+/* =========================================================
+   CUSTOM TELLNEST SHIMMER LOADER & CLERK SPINNER OVERRIDES
+   ========================================================= */
+@keyframes tellnestShimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(30%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+.tellnest-shimmer-bar {
+  width: 50%;
+  animation: tellnestShimmer 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Style Clerk internal loaders with Tellnest monochrome theme */
+.cl-spinner,
+.cl-loading,
+.cl-spinnerIcon,
+.cl-loadingContainer svg,
+div[class*="spinner"],
+svg[class*="spinner"] {
+  color: var(--ink-primary) !important;
+  stroke: var(--ink-primary) !important;
+}
+
+.cl-spinner {
+  border-color: var(--border-strong) !important;
+  border-top-color: var(--ink-primary) !important;
+}

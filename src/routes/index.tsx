@@ -4,6 +4,8 @@ import { useApp } from '../context/AppContext'
 import { CATEGORIES, GENRES, AUTHORS } from '../data/mockData'
 import WorkCard from '../components/WorkCard'
 import AuthorCard from '../components/AuthorCard'
+import { TellnestLoader } from '../components/TellnestLoader'
+import { startAuthTransition } from '../components/ClerkAuthOverlay'
 import {
   AnimatedSearch,
   Button,
@@ -51,7 +53,17 @@ export const Route = createFileRoute('/')({
 })
 
 function HomePage() {
-  const { isSignedIn } = useUser()
+  const { isSignedIn, isLoaded } = useUser()
+
+  if (!isLoaded) {
+    return (
+      <TellnestLoader
+        variant="page"
+        message="Curating your reading catalog..."
+        submessage="Tellnest Literary Network"
+      />
+    )
+  }
 
   if (isSignedIn) {
     return <SignedInHome />
@@ -169,6 +181,7 @@ function PublicHome() {
               <SignInButton mode="modal" appearance={CLERK_MODAL_APPEARANCE}>
                 <button
                   type="button"
+                  onClick={startAuthTransition}
                   className="inline-flex items-center gap-2 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-2.5 text-xs font-medium text-[var(--ink-muted)] hover:border-[var(--border-strong)] hover:text-[var(--ink-primary)] transition-all cursor-pointer"
                 >
                   <Bookmark className="h-4 w-4" />
@@ -457,6 +470,7 @@ function PublicHome() {
           <SignInButton mode="modal" appearance={CLERK_MODAL_APPEARANCE}>
             <button
               type="button"
+              onClick={startAuthTransition}
               className="inline-flex items-center gap-2 rounded border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-6 py-2.5 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 transition-opacity cursor-pointer shadow-xs"
             >
               <span>Join The Relay</span>

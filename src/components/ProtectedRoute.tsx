@@ -3,6 +3,8 @@ import { useUser, useClerk } from '@clerk/react'
 import { Link } from '@tanstack/react-router'
 import { Button, Badge } from '../design-system'
 import { Lock, ShieldCheck, ArrowRight, BookOpen, Sparkles } from 'lucide-react'
+import { TellnestLoader } from './TellnestLoader'
+import { startAuthTransition } from './ClerkAuthOverlay'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
@@ -41,14 +43,14 @@ export function ProtectedRoute({
   const { isSignedIn, isLoaded } = useUser()
   const { openSignIn } = useClerk()
 
-  // 1. Loading Skeleton while Clerk hydrates session
+  // 1. Tellnest Branded Loader while Clerk hydrates session
   if (!isLoaded) {
     return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 space-y-4">
-        <div className="h-10 w-10 rounded-xl bg-[var(--bg-subtle)] animate-pulse border border-[var(--border-subtle)]" />
-        <div className="h-4 w-48 rounded bg-[var(--bg-subtle)] animate-pulse" />
-        <div className="h-3 w-64 rounded bg-[var(--bg-subtle)] animate-pulse" />
-      </div>
+      <TellnestLoader
+        variant="page"
+        message="Verifying literary credentials..."
+        submessage="Tellnest Private Folio"
+      />
     )
   }
 
@@ -103,7 +105,10 @@ export function ProtectedRoute({
               variant="primary"
               size="md"
               className="w-full"
-              onClick={() => openSignIn({ appearance: CLERK_MODAL_APPEARANCE })}
+              onClick={() => {
+                startAuthTransition()
+                openSignIn({ appearance: CLERK_MODAL_APPEARANCE })
+              }}
               rightIcon={<ArrowRight className="h-4 w-4" />}
             >
               Sign In to Continue
