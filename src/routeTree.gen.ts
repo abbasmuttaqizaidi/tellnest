@@ -10,7 +10,6 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AssociationRouteImport } from './routes/association'
 import { Route as DesignSystemRouteImport } from './routes/design-system'
 import { Route as DiscoverRouteImport } from './routes/discover'
 import { Route as FollowingRouteImport } from './routes/following'
@@ -33,11 +32,6 @@ import { Route as WriteEditorWorkIdChapterIdRouteImport } from './routes/write.e
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AssociationRoute = AssociationRouteImport.update({
-  id: '/association',
-  path: '/association',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DesignSystemRoute = DesignSystemRouteImport.update({
@@ -134,7 +128,6 @@ const WriteEditorWorkIdChapterIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/association': typeof AssociationRoute
   '/design-system': typeof DesignSystemRoute
   '/discover': typeof DiscoverRoute
   '/following': typeof FollowingRoute
@@ -156,7 +149,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/association': typeof AssociationRoute
   '/design-system': typeof DesignSystemRoute
   '/discover': typeof DiscoverRoute
   '/following': typeof FollowingRoute
@@ -179,7 +171,6 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/association': typeof AssociationRoute
   '/design-system': typeof DesignSystemRoute
   '/discover': typeof DiscoverRoute
   '/following': typeof FollowingRoute
@@ -203,7 +194,6 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/association'
     | '/design-system'
     | '/discover'
     | '/following'
@@ -225,7 +215,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/association'
     | '/design-system'
     | '/discover'
     | '/following'
@@ -247,7 +236,6 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/association'
     | '/design-system'
     | '/discover'
     | '/following'
@@ -270,7 +258,6 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AssociationRoute: typeof AssociationRoute
   DesignSystemRoute: typeof DesignSystemRoute
   DiscoverRoute: typeof DiscoverRoute
   FollowingRoute: typeof FollowingRoute
@@ -298,13 +285,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/association': {
-      id: '/association'
-      path: '/association'
-      fullPath: '/association'
-      preLoaderRoute: typeof AssociationRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/design-system': {
@@ -438,7 +418,6 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AssociationRoute: AssociationRoute,
   DesignSystemRoute: DesignSystemRoute,
   DiscoverRoute: DiscoverRoute,
   FollowingRoute: FollowingRoute,

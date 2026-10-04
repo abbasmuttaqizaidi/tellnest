@@ -570,12 +570,6 @@ function SignedInHome() {
                 <span>My Library ({savedWorkIds.length})</span>
               </Button>
             </Link>
-
-            <Link to="/association" className="no-underline">
-              <Badge variant="subtle" size="md" className="cursor-pointer hover:border-[var(--border-strong)] transition-all">
-                Business Affiliation
-              </Badge>
-            </Link>
           </div>
         </div>
       </section>

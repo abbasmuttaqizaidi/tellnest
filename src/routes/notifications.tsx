@@ -10,7 +10,7 @@ export const Route = createFileRoute('/notifications')({
   component: () => (
     <ProtectedRoute
       title="Folio Notifications"
-      description="Sign in to view comment replies, association decisions, editorial updates, and new chapter dispatches."
+      description="Sign in to view comment replies, editorial updates, author announcements, and new chapter dispatches."
       featureBadge="Private Inbox"
     >
       <NotificationsPage />

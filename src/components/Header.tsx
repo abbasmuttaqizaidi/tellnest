@@ -14,8 +14,7 @@ import {
   User,
   Settings,
   BookOpen,
-  LogOut,
-  Building2
+  LogOut
 } from 'lucide-react'
 import { SignInButton, useUser, useClerk } from '@clerk/react'
 import { useApp } from '../context/AppContext'
@@ -128,14 +127,6 @@ export default function Header() {
                 }`}
               >
                 Following
-              </Link>
-              <Link
-                to="/association"
-                className={`px-3 py-1.5 rounded transition-colors hover:text-[var(--ink-primary)] ${
-                  currentPath.startsWith('/association') ? 'text-[var(--ink-primary)] font-semibold' : ''
-                }`}
-              >
-                Association
               </Link>
             </nav>
           )}
@@ -263,13 +254,6 @@ export default function Header() {
                     Writer Studio
                   </Link>
                   <Link
-                    to="/association"
-                    className="flex items-center gap-2 px-3 py-2 text-[var(--ink-secondary)] hover:bg-[var(--bg-subtle)] transition-colors"
-                  >
-                    <Building2 className="h-3.5 w-3.5 text-[var(--ink-muted)]" />
-                    Business Association
-                  </Link>
-                  <Link
                     to="/settings"
                     className="flex items-center gap-2 px-3 py-2 text-[var(--ink-secondary)] hover:bg-[var(--bg-subtle)] transition-colors"
                   >
@@ -339,13 +323,6 @@ export default function Header() {
             className="block py-1.5 text-[var(--ink-secondary)] hover:text-[var(--ink-primary)]"
           >
             Following
-          </Link>
-          <Link
-            to="/association"
-            onClick={() => setMobileMenuOpen(false)}
-            className="block py-1.5 text-[var(--ink-secondary)] hover:text-[var(--ink-primary)]"
-          >
-            Business Association
           </Link>
           {isSignedIn && (
             <>
