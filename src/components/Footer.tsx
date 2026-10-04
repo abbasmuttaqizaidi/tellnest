@@ -1,0 +1,133 @@
+import React from 'react'
+import { Link, useRouterState } from '@tanstack/react-router'
+import { CATEGORIES } from '../data/mockData'
+
+export default function Footer() {
+  const routerState = useRouterState()
+  const isReaderMode = routerState.location.pathname.startsWith('/read/')
+  const isEditorMode = routerState.location.pathname.startsWith('/write/editor')
+
+  if (isReaderMode || isEditorMode) {
+    return null
+  }
+
+  return (
+    <footer className="w-full border-t border-[var(--border-subtle)] bg-[var(--bg-canvas)] pt-12 pb-16 text-xs text-[var(--ink-muted)] mb-14 md:mb-0 transition-colors">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        
+        {/* Top Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-8 pb-12 border-b border-[var(--border-subtle)]">
+          {/* Brand Manifesto */}
+          <div className="md:col-span-2 space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="flex h-5 w-5 items-center justify-center rounded border border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)]">
+                <span className="font-mono text-[10px] font-bold">R</span>
+              </div>
+              <span className="font-sans text-xs font-bold tracking-widest text-[var(--ink-primary)] uppercase">RELAY</span>
+              <span className="font-serif text-sm tracking-tight text-[var(--ink-secondary)] italic">Stories</span>
+            </div>
+            <p className="text-[13px] leading-relaxed text-[var(--ink-muted)] max-w-sm font-sans">
+              An elegant digital library where anyone can become a writer. Built on the disciplined, monochrome design foundation of the Relay ecosystem.
+            </p>
+            <div className="pt-2">
+              <span className="inline-flex items-center gap-2 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-1 text-[11px] font-mono text-[var(--ink-muted)]">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                Relay Publishing Platform • v2.4
+              </span>
+            </div>
+          </div>
+
+          {/* Explore Categories */}
+          <div>
+            <h4 className="font-mono text-[11px] uppercase tracking-wider text-[var(--ink-primary)] font-semibold mb-3">
+              Categories
+            </h4>
+            <ul className="space-y-1.5 list-none p-0 m-0">
+              {CATEGORIES.slice(0, 6).map(cat => (
+                <li key={cat.slug}>
+                  <Link
+                    to="/category/$slug"
+                    params={{ slug: cat.slug }}
+                    className="hover:text-[var(--ink-primary)] transition-colors no-underline text-inherit"
+                  >
+                    {cat.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="font-mono text-[11px] uppercase tracking-wider text-[var(--ink-primary)] font-semibold mb-3">
+              Formats
+            </h4>
+            <ul className="space-y-1.5 list-none p-0 m-0">
+              {CATEGORIES.slice(6, 12).map(cat => (
+                <li key={cat.slug}>
+                  <Link
+                    to="/category/$slug"
+                    params={{ slug: cat.slug }}
+                    className="hover:text-[var(--ink-primary)] transition-colors no-underline text-inherit"
+                  >
+                    {cat.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Ecosystem Links */}
+          <div>
+            <h4 className="font-mono text-[11px] uppercase tracking-wider text-[var(--ink-primary)] font-semibold mb-3">
+              Relay Ecosystem
+            </h4>
+            <ul className="space-y-1.5 list-none p-0 m-0">
+              <li>
+                <Link to="/write" className="hover:text-[var(--ink-primary)] transition-colors no-underline text-inherit">
+                  Creator Studio
+                </Link>
+              </li>
+              <li>
+                <Link to="/discover" className="hover:text-[var(--ink-primary)] transition-colors no-underline text-inherit">
+                  Digital Archives
+                </Link>
+              </li>
+              <li>
+                <a
+                  href="https://relay.business"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-[var(--ink-primary)] transition-colors no-underline text-inherit flex items-center gap-1.5"
+                >
+                  <span>Relay Insights</span>
+                  <span className="text-[10px] font-mono text-[var(--ink-faint)]">↗</span>
+                </a>
+              </li>
+              <li>
+                <Link to="/settings" className="hover:text-[var(--ink-primary)] transition-colors no-underline text-inherit">
+                  Typography & Theme
+                </Link>
+              </li>
+              <li>
+                <Link to="/design-system" className="hover:text-[var(--ink-primary)] transition-colors no-underline text-inherit font-semibold text-[var(--ink-primary)]">
+                  Design System (UI)
+                </Link>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        {/* Bottom Bar */}
+        <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-[var(--ink-faint)] font-mono">
+          <p>© {new Date().getFullYear()} Relay Network Inc. All literary works retain author copyright.</p>
+          <div className="flex items-center gap-6">
+            <span>DISCOVERY = CONTENT-RICH</span>
+            <span>READING = MINIMAL</span>
+            <span>WRITER = FOCUSED</span>
+          </div>
+        </div>
+
+      </div>
+    </footer>
+  )
+}

@@ -1,0 +1,215 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-serif: "Outfit", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+:root {
+  /* Relay Stories Monochrome Palette */
+  --bg-canvas: #F8FAFC;
+  --bg-surface: #FFFFFF;
+  --bg-subtle: #F1F5F9;
+  --border-subtle: #E2E8F0;
+  --border-strong: #CBD5E1;
+  --ink-primary: #010611;
+  --ink-secondary: #171F2C;
+  --ink-muted: #64748B;
+  --ink-faint: #94A3B8;
+  --accent-ink: #171F2C;
+  --accent-contrast: #FFFFFF;
+
+  /* Reader Warm / Sepia values when activated */
+  --sepia-canvas: #F6F1EA;
+  --sepia-surface: #EDE5DA;
+  --sepia-border: #E0D5C5;
+  --sepia-ink: #2C2219;
+  --sepia-secondary: #574636;
+}
+
+:root[data-theme="dark"],
+.dark {
+  --bg-canvas: #090D14;
+  --bg-surface: #111722;
+  --bg-subtle: #172030;
+  --border-subtle: #1E293B;
+  --border-strong: #334155;
+  --ink-primary: #F8FAFC;
+  --ink-secondary: #E2E8F0;
+  --ink-muted: #94A3B8;
+  --ink-faint: #64748B;
+  --accent-ink: #F8FAFC;
+  --accent-contrast: #090D14;
+}
+
+:root[data-theme="sepia"],
+.theme-sepia {
+  --bg-canvas: #F6F1EA;
+  --bg-surface: #FAF7F2;
+  --bg-subtle: #EDE5DA;
+  --border-subtle: #E0D5C5;
+  --border-strong: #CEC0AD;
+  --ink-primary: #2C2219;
+  --ink-secondary: #4A3A2C;
+  --ink-muted: #7A6553;
+  --ink-faint: #A69280;
+  --accent-ink: #2C2219;
+  --accent-contrast: #F6F1EA;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+html {
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  color: var(--ink-secondary);
+  font-family: var(--font-sans);
+  background-color: var(--bg-canvas);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  width: 100%;
+  position: relative;
+}
+
+/* Custom Scrollbar for clean editorial look */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-faint);
+}
+
+/* Typography Utility Classes */
+.font-editorial {
+  font-family: var(--font-serif);
+}
+
+.font-editorial-italic {
+  font-family: var(--font-serif);
+  font-style: italic;
+}
+
+.font-interface {
+  font-family: var(--font-sans);
+}
+
+.font-metadata {
+  font-family: var(--font-mono);
+}
+
+/* Editorial line and divider accents */
+.editorial-rule {
+  height: 1px;
+  background-color: var(--border-subtle);
+  border: none;
+}
+
+/* Interactive subtle transition */
+.transition-subtle {
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* =========================================================
+   HIDE CLERK DEVELOPMENT MODE BADGE & FOOTER BRANDING
+   ========================================================= */
+.cl-footer,
+.cl-footerAction,
+.cl-internal-b3890c,
+.cl-clerk-branding,
+.cl-clerkBranding,
+.cl-card__footer,
+.cl-dev-mode-badge,
+[data-localization-key*="developmentMode"],
+[data-localization-key*="devMode"],
+div[class*="cl-badge"],
+div[class*="development-badge"],
+#clerk-dev-badge,
+[data-clerk-dev-badge],
+.cl-dev-badge,
+.cl-development-badge,
+div[aria-label="Development mode"],
+div:has(> a[href*="dashboard.clerk.com"]:only-child) {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* =========================================================
+   CENTER & COMPACT CLERK AUTHENTICATION MODAL (NO GHOST EDGES)
+   ========================================================= */
+.cl-modalBackdrop {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 1rem !important;
+  box-sizing: border-box !important;
+  background-color: rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: blur(4px) !important;
+}
+
+.cl-modalContent,
+.cl-modalContent > div,
+.cl-rootBox,
+.cl-cardBox {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  outline: none !important;
+  max-width: 380px !important;
+  width: 100% !important;
+  margin: auto !important;
+}
+
+.cl-modalContent {
+  max-height: calc(100vh - 2rem) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.cl-card,
+.cl-signIn-root,
+.cl-signUp-root {
+  max-width: 380px !important;
+  width: 100% !important;
+  margin: auto !important;
+}
+
+/* Eliminate any ghost pseudo-elements or multi-layered card shadows */
+.cl-modalContent::before,
+.cl-modalContent::after,
+.cl-rootBox::before,
+.cl-rootBox::after,
+.cl-cardBox::before,
+.cl-cardBox::after {
+  display: none !important;
+  content: none !important;
+}
