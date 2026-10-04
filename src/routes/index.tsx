@@ -95,7 +95,7 @@ function PublicHome() {
             Vol. 2026 • Issue № 42
           </span>
           <span className="text-[11px] sm:text-xs">
-            A quiet digital sanctuary for serialized fiction, long-form essays, and modern letters.
+            Where independent authors publish serialized novels, essays, and stories chapter by chapter.
           </span>
         </div>
         <Link
