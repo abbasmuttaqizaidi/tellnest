@@ -45,6 +45,7 @@ export const NAVIGATION_CATEGORIES: NavCategory[] = [
     items: [
       { id: 'sec-buttons', title: 'Buttons & Taps', badge: 'Core' },
       { id: 'sec-badges', title: 'Badges & Status Chips', badge: 'Core' },
+      { id: 'sec-brand', title: 'Hatchpen Brand Mark', badge: 'Brand' },
       { id: 'sec-avatar', title: 'Unisex Avatar & Icon', badge: 'Asset' }
     ]
   },

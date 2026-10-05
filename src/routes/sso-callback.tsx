@@ -15,9 +15,9 @@ export default function SSOCallbackPage() {
         <div className="relative">
           <div className="absolute -inset-4 bg-slate-900/5 dark:bg-white/5 rounded-full blur-xl animate-pulse" />
           <img
-            src="/logo.png"
-            alt="Tellnest"
-            className="relative h-12 w-auto object-contain"
+            src="/hatchpen-logo.png"
+            alt="Hatchpen"
+            className="relative h-12 w-auto object-contain rounded-md"
             onError={(e) => {
               // Fallback to favicon.svg if png is not found
               const target = e.target as HTMLImageElement

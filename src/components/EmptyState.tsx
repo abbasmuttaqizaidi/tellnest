@@ -78,7 +78,7 @@ const emptyStateConfig: Record<
   'no-published': {
     icon: FileText,
     title: 'No published works yet',
-    description: 'You have not released any completed or ongoing manuscripts to the Relay Stories library.',
+    description: 'You have not released any completed or ongoing manuscripts to the Hatchpen library.',
     defaultActionLabel: 'Publish Your First Work',
     defaultActionHref: '/write/new'
   },

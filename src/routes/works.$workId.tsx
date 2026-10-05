@@ -41,7 +41,7 @@ function WorkDetailPage() {
         <EmptyState
           type="no-works"
           customTitle="Manuscript Not Found"
-          customDescription="The requested literary work could not be located in the Relay Stories catalog."
+          customDescription="The requested literary work could not be located in the HatchPen catalog."
           actionLabel="Return to Catalog"
           actionHref="/discover"
         />

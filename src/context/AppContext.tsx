@@ -297,7 +297,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       visibility: 'Public',
       isMature: false,
       synopsis: 'A newly created manuscript exploring memory, form, and modern human connection.',
-      fullDescription: 'An unfolding manuscript written on Relay Stories. Published directly by the author with file-based serialized chapters.',
+      fullDescription: 'An unfolding manuscript written on Hatchpen. Published directly by the author with file-based serialized chapters.',
       chaptersCount: workData.chaptersCount || 1,
       publishedChaptersCount: workData.status === 'Published' ? 1 : 0,
       totalReads: '0',

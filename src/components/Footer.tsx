@@ -2,6 +2,8 @@ import React from 'react'
 import { Link, useRouterState } from '@tanstack/react-router'
 import { CATEGORIES } from '../data/mockData'
 
+import { HatchpenLogo } from './HatchpenLogo'
+
 export default function Footer() {
   const routerState = useRouterState()
   const isReaderMode = routerState.location.pathname.startsWith('/read/')
@@ -19,20 +21,16 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-5 gap-8 pb-12 border-b border-[var(--border-subtle)]">
           {/* Brand Manifesto */}
           <div className="md:col-span-2 space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="flex h-5 w-5 items-center justify-center rounded border border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)]">
-                <span className="font-mono text-[10px] font-bold">R</span>
-              </div>
-              <span className="font-sans text-xs font-bold tracking-widest text-[var(--ink-primary)] uppercase">RELAY</span>
-              <span className="font-serif text-sm tracking-tight text-[var(--ink-secondary)] italic">Stories</span>
-            </div>
+            <Link to="/" className="no-underline text-inherit inline-block">
+              <HatchpenLogo size="md" subtitle="Where Stories Hatch & Take Flight" />
+            </Link>
             <p className="text-[13px] leading-relaxed text-[var(--ink-muted)] max-w-sm font-sans">
-              An elegant digital library where anyone can become a writer. Built on the disciplined, monochrome design foundation of the Relay ecosystem.
+              An elegant publishing platform and digital library where original stories are incubated, crafted, and shared with readers across the world.
             </p>
             <div className="pt-2">
               <span className="inline-flex items-center gap-2 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-1 text-[11px] font-mono text-[var(--ink-muted)]">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                Relay Publishing Platform • v2.4
+                Hatchpen Platform • v1.0
               </span>
             </div>
           </div>
@@ -119,7 +117,7 @@ export default function Footer() {
 
         {/* Bottom Bar */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-[var(--ink-faint)] font-mono">
-          <p>© {new Date().getFullYear()} Relay Network Inc. All literary works retain author copyright.</p>
+          <p>© {new Date().getFullYear()} Hatchpen Publishing. All literary works retain author copyright.</p>
           <div className="flex items-center gap-6">
             <span>DISCOVERY = CONTENT-RICH</span>
             <span>READING = MINIMAL</span>

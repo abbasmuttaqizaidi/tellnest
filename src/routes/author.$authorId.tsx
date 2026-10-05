@@ -67,7 +67,7 @@ function AuthorProfilePage() {
         <EmptyState
           type="no-following"
           customTitle="Author Not Located"
-          customDescription="This writer's profile does not exist in the Relay Stories catalog."
+          customDescription="This writer's profile does not exist in the HatchPen catalog."
           actionLabel="Return to Catalog"
           actionHref="/discover"
         />

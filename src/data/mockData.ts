@@ -936,7 +936,7 @@ export const INITIAL_NOTIFICATIONS: NotificationItem[] = [
   {
     id: 'notif-4',
     type: 'milestone',
-    actorName: 'Relay Stories',
+    actorName: 'Hatchpen',
     actorAvatar: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=150&q=80',
     title: 'Editorial Selection',
     description: 'Your essay "An Inventory of Baltic Fog" was featured in Editor’s Picks.',

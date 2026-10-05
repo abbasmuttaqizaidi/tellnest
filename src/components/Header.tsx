@@ -20,6 +20,7 @@ import { useUser, useClerk } from '@clerk/react'
 import { useApp } from '../context/AppContext'
 import { PaletteSearch, OmniSearch } from '../design-system'
 import { UnisexAvatar, UnisexAvatarIcon } from './UnisexAvatar'
+import { HatchpenLogo } from './HatchpenLogo'
 
 export default function Header() {
   const navigate = useNavigate()
@@ -68,17 +69,12 @@ export default function Header() {
         
         {/* Left: Brand Identity */}
         <div className="flex items-center gap-4 lg:gap-8 flex-shrink-0">
-          <Link to="/" className="group flex items-center gap-2.5 text-inherit no-underline flex-shrink-0">
-            <div className="flex h-7 w-7 items-center justify-center rounded border border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] transition-transform group-hover:scale-105">
-              <span className="font-mono text-xs font-bold tracking-tighter">R</span>
-            </div>
-            <div className={`flex flex-col ${isNavSearchOpen ? 'hidden md:flex' : 'flex'}`}>
-              <div className="flex items-baseline gap-1.5">
-                <span className="font-sans text-xs font-extrabold tracking-widest text-[var(--ink-primary)] uppercase">RELAY</span>
-                <span className="font-serif text-sm tracking-tight text-[var(--ink-secondary)] italic">Stories</span>
-              </div>
-              <span className="text-[9px] font-mono tracking-wider text-[var(--ink-faint)] uppercase">Folio Edition</span>
-            </div>
+          <Link to="/" className="group flex items-center text-inherit no-underline flex-shrink-0">
+            <HatchpenLogo
+              size="sm"
+              subtitle="Folio Edition"
+              className={isNavSearchOpen ? 'hidden md:inline-flex' : 'inline-flex'}
+            />
           </Link>
 
           {/* Primary Desktop Navigation */}

@@ -25,6 +25,7 @@ import {
   UnisexAvatar,
   UnisexAvatarIcon,
 } from '../design-system'
+import { HatchpenLogo, HatchpenEmblem } from '../components/HatchpenLogo'
 import DesignSystemSidebar from '../components/DesignSystemSidebar'
 import { cn } from '../lib/utils'
 import {
@@ -111,7 +112,7 @@ function DesignSystemShowcasePage() {
       <div className="border-b border-[var(--border-subtle)] pb-8">
         <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-[var(--ink-muted)] mb-2">
           <Sparkles className="h-4 w-4" />
-          <span>Relay Stories • Component Architecture</span>
+          <span>HatchPen • Component Architecture</span>
         </div>
         <h1 className="font-serif text-4xl sm:text-5xl font-semibold text-[var(--ink-primary)]">
           Design System & Animated Primitives
@@ -1022,7 +1023,72 @@ function DesignSystemShowcasePage() {
 
       </section>
 
-      {/* SECTION 18: UNISEX AVATAR & ICON SUITE */}
+      {/* SECTION 18: HATCHPEN BRAND MARK & INSIGNIA */}
+      <section id="sec-brand" className="scroll-mt-24 space-y-6">
+        <div className="border-b border-[var(--border-subtle)] pb-2 flex items-center justify-between">
+          <h2 className="font-serif text-2xl font-semibold text-[var(--ink-primary)]">
+            Hatchpen Brand Mark & Insignia
+          </h2>
+          <span className="font-mono text-xs text-[var(--ink-muted)]">Official Brand Asset • Monoline Vector</span>
+        </div>
+        <p className="text-xs text-[var(--ink-muted)] max-w-2xl leading-relaxed">
+          The definitive Hatchpen identity unifies the craft of writing and the miracle of creation: a fountain pen nib merging into a hatching egg with a fledgling literary bird taking flight.
+        </p>
+
+        {/* Brand Display Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Vector Emblem Showcase */}
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 space-y-4 shadow-xs">
+            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2">
+              <h3 className="font-serif text-sm font-semibold text-[var(--ink-primary)]">
+                Dynamic Vector Emblem
+              </h3>
+              <span className="font-mono text-[10px] text-[var(--ink-faint)]">&lt;HatchpenEmblem /&gt;</span>
+            </div>
+            <div className="flex items-center gap-6 pt-2">
+              <div className="h-16 w-16 p-2 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-canvas)] flex items-center justify-center text-[var(--ink-primary)]">
+                <HatchpenEmblem className="h-12 w-12" />
+              </div>
+              <div className="space-y-1 text-xs text-[var(--ink-muted)]">
+                <p className="font-medium text-[var(--ink-primary)]">Fountain Pen Nib + Emerging Fledgling</p>
+                <p>Pure vector linework. Renders crisply at any scale, adapting to light, dark, and sepia reading palettes using <code className="font-mono text-[11px]">currentColor</code>.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Raster / High-Res Brandmark */}
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 space-y-4 shadow-xs">
+            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2">
+              <h3 className="font-serif text-sm font-semibold text-[var(--ink-primary)]">
+                Brand Lockup Preview
+              </h3>
+              <span className="font-mono text-[10px] text-[var(--ink-faint)]">&lt;HatchpenLogo size="lg" /&gt;</span>
+            </div>
+            <div className="flex items-center gap-4 pt-2">
+              <HatchpenLogo size="lg" subtitle="Where Stories Hatch & Take Flight" />
+            </div>
+          </div>
+        </div>
+
+        {/* Wordmark & Hierarchy Spectrum */}
+        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 space-y-4 shadow-xs">
+          <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2">
+            <h3 className="font-serif text-sm font-semibold text-[var(--ink-primary)]">
+              Wordmark Scale Spectrum
+            </h3>
+            <span className="font-mono text-[10px] text-[var(--ink-faint)]">xs • sm • md • lg • xl</span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-8 pt-2">
+            <HatchpenLogo size="xs" />
+            <HatchpenLogo size="sm" />
+            <HatchpenLogo size="md" />
+            <HatchpenLogo size="lg" />
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION 19: UNISEX AVATAR & ICON SUITE */}
       <section id="sec-avatar" className="scroll-mt-24 space-y-6">
         <div className="border-b border-[var(--border-subtle)] pb-2 flex items-center justify-between">
           <h2 className="font-serif text-2xl font-semibold text-[var(--ink-primary)]">
@@ -1031,7 +1097,7 @@ function DesignSystemShowcasePage() {
           <span className="font-mono text-xs text-[var(--ink-muted)]">Core Asset • Editorial Minimal</span>
         </div>
         <p className="text-xs text-[var(--ink-muted)] max-w-2xl leading-relaxed">
-          Clean, gender-neutral vector avatar silhouette tailored for the Tellnest monochrome design system. Automatically provides fallback rendering when profile pictures are absent or loading.
+          Clean, gender-neutral vector avatar silhouette tailored for the Hatchpen monochrome design system. Automatically provides fallback rendering when profile pictures are absent or loading.
         </p>
 
         {/* Size Spectrum Showcase */}

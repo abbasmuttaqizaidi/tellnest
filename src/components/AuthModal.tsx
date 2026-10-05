@@ -144,9 +144,9 @@ export function AuthModal() {
           <div className="relative mb-3">
             <div className="absolute -inset-2 bg-slate-900/5 dark:bg-white/5 rounded-full blur-md animate-pulse" />
             <img
-              src="/logo.png"
-              alt="Tellnest"
-              className="relative h-10 w-auto object-contain"
+              src="/hatchpen-logo.png"
+              alt="Hatchpen"
+              className="relative h-12 w-auto object-contain rounded-md"
               onError={(e) => {
                 const target = e.target as HTMLImageElement
                 if (!target.src.includes('favicon.svg')) {
@@ -156,10 +156,10 @@ export function AuthModal() {
             />
           </div>
           <h2 className="font-serif text-xl font-bold tracking-tight text-[var(--ink-primary)]">
-            Sign In to Tellnest
+            Sign In to Hatchpen
           </h2>
           <p className="mt-1 text-xs text-[var(--ink-muted)] max-w-xs">
-            A quiet sanctuary for serialized fiction, essays, and modern letters.
+            Where stories hatch and take flight. Serialized fiction, essays, and modern letters.
           </p>
         </div>
 
@@ -256,7 +256,7 @@ export function AuthModal() {
 
         {/* Footer Note */}
         <p className="mt-5 text-center text-[10px] text-[var(--ink-faint)]">
-          By signing in, you agree to Relay Stories' Terms of Service and Privacy Policy.
+          By signing in, you agree to Hatchpen's Terms of Service and Privacy Policy.
         </p>
       </div>
     </div>

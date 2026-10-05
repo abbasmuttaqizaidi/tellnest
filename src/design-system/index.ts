@@ -1,5 +1,5 @@
 /**
- * Relay Stories Design System
+ * HatchPen Design System
  * Modular, animated, high-fidelity components built on React 19, Motion, and Watermelon UI
  */
 
@@ -28,3 +28,4 @@ export * from './MetricProgressCard'
 export * from './MeetingCard'
 export * from './DeploymentCard'
 export * from '../components/UnisexAvatar'
+export * from '../components/HatchpenLogo'

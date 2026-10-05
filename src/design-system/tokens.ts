@@ -1,5 +1,5 @@
 /**
- * Relay Stories Design System Tokens
+ * HatchPen Design System Tokens
  * Spring Physics, Transitions & Monochrome Surface Standards
  */
 

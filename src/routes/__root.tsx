@@ -28,11 +28,11 @@ export const Route = createRootRoute({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'Relay Stories — An Elegant Digital Library & Publishing Platform',
+        title: 'Hatchpen — Where Stories Hatch & Take Flight',
       },
       {
         name: 'description',
-        content: 'A dedicated publishing and discovery platform for original fiction, essays, serialized novels, poetry, and creative non-fiction.',
+        content: 'Hatchpen is a digital literary publishing and reader platform for original fiction, serialized novels, essays, and poetry.',
       }
     ],
     links: [

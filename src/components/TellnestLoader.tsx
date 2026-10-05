@@ -1,4 +1,5 @@
 import React from 'react'
+import { HatchpenEmblem } from './HatchpenLogo'
 
 interface TellnestLoaderProps {
   /**
@@ -22,7 +23,7 @@ interface TellnestLoaderProps {
 export function TellnestLoader({
   variant = 'page',
   message = 'Synchronizing literary folio...',
-  submessage = 'Tellnest Publishing Network',
+  submessage = 'Hatchpen Publishing Network',
   className = '',
 }: TellnestLoaderProps) {
   if (variant === 'inline') {
@@ -62,20 +63,7 @@ export function TellnestLoader({
 
           {/* Center Monogram Tile */}
           <div className="relative h-12 w-12 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-xs flex items-center justify-center text-[var(--ink-primary)]">
-            {/* Tellnest Insignia Symbol */}
-            <svg
-              className="h-6 w-6 stroke-[1.5] text-[var(--ink-primary)] animate-pulse"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
-              <path d="M6 6h10" />
-              <path d="M6 10h10" />
-              <path d="M6 14h6" />
-            </svg>
+            <HatchpenEmblem className="h-6 w-6 text-[var(--ink-primary)]" />
           </div>
         </div>
 
@@ -83,7 +71,7 @@ export function TellnestLoader({
         <div className="space-y-1.5">
           <div className="flex items-center justify-center gap-2">
             <span className="font-mono text-[10px] uppercase tracking-[0.25em] text-[var(--ink-muted)] font-semibold">
-              TELLNEST
+              HATCHPEN
             </span>
             <span className="text-[var(--ink-faint)] font-mono text-[10px]">•</span>
             <span className="font-serif italic text-xs text-[var(--ink-muted)]">
