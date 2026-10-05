@@ -88,24 +88,6 @@ function PublicHome() {
   return (
     <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-12">
       
-      {/* Editorial Announcement Banner */}
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-2.5 text-xs text-[var(--ink-muted)] shadow-xs">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--ink-primary)] font-semibold border border-[var(--border-strong)] rounded px-1.5 py-0.5">
-            Vol. 2026 • Issue № 42
-          </span>
-          <span className="text-[11px] sm:text-xs">
-            Where independent authors publish serialized novels, essays, and stories chapter by chapter.
-          </span>
-        </div>
-        <Link
-          to="/discover"
-          className="font-medium text-[var(--ink-primary)] hover:underline inline-flex items-center gap-1 text-[11px] sm:text-xs"
-        >
-          Explore Full Folio <ArrowRight className="h-3 w-3" />
-        </Link>
-      </div>
-
       {/* HERO SECTION — Featured Manuscript Showcase Card */}
       <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 sm:p-8 lg:p-12 shadow-xs">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
