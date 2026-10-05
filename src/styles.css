@@ -235,17 +235,54 @@ div:has(> a[href*="dashboard.clerk.com"]:only-child) {
 }
 
 /* Style Clerk internal loaders with Tellnest monochrome theme */
+@keyframes clSpinnerRotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
 .cl-spinner,
 .cl-loading,
 .cl-spinnerIcon,
+.cl-loadingContainer,
 .cl-loadingContainer svg,
+.cl-modalContent .cl-spinner,
 div[class*="spinner"],
-svg[class*="spinner"] {
+svg[class*="spinner"],
+div[class*="loading"] svg {
   color: var(--ink-primary) !important;
   stroke: var(--ink-primary) !important;
 }
 
 .cl-spinner {
-  border-color: var(--border-strong) !important;
+  width: 20px !important;
+  height: 20px !important;
+  border-width: 2px !important;
+  border-style: solid !important;
+  border-color: var(--border-subtle) !important;
   border-top-color: var(--ink-primary) !important;
+  border-radius: 50% !important;
+  animation: clSpinnerRotate 0.75s cubic-bezier(0.4, 0, 0.2, 1) infinite !important;
+}
+
+/* Suppress phantom backdrops */
+.cl-modalBackdrop ~ .cl-modalBackdrop {
+  display: none !important;
+}
+
+/* Modal subtle fade-in transition */
+.cl-modalBackdrop {
+  animation: clBackdropFade 0.15s ease-out;
+}
+
+@keyframes clBackdropFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }

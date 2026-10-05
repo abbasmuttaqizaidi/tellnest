@@ -19,9 +19,18 @@ import {
 import { SignInButton, useUser, useClerk } from '@clerk/react'
 import { useApp } from '../context/AppContext'
 import { PaletteSearch, OmniSearch } from '../design-system'
-import { startAuthTransition } from './ClerkAuthOverlay'
 
 const CLERK_MODAL_APPEARANCE = {
+  variables: {
+    colorPrimary: '#010611',
+    colorText: '#010611',
+    colorTextSecondary: '#64748B',
+    colorBackground: '#FFFFFF',
+    colorInputBackground: '#F8FAFC',
+    colorInputText: '#010611',
+    borderRadius: '0.5rem',
+    fontFamily: '"Outfit", "Inter", -apple-system, BlinkMacSystemFont, sans-serif',
+  },
   layout: {
     unsafe_disableDevelopmentModeWarnings: true,
   },
@@ -283,7 +292,6 @@ export default function Header() {
             <button
               type="button"
               onClick={() => {
-                startAuthTransition()
                 openSignIn({ appearance: CLERK_MODAL_APPEARANCE })
               }}
               className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-3 py-1.5 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 transition-opacity shrink-0 cursor-pointer"
@@ -365,7 +373,6 @@ export default function Header() {
                 type="button"
                 onClick={() => {
                   setMobileMenuOpen(false)
-                  startAuthTransition()
                   openSignIn({ appearance: CLERK_MODAL_APPEARANCE })
                 }}
                 className="w-full text-left py-1.5 font-semibold text-[var(--ink-primary)] hover:opacity-80 transition-opacity"

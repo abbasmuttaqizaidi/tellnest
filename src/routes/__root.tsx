@@ -5,7 +5,6 @@ import MobileNav from '../components/MobileNav'
 import Footer from '../components/Footer'
 import Toast from '../components/Toast'
 import { ClerkSync } from '../components/ClerkSync'
-import { ClerkAuthOverlay } from '../components/ClerkAuthOverlay'
 import { AppProvider } from '../context/AppContext'
 
 import appCss from '../styles.css?url'
@@ -86,7 +85,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   const innerContent = (
     <AppProvider>
       <ClerkSync />
-      <ClerkAuthOverlay />
       <Header />
       <main className="flex-1 w-full max-w-full overflow-x-hidden pb-16 md:pb-0 bg-[var(--bg-canvas)]">
         {children}
@@ -107,6 +105,16 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           <ClerkProvider
             publishableKey={CLERK_PUBLISHABLE_KEY}
             appearance={{
+              variables: {
+                colorPrimary: '#010611',
+                colorText: '#010611',
+                colorTextSecondary: '#64748B',
+                colorBackground: '#FFFFFF',
+                colorInputBackground: '#F8FAFC',
+                colorInputText: '#010611',
+                borderRadius: '0.5rem',
+                fontFamily: '"Outfit", "Inter", -apple-system, BlinkMacSystemFont, sans-serif',
+              },
               layout: {
                 unsafe_disableDevelopmentModeWarnings: true,
               },

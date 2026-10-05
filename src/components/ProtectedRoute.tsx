@@ -4,7 +4,6 @@ import { Link } from '@tanstack/react-router'
 import { Button, Badge } from '../design-system'
 import { Lock, ShieldCheck, ArrowRight, BookOpen, Sparkles } from 'lucide-react'
 import { TellnestLoader } from './TellnestLoader'
-import { startAuthTransition } from './ClerkAuthOverlay'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
@@ -14,6 +13,16 @@ interface ProtectedRouteProps {
 }
 
 const CLERK_MODAL_APPEARANCE = {
+  variables: {
+    colorPrimary: '#010611',
+    colorText: '#010611',
+    colorTextSecondary: '#64748B',
+    colorBackground: '#FFFFFF',
+    colorInputBackground: '#F8FAFC',
+    colorInputText: '#010611',
+    borderRadius: '0.5rem',
+    fontFamily: '"Outfit", "Inter", -apple-system, BlinkMacSystemFont, sans-serif',
+  },
   layout: {
     unsafe_disableDevelopmentModeWarnings: true,
   },
@@ -106,7 +115,6 @@ export function ProtectedRoute({
               size="md"
               className="w-full"
               onClick={() => {
-                startAuthTransition()
                 openSignIn({ appearance: CLERK_MODAL_APPEARANCE })
               }}
               rightIcon={<ArrowRight className="h-4 w-4" />}
