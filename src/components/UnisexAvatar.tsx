@@ -10,6 +10,39 @@ export interface UnisexAvatarProps {
   showStatus?: boolean
   statusColor?: string
   hasImage?: boolean
+  forceUnisex?: boolean
+}
+
+/**
+ * Checks if a given image URL is an auto-generated initial placeholder or default stock photo
+ */
+export function isDefaultOrInitialAvatar(url?: string | null): boolean {
+  if (!url) return true
+
+  // 1. Unsplash female stock photo previously used as hardcoded fallback
+  if (url.includes('photo-1534528741775-53994a69daeb')) return true
+
+  // 2. Clerk auto-generated default initials avatar (img.clerk.com base64 payload)
+  if (url.includes('img.clerk.com')) {
+    if (url.includes('eyJ0eXBlIjoiZGVmYXVsdC')) return true
+    const token = url.split('img.clerk.com/')[1]?.split('?')[0]
+    if (!token) return true
+    try {
+      const decoded = typeof atob === 'function' ? atob(token) : ''
+      if (decoded.includes('"type":"default"') || decoded.includes('"initials"')) {
+        return true
+      }
+    } catch {
+      return true
+    }
+  }
+
+  // 3. Google OAuth default initials avatars
+  if (url.includes('default-user') || url.includes('/a/default')) {
+    return true
+  }
+
+  return false
 }
 
 const SIZE_MAP: Record<string, string> = {
@@ -63,6 +96,7 @@ export function UnisexAvatar({
   showStatus = false,
   statusColor = 'bg-emerald-500',
   hasImage,
+  forceUnisex = false,
 }: UnisexAvatarProps) {
   const [imageError, setImageError] = useState(false)
 
@@ -70,11 +104,11 @@ export function UnisexAvatar({
   const sizeStyle = typeof size === 'number' ? { width: size, height: size } : undefined
   const roundedClass = shape === 'circle' ? 'rounded-full' : 'rounded-lg'
 
-  // If user explicitly has no custom image (e.g. Clerk hasImage === false)
-  // or image src is Unsplash female fallback, treat as empty so unisex avatar icon shows
-  const isDefaultUnsplash = src?.includes('photo-1534528741775-53994a69daeb')
-  const isExplicitlyNoImage = hasImage === false
-  const validSrc = !imageError && src && !isDefaultUnsplash && !isExplicitlyNoImage ? src : null
+  // If user explicitly has no custom image (e.g. Clerk hasImage === false),
+  // or image src is an auto-generated initial placeholder, treat as empty so unisex avatar icon shows
+  const isInitialOrPlaceholder = isDefaultOrInitialAvatar(src)
+  const isExplicitlyNoImage = hasImage === false || forceUnisex
+  const validSrc = !imageError && src && !isInitialOrPlaceholder && !isExplicitlyNoImage ? src : null
 
   return (
     <div

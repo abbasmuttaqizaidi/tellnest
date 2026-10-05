@@ -2,7 +2,7 @@ import React from 'react'
 import { Link, useRouterState } from '@tanstack/react-router'
 import { useUser } from '@clerk/react'
 import { Home, Compass, Bookmark, PenLine } from 'lucide-react'
-import { UnisexAvatar } from './UnisexAvatar'
+import { UnisexAvatar, UnisexAvatarIcon } from './UnisexAvatar'
 import { useApp } from '../context/AppContext'
 
 export default function MobileNav() {
@@ -97,18 +97,13 @@ export default function MobileNav() {
           >
             <div className="relative">
               <div
-                className={`rounded-full transition-all ${
+                className={`h-5 w-5 rounded-full overflow-hidden transition-all ${
                   currentPath.startsWith('/profile')
                     ? 'ring-2 ring-[var(--ink-primary)] ring-offset-1 ring-offset-[var(--bg-surface)]'
                     : 'opacity-85 hover:opacity-100'
                 }`}
               >
-                <UnisexAvatar
-                  src={user?.imageUrl}
-                  hasImage={user?.hasImage}
-                  name={user?.fullName || user?.firstName}
-                  size="xs"
-                />
+                <UnisexAvatarIcon />
               </div>
               {currentPath.startsWith('/profile') && (
                 <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full bg-[var(--ink-primary)]" />

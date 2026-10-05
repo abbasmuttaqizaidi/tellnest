@@ -48,6 +48,7 @@ function UserProfilePage() {
           <div className="flex items-center gap-5">
             <UnisexAvatar
               src={profileAvatar}
+              hasImage={user?.hasImage}
               name={profileName}
               size="2xl"
               className="border-2 border-[var(--border-strong)]"
