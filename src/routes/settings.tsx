@@ -3,7 +3,7 @@ import { useState, useRef } from 'react'
 import { useUser } from '@clerk/react'
 import { useApp } from '../context/AppContext'
 import { ProtectedRoute } from '../components/ProtectedRoute'
-import { Settings, User, Eye, Bell, Lock, ShieldCheck, Sun, Moon, Coffee, Upload, RotateCcw, Loader2, Sparkles } from 'lucide-react'
+import { Settings, User, Eye, Bell, Lock, ShieldCheck, Sun, Moon, Coffee, Upload, RotateCcw, Loader2 } from 'lucide-react'
 import { UnisexAvatar, isDefaultOrInitialAvatar } from '../components/UnisexAvatar'
 import { uploadImage, STORAGE_BUCKETS } from '../lib/supabase/storage'
 
@@ -309,22 +309,8 @@ function SettingsPage() {
                         Profile Avatar
                       </h4>
                       <p className="text-[11px] text-[var(--ink-muted)] mt-0.5">
-                        {hasCustomPicture
-                          ? 'Custom picture active (Supabase Storage: author-avatars)'
-                          : 'Unisex silhouette active (Tellnest Editorial Default)'}
+                        Personalize your author image or use the default unisex avatar.
                       </p>
-                      <div className="mt-1.5 flex items-center gap-2">
-                        <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono ${
-                            hasCustomPicture
-                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                              : 'bg-[var(--border-subtle)] text-[var(--ink-secondary)]'
-                          }`}
-                        >
-                          <Sparkles className="h-3 w-3" />
-                          {hasCustomPicture ? 'Custom Profile Photo' : 'Default Unisex Avatar'}
-                        </span>
-                      </div>
                     </div>
                   </div>
 
