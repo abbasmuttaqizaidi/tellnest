@@ -19,6 +19,7 @@ import {
 import { useUser, useClerk } from '@clerk/react'
 import { useApp } from '../context/AppContext'
 import { PaletteSearch, OmniSearch } from '../design-system'
+import { UnisexAvatar } from './UnisexAvatar'
 
 export default function Header() {
   const navigate = useNavigate()
@@ -200,13 +201,13 @@ export default function Header() {
             <div className="relative">
               <button
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] overflow-hidden focus:outline-none hover:border-[var(--border-strong)] transition-colors"
+                className="flex h-8 w-8 items-center justify-center rounded-full overflow-hidden focus:outline-none hover:ring-2 hover:ring-[var(--border-strong)] transition-all cursor-pointer"
                 title="Account Menu"
               >
-                <img
-                  src={user?.imageUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80"}
-                  alt={user?.fullName || "Profile"}
-                  className="h-full w-full object-cover"
+                <UnisexAvatar
+                  src={user?.imageUrl}
+                  name={user?.fullName || user?.firstName}
+                  size="sm"
                 />
               </button>
 

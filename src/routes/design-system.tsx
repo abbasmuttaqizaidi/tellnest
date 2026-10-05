@@ -22,6 +22,8 @@ import {
   MetricProgressCard,
   MeetingCard,
   DeploymentCard,
+  UnisexAvatar,
+  UnisexAvatarIcon,
 } from '../design-system'
 import DesignSystemSidebar from '../components/DesignSystemSidebar'
 import { cn } from '../lib/utils'
@@ -1018,6 +1020,75 @@ function DesignSystemShowcasePage() {
           </div>
         </div>
 
+      </section>
+
+      {/* SECTION 18: UNISEX AVATAR & ICON SUITE */}
+      <section id="sec-avatar" className="scroll-mt-24 space-y-6">
+        <div className="border-b border-[var(--border-subtle)] pb-2 flex items-center justify-between">
+          <h2 className="font-serif text-2xl font-semibold text-[var(--ink-primary)]">
+            Unisex Avatar & Icon Suite
+          </h2>
+          <span className="font-mono text-xs text-[var(--ink-muted)]">Core Asset • Editorial Minimal</span>
+        </div>
+        <p className="text-xs text-[var(--ink-muted)] max-w-2xl leading-relaxed">
+          Clean, gender-neutral vector avatar silhouette tailored for the Tellnest monochrome design system. Automatically provides fallback rendering when profile pictures are absent or loading.
+        </p>
+
+        {/* Size Spectrum Showcase */}
+        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 space-y-4 shadow-xs">
+          <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2">
+            <h3 className="font-serif text-sm font-semibold text-[var(--ink-primary)]">
+              Size Hierarchy (Circular & Rounded)
+            </h3>
+            <span className="font-mono text-[10px] text-[var(--ink-faint)]">xs • sm • md • lg • xl • 2xl • 3xl</span>
+          </div>
+
+          <div className="flex flex-wrap items-end gap-6 pt-2">
+            <div className="flex flex-col items-center gap-1.5">
+              <UnisexAvatar size="xs" />
+              <span className="font-mono text-[10px] text-[var(--ink-faint)]">xs (20px)</span>
+            </div>
+            <div className="flex flex-col items-center gap-1.5">
+              <UnisexAvatar size="sm" />
+              <span className="font-mono text-[10px] text-[var(--ink-faint)]">sm (32px)</span>
+            </div>
+            <div className="flex flex-col items-center gap-1.5">
+              <UnisexAvatar size="md" />
+              <span className="font-mono text-[10px] text-[var(--ink-faint)]">md (40px)</span>
+            </div>
+            <div className="flex flex-col items-center gap-1.5">
+              <UnisexAvatar size="lg" showStatus statusColor="bg-emerald-500" />
+              <span className="font-mono text-[10px] text-[var(--ink-faint)]">lg + status</span>
+            </div>
+            <div className="flex flex-col items-center gap-1.5">
+              <UnisexAvatar size="xl" shape="rounded" />
+              <span className="font-mono text-[10px] text-[var(--ink-faint)]">xl (rounded)</span>
+            </div>
+            <div className="flex flex-col items-center gap-1.5">
+              <UnisexAvatar size="2xl" showStatus statusColor="bg-amber-500" />
+              <span className="font-mono text-[10px] text-[var(--ink-faint)]">2xl (80px)</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Standalone SVG Icon Preview */}
+        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 space-y-4 shadow-xs">
+          <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2">
+            <h3 className="font-serif text-sm font-semibold text-[var(--ink-primary)]">
+              Standalone Unisex Avatar Vector Icon
+            </h3>
+            <span className="font-mono text-[10px] text-[var(--ink-faint)]">&lt;UnisexAvatarIcon /&gt;</span>
+          </div>
+          <div className="flex items-center gap-6">
+            <div className="h-16 w-16">
+              <UnisexAvatarIcon />
+            </div>
+            <div className="space-y-1 text-xs text-[var(--ink-muted)]">
+              <p className="font-medium text-[var(--ink-primary)]">Asset Path: <code className="font-mono text-[11px] bg-[var(--bg-subtle)] px-1.5 py-0.5 rounded">/unisex-avatar.svg</code></p>
+              <p>Scalable, zero-dependency SVG with adaptive <code className="font-mono text-[11px]">var(--bg-subtle)</code> fill and <code className="font-mono text-[11px]">var(--ink-muted)</code> geometry.</p>
+            </div>
+          </div>
+        </div>
       </section>
         </main>
       </div>

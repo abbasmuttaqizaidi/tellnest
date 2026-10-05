@@ -11,6 +11,7 @@ import {
   type AdminDashboardData
 } from '../server/admin'
 import { Badge } from '../design-system'
+import { UnisexAvatar } from '../components/UnisexAvatar'
 import {
   ShieldAlert,
   Trash2,
@@ -637,20 +638,13 @@ function SecretAdminPanelPage() {
                   
                   {/* Left: Avatar & Meta */}
                   <div className="flex items-start sm:items-center gap-4">
-                    <div className="relative">
-                      {user.avatarUrl ? (
-                        <img
-                          src={user.avatarUrl}
-                          alt={user.displayName}
-                          className="h-14 w-14 rounded-full object-cover border border-[var(--border-strong)] grayscale"
-                        />
-                      ) : (
-                        <div className="h-14 w-14 rounded-full border border-[var(--border-strong)] bg-[var(--bg-subtle)] flex items-center justify-center font-mono font-bold text-sm text-[var(--ink-primary)]">
-                          {user.displayName.slice(0, 2).toUpperCase()}
-                        </div>
-                      )}
-                      <span className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-emerald-500 ring-2 ring-[var(--bg-surface)]" title="Account Active" />
-                    </div>
+                    <UnisexAvatar
+                      src={user.avatarUrl}
+                      name={user.displayName}
+                      size="xl"
+                      showStatus={true}
+                      statusColor="bg-emerald-500"
+                    />
 
                     <div className="space-y-1">
                       <div className="flex flex-wrap items-center gap-2">

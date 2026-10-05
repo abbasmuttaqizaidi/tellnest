@@ -37,7 +37,7 @@ export function ClerkSync() {
           clerkUserId: user.id,
           username,
           displayName,
-          avatarUrl: user.imageUrl,
+          avatarUrl: user.imageUrl || '/unisex-avatar.svg',
         })
 
         lastSyncedIdRef.current = user.id

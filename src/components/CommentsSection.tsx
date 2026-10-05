@@ -2,6 +2,7 @@ import { INITIAL_COMMENTS } from '../data/mockData'
 import type { CommentItem } from '../data/mockData'
 import { Heart, Reply, Flag, Trash2, Send, CornerDownRight } from 'lucide-react'
 import { useApp } from '../context/AppContext'
+import { UnisexAvatar } from './UnisexAvatar'
 
 interface CommentsSectionProps {
   workId: string
@@ -25,7 +26,7 @@ export default function CommentsSection({ workId, chapterId }: CommentsSectionPr
       chapterId,
       authorName: 'Syed Abbas',
       authorHandle: 'syedabbas',
-      authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+      authorAvatar: '/unisex-avatar.svg',
       content: newCommentText.trim(),
       timestamp: 'Just now',
       likesCount: 0,
@@ -46,7 +47,7 @@ export default function CommentsSection({ workId, chapterId }: CommentsSectionPr
       chapterId,
       authorName: 'Syed Abbas',
       authorHandle: 'syedabbas',
-      authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+      authorAvatar: '/unisex-avatar.svg',
       content: replyText.trim(),
       timestamp: 'Just now',
       likesCount: 0
@@ -136,10 +137,10 @@ export default function CommentsSection({ workId, chapterId }: CommentsSectionPr
           >
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2.5">
-                <img
+                <UnisexAvatar
                   src={comment.authorAvatar}
-                  alt={comment.authorName}
-                  className="h-7 w-7 rounded-full object-cover grayscale border border-[var(--border-subtle)]"
+                  name={comment.authorName}
+                  size="xs"
                 />
                 <div>
                   <div className="flex items-center gap-2">

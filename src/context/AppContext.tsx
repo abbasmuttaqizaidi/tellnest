@@ -253,7 +253,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         id: 'auth-user',
         name: 'Syed Abbas',
         handle: 'syedabbas',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+        avatar: '/unisex-avatar.svg',
         bio: 'Writer and editor. Exploring quiet prose and narrative architecture.',
         worksCount: writerWorks.length + 1,
         followersCount: 140,

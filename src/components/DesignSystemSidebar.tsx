@@ -44,7 +44,8 @@ export const NAVIGATION_CATEGORIES: NavCategory[] = [
     icon: Layers,
     items: [
       { id: 'sec-buttons', title: 'Buttons & Taps', badge: 'Core' },
-      { id: 'sec-badges', title: 'Badges & Status Chips', badge: 'Core' }
+      { id: 'sec-badges', title: 'Badges & Status Chips', badge: 'Core' },
+      { id: 'sec-avatar', title: 'Unisex Avatar & Icon', badge: 'Asset' }
     ]
   },
   {

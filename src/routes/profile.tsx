@@ -14,6 +14,7 @@ import {
   MapPin,
   ExternalLink
 } from 'lucide-react'
+import { UnisexAvatar } from '../components/UnisexAvatar'
 
 export const Route = createFileRoute('/profile')({
   component: () => (
@@ -36,7 +37,7 @@ function UserProfilePage() {
 
   const profileName = user?.fullName || user?.firstName || 'Tellnest Creator'
   const profileHandle = user?.username || user?.primaryEmailAddress?.emailAddress?.split('@')[0] || 'creator'
-  const profileAvatar = user?.imageUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80'
+  const profileAvatar = user?.imageUrl
 
   return (
     <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
@@ -45,10 +46,11 @@ function UserProfilePage() {
       <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-8 sm:p-10 mb-10 shadow-xs">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 pb-6 border-b border-[var(--border-subtle)]">
           <div className="flex items-center gap-5">
-            <img
+            <UnisexAvatar
               src={profileAvatar}
-              alt={profileName}
-              className="h-20 w-20 rounded-full object-cover border-2 border-[var(--border-strong)]"
+              name={profileName}
+              size="2xl"
+              className="border-2 border-[var(--border-strong)]"
             />
             <div>
               <h1 className="font-serif text-2xl sm:text-3xl font-semibold text-[var(--ink-primary)]">
