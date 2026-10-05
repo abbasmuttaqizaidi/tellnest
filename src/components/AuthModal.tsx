@@ -1,15 +1,23 @@
 import React, { useState, useEffect } from 'react'
-import { useSignIn, useSignUp, useUser, SignIn } from '@clerk/react'
+import { useSignIn, useSignUp, useUser, useClerk, SignIn } from '@clerk/react'
 import { X, Loader2 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 
 export function AuthModal() {
   const { isAuthModalOpen, closeAuthModal, authReturnUrl } = useApp()
   const { isSignedIn } = useUser()
-  const { signIn, isLoaded: isSignInLoaded } = useSignIn()
-  const { signUp, isLoaded: isSignUpLoaded } = useSignUp()
+  const clerk = useClerk()
+  const { signIn } = useSignIn()
+  const { signUp } = useSignUp()
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const [showEmailForm, setShowEmailForm] = useState(false)
+
+  // Reset loading state when modal opens
+  useEffect(() => {
+    if (isAuthModalOpen) {
+      setIsGoogleLoading(false)
+    }
+  }, [isAuthModalOpen])
 
   // Automatically close modal when user successfully signs in
   useEffect(() => {
@@ -34,32 +42,65 @@ export function AuthModal() {
   if (!isAuthModalOpen) return null
 
   const handleGoogleLogin = async () => {
-    if (!isSignInLoaded || !signIn) return
     setIsGoogleLoading(true)
-
     const targetUrl = authReturnUrl || '/'
 
     try {
-      await signIn.authenticateWithRedirect({
-        strategy: 'oauth_google',
-        redirectUrl: '/sso-callback',
-        redirectUrlComplete: targetUrl,
-      })
-    } catch (err: any) {
-      console.warn('signIn.authenticateWithRedirect note:', err?.message || err)
-      // If user needs to sign up instead, use signUp redirect
-      if (isSignUpLoaded && signUp) {
-        try {
-          await signUp.authenticateWithRedirect({
-            strategy: 'oauth_google',
-            redirectUrl: '/sso-callback',
-            redirectUrlComplete: targetUrl,
-          })
-          return
-        } catch (signupErr) {
-          console.error('signUp.authenticateWithRedirect failed:', signupErr)
+      // If Clerk is still initializing, wait briefly for it
+      if (!clerk.loaded) {
+        let attempts = 0
+        while (!clerk.loaded && attempts < 10) {
+          await new Promise((resolve) => setTimeout(resolve, 150))
+          attempts++
         }
       }
+
+      const signInTarget = signIn || clerk.client?.signIn
+      const signUpTarget = signUp || clerk.client?.signUp
+
+      const redirectOptions = {
+        strategy: 'oauth_google' as const,
+        redirectUrl: '/sso-callback',
+        redirectUrlComplete: targetUrl,
+        oidcPrompt: 'select_account',
+        continueSignIn: false,
+      }
+
+      if (signInTarget) {
+        await signInTarget.authenticateWithRedirect(redirectOptions)
+        return
+      }
+
+      if (signUpTarget) {
+        await signUpTarget.authenticateWithRedirect({
+          ...redirectOptions,
+          continueSignUp: false,
+        })
+        return
+      }
+
+      if (clerk.client) {
+        await clerk.client.signIn.authenticateWithRedirect(redirectOptions)
+        return
+      }
+    } catch (err: any) {
+      console.warn('signIn.authenticateWithRedirect note, attempting fallback:', err?.message || err)
+      try {
+        const signUpTarget = signUp || clerk.client?.signUp
+        if (signUpTarget) {
+          await signUpTarget.authenticateWithRedirect({
+            strategy: 'oauth_google' as const,
+            redirectUrl: '/sso-callback',
+            redirectUrlComplete: targetUrl,
+            oidcPrompt: 'select_account',
+            continueSignUp: false,
+          })
+          return
+        }
+      } catch (signupErr) {
+        console.error('All OAuth redirect attempts failed:', signupErr)
+      }
+    } finally {
       setIsGoogleLoading(false)
     }
   }
@@ -110,7 +151,7 @@ export function AuthModal() {
         <div className="space-y-3">
           <button
             type="button"
-            disabled={isGoogleLoading || !isSignInLoaded}
+            disabled={isGoogleLoading}
             onClick={handleGoogleLogin}
             className="w-full flex items-center justify-center gap-3 px-4 py-2.5 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-surface)] text-[var(--ink-primary)] font-medium text-xs hover:bg-[var(--bg-subtle)] hover:border-[var(--ink-primary)] transition-all shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group"
           >
