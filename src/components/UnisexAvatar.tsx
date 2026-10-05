@@ -22,6 +22,9 @@ export function isDefaultOrInitialAvatar(url?: string | null): boolean {
   // 1. Unsplash female stock photo previously used as hardcoded fallback
   if (url.includes('photo-1534528741775-53994a69daeb')) return true
 
+  // 2. Custom uploaded image in Supabase Storage is always valid!
+  if (url.includes('author-avatars') || url.includes('/storage/v1/object/public/')) return false
+
   // 2. Clerk auto-generated default initials avatar (img.clerk.com base64 payload)
   if (url.includes('img.clerk.com')) {
     if (url.includes('eyJ0eXBlIjoiZGVmYXVsdC')) return true

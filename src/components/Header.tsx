@@ -29,8 +29,10 @@ export default function Header() {
     unreadNotificationCount,
     siteTheme,
     setSiteTheme,
-    openAuthModal
+    openAuthModal,
+    customAvatarUrl,
   } = useApp()
+  const activeAvatar = customAvatarUrl || user?.imageUrl
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
@@ -204,9 +206,11 @@ export default function Header() {
                 className="flex h-8 w-8 items-center justify-center rounded-full overflow-hidden focus:outline-none hover:ring-2 hover:ring-[var(--border-strong)] transition-all cursor-pointer border border-[var(--border-subtle)]"
                 title="Account Menu"
               >
-                <div className="h-full w-full">
-                  <UnisexAvatarIcon />
-                </div>
+                <UnisexAvatar
+                  src={activeAvatar}
+                  name={user?.fullName || user?.firstName}
+                  size="sm"
+                />
               </button>
 
               {userMenuOpen && (
@@ -215,9 +219,11 @@ export default function Header() {
                   onClick={() => setUserMenuOpen(false)}
                 >
                   <div className="flex items-center gap-2.5 px-3 py-2 border-b border-[var(--border-subtle)]">
-                    <div className="h-8 w-8 rounded-full overflow-hidden shrink-0 border border-[var(--border-subtle)]">
-                      <UnisexAvatarIcon />
-                    </div>
+                    <UnisexAvatar
+                      src={activeAvatar}
+                      name={user?.fullName || user?.firstName}
+                      size="sm"
+                    />
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-[var(--ink-primary)] truncate">
                         {user?.fullName || user?.firstName || 'Tellnest User'}
@@ -310,9 +316,11 @@ export default function Header() {
           {isSignedIn && (
             <>
               <div className="flex items-center gap-3 py-2 px-2.5 my-1 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)]">
-                <div className="h-8 w-8 rounded-full overflow-hidden shrink-0 border border-[var(--border-subtle)]">
-                  <UnisexAvatarIcon />
-                </div>
+                <UnisexAvatar
+                  src={activeAvatar}
+                  name={user?.fullName || user?.firstName}
+                  size="sm"
+                />
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-xs text-[var(--ink-primary)] truncate">
                     {user?.fullName || user?.firstName || 'Tellnest User'}

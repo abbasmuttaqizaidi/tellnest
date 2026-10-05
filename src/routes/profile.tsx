@@ -30,14 +30,14 @@ export const Route = createFileRoute('/profile')({
 
 function UserProfilePage() {
   const { user } = useUser()
-  const { writerWorks, savedWorkIds, allWorks, followedAuthorIds } = useApp()
+  const { writerWorks, savedWorkIds, allWorks, followedAuthorIds, customAvatarUrl } = useApp()
   const [activeTab, setActiveTab] = useState<'works' | 'library'>('works')
 
   const mySavedWorks = allWorks.filter((w) => savedWorkIds.includes(w.id))
 
   const profileName = user?.fullName || user?.firstName || 'Tellnest Creator'
   const profileHandle = user?.username || user?.primaryEmailAddress?.emailAddress?.split('@')[0] || 'creator'
-  const profileAvatar = user?.imageUrl
+  const activeAvatar = customAvatarUrl || user?.imageUrl
 
   return (
     <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
@@ -47,7 +47,7 @@ function UserProfilePage() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 pb-6 border-b border-[var(--border-subtle)]">
           <div className="flex items-center gap-5">
             <UnisexAvatar
-              src={profileAvatar}
+              src={activeAvatar}
               hasImage={user?.hasImage}
               name={profileName}
               size="2xl"

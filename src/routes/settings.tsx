@@ -1,8 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
+import { useUser } from '@clerk/react'
 import { useApp } from '../context/AppContext'
 import { ProtectedRoute } from '../components/ProtectedRoute'
-import { Settings, User, Eye, Bell, Lock, ShieldCheck, Sun, Moon, Coffee } from 'lucide-react'
+import { Settings, User, Eye, Bell, Lock, ShieldCheck, Sun, Moon, Coffee, Upload, RotateCcw, Loader2, Sparkles } from 'lucide-react'
+import { UnisexAvatar, isDefaultOrInitialAvatar } from '../components/UnisexAvatar'
+import { uploadImage, STORAGE_BUCKETS } from '../lib/supabase/storage'
 
 export const Route = createFileRoute('/settings')({
   component: () => (
@@ -17,25 +20,95 @@ export const Route = createFileRoute('/settings')({
 })
 
 function SettingsPage() {
+  const { user } = useUser()
   const {
     siteTheme,
     setSiteTheme,
     readerSettings,
     updateReaderSettings,
-    showToast
+    showToast,
+    customAvatarUrl,
+    setCustomAvatarUrl,
   } = useApp()
 
   const [activeTab, setActiveTab] = useState<'profile' | 'reading' | 'notifications' | 'privacy'>('reading')
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const activeAvatar = customAvatarUrl || user?.imageUrl
+  const hasCustomPicture = Boolean(customAvatarUrl || (user?.hasImage && activeAvatar && !isDefaultOrInitialAvatar(activeAvatar)))
 
   // Local state for profile form
-  const [displayName, setDisplayName] = useState('Syed Abbas')
-  const [handle, setHandle] = useState('syedabbas')
+  const [displayName, setDisplayName] = useState(user?.fullName || user?.firstName || 'Syed Abbas')
+  const [handle, setHandle] = useState(user?.username || user?.primaryEmailAddress?.emailAddress?.split('@')[0] || 'syedabbas')
   const [bio, setBio] = useState('Writer, editor, and curious archivist.')
 
   // Notifications preferences
   const [emailNewChapter, setEmailNewChapter] = useState(true)
   const [emailReplies, setEmailReplies] = useState(true)
   const [emailDigest, setEmailDigest] = useState(false)
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Image size exceeds 5MB limit. Please choose a smaller file.')
+      return
+    }
+
+    try {
+      setIsUploadingAvatar(true)
+      const ext = file.name.split('.').pop() || 'png'
+      const filePath = `${user?.id || 'creator'}/avatar_${Date.now()}.${ext}`
+
+      // 1. Upload to Supabase Storage in the author-avatars bucket
+      const uploadResult = await uploadImage({
+        bucket: STORAGE_BUCKETS.AVATARS,
+        path: filePath,
+        file,
+        upsert: true,
+      })
+
+      if (uploadResult.error || !uploadResult.url) {
+        throw uploadResult.error || new Error('Upload to Supabase Storage failed')
+      }
+
+      // 2. Set custom avatar in AppContext and localStorage
+      setCustomAvatarUrl(uploadResult.url)
+
+      // 3. Sync to Clerk user profile if available
+      try {
+        if (user && typeof (user as any).setProfileImage === 'function') {
+          await (user as any).setProfileImage({ file })
+        }
+      } catch (clerkErr) {
+        console.warn('[Clerk] setProfileImage sync notice:', clerkErr)
+      }
+
+      showToast('Custom profile picture uploaded and saved to Supabase Storage!')
+    } catch (err: any) {
+      console.error('[AvatarUpload] Error:', err)
+      showToast(err.message || 'Failed to upload profile picture. Please try again.')
+    } finally {
+      setIsUploadingAvatar(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  const handleResetAvatar = async () => {
+    try {
+      setCustomAvatarUrl(null)
+      if (user && typeof (user as any).setProfileImage === 'function') {
+        try {
+          await (user as any).setProfileImage({ file: null })
+        } catch (e) {}
+      }
+      showToast('Reverted to default unisex avatar.')
+    } catch (err: any) {
+      showToast('Failed to reset avatar.')
+    }
+  }
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault()
@@ -211,6 +284,95 @@ function SettingsPage() {
                 </h3>
                 <p className="text-xs text-[var(--ink-muted)] mt-0.5">
                   How you appear to readers across serialized chapters and comments.
+                </p>
+              </div>
+
+              {/* Profile Avatar & Custom Picture Section */}
+              <div className="p-4 sm:p-5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] space-y-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="relative shrink-0">
+                      <UnisexAvatar
+                        src={activeAvatar}
+                        name={displayName}
+                        size="xl"
+                        className="border-2 border-[var(--border-strong)] shadow-xs"
+                      />
+                      {isUploadingAvatar && (
+                        <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center backdrop-blur-xs">
+                          <Loader2 className="h-5 w-5 animate-spin text-white" />
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <h4 className="font-serif text-sm font-semibold text-[var(--ink-primary)]">
+                        Profile Avatar
+                      </h4>
+                      <p className="text-[11px] text-[var(--ink-muted)] mt-0.5">
+                        {hasCustomPicture
+                          ? 'Custom picture active (Supabase Storage: author-avatars)'
+                          : 'Unisex silhouette active (Tellnest Editorial Default)'}
+                      </p>
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono ${
+                            hasCustomPicture
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                              : 'bg-[var(--border-subtle)] text-[var(--ink-secondary)]'
+                          }`}
+                        >
+                          <Sparkles className="h-3 w-3" />
+                          {hasCustomPicture ? 'Custom Profile Photo' : 'Default Unisex Avatar'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleAvatarUpload}
+                      accept="image/png,image/jpeg,image/webp,image/gif"
+                      className="hidden"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploadingAvatar}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-3 py-1.5 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50"
+                    >
+                      {isUploadingAvatar ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          <span>Uploading...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-3.5 w-3.5" />
+                          <span>Upload Picture</span>
+                        </>
+                      )}
+                    </button>
+
+                    {hasCustomPicture && (
+                      <button
+                        type="button"
+                        onClick={handleResetAvatar}
+                        disabled={isUploadingAvatar}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-1.5 text-xs font-medium text-rose-600 dark:text-rose-400 hover:border-rose-300 dark:hover:border-rose-900 transition-colors cursor-pointer"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                        <span>Revert to Default</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-[var(--ink-faint)] font-mono border-t border-[var(--border-subtle)] pt-2.5">
+                  Supported formats: PNG, JPG, WEBP, GIF. Images are securely hosted in Supabase Storage (<code className="text-[10px]">author-avatars</code> bucket).
                 </p>
               </div>
 

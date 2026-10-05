@@ -69,6 +69,10 @@ interface AppContextType {
   toastMessage: string | null
   showToast: (msg: string) => void
 
+  // Custom Avatar
+  customAvatarUrl: string | null
+  setCustomAvatarUrl: (url: string | null) => void
+
   // Auth Modal
   isAuthModalOpen: boolean
   openAuthModal: (returnUrl?: string) => void
@@ -125,6 +129,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [allWorks, setAllWorks] = useState<Work[]>(WORKS)
   const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
+  const [customAvatarUrl, setCustomAvatarUrlState] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        return localStorage.getItem('tellnest_custom_avatar')
+      } catch (e) {}
+    }
+    return null
+  })
+
+  const setCustomAvatarUrl = (url: string | null) => {
+    setCustomAvatarUrlState(url)
+    if (typeof window !== 'undefined') {
+      try {
+        if (url) {
+          localStorage.setItem('tellnest_custom_avatar', url)
+        } else {
+          localStorage.removeItem('tellnest_custom_avatar')
+        }
+      } catch (e) {}
+    }
+  }
+
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
   const [authReturnUrl, setAuthReturnUrl] = useState<string | null>(null)
 
@@ -401,6 +427,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         addNotification,
         toastMessage,
         showToast,
+        customAvatarUrl,
+        setCustomAvatarUrl,
         isAuthModalOpen,
         openAuthModal,
         closeAuthModal,

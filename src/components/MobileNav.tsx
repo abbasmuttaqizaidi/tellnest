@@ -8,7 +8,8 @@ import { useApp } from '../context/AppContext'
 export default function MobileNav() {
   const routerState = useRouterState()
   const { isSignedIn, user } = useUser()
-  const { openAuthModal } = useApp()
+  const { openAuthModal, customAvatarUrl } = useApp()
+  const activeAvatar = customAvatarUrl || user?.imageUrl
   const currentPath = routerState.location.pathname
 
   // Hide bottom nav in reader mode or editor mode so reading and writing are 100% distraction-free
@@ -97,13 +98,17 @@ export default function MobileNav() {
           >
             <div className="relative">
               <div
-                className={`h-5 w-5 rounded-full overflow-hidden transition-all ${
+                className={`rounded-full transition-all ${
                   currentPath.startsWith('/profile')
                     ? 'ring-2 ring-[var(--ink-primary)] ring-offset-1 ring-offset-[var(--bg-surface)]'
                     : 'opacity-85 hover:opacity-100'
                 }`}
               >
-                <UnisexAvatarIcon />
+                <UnisexAvatar
+                  src={activeAvatar}
+                  name={user?.fullName || user?.firstName}
+                  size="xs"
+                />
               </div>
               {currentPath.startsWith('/profile') && (
                 <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full bg-[var(--ink-primary)]" />
