@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useUser } from '@clerk/react'
-import { TellnestLoader } from './TellnestLoader'
+import { Loader2 } from 'lucide-react'
 
 /**
  * OAuthHandshakeLoader Component
  * Intercepts third-party OAuth redirects (such as Google Sign-in callback).
  * Replaces Clerk's raw default interstitial and development-mode screen with
- * Tellnest's branded full-page literary loader.
+ * Tellnest's branded full-page literary loader matching LIVE_INSTRUCTIONS.md.
  */
 export function OAuthHandshakeLoader() {
   const { isLoaded, isSignedIn } = useUser()
@@ -50,7 +50,7 @@ export function OAuthHandshakeLoader() {
         if (initialShell) {
           initialShell.style.display = 'none'
         }
-      }, 400)
+      }, 350)
       return () => clearTimeout(timer)
     }
   }, [isLoaded, isHandshake, isSignedIn])
@@ -59,15 +59,40 @@ export function OAuthHandshakeLoader() {
 
   return (
     <div
-      className={`fixed inset-0 z-[2147483647] bg-[var(--bg-canvas)] transition-opacity duration-300 ${
+      className={`fixed inset-0 z-[2147483647] bg-white dark:bg-[#090D14] flex flex-col items-center justify-center px-6 transition-opacity duration-300 ${
         fadingOut ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
     >
-      <TellnestLoader
-        variant="fullscreen"
-        message="Authenticating literary folio..."
-        submessage="Completing secure Google session verification"
-      />
+      <div className="flex flex-col items-center space-y-5 text-center">
+        {/* Brand Logo */}
+        <div className="relative">
+          <div className="absolute -inset-4 bg-slate-900/5 dark:bg-white/5 rounded-full blur-xl animate-pulse" />
+          <img
+            src="/logo.png"
+            alt="Tellnest"
+            className="relative h-14 w-auto object-contain"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement
+              if (target.src.indexOf('favicon.svg') === -1) {
+                target.src = '/favicon.svg'
+              }
+            }}
+          />
+        </div>
+
+        {/* Spinner & Message */}
+        <div className="flex flex-col items-center space-y-2">
+          <div className="flex items-center gap-2.5">
+            <Loader2 className="w-5 h-5 animate-spin text-[var(--ink-primary)]" />
+            <span className="font-mono text-xs uppercase tracking-widest text-[var(--ink-primary)] font-semibold">
+              Authenticating Session
+            </span>
+          </div>
+          <span className="font-mono text-[10px] text-[var(--ink-muted)] uppercase tracking-widest animate-pulse">
+            Verifying credentials & establishing secure session...
+          </span>
+        </div>
+      </div>
     </div>
   )
 }

@@ -103,6 +103,33 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body className="min-h-screen flex flex-col font-sans antialiased text-[var(--ink-secondary)] bg-[var(--bg-canvas)] transition-colors duration-150 overflow-x-hidden w-full max-w-full">
+        <div
+          id="tellnest-handshake-overlay"
+          style={{ display: 'none' }}
+          className="fixed inset-0 z-[2147483647] bg-white dark:bg-[#090D14] flex-col items-center justify-center px-6"
+        >
+          <div className="flex flex-col items-center space-y-5 text-center">
+            <div className="relative">
+              <div className="absolute -inset-4 bg-slate-900/5 dark:bg-white/5 rounded-full blur-xl animate-pulse" />
+              <img
+                src="/logo.png"
+                alt="Tellnest"
+                className="relative h-14 w-auto object-contain"
+              />
+            </div>
+            <div className="flex flex-col items-center space-y-2">
+              <div className="flex items-center gap-2.5">
+                <span className="h-5 w-5 rounded-full border-2 border-[var(--border-strong)] border-t-[var(--ink-primary)] animate-spin inline-block" />
+                <span className="font-mono text-xs uppercase tracking-widest text-[var(--ink-primary)] font-semibold">
+                  Authenticating Session
+                </span>
+              </div>
+              <span className="font-mono text-[10px] text-[var(--ink-muted)] uppercase tracking-widest animate-pulse">
+                Verifying credentials & establishing secure session...
+              </span>
+            </div>
+          </div>
+        </div>
         {CLERK_PUBLISHABLE_KEY ? (
           <ClerkProvider
             publishableKey={CLERK_PUBLISHABLE_KEY}

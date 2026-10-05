@@ -1,31 +1,54 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { AuthenticateWithRedirectCallback } from '@clerk/react'
-import { TellnestLoader } from '../components/TellnestLoader'
+import { Loader2 } from 'lucide-react'
 
 export const Route = createFileRoute('/sso-callback')({
   component: SSOCallbackPage,
 })
 
-function SSOCallbackPage() {
+export default function SSOCallbackPage() {
   return (
-    <div className="fixed inset-0 z-[2147483647] flex flex-col items-center justify-center bg-[var(--bg-canvas)]">
-      {/* ─── Our Custom Branded Full-Page Loader ─── */}
-      <TellnestLoader
-        variant="fullscreen"
-        message="Authenticating literary folio..."
-        submessage="Verifying credentials & establishing secure session..."
-        className="!z-[2147483647] !bg-[var(--bg-canvas)]"
-      />
+    <div className="fixed inset-0 z-[2147483647] bg-white dark:bg-[#090D14] flex flex-col items-center justify-center px-6">
+      {/* ─── Our Custom Branded Loader ─── */}
+      <div className="flex flex-col items-center space-y-5 text-center">
+        {/* Brand Logo */}
+        <div className="relative">
+          <div className="absolute -inset-4 bg-slate-900/5 dark:bg-white/5 rounded-full blur-xl animate-pulse" />
+          <img
+            src="/logo.png"
+            alt="Tellnest"
+            className="relative h-12 w-auto object-contain"
+            onError={(e) => {
+              // Fallback to favicon.svg if png is not found
+              const target = e.target as HTMLImageElement
+              if (target.src.indexOf('favicon.svg') === -1) {
+                target.src = '/favicon.svg'
+              }
+            }}
+          />
+        </div>
+
+        {/* Spinner & Message */}
+        <div className="flex flex-col items-center space-y-2">
+          <div className="flex items-center gap-2.5">
+            <Loader2 className="w-5 h-5 animate-spin text-slate-900 dark:text-slate-100" />
+            <span className="font-mono text-xs uppercase tracking-widest text-slate-800 dark:text-slate-200 font-semibold">
+              Authenticating Session
+            </span>
+          </div>
+          <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest animate-pulse">
+            Verifying credentials & establishing secure session...
+          </span>
+        </div>
+      </div>
 
       {/* Headless Clerk Token Processing */}
-      <div className="sr-only opacity-0 pointer-events-none">
-        <AuthenticateWithRedirectCallback
-          signInForceRedirectUrl="/"
-          signUpForceRedirectUrl="/"
-          signInFallbackRedirectUrl="/"
-          signUpFallbackRedirectUrl="/"
-        />
-      </div>
+      <AuthenticateWithRedirectCallback
+        signInForceRedirectUrl="/"
+        signUpForceRedirectUrl="/"
+        signInFallbackRedirectUrl="/"
+        signUpFallbackRedirectUrl="/"
+      />
     </div>
   )
 }
