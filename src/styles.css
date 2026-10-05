@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *, .dark, .dark *));
+
 @theme {
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-serif: "Outfit", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -285,5 +287,22 @@ div[class*="development-badge"] {
 /* Zero-Flicker Session Protection: prevents public hero flash when authenticated users reload */
 html.has-auth-session .public-home-container {
   display: none !important;
+}
+
+/* Hatchpen Brand Logo Theme Inversion */
+.hatchpen-brand-logo {
+  transition: filter 0.2s ease-in-out;
+}
+
+:root[data-theme="dark"] .hatchpen-brand-logo:not(.hatchpen-brand-logo--inverted),
+.dark .hatchpen-brand-logo:not(.hatchpen-brand-logo--inverted),
+[data-theme="dark"] img[src*="hatchpen-logo-transparent"],
+.dark img[src*="hatchpen-logo-transparent"] {
+  filter: invert(1) brightness(1.15);
+}
+
+/* The inverted badge already has a solid black canvas with white typography */
+.hatchpen-brand-logo--inverted {
+  filter: none !important;
 }
 

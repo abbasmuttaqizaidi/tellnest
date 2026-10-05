@@ -22,7 +22,7 @@ export default function Footer() {
           {/* Brand Manifesto */}
           <div className="md:col-span-2 space-y-3">
             <Link to="/" className="no-underline text-inherit inline-block">
-              <HatchpenLogo size="md" variant="full" />
+              <HatchpenLogo size="md" variant="inverted" />
             </Link>
             <p className="text-[13px] leading-relaxed text-[var(--ink-muted)] max-w-sm font-sans">
               An elegant publishing platform and digital library where original stories are incubated, crafted, and shared with readers across the world.

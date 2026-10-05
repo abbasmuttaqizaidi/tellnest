@@ -1054,11 +1054,24 @@ function DesignSystemShowcasePage() {
             </div>
           </div>
 
-          {/* Official Horizontal Wordmark */}
+          {/* Official Inverted Badge Logo */}
           <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 space-y-4 shadow-xs">
             <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2">
               <h3 className="font-serif text-sm font-semibold text-[var(--ink-primary)]">
-                Official Horizontal Wordmark
+                Inverted High-Contrast Badge
+              </h3>
+              <span className="font-mono text-[10px] text-[var(--ink-faint)]">&lt;HatchpenLogo variant="inverted" /&gt;</span>
+            </div>
+            <div className="flex items-center gap-4 pt-3">
+              <HatchpenLogo size="lg" variant="inverted" />
+            </div>
+          </div>
+
+          {/* Official Transparent Wordmark (Theme-Adaptive) */}
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 space-y-4 shadow-xs">
+            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2">
+              <h3 className="font-serif text-sm font-semibold text-[var(--ink-primary)]">
+                Transparent Theme-Adaptive Wordmark
               </h3>
               <span className="font-mono text-[10px] text-[var(--ink-faint)]">&lt;HatchpenLogo variant="full" /&gt;</span>
             </div>
@@ -1072,7 +1085,23 @@ function DesignSystemShowcasePage() {
         <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 space-y-4 shadow-xs">
           <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2">
             <h3 className="font-serif text-sm font-semibold text-[var(--ink-primary)]">
-              Wordmark Scale Hierarchy
+              Inverted Badge Scale Hierarchy
+            </h3>
+            <span className="font-mono text-[10px] text-[var(--ink-faint)]">xs • sm • md • lg</span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-6 pt-2">
+            <HatchpenLogo size="xs" variant="inverted" />
+            <HatchpenLogo size="sm" variant="inverted" />
+            <HatchpenLogo size="md" variant="inverted" />
+            <HatchpenLogo size="lg" variant="inverted" />
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 space-y-4 shadow-xs">
+          <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2">
+            <h3 className="font-serif text-sm font-semibold text-[var(--ink-primary)]">
+              Transparent Wordmark Scale Hierarchy
             </h3>
             <span className="font-mono text-[10px] text-[var(--ink-faint)]">xs • sm • md • lg</span>
           </div>

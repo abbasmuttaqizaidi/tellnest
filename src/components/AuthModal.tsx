@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useSignIn, useSignUp, useUser, useClerk, SignIn } from '@clerk/react'
 import { X, Loader2 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
+import { HatchpenLogo } from './HatchpenLogo'
 
 export function AuthModal() {
   const { isAuthModalOpen, closeAuthModal, authReturnUrl } = useApp()
@@ -142,18 +143,7 @@ export function AuthModal() {
         {/* Brand Header */}
         <div className="flex flex-col items-center text-center mb-6">
           <div className="relative mb-3">
-            <div className="absolute -inset-2 bg-slate-900/5 dark:bg-white/5 rounded-full blur-md animate-pulse" />
-            <img
-              src="/hatchpen-logo-transparent.png"
-              alt="Hatchpen"
-              className="relative h-10 w-auto object-contain dark:invert"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement
-                if (!target.src.includes('favicon.svg')) {
-                  target.src = '/favicon.svg'
-                }
-              }}
-            />
+            <HatchpenLogo size="lg" variant="inverted" />
           </div>
           <h2 className="font-serif text-xl font-bold tracking-tight text-[var(--ink-primary)]">
             Sign In to Hatchpen

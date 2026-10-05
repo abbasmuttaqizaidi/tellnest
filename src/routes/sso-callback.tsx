@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { AuthenticateWithRedirectCallback } from '@clerk/react'
 import { Loader2 } from 'lucide-react'
+import { HatchpenLogo } from '../components/HatchpenLogo'
 
 export const Route = createFileRoute('/sso-callback')({
   component: SSOCallbackPage,
@@ -13,19 +14,7 @@ export default function SSOCallbackPage() {
       <div className="flex flex-col items-center space-y-5 text-center">
         {/* Brand Logo */}
         <div className="relative">
-          <div className="absolute -inset-4 bg-slate-900/5 dark:bg-white/5 rounded-full blur-xl animate-pulse" />
-          <img
-            src="/hatchpen-logo-transparent.png"
-            alt="Hatchpen"
-            className="relative h-10 w-auto object-contain dark:invert"
-            onError={(e) => {
-              // Fallback to favicon.svg if png is not found
-              const target = e.target as HTMLImageElement
-              if (target.src.indexOf('favicon.svg') === -1) {
-                target.src = '/favicon.svg'
-              }
-            }}
-          />
+          <HatchpenLogo size="lg" variant="inverted" />
         </div>
 
         {/* Spinner & Message */}

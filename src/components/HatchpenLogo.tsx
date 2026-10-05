@@ -4,11 +4,14 @@ export interface HatchpenLogoProps {
   /** Size variant */
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl'
   /** Presentation variant:
-   * - 'full': The official horizontal wordmark with rules and boxed PEN ("HATCHPEN STORIES. BEYOND THE HYPE.")
+   * - 'full': The official horizontal wordmark (auto-inverts in dark theme)
+   * - 'inverted': Inverted high-contrast brand badge (solid black frame with white HATCH & white boxed PEN)
    * - 'icon': The official HP monogram insignia with embedded fountain pen nib
    * - 'lockup': Combined HP emblem + clean typography
    */
-  variant?: 'full' | 'icon' | 'lockup'
+  variant?: 'full' | 'inverted' | 'icon' | 'lockup'
+  /** Force inverted colors */
+  invert?: boolean
   /** Whether to render the tagline/subtitle */
   showTagline?: boolean
   /** Optional custom subtitle (used in 'lockup' variant) */
@@ -84,7 +87,8 @@ export function HatchpenEmblem({
  */
 export function HatchpenLogo({
   size = 'md',
-  variant = 'full',
+  variant = 'inverted',
+  invert = false,
   showTagline = true,
   subtitle,
   className = '',
@@ -95,13 +99,27 @@ export function HatchpenLogo({
     return <HatchpenEmblem className={`${conf.icon} ${className}`} />
   }
 
+  if (variant === 'inverted' || invert) {
+    return (
+      <div className={`inline-flex items-center select-none ${className}`}>
+        <img
+          src="/hatchpen-logo-inverted.png"
+          alt="Hatchpen"
+          className={`hatchpen-brand-logo hatchpen-brand-logo--inverted ${conf.fullHeight} w-auto object-contain rounded transition-all`}
+          loading="eager"
+          decoding="async"
+        />
+      </div>
+    )
+  }
+
   if (variant === 'full') {
     return (
       <div className={`inline-flex items-center select-none ${className}`}>
         <img
           src="/hatchpen-logo-transparent.png"
           alt="Hatchpen — Stories. Beyond the Hype."
-          className={`${conf.fullHeight} w-auto object-contain dark:invert transition-all`}
+          className={`hatchpen-brand-logo ${conf.fullHeight} w-auto object-contain transition-all`}
           loading="eager"
           decoding="async"
         />
