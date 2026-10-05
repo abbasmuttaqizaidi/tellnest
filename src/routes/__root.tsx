@@ -5,6 +5,7 @@ import MobileNav from '../components/MobileNav'
 import Footer from '../components/Footer'
 import Toast from '../components/Toast'
 import { ClerkSync } from '../components/ClerkSync'
+import { OAuthHandshakeLoader } from '../components/OAuthHandshakeLoader'
 import { AppProvider } from '../context/AppContext'
 
 import appCss from '../styles.css?url'
@@ -14,7 +15,7 @@ const CLERK_PUBLISHABLE_KEY =
   (typeof process !== 'undefined' && process.env?.VITE_CLERK_PUBLISHABLE_KEY) ||
   'pk_test_aW52aXRpbmctYm9hLTg5NDIuY2xlcmsuYWNjb3VudHMuZGV2JA'
 
-const THEME_INIT_SCRIPT = `(function(){try{var stored=window.localStorage.getItem('theme');var mode=(stored==='light'||stored==='dark'||stored==='sepia'||stored==='auto')?stored:'light';var prefersDark=window.matchMedia('(prefers-color-scheme: dark)').matches;var resolved=mode==='auto'?(prefersDark?'dark':'light'):mode;var root=document.documentElement;root.classList.remove('light','dark','theme-sepia');if(resolved==='sepia'){root.classList.add('theme-sepia');}else{root.classList.add(resolved);}root.setAttribute('data-theme',resolved);root.style.colorScheme=(resolved==='dark'?'dark':'light');}catch(e){}})();`
+const THEME_INIT_SCRIPT = `(function(){try{var stored=window.localStorage.getItem('theme');var mode=(stored==='light'||stored==='dark'||stored==='sepia'||stored==='auto')?stored:'light';var prefersDark=window.matchMedia('(prefers-color-scheme: dark)').matches;var resolved=mode==='auto'?(prefersDark?'dark':'light'):mode;var root=document.documentElement;root.classList.remove('light','dark','theme-sepia');if(resolved==='sepia'){root.classList.add('theme-sepia');}else{root.classList.add(resolved);}root.setAttribute('data-theme',resolved);root.style.colorScheme=(resolved==='dark'?'dark':'light');if(window.location.search.indexOf('__clerk')!==-1||window.location.hash.indexOf('__clerk')!==-1){root.classList.add('clerk-handshake-active');var o=document.getElementById('tellnest-handshake-overlay');if(o){o.style.display='flex';}}}catch(e){}})();`
 
 export const Route = createRootRoute({
   head: () => ({
@@ -85,6 +86,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   const innerContent = (
     <AppProvider>
       <ClerkSync />
+      <OAuthHandshakeLoader />
       <Header />
       <main className="flex-1 w-full max-w-full overflow-x-hidden pb-16 md:pb-0 bg-[var(--bg-canvas)]">
         {children}

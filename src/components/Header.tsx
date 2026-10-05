@@ -292,7 +292,13 @@ export default function Header() {
             <button
               type="button"
               onClick={() => {
-                openSignIn({ appearance: CLERK_MODAL_APPEARANCE })
+                openSignIn({
+                  appearance: CLERK_MODAL_APPEARANCE,
+                  fallbackRedirectUrl: '/sso-callback',
+                  forceRedirectUrl: '/sso-callback',
+                  signUpFallbackRedirectUrl: '/sso-callback',
+                  signUpForceRedirectUrl: '/sso-callback',
+                })
               }}
               className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-3 py-1.5 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 transition-opacity shrink-0 cursor-pointer"
             >
@@ -373,7 +379,13 @@ export default function Header() {
                 type="button"
                 onClick={() => {
                   setMobileMenuOpen(false)
-                  openSignIn({ appearance: CLERK_MODAL_APPEARANCE })
+                  openSignIn({
+                    appearance: CLERK_MODAL_APPEARANCE,
+                    fallbackRedirectUrl: '/sso-callback',
+                    forceRedirectUrl: '/sso-callback',
+                    signUpFallbackRedirectUrl: '/sso-callback',
+                    signUpForceRedirectUrl: '/sso-callback',
+                  })
                 }}
                 className="w-full text-left py-1.5 font-semibold text-[var(--ink-primary)] hover:opacity-80 transition-opacity"
               >

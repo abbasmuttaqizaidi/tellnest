@@ -39,7 +39,7 @@ export function TellnestLoader({
 
   const containerClasses =
     variant === 'fullscreen'
-      ? 'fixed inset-0 z-50 flex flex-col items-center justify-center bg-[var(--bg-canvas)]/95 backdrop-blur-md transition-colors'
+      ? 'fixed inset-0 z-[2147483647] flex flex-col items-center justify-center bg-[var(--bg-canvas)] transition-colors'
       : 'min-h-[60vh] flex flex-col items-center justify-center p-6 space-y-6 transition-colors'
 
   return (

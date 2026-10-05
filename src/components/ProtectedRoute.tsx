@@ -115,7 +115,13 @@ export function ProtectedRoute({
               size="md"
               className="w-full"
               onClick={() => {
-                openSignIn({ appearance: CLERK_MODAL_APPEARANCE })
+                openSignIn({
+                  appearance: CLERK_MODAL_APPEARANCE,
+                  fallbackRedirectUrl: '/sso-callback',
+                  forceRedirectUrl: '/sso-callback',
+                  signUpFallbackRedirectUrl: '/sso-callback',
+                  signUpForceRedirectUrl: '/sso-callback',
+                })
               }}
               rightIcon={<ArrowRight className="h-4 w-4" />}
             >

@@ -19,6 +19,7 @@ import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SecretAdminpanelRouteImport } from './routes/secret-adminpanel'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as SsoCallbackRouteImport } from './routes/sso-callback'
 import { Route as AuthorAuthorIdRouteImport } from './routes/author.$authorId'
 import { Route as CategorySlugRouteImport } from './routes/category.$slug'
 import { Route as GenreSlugRouteImport } from './routes/genre.$slug'
@@ -78,6 +79,11 @@ const SecretAdminpanelRoute = SecretAdminpanelRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SsoCallbackRoute = SsoCallbackRouteImport.update({
+  id: '/sso-callback',
+  path: '/sso-callback',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthorAuthorIdRoute = AuthorAuthorIdRouteImport.update({
@@ -143,6 +149,7 @@ export interface FileRoutesByFullPath {
   '/search': typeof SearchRoute
   '/secret-adminpanel': typeof SecretAdminpanelRoute
   '/settings': typeof SettingsRoute
+  '/sso-callback': typeof SsoCallbackRoute
   '/author/$authorId': typeof AuthorAuthorIdRoute
   '/category/$slug': typeof CategorySlugRoute
   '/genre/$slug': typeof GenreSlugRoute
@@ -165,6 +172,7 @@ export interface FileRoutesByTo {
   '/search': typeof SearchRoute
   '/secret-adminpanel': typeof SecretAdminpanelRoute
   '/settings': typeof SettingsRoute
+  '/sso-callback': typeof SsoCallbackRoute
   '/author/$authorId': typeof AuthorAuthorIdRoute
   '/category/$slug': typeof CategorySlugRoute
   '/genre/$slug': typeof GenreSlugRoute
@@ -188,6 +196,7 @@ export interface FileRoutesById {
   '/search': typeof SearchRoute
   '/secret-adminpanel': typeof SecretAdminpanelRoute
   '/settings': typeof SettingsRoute
+  '/sso-callback': typeof SsoCallbackRoute
   '/author/$authorId': typeof AuthorAuthorIdRoute
   '/category/$slug': typeof CategorySlugRoute
   '/genre/$slug': typeof GenreSlugRoute
@@ -212,6 +221,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/secret-adminpanel'
     | '/settings'
+    | '/sso-callback'
     | '/author/$authorId'
     | '/category/$slug'
     | '/genre/$slug'
@@ -234,6 +244,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/secret-adminpanel'
     | '/settings'
+    | '/sso-callback'
     | '/author/$authorId'
     | '/category/$slug'
     | '/genre/$slug'
@@ -256,6 +267,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/secret-adminpanel'
     | '/settings'
+    | '/sso-callback'
     | '/author/$authorId'
     | '/category/$slug'
     | '/genre/$slug'
@@ -279,6 +291,7 @@ export interface RootRouteChildren {
   SearchRoute: typeof SearchRoute
   SecretAdminpanelRoute: typeof SecretAdminpanelRoute
   SettingsRoute: typeof SettingsRoute
+  SsoCallbackRoute: typeof SsoCallbackRoute
   AuthorAuthorIdRoute: typeof AuthorAuthorIdRoute
   CategorySlugRoute: typeof CategorySlugRoute
   GenreSlugRoute: typeof GenreSlugRoute
@@ -361,6 +374,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sso-callback': {
+      id: '/sso-callback'
+      path: '/sso-callback'
+      fullPath: '/sso-callback'
+      preLoaderRoute: typeof SsoCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/author/$authorId': {
@@ -447,6 +467,7 @@ const rootRouteChildren: RootRouteChildren = {
   SearchRoute: SearchRoute,
   SecretAdminpanelRoute: SecretAdminpanelRoute,
   SettingsRoute: SettingsRoute,
+  SsoCallbackRoute: SsoCallbackRoute,
   AuthorAuthorIdRoute: AuthorAuthorIdRoute,
   CategorySlugRoute: CategorySlugRoute,
   GenreSlugRoute: GenreSlugRoute,

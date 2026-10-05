@@ -158,7 +158,14 @@ function PublicHome() {
                 <span>Start Reading Chapter 1</span>
               </Link>
 
-              <SignInButton mode="modal" appearance={CLERK_MODAL_APPEARANCE}>
+              <SignInButton
+                mode="modal"
+                appearance={CLERK_MODAL_APPEARANCE}
+                fallbackRedirectUrl="/sso-callback"
+                forceRedirectUrl="/sso-callback"
+                signUpFallbackRedirectUrl="/sso-callback"
+                signUpForceRedirectUrl="/sso-callback"
+              >
                 <button
                   type="button"
                   className="inline-flex items-center gap-2 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-2.5 text-xs font-medium text-[var(--ink-muted)] hover:border-[var(--border-strong)] hover:text-[var(--ink-primary)] transition-all cursor-pointer"
@@ -446,7 +453,14 @@ function PublicHome() {
         </div>
 
         <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
-          <SignInButton mode="modal" appearance={CLERK_MODAL_APPEARANCE}>
+          <SignInButton
+            mode="modal"
+            appearance={CLERK_MODAL_APPEARANCE}
+            fallbackRedirectUrl="/sso-callback"
+            forceRedirectUrl="/sso-callback"
+            signUpFallbackRedirectUrl="/sso-callback"
+            signUpForceRedirectUrl="/sso-callback"
+          >
             <button
               type="button"
               className="inline-flex items-center gap-2 rounded border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-6 py-2.5 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 transition-opacity cursor-pointer shadow-xs"

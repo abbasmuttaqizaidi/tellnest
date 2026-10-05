@@ -152,13 +152,31 @@ div[class*="development-badge"],
 [data-clerk-dev-badge],
 .cl-dev-badge,
 .cl-development-badge,
-div[aria-label="Development mode"],
-div:has(> a[href*="dashboard.clerk.com"]:only-child) {
+div[aria-label*="development mode" i],
+span[aria-label*="development mode" i],
+p[aria-label*="development mode" i],
+div:has(> a[href*="dashboard.clerk.com"]),
+div:has(> a[href*="clerk.com"]),
+a[href*="dashboard.clerk.com"],
+.cl-interstitial,
+.cl-interstitial__wrapper,
+.cl-interstitial-wrapper,
+[data-clerk-interstitial],
+.cl-oauth-callback {
   display: none !important;
   visibility: hidden !important;
   height: 0 !important;
   opacity: 0 !important;
   pointer-events: none !important;
+}
+
+/* While OAuth handshake is active, ensure raw Clerk containers are hidden beneath our full-page Tellnest loader */
+html.clerk-handshake-active .cl-interstitial,
+html.clerk-handshake-active .cl-loading,
+html.clerk-handshake-active .cl-modalBackdrop,
+html.clerk-handshake-active [data-clerk-overlay] {
+  opacity: 0 !important;
+  visibility: hidden !important;
 }
 
 /* =========================================================
