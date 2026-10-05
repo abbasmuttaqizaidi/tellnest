@@ -19,7 +19,7 @@ import {
 import { useUser, useClerk } from '@clerk/react'
 import { useApp } from '../context/AppContext'
 import { PaletteSearch, OmniSearch } from '../design-system'
-import { UnisexAvatar } from './UnisexAvatar'
+import { UnisexAvatar, UnisexAvatarIcon } from './UnisexAvatar'
 
 export default function Header() {
   const navigate = useNavigate()
@@ -205,7 +205,7 @@ export default function Header() {
                 title="Account Menu"
               >
                 <UnisexAvatar
-                  src={user?.imageUrl}
+                  src={user?.hasImage ? user?.imageUrl : null}
                   name={user?.fullName || user?.firstName}
                   size="sm"
                 />
@@ -213,22 +213,31 @@ export default function Header() {
 
               {userMenuOpen && (
                 <div
-                  className="absolute right-0 mt-2 w-52 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] py-1.5 shadow-xl z-50 text-xs animate-in fade-in duration-100"
+                  className="absolute right-0 mt-2 w-56 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] py-1.5 shadow-xl z-50 text-xs animate-in fade-in duration-100"
                   onClick={() => setUserMenuOpen(false)}
                 >
-                  <div className="px-3 py-2 border-b border-[var(--border-subtle)]">
-                    <p className="font-semibold text-[var(--ink-primary)] truncate">
-                      {user?.fullName || user?.firstName || 'Tellnest User'}
-                    </p>
-                    <p className="text-[11px] text-[var(--ink-muted)] font-mono truncate">
-                      @{user?.username || user?.primaryEmailAddress?.emailAddress?.split('@')[0] || 'reader'}
-                    </p>
+                  <div className="flex items-center gap-2.5 px-3 py-2 border-b border-[var(--border-subtle)]">
+                    <UnisexAvatar
+                      src={user?.hasImage ? user?.imageUrl : null}
+                      name={user?.fullName || user?.firstName}
+                      size="sm"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-[var(--ink-primary)] truncate">
+                        {user?.fullName || user?.firstName || 'Tellnest User'}
+                      </p>
+                      <p className="text-[11px] text-[var(--ink-muted)] font-mono truncate">
+                        @{user?.username || user?.primaryEmailAddress?.emailAddress?.split('@')[0] || 'reader'}
+                      </p>
+                    </div>
                   </div>
                   <Link
                     to="/profile"
                     className="flex items-center gap-2 px-3 py-2 text-[var(--ink-secondary)] hover:bg-[var(--bg-subtle)] transition-colors"
                   >
-                    <User className="h-3.5 w-3.5 text-[var(--ink-muted)]" />
+                    <div className="h-3.5 w-3.5 rounded-full overflow-hidden shrink-0">
+                      <UnisexAvatarIcon />
+                    </div>
                     Your Profile
                   </Link>
                   <Link
@@ -304,6 +313,31 @@ export default function Header() {
           </Link>
           {isSignedIn && (
             <>
+              <div className="flex items-center gap-3 py-2 px-2.5 my-1 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)]">
+                <UnisexAvatar
+                  src={user?.hasImage ? user?.imageUrl : null}
+                  name={user?.fullName || user?.firstName}
+                  size="sm"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-xs text-[var(--ink-primary)] truncate">
+                    {user?.fullName || user?.firstName || 'Tellnest User'}
+                  </p>
+                  <p className="text-[10px] text-[var(--ink-muted)] font-mono truncate">
+                    @{user?.username || user?.primaryEmailAddress?.emailAddress?.split('@')[0] || 'reader'}
+                  </p>
+                </div>
+              </div>
+              <Link
+                to="/profile"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-2 py-1.5 text-[var(--ink-secondary)] hover:text-[var(--ink-primary)]"
+              >
+                <div className="h-3.5 w-3.5 rounded-full overflow-hidden shrink-0">
+                  <UnisexAvatarIcon />
+                </div>
+                Your Profile
+              </Link>
               <Link
                 to="/library"
                 onClick={() => setMobileMenuOpen(false)}

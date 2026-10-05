@@ -9,6 +9,7 @@ export interface UnisexAvatarProps {
   shape?: 'circle' | 'rounded'
   showStatus?: boolean
   statusColor?: string
+  hasImage?: boolean
 }
 
 const SIZE_MAP: Record<string, string> = {
@@ -61,6 +62,7 @@ export function UnisexAvatar({
   shape = 'circle',
   showStatus = false,
   statusColor = 'bg-emerald-500',
+  hasImage,
 }: UnisexAvatarProps) {
   const [imageError, setImageError] = useState(false)
 
@@ -68,9 +70,11 @@ export function UnisexAvatar({
   const sizeStyle = typeof size === 'number' ? { width: size, height: size } : undefined
   const roundedClass = shape === 'circle' ? 'rounded-full' : 'rounded-lg'
 
-  // If image src is Unsplash female fallback, treat as empty so unisex avatar icon shows
+  // If user explicitly has no custom image (e.g. Clerk hasImage === false)
+  // or image src is Unsplash female fallback, treat as empty so unisex avatar icon shows
   const isDefaultUnsplash = src?.includes('photo-1534528741775-53994a69daeb')
-  const validSrc = !imageError && src && !isDefaultUnsplash ? src : null
+  const isExplicitlyNoImage = hasImage === false
+  const validSrc = !imageError && src && !isDefaultUnsplash && !isExplicitlyNoImage ? src : null
 
   return (
     <div
