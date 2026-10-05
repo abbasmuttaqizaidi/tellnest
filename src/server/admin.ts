@@ -1,5 +1,46 @@
 import { createServerFn } from '@tanstack/react-start'
 import { createAdminClient } from '../lib/supabase/server'
+import crypto from 'node:crypto'
+
+const ADMIN_SECRET =
+  (typeof process !== 'undefined' && (process.env.ADMIN_SECRET_KEY || process.env.ADMIN_PASSWORD)) ||
+  'relay-admin-2026'
+
+/**
+ * Generate a cryptographically signed HMAC admin session token valid for 12 hours.
+ */
+export function generateAdminToken(): { token: string; expiresAt: number } {
+  const expiresAt = Date.now() + 1000 * 60 * 60 * 12 // 12 hours
+  const payload = `${expiresAt}:${ADMIN_SECRET}`
+  const hmac = crypto.createHmac('sha256', ADMIN_SECRET).update(payload).digest('hex')
+  const token = Buffer.from(`${expiresAt}:${hmac}`).toString('base64')
+  return { token, expiresAt }
+}
+
+/**
+ * Validates the HMAC signature and expiration timestamp of an admin session token.
+ */
+export function isValidAdminToken(token: string | null | undefined): boolean {
+  if (!token || typeof token !== 'string') return false
+  try {
+    const decoded = Buffer.from(token, 'base64').toString('utf-8')
+    const [expiresAtStr, hmac] = decoded.split(':')
+    if (!expiresAtStr || !hmac) return false
+
+    const expiresAt = parseInt(expiresAtStr, 10)
+    if (isNaN(expiresAt) || Date.now() > expiresAt) {
+      return false
+    }
+
+    const payload = `${expiresAt}:${ADMIN_SECRET}`
+    const expectedHmac = crypto.createHmac('sha256', ADMIN_SECRET).update(payload).digest('hex')
+
+    if (hmac.length !== expectedHmac.length) return false
+    return crypto.timingSafeEqual(Buffer.from(hmac), Buffer.from(expectedHmac))
+  } catch {
+    return false
+  }
+}
 
 export interface AdminUserWork {
   id: string
@@ -77,11 +118,57 @@ export interface AdminDashboardData {
 }
 
 /**
+ * Server Function: Authenticate Admin using master passkey.
+ * Returns an HMAC signed token upon successful verification.
+ */
+export const adminLoginServerFn = createServerFn({ method: 'POST' })
+  .validator((params: { passkey: string }) => {
+    if (!params || !params.passkey || typeof params.passkey !== 'string') {
+      throw new Error('Access key is required')
+    }
+    return { passkey: params.passkey.trim() }
+  })
+  .handler(async ({ data: { passkey } }) => {
+    if (passkey !== ADMIN_SECRET.trim()) {
+      throw new Error('Invalid administration access key')
+    }
+
+    const { token, expiresAt } = generateAdminToken()
+    return {
+      success: true,
+      token,
+      expiresAt,
+      message: 'Admin authorization granted',
+    }
+  })
+
+/**
+ * Server Function: Verify existing Admin session token.
+ */
+export const verifyAdminSessionServerFn = createServerFn({ method: 'POST' })
+  .validator((params: { token: string }) => {
+    return { token: params?.token || '' }
+  })
+  .handler(async ({ data: { token } }) => {
+    return {
+      valid: isValidAdminToken(token),
+    }
+  })
+
+/**
  * Server Function: Fetches all users from Clerk and joins their Supabase manuscripts,
  * reading progress, saved library items, and engagement metrics.
+ * Requires valid Admin session token.
  */
-export const getAdminUsersServerFn = createServerFn({ method: 'GET' })
-  .handler(async (): Promise<AdminDashboardData> => {
+export const getAdminUsersServerFn = createServerFn({ method: 'POST' })
+  .validator((params?: { adminToken?: string }) => {
+    return { adminToken: params?.adminToken || '' }
+  })
+  .handler(async ({ data: { adminToken } }): Promise<AdminDashboardData> => {
+    if (!isValidAdminToken(adminToken)) {
+      throw new Error('Unauthorized: Valid admin authentication token required')
+    }
+
     const clerkSecretKey = process.env.CLERK_SECRET_KEY || ''
     const admin = createAdminClient()
 
@@ -330,18 +417,27 @@ export const getAdminUsersServerFn = createServerFn({ method: 'GET' })
  * Server Function: Purges a user completely from both Clerk and Supabase.
  * Cascades through all Supabase tables (profiles, works, chapters, library_items,
  * reading_progress, comments, notifications) and deletes the Clerk user identity.
+ * Requires valid Admin session token.
  */
 export const purgeUserServerFn = createServerFn({ method: 'POST' })
-  .validator((params: { clerkUserId: string; profileId?: string | null }) => {
+  .validator((params: { clerkUserId: string; profileId?: string | null; adminToken: string }) => {
+    if (!params.adminToken) {
+      throw new Error('Admin authorization token is required')
+    }
     if (!params.clerkUserId || typeof params.clerkUserId !== 'string') {
       throw new Error('Valid clerkUserId is required to purge a user')
     }
     return {
+      adminToken: params.adminToken,
       clerkUserId: params.clerkUserId.trim(),
       profileId: params.profileId ? params.profileId.trim() : null,
     }
   })
-  .handler(async ({ data: { clerkUserId, profileId } }) => {
+  .handler(async ({ data: { adminToken, clerkUserId, profileId } }) => {
+    if (!isValidAdminToken(adminToken)) {
+      throw new Error('Unauthorized: Invalid admin token')
+    }
+
     const admin = createAdminClient()
     const clerkSecretKey = process.env.CLERK_SECRET_KEY || ''
 
