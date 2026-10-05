@@ -561,16 +561,22 @@ function SignedInHome() {
           {/* Quick Action Shortcuts (Including Writer Studio access) */}
           <div className="flex flex-wrap items-center gap-3">
             <Link to="/write/new" className="no-underline">
-              <Button variant="primary" size="sm" className="gap-2">
-                <PenLine className="h-3.5 w-3.5" />
-                <span>Write Story</span>
+              <Button
+                variant="primary"
+                size="sm"
+                leftIcon={<PenLine className="h-3.5 w-3.5 shrink-0" />}
+              >
+                Write Story
               </Button>
             </Link>
 
             <Link to="/library" className="no-underline">
-              <Button variant="outline" size="sm" className="gap-2">
-                <Bookmark className="h-3.5 w-3.5" />
-                <span>My Library ({savedWorkIds.length})</span>
+              <Button
+                variant="outline"
+                size="sm"
+                leftIcon={<Bookmark className="h-3.5 w-3.5 shrink-0" />}
+              >
+                My Library ({savedWorkIds.length})
               </Button>
             </Link>
           </div>
@@ -650,9 +656,12 @@ function SignedInHome() {
                       }}
                       className="no-underline"
                     >
-                      <Button variant="primary" size="sm" className="gap-2">
-                        <BookOpen className="h-3.5 w-3.5" />
-                        <span>Resume Chapter {latestProgressData.chapterNumber}</span>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        leftIcon={<BookOpen className="h-3.5 w-3.5 shrink-0" />}
+                      >
+                        Resume Chapter {latestProgressData.chapterNumber}
                       </Button>
                     </Link>
                   </div>
@@ -673,9 +682,12 @@ function SignedInHome() {
                 </p>
               </div>
               <Link to="/discover" className="inline-block no-underline pt-2">
-                <Button variant="primary" size="sm" className="gap-1.5">
-                  <CompassIcon className="h-3.5 w-3.5" />
-                  <span>Discover Manuscripts</span>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  leftIcon={<CompassIcon className="h-3.5 w-3.5 shrink-0" />}
+                >
+                  Discover Manuscripts
                 </Button>
               </Link>
             </div>
@@ -842,9 +854,12 @@ function SignedInHome() {
               </Button>
             </Link>
             <Link to="/write/new" className="no-underline">
-              <Button variant="primary" size="sm" className="gap-1.5">
-                <PenLine className="h-3.5 w-3.5" />
-                <span>New Manuscript</span>
+              <Button
+                variant="primary"
+                size="sm"
+                leftIcon={<PenLine className="h-3.5 w-3.5 shrink-0" />}
+              >
+                New Manuscript
               </Button>
             </Link>
           </div>

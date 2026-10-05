@@ -28,7 +28,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     ref
   ) => {
     const baseStyles =
-      'relative inline-flex items-center justify-center font-medium font-sans rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--ink-primary)] disabled:pointer-events-none disabled:opacity-50 select-none'
+      'relative inline-flex items-center justify-center whitespace-nowrap font-medium font-sans rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--ink-primary)] disabled:pointer-events-none disabled:opacity-50 select-none'
 
     const variantStyles = {
       primary:
@@ -59,7 +59,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       >
         {isLoading ? (
           <svg
-            className="animate-spin h-4 w-4 text-current"
+            className="animate-spin h-4 w-4 text-current shrink-0"
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"
@@ -81,7 +81,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ) : (
           leftIcon
         )}
-        <span>{children}</span>
+        {typeof children === 'string' || typeof children === 'number' ? (
+          <span className="truncate">{children}</span>
+        ) : (
+          children
+        )}
         {!isLoading && rightIcon}
       </motion.button>
     )
