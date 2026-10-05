@@ -5,7 +5,7 @@ import MobileNav from '../components/MobileNav'
 import Footer from '../components/Footer'
 import Toast from '../components/Toast'
 import { ClerkSync } from '../components/ClerkSync'
-import { OAuthHandshakeLoader } from '../components/OAuthHandshakeLoader'
+import { AuthModal } from '../components/AuthModal'
 import { AppProvider } from '../context/AppContext'
 
 import appCss from '../styles.css?url'
@@ -15,7 +15,7 @@ const CLERK_PUBLISHABLE_KEY =
   (typeof process !== 'undefined' && process.env?.VITE_CLERK_PUBLISHABLE_KEY) ||
   'pk_test_aW52aXRpbmctYm9hLTg5NDIuY2xlcmsuYWNjb3VudHMuZGV2JA'
 
-const THEME_INIT_SCRIPT = `(function(){try{var stored=window.localStorage.getItem('theme');var mode=(stored==='light'||stored==='dark'||stored==='sepia'||stored==='auto')?stored:'light';var prefersDark=window.matchMedia('(prefers-color-scheme: dark)').matches;var resolved=mode==='auto'?(prefersDark?'dark':'light'):mode;var root=document.documentElement;root.classList.remove('light','dark','theme-sepia');if(resolved==='sepia'){root.classList.add('theme-sepia');}else{root.classList.add(resolved);}root.setAttribute('data-theme',resolved);root.style.colorScheme=(resolved==='dark'?'dark':'light');if(window.location.search.indexOf('__clerk')!==-1||window.location.hash.indexOf('__clerk')!==-1){root.classList.add('clerk-handshake-active');var o=document.getElementById('tellnest-handshake-overlay');if(o){o.style.display='flex';}}}catch(e){}})();`
+const THEME_INIT_SCRIPT = `(function(){try{var stored=window.localStorage.getItem('theme');var mode=(stored==='light'||stored==='dark'||stored==='sepia'||stored==='auto')?stored:'light';var prefersDark=window.matchMedia('(prefers-color-scheme: dark)').matches;var resolved=mode==='auto'?(prefersDark?'dark':'light'):mode;var root=document.documentElement;root.classList.remove('light','dark','theme-sepia');if(resolved==='sepia'){root.classList.add('theme-sepia');}else{root.classList.add(resolved);}root.setAttribute('data-theme',resolved);root.style.colorScheme=(resolved==='dark'?'dark':'light');}catch(e){}})();`
 
 export const Route = createRootRoute({
   head: () => ({
@@ -86,7 +86,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   const innerContent = (
     <AppProvider>
       <ClerkSync />
-      <OAuthHandshakeLoader />
+      <AuthModal />
       <Header />
       <main className="flex-1 w-full max-w-full overflow-x-hidden pb-16 md:pb-0 bg-[var(--bg-canvas)]">
         {children}
@@ -103,33 +103,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body className="min-h-screen flex flex-col font-sans antialiased text-[var(--ink-secondary)] bg-[var(--bg-canvas)] transition-colors duration-150 overflow-x-hidden w-full max-w-full">
-        <div
-          id="tellnest-handshake-overlay"
-          style={{ display: 'none' }}
-          className="fixed inset-0 z-[2147483647] bg-white dark:bg-[#090D14] flex-col items-center justify-center px-6"
-        >
-          <div className="flex flex-col items-center space-y-5 text-center">
-            <div className="relative">
-              <div className="absolute -inset-4 bg-slate-900/5 dark:bg-white/5 rounded-full blur-xl animate-pulse" />
-              <img
-                src="/logo.png"
-                alt="Tellnest"
-                className="relative h-14 w-auto object-contain"
-              />
-            </div>
-            <div className="flex flex-col items-center space-y-2">
-              <div className="flex items-center gap-2.5">
-                <span className="h-5 w-5 rounded-full border-2 border-[var(--border-strong)] border-t-[var(--ink-primary)] animate-spin inline-block" />
-                <span className="font-mono text-xs uppercase tracking-widest text-[var(--ink-primary)] font-semibold">
-                  Authenticating Session
-                </span>
-              </div>
-              <span className="font-mono text-[10px] text-[var(--ink-muted)] uppercase tracking-widest animate-pulse">
-                Verifying credentials & establishing secure session...
-              </span>
-            </div>
-          </div>
-        </div>
         {CLERK_PUBLISHABLE_KEY ? (
           <ClerkProvider
             publishableKey={CLERK_PUBLISHABLE_KEY}

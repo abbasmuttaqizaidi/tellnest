@@ -16,44 +16,19 @@ import {
   BookOpen,
   LogOut
 } from 'lucide-react'
-import { SignInButton, useUser, useClerk } from '@clerk/react'
+import { useUser, useClerk } from '@clerk/react'
 import { useApp } from '../context/AppContext'
 import { PaletteSearch, OmniSearch } from '../design-system'
-
-const CLERK_MODAL_APPEARANCE = {
-  variables: {
-    colorPrimary: '#010611',
-    colorText: '#010611',
-    colorTextSecondary: '#64748B',
-    colorBackground: '#FFFFFF',
-    colorInputBackground: '#F8FAFC',
-    colorInputText: '#010611',
-    borderRadius: '0.5rem',
-    fontFamily: '"Outfit", "Inter", -apple-system, BlinkMacSystemFont, sans-serif',
-  },
-  layout: {
-    unsafe_disableDevelopmentModeWarnings: true,
-  },
-  elements: {
-    modalBackdrop: '!flex !items-center !justify-center !p-4',
-    modalContent: '!m-auto !my-auto !max-w-[380px] !w-full !bg-transparent !shadow-none !border-none',
-    rootBox: '!m-auto !max-w-[380px] !w-full !bg-transparent !shadow-none !border-none',
-    cardBox: '!m-auto !max-w-[380px] !w-full !bg-transparent !shadow-none !border-none',
-    card: '!max-w-[380px] !w-full !m-auto',
-    footer: 'hidden',
-    footerAction: 'hidden',
-    badge: 'hidden',
-  },
-}
 
 export default function Header() {
   const navigate = useNavigate()
   const { user, isSignedIn, isLoaded } = useUser()
-  const { signOut, openSignIn } = useClerk()
+  const { signOut } = useClerk()
   const {
     unreadNotificationCount,
     siteTheme,
-    setSiteTheme
+    setSiteTheme,
+    openAuthModal
   } = useApp()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
@@ -291,15 +266,7 @@ export default function Header() {
           ) : (
             <button
               type="button"
-              onClick={() => {
-                openSignIn({
-                  appearance: CLERK_MODAL_APPEARANCE,
-                  fallbackRedirectUrl: '/sso-callback',
-                  forceRedirectUrl: '/sso-callback',
-                  signUpFallbackRedirectUrl: '/sso-callback',
-                  signUpForceRedirectUrl: '/sso-callback',
-                })
-              }}
+              onClick={() => openAuthModal()}
               className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-3 py-1.5 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 transition-opacity shrink-0 cursor-pointer"
             >
               Sign In
@@ -379,13 +346,7 @@ export default function Header() {
                 type="button"
                 onClick={() => {
                   setMobileMenuOpen(false)
-                  openSignIn({
-                    appearance: CLERK_MODAL_APPEARANCE,
-                    fallbackRedirectUrl: '/sso-callback',
-                    forceRedirectUrl: '/sso-callback',
-                    signUpFallbackRedirectUrl: '/sso-callback',
-                    signUpForceRedirectUrl: '/sso-callback',
-                  })
+                  openAuthModal()
                 }}
                 className="w-full text-left py-1.5 font-semibold text-[var(--ink-primary)] hover:opacity-80 transition-opacity"
               >

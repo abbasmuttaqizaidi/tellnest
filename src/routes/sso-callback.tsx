@@ -8,7 +8,7 @@ export const Route = createFileRoute('/sso-callback')({
 
 export default function SSOCallbackPage() {
   return (
-    <div className="fixed inset-0 z-[2147483647] bg-white dark:bg-[#090D14] flex flex-col items-center justify-center px-6">
+    <div className="fixed inset-0 z-50 bg-white dark:bg-[#111722] flex flex-col items-center justify-center px-6">
       {/* ─── Our Custom Branded Loader ─── */}
       <div className="flex flex-col items-center space-y-5 text-center">
         {/* Brand Logo */}

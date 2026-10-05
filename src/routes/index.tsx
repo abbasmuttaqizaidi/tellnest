@@ -11,7 +11,7 @@ import {
   AnimatedTabs,
   MetricProgressCard,
 } from '../design-system'
-import { useUser, SignInButton } from '@clerk/react'
+import { useUser } from '@clerk/react'
 import {
   BookOpen,
   ArrowRight,
@@ -29,32 +29,6 @@ import {
   ChevronRight,
   Library as LibraryIcon,
 } from 'lucide-react'
-
-const CLERK_MODAL_APPEARANCE = {
-  variables: {
-    colorPrimary: '#010611',
-    colorText: '#010611',
-    colorTextSecondary: '#64748B',
-    colorBackground: '#FFFFFF',
-    colorInputBackground: '#F8FAFC',
-    colorInputText: '#010611',
-    borderRadius: '0.5rem',
-    fontFamily: '"Outfit", "Inter", -apple-system, BlinkMacSystemFont, sans-serif',
-  },
-  layout: {
-    unsafe_disableDevelopmentModeWarnings: true,
-  },
-  elements: {
-    modalBackdrop: '!flex !items-center !justify-center !p-4',
-    modalContent: '!m-auto !my-auto !max-w-[380px] !w-full !bg-transparent !shadow-none !border-none',
-    rootBox: '!m-auto !max-w-[380px] !w-full !bg-transparent !shadow-none !border-none',
-    cardBox: '!m-auto !max-w-[380px] !w-full !bg-transparent !shadow-none !border-none',
-    card: '!max-w-[380px] !w-full !m-auto',
-    footer: 'hidden',
-    footerAction: 'hidden',
-    badge: 'hidden',
-  },
-}
 
 export const Route = createFileRoute('/')({
   component: HomePage,
@@ -74,7 +48,7 @@ function HomePage() {
    PUBLIC HOME PAGE — Curated Literary Discovery (No Write Button)
    ========================================================================== */
 function PublicHome() {
-  const { allWorks } = useApp()
+  const { allWorks, openAuthModal } = useApp()
   const navigate = useNavigate()
   const [homeQuery, setHomeQuery] = useState('')
 
@@ -158,22 +132,14 @@ function PublicHome() {
                 <span>Start Reading Chapter 1</span>
               </Link>
 
-              <SignInButton
-                mode="modal"
-                appearance={CLERK_MODAL_APPEARANCE}
-                fallbackRedirectUrl="/sso-callback"
-                forceRedirectUrl="/sso-callback"
-                signUpFallbackRedirectUrl="/sso-callback"
-                signUpForceRedirectUrl="/sso-callback"
+              <button
+                type="button"
+                onClick={() => openAuthModal()}
+                className="inline-flex items-center gap-2 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-2.5 text-xs font-medium text-[var(--ink-muted)] hover:border-[var(--border-strong)] hover:text-[var(--ink-primary)] transition-all cursor-pointer"
               >
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-2 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-2.5 text-xs font-medium text-[var(--ink-muted)] hover:border-[var(--border-strong)] hover:text-[var(--ink-primary)] transition-all cursor-pointer"
-                >
-                  <Bookmark className="h-4 w-4" />
-                  <span>Sign In to Save</span>
-                </button>
-              </SignInButton>
+                <Bookmark className="h-4 w-4" />
+                <span>Sign In to Save</span>
+              </button>
 
               <Link
                 to="/works/$workId"
@@ -453,22 +419,14 @@ function PublicHome() {
         </div>
 
         <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
-          <SignInButton
-            mode="modal"
-            appearance={CLERK_MODAL_APPEARANCE}
-            fallbackRedirectUrl="/sso-callback"
-            forceRedirectUrl="/sso-callback"
-            signUpFallbackRedirectUrl="/sso-callback"
-            signUpForceRedirectUrl="/sso-callback"
+          <button
+            type="button"
+            onClick={() => openAuthModal()}
+            className="inline-flex items-center gap-2 rounded border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-6 py-2.5 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 transition-opacity cursor-pointer shadow-xs"
           >
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-6 py-2.5 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 transition-opacity cursor-pointer shadow-xs"
-            >
-              <span>Join The Relay</span>
-              <ArrowRight className="h-3.5 w-3.5" />
-            </button>
-          </SignInButton>
+            <span>Join The Relay</span>
+            <ArrowRight className="h-3.5 w-3.5" />
+          </button>
 
           <Link
             to="/discover"

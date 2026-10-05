@@ -68,6 +68,12 @@ interface AppContextType {
   // Toast
   toastMessage: string | null
   showToast: (msg: string) => void
+
+  // Auth Modal
+  isAuthModalOpen: boolean
+  openAuthModal: (returnUrl?: string) => void
+  closeAuthModal: () => void
+  authReturnUrl: string | null
 }
 
 const defaultReaderSettings: ReaderSettings = {
@@ -119,6 +125,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [allWorks, setAllWorks] = useState<Work[]>(WORKS)
   const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
+  const [authReturnUrl, setAuthReturnUrl] = useState<string | null>(null)
+
+  const openAuthModal = (returnUrl?: string) => {
+    if (returnUrl) setAuthReturnUrl(returnUrl)
+    setIsAuthModalOpen(true)
+  }
+
+  const closeAuthModal = () => {
+    setIsAuthModalOpen(false)
+  }
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -383,7 +400,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         markAllNotificationsRead,
         addNotification,
         toastMessage,
-        showToast
+        showToast,
+        isAuthModalOpen,
+        openAuthModal,
+        closeAuthModal,
+        authReturnUrl
       }}
     >
       {children}

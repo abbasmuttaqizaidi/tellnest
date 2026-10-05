@@ -170,14 +170,6 @@ a[href*="dashboard.clerk.com"],
   pointer-events: none !important;
 }
 
-/* While OAuth handshake is active, ensure raw Clerk containers are hidden beneath our full-page Tellnest loader */
-html.clerk-handshake-active .cl-interstitial,
-html.clerk-handshake-active .cl-loading,
-html.clerk-handshake-active .cl-modalBackdrop,
-html.clerk-handshake-active [data-clerk-overlay] {
-  opacity: 0 !important;
-  visibility: hidden !important;
-}
 
 /* =========================================================
    CENTER & COMPACT CLERK AUTHENTICATION MODAL (NO GHOST EDGES)
@@ -252,38 +244,23 @@ html.clerk-handshake-active [data-clerk-overlay] {
   animation: tellnestShimmer 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
-/* Style Clerk internal loaders with Tellnest monochrome theme */
-@keyframes clSpinnerRotate {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-.cl-spinner,
-.cl-loading,
-.cl-spinnerIcon,
-.cl-loadingContainer,
-.cl-loadingContainer svg,
-.cl-modalContent .cl-spinner,
-div[class*="spinner"],
-svg[class*="spinner"],
-div[class*="loading"] svg {
-  color: var(--ink-primary) !important;
-  stroke: var(--ink-primary) !important;
-}
-
-.cl-spinner {
-  width: 20px !important;
-  height: 20px !important;
-  border-width: 2px !important;
-  border-style: solid !important;
-  border-color: var(--border-subtle) !important;
-  border-top-color: var(--ink-primary) !important;
-  border-radius: 50% !important;
-  animation: clSpinnerRotate 0.75s cubic-bezier(0.4, 0, 0.2, 1) infinite !important;
+/* Hide Clerk development mode badge & footer branding */
+.cl-footer,
+.cl-footerAction,
+.cl-internal-b3890c,
+.cl-clerk-branding,
+.cl-clerkBranding,
+.cl-card__footer,
+.cl-dev-mode-badge,
+[data-localization-key*="developmentMode"],
+[data-localization-key*="devMode"],
+div[class*="cl-badge"],
+div[class*="development-badge"] {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 /* Suppress phantom backdrops */

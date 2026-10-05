@@ -1,41 +1,16 @@
 import React from 'react'
-import { useUser, useClerk } from '@clerk/react'
+import { useUser } from '@clerk/react'
 import { Link } from '@tanstack/react-router'
 import { Button, Badge } from '../design-system'
 import { Lock, ShieldCheck, ArrowRight, BookOpen, Sparkles } from 'lucide-react'
 import { TellnestLoader } from './TellnestLoader'
+import { useApp } from '../context/AppContext'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
   title?: string
   description?: string
   featureBadge?: string
-}
-
-const CLERK_MODAL_APPEARANCE = {
-  variables: {
-    colorPrimary: '#010611',
-    colorText: '#010611',
-    colorTextSecondary: '#64748B',
-    colorBackground: '#FFFFFF',
-    colorInputBackground: '#F8FAFC',
-    colorInputText: '#010611',
-    borderRadius: '0.5rem',
-    fontFamily: '"Outfit", "Inter", -apple-system, BlinkMacSystemFont, sans-serif',
-  },
-  layout: {
-    unsafe_disableDevelopmentModeWarnings: true,
-  },
-  elements: {
-    modalBackdrop: '!flex !items-center !justify-center !p-4',
-    modalContent: '!m-auto !my-auto !max-w-[380px] !w-full !bg-transparent !shadow-none !border-none',
-    rootBox: '!m-auto !max-w-[380px] !w-full !bg-transparent !shadow-none !border-none',
-    cardBox: '!m-auto !max-w-[380px] !w-full !bg-transparent !shadow-none !border-none',
-    card: '!max-w-[380px] !w-full !m-auto',
-    footer: 'hidden',
-    footerAction: 'hidden',
-    badge: 'hidden',
-  },
 }
 
 /**
@@ -50,7 +25,7 @@ export function ProtectedRoute({
   featureBadge = 'Private Route',
 }: ProtectedRouteProps) {
   const { isSignedIn, isLoaded } = useUser()
-  const { openSignIn } = useClerk()
+  const { openAuthModal } = useApp()
 
   // 1. Tellnest Branded Loader while Clerk hydrates session
   if (!isLoaded) {
@@ -115,13 +90,7 @@ export function ProtectedRoute({
               size="md"
               className="w-full"
               onClick={() => {
-                openSignIn({
-                  appearance: CLERK_MODAL_APPEARANCE,
-                  fallbackRedirectUrl: '/sso-callback',
-                  forceRedirectUrl: '/sso-callback',
-                  signUpFallbackRedirectUrl: '/sso-callback',
-                  signUpForceRedirectUrl: '/sso-callback',
-                })
+                openAuthModal(typeof window !== 'undefined' ? window.location.pathname : undefined)
               }}
               rightIcon={<ArrowRight className="h-4 w-4" />}
             >
