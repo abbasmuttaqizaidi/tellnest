@@ -17,6 +17,7 @@ import { Route as LibraryRouteImport } from './routes/library'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as SearchRouteImport } from './routes/search'
+import { Route as SecretAdminpanelRouteImport } from './routes/secret-adminpanel'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as AuthorAuthorIdRouteImport } from './routes/author.$authorId'
 import { Route as CategorySlugRouteImport } from './routes/category.$slug'
@@ -67,6 +68,11 @@ const ProfileRoute = ProfileRouteImport.update({
 const SearchRoute = SearchRouteImport.update({
   id: '/search',
   path: '/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SecretAdminpanelRoute = SecretAdminpanelRouteImport.update({
+  id: '/secret-adminpanel',
+  path: '/secret-adminpanel',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -135,6 +141,7 @@ export interface FileRoutesByFullPath {
   '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
   '/search': typeof SearchRoute
+  '/secret-adminpanel': typeof SecretAdminpanelRoute
   '/settings': typeof SettingsRoute
   '/author/$authorId': typeof AuthorAuthorIdRoute
   '/category/$slug': typeof CategorySlugRoute
@@ -156,6 +163,7 @@ export interface FileRoutesByTo {
   '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
   '/search': typeof SearchRoute
+  '/secret-adminpanel': typeof SecretAdminpanelRoute
   '/settings': typeof SettingsRoute
   '/author/$authorId': typeof AuthorAuthorIdRoute
   '/category/$slug': typeof CategorySlugRoute
@@ -178,6 +186,7 @@ export interface FileRoutesById {
   '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
   '/search': typeof SearchRoute
+  '/secret-adminpanel': typeof SecretAdminpanelRoute
   '/settings': typeof SettingsRoute
   '/author/$authorId': typeof AuthorAuthorIdRoute
   '/category/$slug': typeof CategorySlugRoute
@@ -201,6 +210,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/profile'
     | '/search'
+    | '/secret-adminpanel'
     | '/settings'
     | '/author/$authorId'
     | '/category/$slug'
@@ -222,6 +232,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/profile'
     | '/search'
+    | '/secret-adminpanel'
     | '/settings'
     | '/author/$authorId'
     | '/category/$slug'
@@ -243,6 +254,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/profile'
     | '/search'
+    | '/secret-adminpanel'
     | '/settings'
     | '/author/$authorId'
     | '/category/$slug'
@@ -265,6 +277,7 @@ export interface RootRouteChildren {
   NotificationsRoute: typeof NotificationsRoute
   ProfileRoute: typeof ProfileRoute
   SearchRoute: typeof SearchRoute
+  SecretAdminpanelRoute: typeof SecretAdminpanelRoute
   SettingsRoute: typeof SettingsRoute
   AuthorAuthorIdRoute: typeof AuthorAuthorIdRoute
   CategorySlugRoute: typeof CategorySlugRoute
@@ -334,6 +347,13 @@ declare module '@tanstack/react-router' {
       path: '/search'
       fullPath: '/search'
       preLoaderRoute: typeof SearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/secret-adminpanel': {
+      id: '/secret-adminpanel'
+      path: '/secret-adminpanel'
+      fullPath: '/secret-adminpanel'
+      preLoaderRoute: typeof SecretAdminpanelRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -425,6 +445,7 @@ const rootRouteChildren: RootRouteChildren = {
   NotificationsRoute: NotificationsRoute,
   ProfileRoute: ProfileRoute,
   SearchRoute: SearchRoute,
+  SecretAdminpanelRoute: SecretAdminpanelRoute,
   SettingsRoute: SettingsRoute,
   AuthorAuthorIdRoute: AuthorAuthorIdRoute,
   CategorySlugRoute: CategorySlugRoute,
