@@ -281,3 +281,9 @@ div[class*="development-badge"] {
     opacity: 1;
   }
 }
+
+/* Zero-Flicker Session Protection: prevents public hero flash when authenticated users reload */
+html.has-auth-session .public-home-container {
+  display: none !important;
+}
+

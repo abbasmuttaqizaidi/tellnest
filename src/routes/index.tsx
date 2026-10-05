@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
 import { CATEGORIES, GENRES, AUTHORS } from '../data/mockData'
 import WorkCard from '../components/WorkCard'
@@ -35,9 +35,47 @@ export const Route = createFileRoute('/')({
 })
 
 function HomePage() {
-  const { isSignedIn } = useUser()
+  const { isSignedIn, isLoaded, user } = useUser()
 
-  if (isSignedIn) {
+  // Synchronously initialize auth state from pre-render signals (cookie & localStorage)
+  const [cachedAuth, setCachedAuth] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false
+    try {
+      return (
+        window.localStorage.getItem('hatchpen_has_session') === 'true' ||
+        document.documentElement.classList.contains('has-auth-session') ||
+        document.cookie.includes('__session=') ||
+        /__client_uat=[1-9]/.test(document.cookie)
+      )
+    } catch {
+      return false
+    }
+  })
+
+  // Synchronize cache whenever Clerk finishes hydration or auth state changes
+  useEffect(() => {
+    if (isLoaded) {
+      setCachedAuth(!!isSignedIn)
+      try {
+        localStorage.setItem('hatchpen_has_session', isSignedIn ? 'true' : 'false')
+        if (isSignedIn) {
+          document.documentElement.classList.add('has-auth-session')
+          const name = user?.firstName || user?.username
+          if (name) {
+            localStorage.setItem('hatchpen_user_name', name)
+          }
+        } else {
+          document.documentElement.classList.remove('has-auth-session')
+          localStorage.removeItem('hatchpen_user_name')
+        }
+      } catch {}
+    }
+  }, [isLoaded, isSignedIn, user])
+
+  // While Clerk hydrates (!isLoaded), use cachedAuth to prevent the public home flash
+  const showSignedIn = isLoaded ? isSignedIn : cachedAuth
+
+  if (showSignedIn) {
     return <SignedInHome />
   }
 
@@ -58,7 +96,7 @@ function PublicHome() {
   const completedWorks = allWorks.filter((w) => w.status === 'Completed').slice(0, 3)
 
   return (
-    <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-12">
+    <div className="public-home-container min-h-screen py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-12">
       
       {/* HERO SECTION — Featured Manuscript Showcase Card */}
       <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 sm:p-8 lg:p-12 shadow-xs">
@@ -479,8 +517,9 @@ function SignedInHome() {
     return allWorks.filter((w) => w.trending).slice(0, 6)
   }, [allWorks])
 
+  const cachedName = typeof window !== 'undefined' ? localStorage.getItem('hatchpen_user_name') : null
   const displayName =
-    user?.firstName || user?.username || user?.emailAddresses?.[0]?.emailAddress?.split('@')[0] || 'Member'
+    user?.firstName || user?.username || cachedName || user?.emailAddresses?.[0]?.emailAddress?.split('@')[0] || 'Author'
 
   const dashboardTabs = [
     { id: 'for-you', label: 'Curated For You', icon: <Sparkles className="h-3.5 w-3.5" /> },
@@ -507,7 +546,7 @@ function SignedInHome() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2 font-mono text-[11px] text-[var(--ink-muted)]">
-              <span>Relay Member Folio</span>
+              <span>Hatchpen Author Folio</span>
               <span>•</span>
               <span className="text-[var(--ink-primary)] font-semibold">Active Session</span>
             </div>

@@ -222,7 +222,7 @@ export default function Header() {
                     />
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-[var(--ink-primary)] truncate">
-                        {user?.fullName || user?.firstName || 'Tellnest User'}
+                        {user?.fullName || user?.firstName || 'Hatchpen Member'}
                       </p>
                       <p className="text-[11px] text-[var(--ink-muted)] font-mono truncate">
                         @{user?.username || user?.primaryEmailAddress?.emailAddress?.split('@')[0] || 'reader'}
