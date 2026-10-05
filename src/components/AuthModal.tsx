@@ -46,7 +46,7 @@ export function AuthModal() {
     const targetUrl = authReturnUrl || '/'
 
     try {
-      // If Clerk is still initializing, wait briefly for it
+      // 1. Wait briefly for Clerk to finish loading if needed
       if (!clerk.loaded) {
         let attempts = 0
         while (!clerk.loaded && attempts < 10) {
@@ -55,51 +55,67 @@ export function AuthModal() {
         }
       }
 
-      const signInTarget = signIn || clerk.client?.signIn
-      const signUpTarget = signUp || clerk.client?.signUp
-
-      const redirectOptions = {
-        strategy: 'oauth_google' as const,
-        redirectUrl: '/sso-callback',
-        redirectUrlComplete: targetUrl,
-        oidcPrompt: 'select_account',
-        continueSignIn: false,
+      // 2. Try the modern Signal API (signIn.sso)
+      if (signIn && typeof (signIn as any).sso === 'function') {
+        const res = await (signIn as any).sso({
+          strategy: 'oauth_google',
+          redirectUrl: targetUrl,
+          redirectCallbackUrl: '/sso-callback',
+          oidcPrompt: 'select_account',
+        })
+        if (!res?.error) return
+        console.warn('signIn.sso reported error, trying signUp.sso fallback:', res.error)
       }
 
-      if (signInTarget) {
-        await signInTarget.authenticateWithRedirect(redirectOptions)
-        return
+      // 3. Try signUp.sso if signIn.sso returned an error or is unavailable
+      if (signUp && typeof (signUp as any).sso === 'function') {
+        const res = await (signUp as any).sso({
+          strategy: 'oauth_google',
+          redirectUrl: targetUrl,
+          redirectCallbackUrl: '/sso-callback',
+          oidcPrompt: 'select_account',
+        })
+        if (!res?.error) return
+        console.warn('signUp.sso reported error:', res.error)
       }
 
-      if (signUpTarget) {
-        await signUpTarget.authenticateWithRedirect({
-          ...redirectOptions,
-          continueSignUp: false,
+      // 4. Try classic Clerk client authenticateWithRedirect (clerk.client.signIn)
+      const clientSignIn = clerk.client?.signIn || (typeof window !== 'undefined' ? (window as any).Clerk?.client?.signIn : null)
+      if (clientSignIn && typeof clientSignIn.authenticateWithRedirect === 'function') {
+        await clientSignIn.authenticateWithRedirect({
+          strategy: 'oauth_google',
+          redirectUrl: '/sso-callback',
+          redirectUrlComplete: targetUrl,
+          oidcPrompt: 'select_account',
         })
         return
       }
 
-      if (clerk.client) {
-        await clerk.client.signIn.authenticateWithRedirect(redirectOptions)
+      // 5. Try classic Clerk client authenticateWithRedirect (clerk.client.signUp)
+      const clientSignUp = clerk.client?.signUp || (typeof window !== 'undefined' ? (window as any).Clerk?.client?.signUp : null)
+      if (clientSignUp && typeof clientSignUp.authenticateWithRedirect === 'function') {
+        await clientSignUp.authenticateWithRedirect({
+          strategy: 'oauth_google',
+          redirectUrl: '/sso-callback',
+          redirectUrlComplete: targetUrl,
+          oidcPrompt: 'select_account',
+        })
         return
       }
+
+      // 6. Graceful fallback to openSignIn
+      clerk.openSignIn({
+        fallbackRedirectUrl: '/sso-callback',
+        forceRedirectUrl: '/sso-callback',
+      })
     } catch (err: any) {
-      console.warn('signIn.authenticateWithRedirect note, attempting fallback:', err?.message || err)
+      console.error('All OAuth redirect attempts failed:', err)
       try {
-        const signUpTarget = signUp || clerk.client?.signUp
-        if (signUpTarget) {
-          await signUpTarget.authenticateWithRedirect({
-            strategy: 'oauth_google' as const,
-            redirectUrl: '/sso-callback',
-            redirectUrlComplete: targetUrl,
-            oidcPrompt: 'select_account',
-            continueSignUp: false,
-          })
-          return
-        }
-      } catch (signupErr) {
-        console.error('All OAuth redirect attempts failed:', signupErr)
-      }
+        clerk.openSignIn({
+          fallbackRedirectUrl: '/sso-callback',
+          forceRedirectUrl: '/sso-callback',
+        })
+      } catch (e) {}
     } finally {
       setIsGoogleLoading(false)
     }
