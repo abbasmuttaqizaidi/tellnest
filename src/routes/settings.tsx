@@ -5,7 +5,7 @@ import { useApp } from '../context/AppContext'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { Settings, User, Eye, Bell, Lock, ShieldCheck, Sun, Moon, Coffee, Upload, RotateCcw, Loader2 } from 'lucide-react'
 import { UnisexAvatar, isDefaultOrInitialAvatar } from '../components/UnisexAvatar'
-import { uploadImage, STORAGE_BUCKETS } from '../lib/supabase/storage'
+import { uploadImage, optimizeAvatarImage, STORAGE_BUCKETS } from '../lib/supabase/storage'
 
 export const Route = createFileRoute('/settings')({
   component: () => (
@@ -52,21 +52,25 @@ function SettingsPage() {
     const file = e.target.files?.[0]
     if (!file) return
 
-    if (file.size > 5 * 1024 * 1024) {
-      showToast('Image size exceeds 5MB limit. Please choose a smaller file.')
+    // Enforce 500 KB limit
+    if (file.size > 500 * 1024) {
+      showToast('Image size exceeds 500 KB limit. Please choose a smaller image.')
       return
     }
 
     try {
       setIsUploadingAvatar(true)
-      const ext = file.name.split('.').pop() || 'png'
+
+      // 1. Client-side optimization: Center-crop to 300x300 px square & compress to WebP (~20-40 KB)
+      const optimizedFile = await optimizeAvatarImage(file, 300, 0.85)
+      const ext = optimizedFile.name.split('.').pop() || 'webp'
       const filePath = `${user?.id || 'creator'}/avatar_${Date.now()}.${ext}`
 
-      // 1. Upload to Supabase Storage in the author-avatars bucket
+      // 2. Upload to Supabase Storage in the author-avatars bucket
       const uploadResult = await uploadImage({
         bucket: STORAGE_BUCKETS.AVATARS,
         path: filePath,
-        file,
+        file: optimizedFile,
         upsert: true,
       })
 
@@ -74,19 +78,19 @@ function SettingsPage() {
         throw uploadResult.error || new Error('Upload to Supabase Storage failed')
       }
 
-      // 2. Set custom avatar in AppContext and localStorage
+      // 3. Set custom avatar in AppContext and localStorage
       setCustomAvatarUrl(uploadResult.url)
 
-      // 3. Sync to Clerk user profile if available
+      // 4. Sync to Clerk user profile if available
       try {
         if (user && typeof (user as any).setProfileImage === 'function') {
-          await (user as any).setProfileImage({ file })
+          await (user as any).setProfileImage({ file: optimizedFile })
         }
       } catch (clerkErr) {
         console.warn('[Clerk] setProfileImage sync notice:', clerkErr)
       }
 
-      showToast('Custom profile picture uploaded and saved to Supabase Storage!')
+      showToast('Profile picture optimized (~30 KB) and saved to Supabase Storage!')
     } catch (err: any) {
       console.error('[AvatarUpload] Error:', err)
       showToast(err.message || 'Failed to upload profile picture. Please try again.')
@@ -358,7 +362,7 @@ function SettingsPage() {
                 </div>
 
                 <p className="text-[11px] text-[var(--ink-faint)] font-mono border-t border-[var(--border-subtle)] pt-2.5">
-                  Supported formats: PNG, JPG, WEBP, GIF. Images are securely hosted in Supabase Storage (<code className="text-[10px]">author-avatars</code> bucket).
+                  Supported formats: PNG, JPG, WEBP, GIF. Max 500 KB (auto-optimized to ~30 KB in Supabase Storage <code className="text-[10px]">author-avatars</code> bucket).
                 </p>
               </div>
 

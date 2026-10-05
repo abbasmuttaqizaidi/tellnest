@@ -83,3 +83,70 @@ export async function deleteImage(bucket: StorageBucket, paths: string[]): Promi
     return { success: false, error }
   }
 }
+
+/**
+ * Resizes and compresses an avatar image in the browser using an HTML Canvas.
+ * Crops to a center-weighted square (max 300x300 px) and converts to WebP (~20-40 KB).
+ */
+export async function optimizeAvatarImage(file: File, maxDimension = 300, quality = 0.85): Promise<File> {
+  // If not in browser environment, return original file
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return file
+  }
+
+  return new Promise((resolve) => {
+    const img = new Image()
+    const reader = new FileReader()
+
+    reader.onload = (e) => {
+      img.src = e.target?.result as string
+    }
+    reader.onerror = () => resolve(file)
+
+    img.onload = () => {
+      try {
+        const size = Math.min(img.width, img.height)
+        const sx = (img.width - size) / 2
+        const sy = (img.height - size) / 2
+
+        const targetDim = Math.min(size, maxDimension)
+        const canvas = document.createElement('canvas')
+        canvas.width = targetDim
+        canvas.height = targetDim
+
+        const ctx = canvas.getContext('2d')
+        if (!ctx) {
+          resolve(file)
+          return
+        }
+
+        ctx.imageSmoothingEnabled = true
+        ctx.imageSmoothingQuality = 'high'
+        ctx.drawImage(img, sx, sy, size, size, 0, 0, targetDim, targetDim)
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              resolve(file)
+              return
+            }
+            const cleanName = file.name.replace(/\.[^/.]+$/, '')
+            const optimizedFile = new File([blob], `${cleanName}.webp`, {
+              type: 'image/webp',
+              lastModified: Date.now(),
+            })
+            resolve(optimizedFile)
+          },
+          'image/webp',
+          quality
+        )
+      } catch (err) {
+        console.warn('[optimizeAvatarImage] Canvas processing fallback:', err)
+        resolve(file)
+      }
+    }
+
+    img.onerror = () => resolve(file)
+    reader.readAsDataURL(file)
+  })
+}
