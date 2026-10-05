@@ -72,7 +72,7 @@ export default function Header() {
           <Link to="/" className="group flex items-center text-inherit no-underline flex-shrink-0">
             <HatchpenLogo
               size="sm"
-              subtitle="Folio Edition"
+              variant="full"
               className={isNavSearchOpen ? 'hidden md:inline-flex' : 'inline-flex'}
             />
           </Link>

@@ -1,30 +1,3 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
-  <rect width="100" height="100" rx="20" fill="#010611" />
-  <g stroke="#F8FAFC" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-    <!-- Pen Nib Apex & Outer Blade -->
-    <path d="M50 14 L35 34 L39 44 H61 L65 34 Z" />
-    
-    <!-- Breather Hole & Center Slit -->
-    <line x1="50" y1="14" x2="50" y2="28" />
-    <circle cx="50" cy="30" r="2.2" fill="#F8FAFC" />
-    
-    <!-- Nib Facet Lines -->
-    <line x1="43" y1="44" x2="48" y2="31" />
-    <line x1="57" y1="44" x2="52" y2="31" />
-
-    <!-- Collar Band -->
-    <path d="M36 48 H64" />
-    <line x1="39" y1="44" x2="36" y2="48" />
-    <line x1="61" y1="44" x2="64" y2="48" />
-
-    <!-- Hatching Egg Lower Shell -->
-    <path d="M36 48 C26 55 25 73 37 83 C43 88 57 88 63 83 C75 73 74 55 64 48" />
-
-    <!-- Emerging Fledgling / Story Bird -->
-    <path d="M35 55.5 L29 57 L35 59.5" />
-    <path d="M35 55.5 C37 52.5 43 51 47 54 C51 57 51 62 48 65" />
-    <circle cx="41.5" cy="55" r="1.5" fill="#F8FAFC" stroke="none" />
-    <path d="M35 59.5 C33 65 34 74 43 80 C50 85 58 83 63 77 C66 72 65 64 62 60" />
-    <path d="M47 66 C45 71 48 75 53 75 C58 75 62 71 63 66" />
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 270 270">
+  <image href="/hatchpen-app-icon.png" width="270" height="270" preserveAspectRatio="xMidYMid meet" />
 </svg>

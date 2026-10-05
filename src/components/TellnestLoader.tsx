@@ -62,8 +62,8 @@ export function TellnestLoader({
           />
 
           {/* Center Monogram Tile */}
-          <div className="relative h-12 w-12 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-xs flex items-center justify-center text-[var(--ink-primary)]">
-            <HatchpenEmblem className="h-6 w-6 text-[var(--ink-primary)]" />
+          <div className="relative h-12 w-12 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-xs flex items-center justify-center text-[var(--ink-primary)] overflow-hidden">
+            <HatchpenEmblem className="h-8 w-8" />
           </div>
         </div>
 

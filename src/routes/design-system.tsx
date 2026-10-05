@@ -1032,40 +1032,38 @@ function DesignSystemShowcasePage() {
           <span className="font-mono text-xs text-[var(--ink-muted)]">Official Brand Asset • Monoline Vector</span>
         </div>
         <p className="text-xs text-[var(--ink-muted)] max-w-2xl leading-relaxed">
-          The definitive Hatchpen identity unifies the craft of writing and the miracle of creation: a fountain pen nib merging into a hatching egg with a fledgling literary bird taking flight.
+          The official Hatchpen brand identity: interlocking <strong>HP</strong> monogram with horizontal fountain pen nib in the counter of P, boxed contrast wordmark, and the signature manifesto <em>&ldquo;Stories. Beyond the Hype.&rdquo;</em>
         </p>
 
         {/* Brand Display Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Vector Emblem Showcase */}
+          {/* Official HP Monogram Insignia */}
           <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 space-y-4 shadow-xs">
             <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2">
               <h3 className="font-serif text-sm font-semibold text-[var(--ink-primary)]">
-                Dynamic Vector Emblem
+                HP Monogram Insignia
               </h3>
               <span className="font-mono text-[10px] text-[var(--ink-faint)]">&lt;HatchpenEmblem /&gt;</span>
             </div>
             <div className="flex items-center gap-6 pt-2">
-              <div className="h-16 w-16 p-2 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-canvas)] flex items-center justify-center text-[var(--ink-primary)]">
-                <HatchpenEmblem className="h-12 w-12" />
-              </div>
+              <HatchpenEmblem className="h-16 w-16 shadow-md" />
               <div className="space-y-1 text-xs text-[var(--ink-muted)]">
-                <p className="font-medium text-[var(--ink-primary)]">Fountain Pen Nib + Emerging Fledgling</p>
-                <p>Pure vector linework. Renders crisply at any scale, adapting to light, dark, and sepia reading palettes using <code className="font-mono text-[11px]">currentColor</code>.</p>
+                <p className="font-semibold text-[var(--ink-primary)]">Interlocking HP + Nib Inset</p>
+                <p>Primary app icon and favicon mark. Embedded fountain pen nib in the counter of the letter P.</p>
               </div>
             </div>
           </div>
 
-          {/* Raster / High-Res Brandmark */}
+          {/* Official Horizontal Wordmark */}
           <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 space-y-4 shadow-xs">
             <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2">
               <h3 className="font-serif text-sm font-semibold text-[var(--ink-primary)]">
-                Brand Lockup Preview
+                Official Horizontal Wordmark
               </h3>
-              <span className="font-mono text-[10px] text-[var(--ink-faint)]">&lt;HatchpenLogo size="lg" /&gt;</span>
+              <span className="font-mono text-[10px] text-[var(--ink-faint)]">&lt;HatchpenLogo variant="full" /&gt;</span>
             </div>
-            <div className="flex items-center gap-4 pt-2">
-              <HatchpenLogo size="lg" subtitle="Where Stories Hatch & Take Flight" />
+            <div className="flex items-center gap-4 pt-3">
+              <HatchpenLogo size="lg" variant="full" />
             </div>
           </div>
         </div>
@@ -1074,16 +1072,34 @@ function DesignSystemShowcasePage() {
         <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 space-y-4 shadow-xs">
           <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2">
             <h3 className="font-serif text-sm font-semibold text-[var(--ink-primary)]">
-              Wordmark Scale Spectrum
+              Wordmark Scale Hierarchy
             </h3>
-            <span className="font-mono text-[10px] text-[var(--ink-faint)]">xs • sm • md • lg • xl</span>
+            <span className="font-mono text-[10px] text-[var(--ink-faint)]">xs • sm • md • lg</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-8 pt-2">
-            <HatchpenLogo size="xs" />
-            <HatchpenLogo size="sm" />
-            <HatchpenLogo size="md" />
-            <HatchpenLogo size="lg" />
+            <HatchpenLogo size="xs" variant="full" />
+            <HatchpenLogo size="sm" variant="full" />
+            <HatchpenLogo size="md" variant="full" />
+            <HatchpenLogo size="lg" variant="full" />
+          </div>
+        </div>
+
+        {/* Brand Board Reference */}
+        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 space-y-3 shadow-xs">
+          <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2">
+            <h3 className="font-serif text-sm font-semibold text-[var(--ink-primary)]">
+              Monochrome Brand Identity Board
+            </h3>
+            <span className="font-mono text-[10px] text-[var(--ink-faint)]">src/assets/logo</span>
+          </div>
+          <div className="overflow-hidden rounded-lg border border-[var(--border-subtle)]">
+            <img
+              src="/hatchpen-brand-board.png"
+              alt="Hatchpen Monochrome Brand Identity Board"
+              className="w-full h-auto object-cover"
+              loading="lazy"
+            />
           </div>
         </div>
       </section>

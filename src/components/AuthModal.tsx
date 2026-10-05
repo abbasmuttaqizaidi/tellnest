@@ -144,9 +144,9 @@ export function AuthModal() {
           <div className="relative mb-3">
             <div className="absolute -inset-2 bg-slate-900/5 dark:bg-white/5 rounded-full blur-md animate-pulse" />
             <img
-              src="/hatchpen-logo.png"
+              src="/hatchpen-logo-transparent.png"
               alt="Hatchpen"
-              className="relative h-12 w-auto object-contain rounded-md"
+              className="relative h-10 w-auto object-contain dark:invert"
               onError={(e) => {
                 const target = e.target as HTMLImageElement
                 if (!target.src.includes('favicon.svg')) {
