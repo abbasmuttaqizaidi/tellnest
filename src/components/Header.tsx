@@ -28,8 +28,6 @@ export default function Header() {
   const { signOut } = useClerk()
   const {
     unreadNotificationCount,
-    siteTheme,
-    setSiteTheme,
     openAuthModal,
     customAvatarUrl,
   } = useApp()
@@ -183,14 +181,6 @@ export default function Header() {
             </Link>
           )}
 
-          {/* Theme Quick Toggle */}
-          <button
-            onClick={() => setSiteTheme(siteTheme === 'dark' ? 'light' : 'dark')}
-            className={`${isNavSearchOpen ? 'hidden lg:flex' : 'hidden sm:flex'} h-8 w-8 items-center justify-center rounded border border-transparent text-[var(--ink-muted)] hover:border-[var(--border-subtle)] hover:text-[var(--ink-primary)] transition-colors flex-shrink-0`}
-            title="Toggle color theme"
-          >
-            {siteTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </button>
 
           {/* Clerk Authentication & User Profile */}
           {!isLoaded ? (

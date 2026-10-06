@@ -172,15 +172,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [readerSettings])
 
   const setSiteTheme = (mode: 'light' | 'dark' | 'auto') => {
-    setSiteThemeState(mode)
+    setSiteThemeState('light')
     if (typeof window !== 'undefined') {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-      const resolved = mode === 'auto' ? (prefersDark ? 'dark' : 'light') : mode
       const root = document.documentElement
-      root.classList.remove('light', 'dark', 'theme-sepia')
-      root.classList.add(resolved)
-      root.setAttribute('data-theme', resolved)
-      localStorage.setItem('theme', mode)
+      root.classList.remove('dark', 'theme-sepia')
+      root.classList.add('light')
+      root.setAttribute('data-theme', 'light')
+      root.style.colorScheme = 'light'
+      localStorage.setItem('theme', 'light')
     }
   }
 

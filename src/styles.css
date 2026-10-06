@@ -10,55 +10,43 @@
 }
 
 :root {
-  /* HatchPen Monochrome Palette */
-  --bg-canvas: #F8FAFC;
+  /* HatchPen Monochrome Palette — Strict White Canvas */
+  --bg-canvas: #FFFFFF;
   --bg-surface: #FFFFFF;
-  --bg-subtle: #F1F5F9;
+  --bg-subtle: #F8FAFC;
   --border-subtle: #E2E8F0;
   --border-strong: #CBD5E1;
   --ink-primary: #010611;
-  --ink-secondary: #171F2C;
+  --ink-secondary: #0F172A;
   --ink-muted: #64748B;
   --ink-faint: #94A3B8;
-  --accent-ink: #171F2C;
+  --accent-ink: #010611;
   --accent-contrast: #FFFFFF;
 
-  /* Reader Warm / Sepia values when activated */
-  --sepia-canvas: #F6F1EA;
-  --sepia-surface: #EDE5DA;
-  --sepia-border: #E0D5C5;
-  --sepia-ink: #2C2219;
-  --sepia-secondary: #574636;
+  /* Reader Warm / Sepia values */
+  --sepia-canvas: #FFFFFF;
+  --sepia-surface: #FFFFFF;
+  --sepia-border: #E2E8F0;
+  --sepia-ink: #010611;
+  --sepia-secondary: #0F172A;
 }
 
 :root[data-theme="dark"],
-.dark {
-  --bg-canvas: #090D14;
-  --bg-surface: #111722;
-  --bg-subtle: #172030;
-  --border-subtle: #1E293B;
-  --border-strong: #334155;
-  --ink-primary: #F8FAFC;
-  --ink-secondary: #E2E8F0;
-  --ink-muted: #94A3B8;
-  --ink-faint: #64748B;
-  --accent-ink: #F8FAFC;
-  --accent-contrast: #090D14;
-}
-
+.dark,
 :root[data-theme="sepia"],
 .theme-sepia {
-  --bg-canvas: #F6F1EA;
-  --bg-surface: #FAF7F2;
-  --bg-subtle: #EDE5DA;
-  --border-subtle: #E0D5C5;
-  --border-strong: #CEC0AD;
-  --ink-primary: #2C2219;
-  --ink-secondary: #4A3A2C;
-  --ink-muted: #7A6553;
-  --ink-faint: #A69280;
-  --accent-ink: #2C2219;
-  --accent-contrast: #F6F1EA;
+  /* Enforce Strict White Background Globally */
+  --bg-canvas: #FFFFFF;
+  --bg-surface: #FFFFFF;
+  --bg-subtle: #F8FAFC;
+  --border-subtle: #E2E8F0;
+  --border-strong: #CBD5E1;
+  --ink-primary: #010611;
+  --ink-secondary: #0F172A;
+  --ink-muted: #64748B;
+  --ink-faint: #94A3B8;
+  --accent-ink: #010611;
+  --accent-contrast: #FFFFFF;
 }
 
 * {
@@ -71,18 +59,23 @@ body,
   min-height: 100%;
   max-width: 100%;
   overflow-x: hidden;
+  background-color: #FFFFFF !important;
+  background: #FFFFFF !important;
 }
 
 html {
   overflow-x: hidden;
   scroll-behavior: smooth;
+  background-color: #FFFFFF !important;
+  background: #FFFFFF !important;
 }
 
 body {
   margin: 0;
   color: var(--ink-secondary);
   font-family: var(--font-sans);
-  background-color: var(--bg-canvas);
+  background-color: #FFFFFF !important;
+  background: #FFFFFF !important;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
@@ -289,24 +282,8 @@ html.has-auth-session .public-home-container {
   display: none !important;
 }
 
-/* Hatchpen Brand Logo Theme Inversion */
+/* Hatchpen Brand Logo */
 .hatchpen-brand-logo {
   transition: filter 0.2s ease-in-out;
-}
-
-:root[data-theme="dark"] .hatchpen-brand-logo:not(.hatchpen-brand-logo--inverted),
-.dark .hatchpen-brand-logo:not(.hatchpen-brand-logo--inverted),
-[data-theme="dark"] img[src*="hatchpen-logo"],
-.dark img[src*="hatchpen-logo"],
-[data-theme="dark"] img[src*="hatchpen-app-icon"],
-.dark img[src*="hatchpen-app-icon"],
-[data-theme="dark"] img[src*="hatchpen-icon"]:not([src*="inverted"]),
-.dark img[src*="hatchpen-icon"]:not([src*="inverted"]) {
-  filter: invert(1) brightness(1.15);
-}
-
-.hatchpen-brand-logo--inverted,
-img[src*="inverted"] {
-  filter: none !important;
 }
 
