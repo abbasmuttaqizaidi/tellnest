@@ -28,7 +28,7 @@ export const Route = createRootRoute({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'Hatchpen — Where Stories Hatch & Take Flight',
+        title: 'Hatchpen — Writings. Beyond the Hype.',
       },
       {
         name: 'description',

@@ -143,13 +143,13 @@ export function AuthModal() {
         {/* Brand Header */}
         <div className="flex flex-col items-center text-center mb-6">
           <div className="relative mb-3">
-            <HatchpenLogo size="lg" variant="inverted" />
+            <HatchpenLogo size="lg" variant="full" />
           </div>
           <h2 className="font-serif text-xl font-bold tracking-tight text-[var(--ink-primary)]">
             Sign In to Hatchpen
           </h2>
           <p className="mt-1 text-xs text-[var(--ink-muted)] max-w-xs">
-            Where stories hatch and take flight. Serialized fiction, essays, and modern letters.
+            Writings. Beyond the Hype. Serialized fiction, essays, and modern letters.
           </p>
         </div>
 

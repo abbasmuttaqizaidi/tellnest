@@ -1029,54 +1029,67 @@ function DesignSystemShowcasePage() {
           <h2 className="font-serif text-2xl font-semibold text-[var(--ink-primary)]">
             Hatchpen Brand Mark & Insignia
           </h2>
-          <span className="font-mono text-xs text-[var(--ink-muted)]">Official Brand Asset • Monoline Vector</span>
+          <span className="font-mono text-xs text-[var(--ink-muted)]">Official Brand Asset • Vector Silhouette</span>
         </div>
         <p className="text-xs text-[var(--ink-muted)] max-w-2xl leading-relaxed">
-          The official Hatchpen brand identity: interlocking <strong>HP</strong> monogram with horizontal fountain pen nib in the counter of P, boxed contrast wordmark, and the signature manifesto <em>&ldquo;Stories. Beyond the Hype.&rdquo;</em>
+          The official Hatchpen brand identity: architectural 3D open-book silhouette with detailed quill feather pen and ink flourish, paired with high-contrast <strong>HATCH pen</strong> typography and the literary manifesto <em>&ldquo;Writings. Beyond the Hype.&rdquo;</em>
         </p>
 
         {/* Brand Display Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Official HP Monogram Insignia */}
+          {/* Official Book + Quill Insignia */}
           <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 space-y-4 shadow-xs">
             <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2">
               <h3 className="font-serif text-sm font-semibold text-[var(--ink-primary)]">
-                HP Monogram Insignia
+                Book & Quill Emblem
               </h3>
               <span className="font-mono text-[10px] text-[var(--ink-faint)]">&lt;HatchpenEmblem /&gt;</span>
             </div>
             <div className="flex items-center gap-6 pt-2">
               <HatchpenEmblem className="h-16 w-16 shadow-md" />
               <div className="space-y-1 text-xs text-[var(--ink-muted)]">
-                <p className="font-semibold text-[var(--ink-primary)]">Interlocking HP + Nib Inset</p>
-                <p>Primary app icon and favicon mark. Embedded fountain pen nib in the counter of the letter P.</p>
+                <p className="font-semibold text-[var(--ink-primary)]">Architectural Book + Quill Feather</p>
+                <p>Primary app icon and favicon mark. 3D folded pages silhouette with detailed feather quill and flowing ink flourish.</p>
               </div>
             </div>
           </div>
 
-          {/* Official Inverted Badge Logo */}
+          {/* Official Full Logo */}
           <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 space-y-4 shadow-xs">
             <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2">
               <h3 className="font-serif text-sm font-semibold text-[var(--ink-primary)]">
-                Inverted High-Contrast Badge
-              </h3>
-              <span className="font-mono text-[10px] text-[var(--ink-faint)]">&lt;HatchpenLogo variant="inverted" /&gt;</span>
-            </div>
-            <div className="flex items-center gap-4 pt-3">
-              <HatchpenLogo size="lg" variant="inverted" />
-            </div>
-          </div>
-
-          {/* Official Transparent Wordmark (Theme-Adaptive) */}
-          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 space-y-4 shadow-xs">
-            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2">
-              <h3 className="font-serif text-sm font-semibold text-[var(--ink-primary)]">
-                Transparent Theme-Adaptive Wordmark
+                Official Full Brand Lockup
               </h3>
               <span className="font-mono text-[10px] text-[var(--ink-faint)]">&lt;HatchpenLogo variant="full" /&gt;</span>
             </div>
             <div className="flex items-center gap-4 pt-3">
               <HatchpenLogo size="lg" variant="full" />
+            </div>
+          </div>
+
+          {/* Compact Logo (Navbar Optimized) */}
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 space-y-4 shadow-xs">
+            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2">
+              <h3 className="font-serif text-sm font-semibold text-[var(--ink-primary)]">
+                Compact Navbar Lockup
+              </h3>
+              <span className="font-mono text-[10px] text-[var(--ink-faint)]">&lt;HatchpenLogo variant="compact" /&gt;</span>
+            </div>
+            <div className="flex items-center gap-4 pt-3">
+              <HatchpenLogo size="lg" variant="compact" />
+            </div>
+          </div>
+
+          {/* Inverted Dark-Canvas Version */}
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 space-y-4 shadow-xs">
+            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2">
+              <h3 className="font-serif text-sm font-semibold text-[var(--ink-primary)]">
+                Inverted (Dark Mode) Lockup
+              </h3>
+              <span className="font-mono text-[10px] text-[var(--ink-faint)]">&lt;HatchpenLogo variant="inverted" /&gt;</span>
+            </div>
+            <div className="flex items-center gap-4 pt-3 bg-slate-950 p-4 rounded-lg">
+              <HatchpenLogo size="lg" variant="inverted" />
             </div>
           </div>
         </div>
@@ -1085,25 +1098,9 @@ function DesignSystemShowcasePage() {
         <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 space-y-4 shadow-xs">
           <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2">
             <h3 className="font-serif text-sm font-semibold text-[var(--ink-primary)]">
-              Inverted Badge Scale Hierarchy
+              Wordmark Scale Hierarchy
             </h3>
-            <span className="font-mono text-[10px] text-[var(--ink-faint)]">xs • sm • md • lg</span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-6 pt-2">
-            <HatchpenLogo size="xs" variant="inverted" />
-            <HatchpenLogo size="sm" variant="inverted" />
-            <HatchpenLogo size="md" variant="inverted" />
-            <HatchpenLogo size="lg" variant="inverted" />
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 space-y-4 shadow-xs">
-          <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2">
-            <h3 className="font-serif text-sm font-semibold text-[var(--ink-primary)]">
-              Transparent Wordmark Scale Hierarchy
-            </h3>
-            <span className="font-mono text-[10px] text-[var(--ink-faint)]">xs • sm • md • lg</span>
+            <span className="font-mono text-[10px] text-[var(--ink-faint)]">xs • sm • md • lg • xl</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-8 pt-2">

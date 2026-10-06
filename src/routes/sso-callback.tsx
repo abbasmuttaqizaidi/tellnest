@@ -14,7 +14,7 @@ export default function SSOCallbackPage() {
       <div className="flex flex-col items-center space-y-5 text-center">
         {/* Brand Logo */}
         <div className="relative">
-          <HatchpenLogo size="lg" variant="inverted" />
+          <HatchpenLogo size="lg" variant="full" />
         </div>
 
         {/* Spinner & Message */}

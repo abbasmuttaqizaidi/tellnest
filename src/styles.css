@@ -296,13 +296,17 @@ html.has-auth-session .public-home-container {
 
 :root[data-theme="dark"] .hatchpen-brand-logo:not(.hatchpen-brand-logo--inverted),
 .dark .hatchpen-brand-logo:not(.hatchpen-brand-logo--inverted),
-[data-theme="dark"] img[src*="hatchpen-logo-transparent"],
-.dark img[src*="hatchpen-logo-transparent"] {
+[data-theme="dark"] img[src*="hatchpen-logo"],
+.dark img[src*="hatchpen-logo"],
+[data-theme="dark"] img[src*="hatchpen-app-icon"],
+.dark img[src*="hatchpen-app-icon"],
+[data-theme="dark"] img[src*="hatchpen-icon"]:not([src*="inverted"]),
+.dark img[src*="hatchpen-icon"]:not([src*="inverted"]) {
   filter: invert(1) brightness(1.15);
 }
 
-/* The inverted badge already has a solid black canvas with white typography */
-.hatchpen-brand-logo--inverted {
+.hatchpen-brand-logo--inverted,
+img[src*="inverted"] {
   filter: none !important;
 }
 

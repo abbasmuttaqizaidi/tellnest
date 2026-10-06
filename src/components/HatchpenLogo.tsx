@@ -4,12 +4,13 @@ export interface HatchpenLogoProps {
   /** Size variant */
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl'
   /** Presentation variant:
-   * - 'full': The official horizontal wordmark (auto-inverts in dark theme)
-   * - 'inverted': Inverted high-contrast brand badge (solid black frame with white HATCH & white boxed PEN)
-   * - 'icon': The official HP monogram insignia with embedded fountain pen nib
-   * - 'lockup': Combined HP emblem + clean typography
+   * - 'full': The official mark with book+quill, HATCH pen wordmark, and "WRITINGS. BEYOND THE HYPE."
+   * - 'compact': The book+quill mark with HATCH pen wordmark (no tagline, ideal for navigation bars)
+   * - 'inverted': White ink version of the full logo
+   * - 'icon': The official Book + Quill emblem
+   * - 'lockup': Combined Book + Quill emblem + styled HTML typography
    */
-  variant?: 'full' | 'inverted' | 'icon' | 'lockup'
+  variant?: 'full' | 'compact' | 'inverted' | 'icon' | 'lockup'
   /** Force inverted colors */
   invert?: boolean
   /** Whether to render the tagline/subtitle */
@@ -22,43 +23,43 @@ export interface HatchpenLogoProps {
 
 const sizeConfig = {
   xs: {
-    icon: 'h-5 w-5',
-    fullHeight: 'h-5',
+    icon: 'h-6 w-6',
+    fullHeight: 'h-6 sm:h-7',
     title: 'text-xs',
     sub: 'text-[8px]',
   },
   sm: {
-    icon: 'h-7 w-7',
-    fullHeight: 'h-6 sm:h-7',
+    icon: 'h-8 w-8',
+    fullHeight: 'h-8 sm:h-9',
     title: 'text-sm',
     sub: 'text-[9px]',
   },
   md: {
-    icon: 'h-8 w-8',
-    fullHeight: 'h-8',
+    icon: 'h-10 w-10',
+    fullHeight: 'h-10 sm:h-11',
     title: 'text-base',
     sub: 'text-[10px]',
   },
   lg: {
-    icon: 'h-10 w-10',
-    fullHeight: 'h-10',
+    icon: 'h-12 w-12',
+    fullHeight: 'h-12 sm:h-14',
     title: 'text-lg',
     sub: 'text-[11px]',
   },
   xl: {
-    icon: 'h-14 w-14',
-    fullHeight: 'h-14',
+    icon: 'h-16 w-16',
+    fullHeight: 'h-16 sm:h-20',
     title: 'text-2xl',
     sub: 'text-xs',
   },
 }
 
 /**
- * Official HP Monogram Insignia
- * Features the interlocking H and P with horizontal fountain pen nib.
+ * Official Book + Quill Emblem
+ * Features the architectural 3D open-book silhouette with detailed quill feather and flowing ink flourish.
  */
 export function HatchpenEmblem({
-  className = 'h-7 w-7',
+  className = 'h-8 w-8',
   rounded = true,
 }: {
   className?: string
@@ -72,8 +73,8 @@ export function HatchpenEmblem({
     >
       <img
         src="/hatchpen-app-icon.png"
-        alt="Hatchpen Insignia"
-        className="h-full w-full object-contain"
+        alt="Hatchpen Book & Quill Insignia"
+        className="h-full w-full object-contain hatchpen-brand-logo transition-all"
         loading="eager"
         decoding="async"
       />
@@ -83,11 +84,11 @@ export function HatchpenEmblem({
 
 /**
  * Hatchpen Official Wordmark & Logo Component
- * Directly renders the official brand identity from the logo assets.
+ * Directly renders the official brand identity from the logo assets with theme responsiveness.
  */
 export function HatchpenLogo({
   size = 'md',
-  variant = 'inverted',
+  variant = 'full',
   invert = false,
   showTagline = true,
   subtitle,
@@ -104,8 +105,22 @@ export function HatchpenLogo({
       <div className={`inline-flex items-center select-none ${className}`}>
         <img
           src="/hatchpen-logo-inverted.png"
+          alt="Hatchpen — Writings. Beyond the Hype."
+          className={`hatchpen-brand-logo hatchpen-brand-logo--inverted ${conf.fullHeight} w-auto object-contain transition-all`}
+          loading="eager"
+          decoding="async"
+        />
+      </div>
+    )
+  }
+
+  if (variant === 'compact') {
+    return (
+      <div className={`inline-flex items-center select-none ${className}`}>
+        <img
+          src="/hatchpen-logo-compact.png"
           alt="Hatchpen"
-          className={`hatchpen-brand-logo hatchpen-brand-logo--inverted ${conf.fullHeight} w-auto object-contain rounded transition-all`}
+          className={`hatchpen-brand-logo ${conf.fullHeight} w-auto object-contain transition-all`}
           loading="eager"
           decoding="async"
         />
@@ -118,7 +133,7 @@ export function HatchpenLogo({
       <div className={`inline-flex items-center select-none ${className}`}>
         <img
           src="/hatchpen-logo-transparent.png"
-          alt="Hatchpen — Stories. Beyond the Hype."
+          alt="Hatchpen — Writings. Beyond the Hype."
           className={`hatchpen-brand-logo ${conf.fullHeight} w-auto object-contain transition-all`}
           loading="eager"
           decoding="async"
@@ -127,17 +142,17 @@ export function HatchpenLogo({
     )
   }
 
-  // Lockup variant: Emblem + Typography Lockup
+  // Lockup variant: Book & Quill Emblem + Styled Typography Lockup
   return (
     <div className={`inline-flex items-center gap-2.5 select-none ${className}`}>
       <HatchpenEmblem className={conf.icon} />
       <div className="flex flex-col justify-center leading-none">
-        <div className="flex items-center gap-1">
-          <span className="font-sans font-extrabold tracking-widest text-[var(--ink-primary)] uppercase text-sm sm:text-base">
+        <div className="flex items-baseline gap-1">
+          <span className="font-sans font-light tracking-widest text-[var(--ink-primary)] uppercase text-sm sm:text-base">
             HATCH
           </span>
-          <span className="bg-[var(--ink-primary)] text-[var(--accent-contrast)] px-1.5 py-0.5 rounded text-xs sm:text-sm font-bold tracking-wider">
-            PEN
+          <span className="font-sans font-black tracking-tight text-[var(--ink-primary)] lowercase text-base sm:text-lg">
+            pen
           </span>
         </div>
         {subtitle !== undefined ? (
@@ -146,7 +161,7 @@ export function HatchpenLogo({
           </span>
         ) : showTagline ? (
           <span className="font-sans text-[8px] text-[var(--ink-muted)] tracking-widest uppercase mt-0.5 font-semibold">
-            Stories. Beyond the Hype.
+            Writings. Beyond the Hype.
           </span>
         ) : null}
       </div>
@@ -155,3 +170,4 @@ export function HatchpenLogo({
 }
 
 export default HatchpenLogo
+
