@@ -102,10 +102,9 @@ function PublicHome() {
   const navigate = useNavigate()
   const [homeQuery, setHomeQuery] = useState('')
 
-  // Multi-story Hero Carousel state
+  // Multi-story Hero Carousel state (5 manuscripts)
   const heroWorks = useMemo(() => {
-    // Select top 4 standout manuscripts
-    return allWorks.slice(0, 4)
+    return allWorks.slice(0, 5)
   }, [allWorks])
 
   const [activeHeroIndex, setActiveHeroIndex] = useState(0)
@@ -155,8 +154,8 @@ function PublicHome() {
           <div className="order-2 lg:order-1 lg:col-span-7 flex flex-col justify-center items-center text-center lg:items-start lg:text-left w-full">
             <div className="w-full space-y-3.5 sm:space-y-4">
               
-              {/* Badges, Reading Info & Discrete Carousel Controls */}
-              <div className="flex items-center justify-between gap-2.5 w-full">
+              {/* Badges, Reading Info & Discrete Carousel Controls (Desktop only; on mobile genre is on the card and controls are swipe dots) */}
+              <div className="hidden lg:flex items-center justify-between gap-2.5 w-full">
                 <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 justify-center lg:justify-start">
                   <Badge variant="outline" size="sm">
                     {activeHeroWork.category}
@@ -253,8 +252,8 @@ function PublicHome() {
                         </Link>
                       </div>
 
-                      {/* Action buttons */}
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center lg:justify-start gap-2 sm:gap-3 pt-2 w-full">
+                      {/* Action buttons (desktop only; on mobile they are overlaid vertically directly on the active cover) */}
+                      <div className="hidden lg:flex flex-row items-center justify-start gap-3 pt-2 w-full">
                         <Link
                           to="/read/$workId/$chapterId"
                           params={{
@@ -353,11 +352,166 @@ function PublicHome() {
             </div>
           </div>
 
-          {/* Right Column: Physical Book Jacket Presentation with Animated Carousel Cover & Overlapping Editions Dock */}
+          {/* Right Column: Physical Book Jacket Presentation
+              - Mobile View: 3D Stacked Depth Carousel (Front card is taller, 4 background cards are tucked behind with smaller heights and scales)
+              - Desktop View: Classic elegant book jacket with bottom overlapping thumbnails dock
+          */}
           <div className="order-1 lg:order-2 lg:col-span-5 flex flex-col items-center justify-center w-full">
-            <div className="relative group w-full max-w-[220px] sm:max-w-[280px] lg:max-w-[310px]">
-              
-              {/* Swipeable Carousel Container for Book Cover */}
+            
+            {/* 1. MOBILE-ONLY STACKED DEPTH CAROUSEL (strict block lg:hidden) */}
+            <div className="block lg:hidden w-full max-w-[360px] mx-auto py-2">
+              <div className="relative h-[470px] w-full flex items-center justify-center select-none touch-pan-y">
+                {heroWorks.map((work, idx) => {
+                  // Calculate distance from active index in a cyclical 5-item carousel (-2, -1, 0, 1, 2)
+                  const count = heroWorks.length
+                  let offset = (idx - activeHeroIndex) % count
+                  if (offset > 2) offset -= count
+                  if (offset < -2) offset += count
+
+                  const isFront = offset === 0
+                  const isVisible = Math.abs(offset) <= 2
+                  if (!isVisible) return null
+
+                  // Depth styling parameters:
+                  // Front card: taller (h-[420px], scale 1.0, z-30, w: 260px)
+                  // Offset +/- 1: tucked behind with smaller height (h-[350px], scale 0.90, z-20)
+                  // Offset +/- 2: tucked even further behind (h-[295px], scale 0.82, z-10)
+                  const zIndex = 30 - Math.abs(offset) * 10
+                  const xTranslate = offset * 34 // horizontal peek offset
+                  const scale = 1 - Math.abs(offset) * 0.08
+                  const height = isFront ? 420 : Math.abs(offset) === 1 ? 350 : 295
+                  const opacity = isFront ? 1 : Math.abs(offset) === 1 ? 0.78 : 0.55
+
+                  return (
+                    <motion.div
+                      key={work.id}
+                      animate={{
+                        x: xTranslate,
+                        scale: scale,
+                        opacity: opacity,
+                        zIndex: zIndex,
+                        height: height,
+                      }}
+                      transition={{
+                        type: 'spring',
+                        stiffness: 260,
+                        damping: 28,
+                        mass: 0.6,
+                      }}
+                      drag={isFront ? 'x' : false}
+                      dragConstraints={{ left: 0, right: 0 }}
+                      dragElastic={0.15}
+                      onDragEnd={(_e, info) => {
+                        if (info.offset.x < -35 || info.velocity.x < -200) {
+                          // Swipe left -> Next
+                          setActiveHeroIndex((prev) => (prev < heroWorks.length - 1 ? prev + 1 : 0))
+                        } else if (info.offset.x > 35 || info.velocity.x > 200) {
+                          // Swipe right -> Prev
+                          setActiveHeroIndex((prev) => (prev > 0 ? prev - 1 : heroWorks.length - 1))
+                        }
+                      }}
+                      onClick={() => {
+                        if (!isFront) {
+                          setActiveHeroIndex(idx)
+                        }
+                      }}
+                      style={{
+                        width: '260px',
+                        transformOrigin: 'center center',
+                        willChange: 'transform, opacity',
+                        transform: 'translateZ(0)',
+                      }}
+                      className={`absolute rounded-xl overflow-hidden border border-[var(--border-strong)] bg-[var(--bg-subtle)] transform-gpu select-none cursor-pointer ${
+                        isFront
+                          ? 'ring-2 ring-[var(--ink-primary)] shadow-2xl cursor-grab active:cursor-grabbing'
+                          : 'shadow-md cursor-pointer hover:opacity-90'
+                      }`}
+                    >
+                      <OptimizedImage
+                        src={work.cover}
+                        alt={work.title}
+                        priority={isFront}
+                        width={420}
+                        height={630}
+                        draggable={false}
+                        containerClassName="h-full w-full"
+                        className="h-full w-full object-cover pointer-events-none select-none"
+                      />
+
+                      {/* Spine depth shadow */}
+                      <div className="absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-black/40 to-transparent pointer-events-none z-10" />
+
+                      {/* Front Card Badge */}
+                      {isFront && (
+                        <div className="absolute top-2.5 right-2.5 rounded bg-black/80 px-2 py-0.5 text-[9px] font-mono font-medium text-white shadow-xs backdrop-blur-xs z-20">
+                          {work.publishedChaptersCount} Chs
+                        </div>
+                      )}
+
+                      {/* Genre Tag Indicator (replaces 01/02 numbering, same font size & pill design) */}
+                      {work.genre && (
+                        <div className="absolute top-2.5 left-2.5 rounded bg-black/70 px-1.5 py-0.5 text-[8px] font-mono text-white/90 backdrop-blur-2xs z-20 uppercase tracking-wider">
+                          {work.genre}
+                        </div>
+                      )}
+
+                      {/* Overlaid Vertical Action Buttons on Front Card */}
+                      {isFront && (
+                        <div
+                          className="absolute inset-x-0 bottom-0 pt-12 pb-3.5 px-3 bg-gradient-to-t from-black/95 via-black/70 to-transparent flex flex-col gap-2 z-20"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Link
+                            to="/read/$workId/$chapterId"
+                            params={{
+                              workId: work.id,
+                              chapterId: work.chapters[0]?.id || 'ch-1',
+                            }}
+                            className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-white text-black py-2.5 px-3 text-xs font-semibold hover:bg-neutral-100 active:scale-[0.98] transition shadow-md no-underline"
+                          >
+                            <BookOpen className="h-3.5 w-3.5" />
+                            <span>Begin Chapter 1</span>
+                          </Link>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleOpenSample()
+                            }}
+                            className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-black/60 border border-white/25 text-white backdrop-blur-md py-2 px-3 text-xs font-medium hover:bg-black/80 active:scale-[0.98] transition cursor-pointer"
+                          >
+                            <Feather className="h-3.5 w-3.5" />
+                            <span>Sample Opening Lines</span>
+                          </button>
+                        </div>
+                      )}
+                    </motion.div>
+                  )
+                })}
+              </div>
+
+              {/* Mobile Swipe Indicators & Tap Nav */}
+              <div className="flex items-center justify-center gap-2 pt-1">
+                {heroWorks.map((_, dotIdx) => (
+                  <button
+                    key={dotIdx}
+                    type="button"
+                    onClick={() => setActiveHeroIndex(dotIdx)}
+                    className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                      dotIdx === activeHeroIndex
+                        ? 'w-6 bg-[var(--ink-primary)]'
+                        : 'w-1.5 bg-[var(--border-strong)] hover:bg-[var(--ink-muted)]'
+                    }`}
+                    aria-label={`Go to slide ${dotIdx + 1}`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* 2. DESKTOP-ONLY CLASSIC SHOWCASE (strict hidden lg:block) */}
+            <div className="hidden lg:block relative group w-full max-w-[310px]">
+              {/* Main Physical Book Cover */}
               <div className="aspect-[2/3] w-full overflow-hidden rounded-lg border border-[var(--border-strong)] shadow-xl bg-[var(--bg-subtle)] relative touch-pan-y select-none">
                 <AnimatePresence mode="wait">
                   <motion.div
@@ -366,20 +520,7 @@ function PublicHome() {
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.96 }}
                     transition={{ duration: 0.3, ease: 'easeInOut' }}
-                    drag="x"
-                    dragConstraints={{ left: 0, right: 0 }}
-                    dragElastic={0.2}
-                    onDragEnd={(_e, { offset, velocity }) => {
-                      const swipe = Math.abs(offset.x) * velocity.x
-                      if (offset.x < -40 || swipe < -100) {
-                        // Swipe left -> Next
-                        setActiveHeroIndex((prev) => (prev < heroWorks.length - 1 ? prev + 1 : 0))
-                      } else if (offset.x > 40 || swipe > 100) {
-                        // Swipe right -> Prev
-                        setActiveHeroIndex((prev) => (prev > 0 ? prev - 1 : heroWorks.length - 1))
-                      }
-                    }}
-                    className="absolute inset-0 cursor-grab active:cursor-grabbing"
+                    className="absolute inset-0"
                   >
                     <OptimizedImage
                       src={activeHeroWork.cover}
@@ -387,7 +528,7 @@ function PublicHome() {
                       priority={true}
                       width={600}
                       height={900}
-                      sizes="(max-width: 640px) 220px, (max-width: 1024px) 280px, 310px"
+                      sizes="310px"
                       draggable={false}
                       containerClassName="h-full w-full"
                       className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-102 pointer-events-none select-none"
@@ -395,14 +536,14 @@ function PublicHome() {
                   </motion.div>
                 </AnimatePresence>
 
-                {/* Left/Right Quick Tap Arrows on the image for mobile & desktop */}
+                {/* Left/Right Quick Tap Arrows for desktop */}
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation()
                     setActiveHeroIndex((prev) => (prev > 0 ? prev - 1 : heroWorks.length - 1))
                   }}
-                  className="absolute left-1.5 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/40 hover:bg-black/70 text-white backdrop-blur-xs transition cursor-pointer z-10 opacity-80 sm:opacity-0 sm:group-hover:opacity-100"
+                  className="absolute left-1.5 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/40 hover:bg-black/70 text-white backdrop-blur-xs transition cursor-pointer z-10 opacity-0 group-hover:opacity-100"
                   aria-label="Previous Cover"
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -413,7 +554,7 @@ function PublicHome() {
                     e.stopPropagation()
                     setActiveHeroIndex((prev) => (prev < heroWorks.length - 1 ? prev + 1 : 0))
                   }}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/40 hover:bg-black/70 text-white backdrop-blur-xs transition cursor-pointer z-10 opacity-80 sm:opacity-0 sm:group-hover:opacity-100"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/40 hover:bg-black/70 text-white backdrop-blur-xs transition cursor-pointer z-10 opacity-0 group-hover:opacity-100"
                   aria-label="Next Cover"
                 >
                   <ChevronRight className="h-4 w-4" />
@@ -422,19 +563,19 @@ function PublicHome() {
                 {/* Spine depth shadow */}
                 <div className="absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-black/30 to-transparent pointer-events-none z-10" />
                 {/* Soft bottom vignette so overlapping thumbnails sit cleanly */}
-                <div className="absolute inset-x-0 bottom-0 h-20 sm:h-28 bg-gradient-to-t from-black/50 via-black/15 to-transparent pointer-events-none z-10" />
+                <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/50 via-black/15 to-transparent pointer-events-none z-10" />
               </div>
 
               {/* Available chapters badge positioned at top right */}
-              <div className="absolute -top-2.5 -right-2 sm:-top-3 sm:-right-2 rounded border border-[var(--border-strong)] bg-[var(--bg-surface)] px-2 sm:px-3 py-1 sm:py-1.5 shadow-md z-20 pointer-events-none">
-                <span className="font-mono text-[9px] sm:text-[10px] text-[var(--ink-secondary)] font-medium">
+              <div className="absolute -top-3 -right-2 rounded border border-[var(--border-strong)] bg-[var(--bg-surface)] px-3 py-1.5 shadow-md z-20 pointer-events-none">
+                <span className="font-mono text-[10px] text-[var(--ink-secondary)] font-medium">
                   {activeHeroWork.publishedChaptersCount} Chs Available
                 </span>
               </div>
 
               {/* Elegant Overlapping Thumbnail Carousel Dock at bottom */}
-              <div className="absolute -bottom-4 sm:-bottom-5 inset-x-1 sm:inset-x-3 z-20">
-                <div className="rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)]/95 backdrop-blur-md p-1 sm:p-1.5 shadow-xl flex items-center justify-between gap-1 sm:gap-1.5">
+              <div className="absolute -bottom-5 inset-x-3 z-20">
+                <div className="rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)]/95 backdrop-blur-md p-1.5 shadow-xl flex items-center justify-between gap-1.5">
                   {heroWorks.map((work, idx) => {
                     const isActive = idx === activeHeroIndex
                     return (
@@ -442,7 +583,7 @@ function PublicHome() {
                         key={work.id}
                         type="button"
                         onClick={() => setActiveHeroIndex(idx)}
-                        className={`group/thumb relative flex-1 flex flex-col items-center p-0.5 sm:p-1 rounded-lg transition-all cursor-pointer ${
+                        className={`group/thumb relative flex-1 flex flex-col items-center p-1 rounded-lg transition-all cursor-pointer ${
                           isActive
                             ? 'bg-[var(--bg-subtle)] ring-1.5 ring-[var(--ink-primary)] shadow-xs scale-102'
                             : 'hover:bg-[var(--bg-subtle)] opacity-70 hover:opacity-100'
@@ -462,7 +603,7 @@ function PublicHome() {
                             }`}
                           />
                         </div>
-                        <span className="font-mono text-[8px] sm:text-[9px] text-[var(--ink-primary)] mt-0.5 sm:mt-1 truncate w-full text-center font-medium block">
+                        <span className="font-mono text-[9px] text-[var(--ink-primary)] mt-1 truncate w-full text-center font-medium block">
                           0{idx + 1}
                         </span>
                       </button>
@@ -470,8 +611,8 @@ function PublicHome() {
                   })}
                 </div>
               </div>
-
             </div>
+
           </div>
 
         </div>
