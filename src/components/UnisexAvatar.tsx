@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { getOptimizedImageUrl } from '../lib/image'
 
 export interface UnisexAvatarProps {
   src?: string | null
@@ -112,15 +113,16 @@ export function UnisexAvatar({
   const isInitialOrPlaceholder = isDefaultOrInitialAvatar(src)
   const isExplicitlyNoImage = hasImage === false || forceUnisex
   const validSrc = !imageError && src && !isInitialOrPlaceholder && !isExplicitlyNoImage ? src : null
+  const optimizedSrc = validSrc ? getOptimizedImageUrl(validSrc, { width: 160, height: 160, quality: 85 }) : null
 
   return (
     <div
       style={sizeStyle}
       className={`relative inline-flex items-center justify-center shrink-0 border border-[var(--border-subtle)] bg-[var(--bg-subtle)] overflow-hidden transition-colors ${roundedClass} ${sizeClass} ${className}`}
     >
-      {validSrc ? (
+      {optimizedSrc ? (
         <img
-          src={validSrc}
+          src={optimizedSrc}
           alt={alt || name || 'Avatar'}
           onError={() => setImageError(true)}
           className={`h-full w-full object-cover ${roundedClass}`}

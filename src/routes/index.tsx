@@ -4,17 +4,22 @@ import { useApp } from '../context/AppContext'
 import { CATEGORIES, GENRES, AUTHORS } from '../data/mockData'
 import WorkCard from '../components/WorkCard'
 import AuthorCard from '../components/AuthorCard'
+import { OptimizedImage } from '../components/OptimizedImage'
 import {
   AnimatedSearch,
   Button,
   Badge,
   AnimatedTabs,
   MetricProgressCard,
+  FilterDisclosure,
+  BottomSheet,
 } from '../design-system'
 import { useUser } from '@clerk/react'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   BookOpen,
   ArrowRight,
+  ArrowLeft,
   Bookmark,
   TrendingUp,
   Sparkles,
@@ -27,7 +32,14 @@ import {
   Users,
   Compass as CompassIcon,
   ChevronRight,
+  ChevronLeft,
   Library as LibraryIcon,
+  Search,
+  Layers,
+  BookText,
+  Filter,
+  SlidersHorizontal,
+  X,
 } from 'lucide-react'
 
 export const Route = createFileRoute('/')({
@@ -83,221 +95,586 @@ function HomePage() {
 }
 
 /* ==========================================================================
-   PUBLIC HOME PAGE — Curated Literary Discovery (No Write Button)
+   PUBLIC HOME PAGE — Curated Atmospheric Literary Salon & Bookstore
    ========================================================================== */
 function PublicHome() {
   const { allWorks, openAuthModal } = useApp()
   const navigate = useNavigate()
   const [homeQuery, setHomeQuery] = useState('')
 
-  const featuredWork = allWorks[0] // The Cold Perimeter
+  // Multi-story Hero Carousel state
+  const heroWorks = useMemo(() => {
+    // Select top 4 standout manuscripts
+    return allWorks.slice(0, 4)
+  }, [allWorks])
+
+  const [activeHeroIndex, setActiveHeroIndex] = useState(0)
+  const activeHeroWork = heroWorks[activeHeroIndex] || allWorks[0]
+
+  const [heroViewMode, setHeroViewMode] = useState<'overview' | 'taste'>('overview')
+  const [mobileSheetTasteOpen, setMobileSheetTasteOpen] = useState(false)
+  const [mobileSheetHeight, setMobileSheetHeight] = useState<'default' | 'expanded'>('default')
+
+  const handleOpenSample = () => {
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setMobileSheetHeight('default')
+      setMobileSheetTasteOpen(true)
+    } else {
+      setHeroViewMode('taste')
+    }
+  }
+
+  const activeHeroChapter = activeHeroWork?.chapters?.[0]
+  const activeTasteParagraphs = useMemo(() => {
+    if (!activeHeroChapter?.content) return []
+    return activeHeroChapter.content
+      .split('\n\n')
+      .map((p) => p.trim())
+      .filter(Boolean)
+      .slice(0, 3)
+  }, [activeHeroChapter])
+
+  const catalogDisplayWorks = useMemo(() => {
+    return allWorks.slice(0, 6)
+  }, [allWorks])
+
   const trendingWorks = allWorks.filter((w) => w.trending || w.featured).slice(0, 4)
-  const risingWorks = allWorks.filter((w) => w.rising || w.category === 'Poetry').slice(0, 4)
   const completedWorks = allWorks.filter((w) => w.status === 'Completed').slice(0, 3)
 
   return (
-    <div className="public-home-container min-h-screen py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-12">
+    <div className="public-home-container min-h-screen py-6 sm:py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-12 sm:space-y-16">
       
-      {/* HERO SECTION — Featured Manuscript Showcase Card */}
-      <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 sm:p-8 lg:p-12 shadow-xs">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+      {/* =========================================================================
+          HERO CAROUSEL WITH INLINE "READ A TASTE"
+          ========================================================================= */}
+      <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5 sm:p-8 lg:p-10 shadow-sm relative overflow-visible lg:overflow-hidden flex flex-col justify-center lg:h-[540px]">
+        
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 lg:gap-12 items-center flex-1">
           
-          {/* Left Narrative Column */}
-          <div className="lg:col-span-7 space-y-6">
-            <div className="flex items-center gap-2.5">
-              <Badge variant="default" size="sm">
-                Featured Manuscript
-              </Badge>
-              <Badge variant="outline" size="sm">
-                {featuredWork.category} • {featuredWork.genre}
-              </Badge>
-              <span className="text-xs text-[var(--ink-faint)] font-mono">
-                {featuredWork.status}
-              </span>
-            </div>
-
-            <div>
-              <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-tight text-[var(--ink-primary)] leading-[1.15]">
-                {featuredWork.title}
-              </h1>
-              {featuredWork.subtitle && (
-                <p className="mt-2 font-serif text-lg text-[var(--ink-muted)] italic">
-                  {featuredWork.subtitle}
-                </p>
-              )}
-            </div>
-
-            <p className="text-sm sm:text-base leading-relaxed text-[var(--ink-secondary)] max-w-2xl">
-              {featuredWork.synopsis}
-            </p>
-
-            {/* Author Attribution */}
-            <div className="flex items-center gap-3 pt-2">
-              <Link
-                to="/author/$authorId"
-                params={{ authorId: featuredWork.author.id }}
-                className="flex items-center gap-2.5 text-inherit no-underline group"
-              >
-                <img
-                  src={featuredWork.author.avatar}
-                  alt={featuredWork.author.name}
-                  loading="lazy"
-                  decoding="async"
-                  className="h-10 w-10 rounded-full object-cover grayscale border border-[var(--border-strong)]"
-                />
-                <div>
-                  <p className="text-xs font-semibold text-[var(--ink-primary)] group-hover:underline">
-                    {featuredWork.author.name}
-                  </p>
-                  <p className="text-[11px] font-mono text-[var(--ink-muted)]">
-                    @{featuredWork.author.handle} • {featuredWork.author.location}
-                  </p>
+          {/* Main Selected Manuscript Content */}
+          <div className="order-2 lg:order-1 lg:col-span-7 flex flex-col justify-center items-center text-center lg:items-start lg:text-left w-full">
+            <div className="w-full space-y-3.5 sm:space-y-4">
+              
+              {/* Badges, Reading Info & Discrete Carousel Controls */}
+              <div className="flex items-center justify-between gap-2.5 w-full">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 justify-center lg:justify-start">
+                  <Badge variant="outline" size="sm">
+                    {activeHeroWork.category}
+                  </Badge>
+                  <Badge variant="secondary" size="sm">
+                    {activeHeroWork.genre}
+                  </Badge>
+                  <span className="text-xs text-[var(--ink-muted)] font-mono hidden sm:inline">
+                    {activeHeroWork.status}
+                  </span>
+                  <span className="text-xs text-[var(--ink-faint)] font-mono hidden sm:inline">•</span>
+                  <span className="text-[11px] sm:text-xs text-[var(--ink-muted)] font-mono flex items-center gap-1">
+                    <Clock className="h-3 w-3 inline" />
+                    {activeHeroWork.chapters?.[0]?.readTimeMinutes || 12}m
+                  </span>
                 </div>
-              </Link>
-            </div>
 
-            {/* CTAs strictly without Write button */}
-            <div className="flex flex-wrap items-center gap-3 pt-4">
-              <Link
-                to="/read/$workId/$chapterId"
-                params={{
-                  workId: featuredWork.id,
-                  chapterId: featuredWork.chapters[0].id,
-                }}
-                className="inline-flex items-center gap-2 rounded border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-5 py-2.5 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 transition-opacity no-underline shadow-xs"
-              >
-                <BookOpen className="h-4 w-4" />
-                <span>Start Reading Chapter 1</span>
-              </Link>
+                {/* Compact Carousel Nav */}
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="font-mono text-xs text-[var(--ink-faint)] mr-1">
+                    {String(activeHeroIndex + 1).padStart(2, '0')}/{String(heroWorks.length).padStart(2, '0')}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveHeroIndex((prev) => (prev > 0 ? prev - 1 : heroWorks.length - 1))}
+                    className="p-1 sm:p-1.5 rounded-md border border-[var(--border-subtle)] hover:border-[var(--ink-primary)] active:scale-95 text-[var(--ink-primary)] transition cursor-pointer"
+                    title="Previous Manuscript"
+                    aria-label="Previous Manuscript"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveHeroIndex((prev) => (prev < heroWorks.length - 1 ? prev + 1 : 0))}
+                    className="p-1 sm:p-1.5 rounded-md border border-[var(--border-subtle)] hover:border-[var(--ink-primary)] active:scale-95 text-[var(--ink-primary)] transition cursor-pointer"
+                    title="Next Manuscript"
+                    aria-label="Next Manuscript"
+                  >
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
 
-              <button
-                type="button"
-                onClick={() => openAuthModal()}
-                className="inline-flex items-center gap-2 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-2.5 text-xs font-medium text-[var(--ink-muted)] hover:border-[var(--border-strong)] hover:text-[var(--ink-primary)] transition-all cursor-pointer"
-              >
-                <Bookmark className="h-4 w-4" />
-                <span>Sign In to Save</span>
-              </button>
+              {/* Title & Subtitle */}
+              <div>
+                <h2 className="font-serif text-2xl sm:text-4xl lg:text-5xl font-semibold tracking-tight text-[var(--ink-primary)] leading-[1.15]">
+                  {activeHeroWork.title}
+                </h2>
+                {activeHeroWork.subtitle && (
+                  <p className="mt-1 font-serif text-xs sm:text-base text-[var(--ink-muted)] italic truncate">
+                    {activeHeroWork.subtitle}
+                  </p>
+                )}
+              </div>
 
-              <Link
-                to="/works/$workId"
-                params={{ workId: featuredWork.id }}
-                className="inline-flex items-center gap-1.5 px-3 py-2.5 text-xs text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors no-underline"
-              >
-                <span>Work Overview</span>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
+              {/* Responsive viewing window */}
+              <div className="relative w-full sm:h-[270px] sm:overflow-hidden">
+                <AnimatePresence mode="wait">
+                  {heroViewMode === 'overview' ? (
+                    <motion.div
+                      key="overview-content"
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                      className="flex flex-col justify-between items-center lg:items-start w-full sm:absolute sm:inset-0 space-y-3 sm:space-y-0"
+                    >
+                      <p className="text-xs sm:text-base leading-relaxed text-[var(--ink-secondary)] max-w-2xl font-serif line-clamp-3 sm:line-clamp-4">
+                        {activeHeroWork.synopsis}
+                      </p>
+
+                      {/* Author Attribution */}
+                      <div className="flex items-center gap-2.5 py-1">
+                        <Link
+                          to="/author/$authorId"
+                          params={{ authorId: activeHeroWork.author.id }}
+                          className="flex items-center gap-2.5 text-inherit no-underline group"
+                        >
+                          <OptimizedImage
+                            src={activeHeroWork.author.avatar}
+                            alt={activeHeroWork.author.name}
+                            width={40}
+                            height={40}
+                            className="h-8 w-8 sm:h-10 sm:w-10 rounded-full object-cover grayscale border border-[var(--border-strong)]"
+                          />
+                          <div className="text-left">
+                            <p className="text-xs font-semibold text-[var(--ink-primary)] group-hover:underline">
+                              {activeHeroWork.author.name}
+                            </p>
+                            <p className="text-[10px] sm:text-[11px] font-mono text-[var(--ink-muted)]">
+                              @{activeHeroWork.author.handle} • {activeHeroWork.author.location}
+                            </p>
+                          </div>
+                        </Link>
+                      </div>
+
+                      {/* Action buttons */}
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center lg:justify-start gap-2 sm:gap-3 pt-2 w-full">
+                        <Link
+                          to="/read/$workId/$chapterId"
+                          params={{
+                            workId: activeHeroWork.id,
+                            chapterId: activeHeroWork.chapters[0]?.id || 'ch-1',
+                          }}
+                          className="inline-flex items-center justify-center gap-2 rounded border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-5 py-2.5 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 active:scale-[0.99] transition no-underline shadow-xs"
+                        >
+                          <BookOpen className="h-4 w-4" />
+                          <span>Begin Chapter 1</span>
+                        </Link>
+
+                        <button
+                          type="button"
+                          onClick={handleOpenSample}
+                          className="inline-flex items-center justify-center gap-2 rounded border border-[var(--border-strong)] bg-[var(--bg-surface)] px-4 py-2.5 text-xs font-medium text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] active:scale-[0.99] transition cursor-pointer"
+                        >
+                          <Feather className="h-3.5 w-3.5" />
+                          <span>Sample Opening Lines</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => openAuthModal()}
+                          className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition cursor-pointer"
+                        >
+                          <Bookmark className="h-3.5 w-3.5" />
+                          <span>Save to Library</span>
+                        </button>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="taste-content"
+                      initial={{ opacity: 0, y: 25 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                      className="flex flex-col justify-between text-left h-full sm:absolute sm:inset-0 space-y-3 sm:space-y-0"
+                    >
+                      <div className="flex items-center justify-between pb-2 border-b border-dashed border-[var(--border-subtle)] text-[11px] sm:text-xs font-mono text-[var(--ink-muted)]">
+                        <span className="flex items-center gap-1.5 font-medium text-[var(--ink-primary)] truncate">
+                          <Feather className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">Sample • {activeHeroChapter?.title || 'Chapter 1'}</span>
+                        </span>
+                        <span className="shrink-0">{activeHeroChapter?.readTimeMinutes || 12}m read</span>
+                      </div>
+
+                      {/* Typeset Prose with Literary Drop Cap & Scrollable viewport */}
+                      <div className="space-y-2.5 sm:space-y-3.5 max-h-[170px] sm:max-h-[160px] overflow-y-auto pr-2 scrollbar-thin my-1">
+                        {activeTasteParagraphs.map((paragraph, index) => {
+                          if (index === 0) {
+                            const firstChar = paragraph.charAt(0)
+                            const restOfParagraph = paragraph.slice(1)
+                            return (
+                              <p key={index} className="font-serif text-xs sm:text-sm leading-relaxed text-[var(--ink-primary)]">
+                                <span className="float-left text-2xl sm:text-3xl font-serif font-bold text-[var(--ink-primary)] leading-none mr-2 mt-0.5 border-b-2 border-[var(--ink-primary)] pb-0.5">
+                                  {firstChar}
+                                </span>
+                                {restOfParagraph}
+                              </p>
+                            )
+                          }
+                          return (
+                            <p key={index} className="font-serif text-xs sm:text-sm leading-relaxed text-[var(--ink-secondary)]">
+                              {paragraph}
+                            </p>
+                          )
+                        })}
+                      </div>
+
+                      {/* Action buttons inside Taste Mode */}
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 pt-2 border-t border-[var(--border-subtle)]">
+                        <button
+                          type="button"
+                          onClick={() => setHeroViewMode('overview')}
+                          className="flex-1 inline-flex items-center justify-center gap-2 rounded border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-5 py-2.5 sm:py-2 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 active:scale-[0.99] transition cursor-pointer shadow-xs"
+                        >
+                          <ArrowLeft className="h-3.5 w-3.5" />
+                          <span>Back to Synopsis</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => openAuthModal()}
+                          className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded border border-[var(--border-subtle)] text-xs text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:border-[var(--border-strong)] transition cursor-pointer"
+                        >
+                          <Bookmark className="h-3.5 w-3.5" />
+                          <span>Save Manuscript</span>
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
           </div>
 
-          {/* Right Large Cover Artwork Column */}
-          <div className="lg:col-span-5 flex justify-center">
-            <div className="relative group w-full max-w-sm">
-              <div className="aspect-[3/4] w-full overflow-hidden rounded-lg border border-[var(--border-strong)] shadow-md bg-[var(--bg-subtle)]">
-                <img
-                  src={featuredWork.cover}
-                  alt={featuredWork.title}
-                  fetchPriority="high"
-                  decoding="async"
-                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-102"
-                />
+          {/* Right Column: Physical Book Jacket Presentation with Animated Carousel Cover & Overlapping Editions Dock */}
+          <div className="order-1 lg:order-2 lg:col-span-5 flex flex-col items-center justify-center w-full">
+            <div className="relative group w-full max-w-[220px] sm:max-w-[280px] lg:max-w-[310px]">
+              
+              {/* Swipeable Carousel Container for Book Cover */}
+              <div className="aspect-[2/3] w-full overflow-hidden rounded-lg border border-[var(--border-strong)] shadow-xl bg-[var(--bg-subtle)] relative touch-pan-y select-none">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={activeHeroWork.id}
+                    initial={{ opacity: 0, scale: 0.96 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.96 }}
+                    transition={{ duration: 0.3, ease: 'easeInOut' }}
+                    drag="x"
+                    dragConstraints={{ left: 0, right: 0 }}
+                    dragElastic={0.2}
+                    onDragEnd={(_e, { offset, velocity }) => {
+                      const swipe = Math.abs(offset.x) * velocity.x
+                      if (offset.x < -40 || swipe < -100) {
+                        // Swipe left -> Next
+                        setActiveHeroIndex((prev) => (prev < heroWorks.length - 1 ? prev + 1 : 0))
+                      } else if (offset.x > 40 || swipe > 100) {
+                        // Swipe right -> Prev
+                        setActiveHeroIndex((prev) => (prev > 0 ? prev - 1 : heroWorks.length - 1))
+                      }
+                    }}
+                    className="absolute inset-0 cursor-grab active:cursor-grabbing"
+                  >
+                    <OptimizedImage
+                      src={activeHeroWork.cover}
+                      alt={activeHeroWork.title}
+                      priority={true}
+                      width={600}
+                      height={900}
+                      sizes="(max-width: 640px) 220px, (max-width: 1024px) 280px, 310px"
+                      draggable={false}
+                      containerClassName="h-full w-full"
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-102 pointer-events-none select-none"
+                    />
+                  </motion.div>
+                </AnimatePresence>
+
+                {/* Left/Right Quick Tap Arrows on the image for mobile & desktop */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setActiveHeroIndex((prev) => (prev > 0 ? prev - 1 : heroWorks.length - 1))
+                  }}
+                  className="absolute left-1.5 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/40 hover:bg-black/70 text-white backdrop-blur-xs transition cursor-pointer z-10 opacity-80 sm:opacity-0 sm:group-hover:opacity-100"
+                  aria-label="Previous Cover"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setActiveHeroIndex((prev) => (prev < heroWorks.length - 1 ? prev + 1 : 0))
+                  }}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/40 hover:bg-black/70 text-white backdrop-blur-xs transition cursor-pointer z-10 opacity-80 sm:opacity-0 sm:group-hover:opacity-100"
+                  aria-label="Next Cover"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+
+                {/* Spine depth shadow */}
+                <div className="absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-black/30 to-transparent pointer-events-none z-10" />
+                {/* Soft bottom vignette so overlapping thumbnails sit cleanly */}
+                <div className="absolute inset-x-0 bottom-0 h-20 sm:h-28 bg-gradient-to-t from-black/50 via-black/15 to-transparent pointer-events-none z-10" />
               </div>
-              <div className="absolute -bottom-3 -right-3 rounded border border-[var(--border-strong)] bg-[var(--bg-surface)] px-3 py-1.5 shadow-sm">
-                <span className="font-mono text-[10px] text-[var(--ink-secondary)]">
-                  {featuredWork.publishedChaptersCount} Chapters Published
+
+              {/* Available chapters badge positioned at top right */}
+              <div className="absolute -top-2.5 -right-2 sm:-top-3 sm:-right-2 rounded border border-[var(--border-strong)] bg-[var(--bg-surface)] px-2 sm:px-3 py-1 sm:py-1.5 shadow-md z-20 pointer-events-none">
+                <span className="font-mono text-[9px] sm:text-[10px] text-[var(--ink-secondary)] font-medium">
+                  {activeHeroWork.publishedChaptersCount} Chs Available
                 </span>
               </div>
+
+              {/* Elegant Overlapping Thumbnail Carousel Dock at bottom */}
+              <div className="absolute -bottom-4 sm:-bottom-5 inset-x-1 sm:inset-x-3 z-20">
+                <div className="rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)]/95 backdrop-blur-md p-1 sm:p-1.5 shadow-xl flex items-center justify-between gap-1 sm:gap-1.5">
+                  {heroWorks.map((work, idx) => {
+                    const isActive = idx === activeHeroIndex
+                    return (
+                      <button
+                        key={work.id}
+                        type="button"
+                        onClick={() => setActiveHeroIndex(idx)}
+                        className={`group/thumb relative flex-1 flex flex-col items-center p-0.5 sm:p-1 rounded-lg transition-all cursor-pointer ${
+                          isActive
+                            ? 'bg-[var(--bg-subtle)] ring-1.5 ring-[var(--ink-primary)] shadow-xs scale-102'
+                            : 'hover:bg-[var(--bg-subtle)] opacity-70 hover:opacity-100'
+                        }`}
+                        title={work.title}
+                        aria-label={`Select ${work.title}`}
+                      >
+                        <div className="aspect-[2/3] w-full rounded overflow-hidden border border-[var(--border-subtle)] shadow-xs">
+                          <OptimizedImage
+                            src={work.cover}
+                            alt={work.title}
+                            width={100}
+                            height={150}
+                            containerClassName="h-full w-full"
+                            className={`h-full w-full object-cover transition-all ${
+                              isActive ? '' : 'grayscale group-hover/thumb:grayscale-0'
+                            }`}
+                          />
+                        </div>
+                        <span className="font-mono text-[8px] sm:text-[9px] text-[var(--ink-primary)] mt-0.5 sm:mt-1 truncate w-full text-center font-medium block">
+                          0{idx + 1}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
             </div>
           </div>
 
         </div>
       </section>
 
-      {/* QUICK BROWSE CATEGORIES STRIP */}
-      <section className="space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="font-mono text-xs uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
-                Browse Catalog
-              </h3>
-              <span className="text-[var(--ink-faint)] font-mono text-xs">•</span>
+      {/* =========================================================================
+          MOBILE-ONLY SAMPLE TASTE BOTTOM SHEET (Using Design System BottomSheet)
+          ========================================================================= */}
+      <div className="lg:hidden">
+        <BottomSheet
+          isOpen={mobileSheetTasteOpen}
+          onClose={() => setMobileSheetTasteOpen(false)}
+          defaultHeightPercent={80}
+          expandedHeightPercent={96}
+          icon={<Feather className="h-3.5 w-3.5 text-[var(--ink-primary)]" />}
+          title={activeHeroWork.title}
+          subtitle={`Sample • ${activeHeroChapter?.title || 'Chapter 1'} (${activeHeroChapter?.readTimeMinutes || 12}m read)`}
+          footer={
+            <div className="flex items-center gap-2.5">
               <Link
-                to="/discover"
-                className="text-xs font-mono text-[var(--ink-primary)] hover:underline inline-flex items-center gap-1"
+                to="/read/$workId/$chapterId"
+                params={{
+                  workId: activeHeroWork.id,
+                  chapterId: activeHeroWork.chapters[0]?.id || 'ch-1',
+                }}
+                onClick={() => setMobileSheetTasteOpen(false)}
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-5 py-3 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 active:scale-[0.99] transition no-underline shadow-xs"
               >
-                View All ({allWorks.length}) <ArrowRight className="h-3 w-3" />
+                <BookOpen className="h-4 w-4" />
+                <span>Continue Full Chapter 1</span>
               </Link>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileSheetTasteOpen(false)
+                  openAuthModal()
+                }}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-lg border border-[var(--border-strong)] text-xs text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition cursor-pointer"
+              >
+                <Bookmark className="h-4 w-4" />
+                <span>Save</span>
+              </button>
             </div>
-            <p className="text-xs text-[var(--ink-muted)] mt-0.5">
-              Curated serialized novels, investigative essays, and historical fiction.
+          }
+        >
+          {/* Metadata banner */}
+          <div className="pb-2 border-b border-dashed border-[var(--border-subtle)] flex items-center justify-between text-xs font-mono text-[var(--ink-muted)]">
+            <span className="flex items-center gap-1.5 text-[var(--ink-primary)] font-medium">
+              <span>By {activeHeroWork.author.name}</span>
+            </span>
+            <span>{activeHeroWork.publishedChaptersCount} Chapters Available</span>
+          </div>
+
+          {/* Typeset Prose with Literary Drop Cap */}
+          {activeTasteParagraphs.map((paragraph, index) => {
+            if (index === 0) {
+              const firstChar = paragraph.charAt(0)
+              const restOfParagraph = paragraph.slice(1)
+              return (
+                <p key={index} className="text-base leading-relaxed text-[var(--ink-primary)]">
+                  <span className="float-left text-4xl font-serif font-bold text-[var(--ink-primary)] leading-none mr-2.5 mt-1 border-b-2 border-[var(--ink-primary)] pb-0.5">
+                    {firstChar}
+                  </span>
+                  {restOfParagraph}
+                </p>
+              )
+            }
+            return (
+              <p key={index} className="text-base leading-relaxed text-[var(--ink-secondary)]">
+                {paragraph}
+              </p>
+            )
+          })}
+
+          <div className="pt-6 pb-2 text-center border-t border-[var(--border-subtle)]">
+            <p className="font-mono text-xs text-[var(--ink-muted)] italic">
+              — End of sample folio preview —
+            </p>
+          </div>
+        </BottomSheet>
+      </div>
+
+
+      {/* =========================================================================
+          4. REIMAGINED: THE BOOKSTORE LIBRARY CATALOG & ARCHIVE SHELVES
+          ========================================================================= */}
+      <section className="space-y-6 pt-2">
+        {/* Catalog Header with Search and Stats */}
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5 pb-5 border-b border-[var(--border-subtle)]">
+          <div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="p-1 rounded bg-[var(--ink-primary)] text-[var(--accent-contrast)]">
+                <BookText className="h-3.5 w-3.5" />
+              </span>
+              <span className="font-mono text-xs uppercase tracking-widest text-[var(--ink-muted)] font-medium">
+                The Hatchpen Stacks • {allWorks.length} Cataloged Manuscripts
+              </span>
+            </div>
+            <h2 className="font-serif text-2xl sm:text-3xl font-semibold text-[var(--ink-primary)] tracking-tight">
+              Browse The Catalog
+            </h2>
+            <p className="text-xs sm:text-sm text-[var(--ink-muted)] mt-1 font-serif">
+              Explore serialized novels, meditative essays, and speculative archives arranged by shelf.
             </p>
           </div>
 
-          {/* Typewriter Search Bar */}
-          <div className="w-full md:w-96">
-            <AnimatedSearch
-              variant="typewriter"
-              size="sm"
-              value={homeQuery}
-              onChange={setHomeQuery}
-              onSubmit={(val) => {
-                if (val.trim()) {
-                  navigate({ to: '/search' })
-                }
-              }}
-              shortcut="/"
-              placeholders={[
-                "Search 'The Silent Meridian'...",
-                "Search 'An Inventory of Baltic Fog'...",
-                "Search 'Elena Rostova'...",
-                "Search 'Station Nine cold war'...",
-                "Search 'A Winter in Kyoto'...",
-              ]}
-            />
+          {/* Interactive Search Bar & All Works Link */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="w-full sm:w-80">
+              <AnimatedSearch
+                variant="typewriter"
+                size="sm"
+                value={homeQuery}
+                onChange={setHomeQuery}
+                onSubmit={(val) => {
+                  if (val.trim()) {
+                    navigate({ to: '/search' })
+                  }
+                }}
+                shortcut="/"
+                placeholders={[
+                  "Search 'The Silent Meridian'...",
+                  "Search 'An Inventory of Baltic Fog'...",
+                  "Search 'Elena Rostova'...",
+                  "Search 'Station Nine cold war'...",
+                  "Search 'A Winter in Kyoto'...",
+                ]}
+              />
+            </div>
+
+            <Link
+              to="/discover"
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded border border-[var(--border-strong)] bg-[var(--bg-surface)] text-xs font-mono font-medium text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors no-underline whitespace-nowrap"
+            >
+              <span>Full Archive</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
-          {CATEGORIES.slice(0, 6).map((cat) => (
+        {/* Clean Bookstore Stacks Display */}
+
+        {/* Live Filtered Shelf Grid (Clean bookstore spine cards with cover, author & chapter counts) */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 pt-1">
+          {catalogDisplayWorks.map((work) => (
             <Link
-              key={cat.slug}
-              to="/category/$slug"
-              params={{ slug: cat.slug }}
-              className="group flex flex-col justify-between rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3 hover:border-[var(--ink-primary)] transition-all no-underline text-inherit shadow-2xs"
+              key={work.id}
+              to="/works/$workId"
+              params={{ workId: work.id }}
+              className="group flex flex-col rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-2.5 hover:border-[var(--ink-primary)] transition-all no-underline text-inherit shadow-2xs hover:shadow-sm"
             >
-              <div className="flex items-center justify-between">
-                <span className="font-mono text-xs font-bold text-[var(--ink-faint)] group-hover:text-[var(--ink-primary)]">
-                  {cat.accentLetter}
-                </span>
-                <span className="font-mono text-[10px] text-[var(--ink-faint)]">
-                  {cat.worksCount}
-                </span>
+              {/* Book Jacket Aspect with subtle spine */}
+              <div className="aspect-[2/3] w-full rounded overflow-hidden border border-[var(--border-subtle)] bg-[var(--bg-subtle)] relative mb-2.5">
+                <OptimizedImage
+                  src={work.cover}
+                  alt={work.title}
+                  width={240}
+                  height={360}
+                  sizes="(max-width: 640px) 160px, (max-width: 1024px) 200px, 240px"
+                  containerClassName="h-full w-full"
+                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-104 grayscale-25 group-hover:grayscale-0"
+                />
+                <div className="absolute inset-y-0 left-0 w-2 bg-gradient-to-r from-black/25 to-transparent pointer-events-none" />
+                <div className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded bg-black/75 text-[9px] font-mono text-white backdrop-blur-2xs">
+                  {work.chaptersCount} ch
+                </div>
               </div>
-              <div className="mt-3">
-                <h4 className="font-serif text-sm font-semibold text-[var(--ink-primary)] leading-tight">
-                  {cat.name}
-                </h4>
-                <p className="mt-1 text-[11px] text-[var(--ink-muted)] line-clamp-1">
-                  {cat.description}
-                </p>
+
+              {/* Typography Details */}
+              <div className="flex flex-col flex-1 justify-between">
+                <div>
+                  <span className="font-mono text-[10px] text-[var(--ink-faint)] uppercase block truncate">
+                    {work.category} • {work.genre}
+                  </span>
+                  <h4 className="font-serif text-xs sm:text-sm font-semibold text-[var(--ink-primary)] leading-snug line-clamp-2 mt-0.5 group-hover:underline">
+                    {work.title}
+                  </h4>
+                </div>
+
+                <div className="pt-2 mt-2 border-t border-[var(--border-subtle)] flex items-center justify-between text-[11px] text-[var(--ink-muted)]">
+                  <span className="truncate">By {work.author.name}</span>
+                  <ArrowRight className="h-3 w-3 text-[var(--ink-faint)] group-hover:text-[var(--ink-primary)] group-hover:translate-x-0.5 transition-all flex-shrink-0" />
+                </div>
               </div>
             </Link>
           ))}
         </div>
       </section>
 
-      {/* TRENDING WORKS */}
-      <section className="space-y-6 pt-8 border-t border-[var(--border-subtle)]">
+      {/* =========================================================================
+          5. TRENDING ACROSS READERS
+          ========================================================================= */}
+      <section className="space-y-6 pt-6 border-t border-[var(--border-subtle)]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <TrendingUp className="h-4 w-4 text-[var(--ink-primary)]" />
             <div>
               <h2 className="font-serif text-2xl font-semibold text-[var(--ink-primary)]">
-                Trending Across Readers
+                Trending on the Salon Floor
               </h2>
               <p className="text-xs text-[var(--ink-muted)] mt-0.5">
-                Works commanding sustained literary attention this week
+                Manuscripts commanding sustained reader engagement and discourse
               </p>
             </div>
           </div>
@@ -316,114 +693,100 @@ function PublicHome() {
         </div>
       </section>
 
-      {/* NEW & RISING & RECENT CHAPTERS */}
-      <section className="space-y-6 pt-8 border-t border-[var(--border-subtle)]">
+      {/* =========================================================================
+          6. SPLIT CURATION: COMPLETED MASTERPIECES & GENRE ALCOVES
+          ========================================================================= */}
+      <section className="space-y-6 pt-6 border-t border-[var(--border-subtle)]">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
           
-          {/* Left: New & Rising Serials */}
-          <div className="lg:col-span-7 space-y-6">
+          {/* Left: Completed Works (Ready to Binge End-to-End) */}
+          <div className="lg:col-span-7 space-y-5">
             <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
               <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-[var(--ink-primary)]" />
+                <CheckCircle2 className="h-4 w-4 text-[var(--ink-primary)]" />
                 <h3 className="font-serif text-xl font-semibold text-[var(--ink-primary)]">
-                  New & Rising Serials
+                  Completed Serials
                 </h3>
               </div>
-              <span className="font-mono text-xs text-[var(--ink-muted)]">Dispatched Weekly</span>
+              <span className="font-mono text-xs text-[var(--ink-muted)]">Read End-to-End</span>
             </div>
 
-            <div className="space-y-4">
-              {risingWorks.map((work) => (
-                <WorkCard key={work.id} work={work} layout="horizontal" />
+            <div className="space-y-3">
+              {completedWorks.map((work) => (
+                <Link
+                  key={work.id}
+                  to="/works/$workId"
+                  params={{ workId: work.id }}
+                  className="group flex items-center gap-4 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3 hover:border-[var(--border-strong)] transition-all no-underline text-inherit shadow-2xs"
+                >
+                  <img
+                    src={work.cover}
+                    alt={work.title}
+                    loading="lazy"
+                    decoding="async"
+                    className="h-16 w-12 rounded object-cover grayscale flex-shrink-0"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 text-[10px] font-mono text-[var(--ink-faint)]">
+                      <span>{work.category}</span>
+                      <span>•</span>
+                      <span>{work.chaptersCount} Chapters</span>
+                    </div>
+                    <h4 className="font-serif text-sm font-semibold text-[var(--ink-primary)] truncate group-hover:underline">
+                      {work.title}
+                    </h4>
+                    <p className="text-xs text-[var(--ink-muted)] truncate">
+                      By {work.author.name}
+                    </p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-[var(--ink-faint)] group-hover:text-[var(--ink-primary)] transition-colors mr-2" />
+                </Link>
               ))}
             </div>
           </div>
 
-          {/* Right: Curated Genres & Completed Works */}
-          <div className="lg:col-span-5 space-y-8">
-            
-            {/* Completed Masterpieces */}
-            <div>
-              <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)] mb-4">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-[var(--ink-primary)]" />
-                  <h3 className="font-serif text-lg font-semibold text-[var(--ink-primary)]">
-                    Completed Works
-                  </h3>
-                </div>
-                <span className="font-mono text-xs text-[var(--ink-faint)]">Read end-to-end</span>
-              </div>
-
-              <div className="space-y-3">
-                {completedWorks.map((work) => (
-                  <Link
-                    key={work.id}
-                    to="/works/$workId"
-                    params={{ workId: work.id }}
-                    className="group flex items-center gap-4 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3 hover:border-[var(--border-strong)] transition-all no-underline text-inherit shadow-2xs"
-                  >
-                    <img
-                      src={work.cover}
-                      alt={work.title}
-                      loading="lazy"
-                      decoding="async"
-                      className="h-16 w-12 rounded object-cover grayscale flex-shrink-0"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 text-[10px] font-mono text-[var(--ink-faint)]">
-                        <span>{work.category}</span>
-                        <span>•</span>
-                        <span>{work.chaptersCount} Chapters</span>
-                      </div>
-                      <h4 className="font-serif text-sm font-semibold text-[var(--ink-primary)] truncate group-hover:underline">
-                        {work.title}
-                      </h4>
-                      <p className="text-xs text-[var(--ink-muted)] truncate">
-                        By {work.author.name}
-                      </p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-
-            {/* Browse By Literary Genre */}
-            <div>
-              <h3 className="font-serif text-lg font-semibold text-[var(--ink-primary)] pb-3 border-b border-[var(--border-subtle)] mb-4">
+          {/* Right: Literary Genres Alcoves */}
+          <div className="lg:col-span-5 space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
+              <h3 className="font-serif text-xl font-semibold text-[var(--ink-primary)]">
                 Literary Genres
               </h3>
-              <div className="grid grid-cols-2 gap-2">
-                {GENRES.map((genre) => (
-                  <Link
-                    key={genre.slug}
-                    to="/genre/$slug"
-                    params={{ slug: genre.slug }}
-                    className="rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-2.5 hover:border-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-all no-underline text-inherit shadow-2xs"
-                  >
-                    <p className="font-serif text-xs font-semibold text-[var(--ink-primary)]">
-                      {genre.name}
-                    </p>
-                    <p className="font-mono text-[10px] text-[var(--ink-faint)] mt-0.5">
-                      {genre.worksCount} works cataloged
-                    </p>
-                  </Link>
-                ))}
-              </div>
+              <span className="font-mono text-xs text-[var(--ink-faint)]">{GENRES.length} Shelves</span>
             </div>
 
+            <div className="grid grid-cols-2 gap-2.5">
+              {GENRES.map((genre) => (
+                <Link
+                  key={genre.slug}
+                  to="/genre/$slug"
+                  params={{ slug: genre.slug }}
+                  className="rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-2.5 hover:border-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-all no-underline text-inherit shadow-2xs"
+                >
+                  <p className="font-serif text-xs font-semibold text-[var(--ink-primary)]">
+                    {genre.name}
+                  </p>
+                  <p className="font-mono text-[10px] text-[var(--ink-faint)] mt-0.5">
+                    {genre.worksCount} cataloged
+                  </p>
+                </Link>
+              ))}
+            </div>
           </div>
+
         </div>
       </section>
 
-      {/* POPULAR AUTHORS */}
-      <section className="space-y-6 pt-8 border-t border-[var(--border-subtle)]">
+      {/* =========================================================================
+          7. WRITERS IN RESIDENCE WITH FEATURED QUOTES
+          ========================================================================= */}
+      <section className="space-y-6 pt-6 border-t border-[var(--border-subtle)]">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-serif text-2xl font-semibold text-[var(--ink-primary)]">
               Writers in Residence
             </h2>
             <p className="text-xs text-[var(--ink-muted)] mt-0.5">
-              Authors publishing serialized fiction, essays, and meditations on Relay
+              Authors publishing ongoing serials, essays, and meditations on Hatchpen
             </p>
           </div>
           <Link
@@ -441,28 +804,30 @@ function PublicHome() {
         </div>
       </section>
 
-      {/* PUBLIC CALL TO ACTION: Join The Relay */}
-      <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-8 sm:p-12 text-center space-y-6 shadow-xs">
-        <div className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-[var(--border-strong)] bg-[var(--bg-canvas)] text-[var(--ink-primary)]">
-          <BookOpen className="h-6 w-6" />
+      {/* =========================================================================
+          8. PUBLIC INVITATION / MEMBERSHIP CALL TO ACTION
+          ========================================================================= */}
+      <section className="rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-8 sm:p-14 text-center space-y-6 shadow-sm">
+        <div className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-[var(--border-strong)] bg-[var(--bg-canvas)] text-[var(--ink-primary)] shadow-2xs">
+          <BookOpen className="h-5 w-5" />
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2 max-w-xl mx-auto">
           <h2 className="font-serif text-2xl sm:text-3xl font-semibold tracking-tight text-[var(--ink-primary)]">
             A quiet typographic sanctuary for modern letters.
           </h2>
-          <p className="text-sm leading-relaxed text-[var(--ink-muted)] max-w-xl mx-auto">
-            Discover original serialized fiction, essays, and meditations. Create an account to customize your reader typography, bookmark manuscripts, and support independent authors.
+          <p className="text-xs sm:text-sm leading-relaxed text-[var(--ink-muted)]">
+            Discover original serialized fiction, essays, and meditations. Create an account to customize your typography, bookmark manuscripts, and follow authors.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
           <button
             type="button"
             onClick={() => openAuthModal()}
             className="inline-flex items-center gap-2 rounded border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-6 py-2.5 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 transition-opacity cursor-pointer shadow-xs"
           >
-            <span>Join The Relay</span>
+            <span>Join The Hatchpen Reading Room</span>
             <ArrowRight className="h-3.5 w-3.5" />
           </button>
 

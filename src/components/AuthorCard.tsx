@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router'
 import type { Author } from '../data/mockData'
 import { useApp } from '../context/AppContext'
 import { UserPlus, UserCheck, BookOpen } from 'lucide-react'
+import { OptimizedImage } from './OptimizedImage'
 
 interface AuthorCardProps {
   author: Author
@@ -21,11 +22,11 @@ export default function AuthorCard({ author }: AuthorCardProps) {
             params={{ authorId: author.id }}
             className="flex items-center gap-3 no-underline text-inherit"
           >
-            <img
+            <OptimizedImage
               src={author.avatar}
               alt={author.name}
-              loading="lazy"
-              decoding="async"
+              width={48}
+              height={48}
               className="h-12 w-12 rounded-full object-cover grayscale border border-[var(--border-subtle)]"
             />
             <div>

@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router'
 import { Bookmark, BookOpen, Clock, Star } from 'lucide-react'
 import type { Work } from '../data/mockData'
 import { useApp } from '../context/AppContext'
+import { OptimizedImage } from './OptimizedImage'
 
 interface WorkCardProps {
   work: Work
@@ -23,15 +24,17 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
           params={{ workId: work.id }}
           className="relative aspect-[2/3] w-20 sm:w-36 flex-shrink-0 overflow-hidden rounded bg-[var(--bg-subtle)]"
         >
-          <img
+          <OptimizedImage
             src={work.cover}
             alt={work.title}
+            width={200}
+            height={300}
+            sizes="(max-width: 640px) 80px, 144px"
+            containerClassName="h-full w-full"
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-            loading="lazy"
-            decoding="async"
           />
           {work.status === 'Completed' && (
-            <span className="absolute top-2 left-2 rounded bg-black/80 px-1.5 py-0.5 text-[9px] font-mono font-medium text-white uppercase tracking-wider backdrop-blur-sm">
+            <span className="absolute top-2 left-2 rounded bg-black/80 px-1.5 py-0.5 text-[9px] font-mono font-medium text-white uppercase tracking-wider backdrop-blur-sm z-10">
               Complete
             </span>
           )}
@@ -91,11 +94,11 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
               params={{ authorId: work.author.id }}
               className="flex items-center gap-2 text-inherit no-underline hover:text-[var(--ink-primary)]"
             >
-              <img
+              <OptimizedImage
                 src={work.author.avatar}
                 alt={work.author.name}
-                loading="lazy"
-                decoding="async"
+                width={24}
+                height={24}
                 className="h-5 w-5 rounded-full object-cover grayscale"
               />
               <span className="font-medium text-[var(--ink-secondary)]">{work.author.name}</span>
@@ -126,12 +129,14 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
         {/* Cover Presentation */}
         <div className="relative aspect-[3/4] w-full overflow-hidden rounded bg-[var(--bg-subtle)]">
           <Link to="/works/$workId" params={{ workId: work.id }}>
-            <img
+            <OptimizedImage
               src={work.cover}
               alt={work.title}
+              width={320}
+              height={426}
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+              containerClassName="h-full w-full"
               className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-              loading="lazy"
-              decoding="async"
             />
           </Link>
 
@@ -197,11 +202,11 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
           params={{ authorId: work.author.id }}
           className="flex items-center gap-1.5 text-inherit no-underline hover:text-[var(--ink-primary)] truncate max-w-[140px]"
         >
-          <img
+          <OptimizedImage
             src={work.author.avatar}
             alt={work.author.name}
-            loading="lazy"
-            decoding="async"
+            width={20}
+            height={20}
             className="h-4 w-4 rounded-full object-cover grayscale"
           />
           <span className="truncate text-[var(--ink-secondary)] font-medium">{work.author.name}</span>
