@@ -151,7 +151,7 @@ export function HatchpenLogo({
           <span className="font-sans font-light tracking-widest text-[var(--ink-primary)] uppercase text-sm sm:text-base">
             HATCH
           </span>
-          <span className="font-sans font-black tracking-tight text-[var(--ink-primary)] lowercase text-base sm:text-lg">
+          <span className="font-sans font-medium tracking-tight text-[var(--ink-primary)] lowercase text-base sm:text-lg">
             pen
           </span>
         </div>
