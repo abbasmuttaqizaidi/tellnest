@@ -27,12 +27,6 @@ export default function Footer() {
             <p className="text-[13px] leading-relaxed text-[var(--ink-muted)] max-w-sm font-sans">
               An elegant publishing platform and digital library where original stories are incubated, crafted, and shared with readers across the world.
             </p>
-            <div className="pt-2">
-              <span className="inline-flex items-center gap-2 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-1 text-[11px] font-mono text-[var(--ink-muted)]">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                Hatchpen Platform • v1.0
-              </span>
-            </div>
           </div>
 
           {/* Explore Categories */}

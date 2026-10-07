@@ -65,6 +65,10 @@ export interface Database {
           is_verified: boolean
           verified_at: string | null
           account_status: AccountStatus
+          pronouns: string | null
+          gender: string | null
+          onboarding_completed: boolean
+          preferences: Json
           created_at: string
           updated_at: string
         }
@@ -81,6 +85,10 @@ export interface Database {
           is_verified?: boolean
           verified_at?: string | null
           account_status?: AccountStatus
+          pronouns?: string | null
+          gender?: string | null
+          onboarding_completed?: boolean
+          preferences?: Json
           created_at?: string
           updated_at?: string
         }
@@ -97,6 +105,10 @@ export interface Database {
           is_verified?: boolean
           verified_at?: string | null
           account_status?: AccountStatus
+          pronouns?: string | null
+          gender?: string | null
+          onboarding_completed?: boolean
+          preferences?: Json
           created_at?: string
           updated_at?: string
         }

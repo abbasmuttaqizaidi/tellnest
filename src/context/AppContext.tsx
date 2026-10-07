@@ -120,7 +120,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return defaultReaderSettings
   })
 
-  const [siteTheme, setSiteThemeState] = useState<'light' | 'dark' | 'auto'>('light')
+  const [siteTheme, setSiteThemeState] = useState<'light' | 'dark' | 'auto'>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('theme') as 'light' | 'dark' | 'auto' | null
+        if (saved && (saved === 'light' || saved === 'dark' || saved === 'auto')) return saved
+      } catch (e) {}
+    }
+    return 'light'
+  })
 
   const [savedWorkIds, setSavedWorkIds] = useState<string[]>(['work-1', 'work-2', 'work-4'])
   const [followedAuthorIds, setFollowedAuthorIds] = useState<string[]>(['auth-1', 'auth-2'])
@@ -172,14 +180,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [readerSettings])
 
   const setSiteTheme = (mode: 'light' | 'dark' | 'auto') => {
-    setSiteThemeState('light')
+    setSiteThemeState(mode)
     if (typeof window !== 'undefined') {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+      const resolved = mode === 'auto' ? (prefersDark ? 'dark' : 'light') : mode
       const root = document.documentElement
-      root.classList.remove('dark', 'theme-sepia')
-      root.classList.add('light')
-      root.setAttribute('data-theme', 'light')
-      root.style.colorScheme = 'light'
-      localStorage.setItem('theme', 'light')
+      root.classList.remove('light', 'dark', 'theme-sepia')
+      root.classList.add(resolved)
+      root.setAttribute('data-theme', resolved)
+      root.style.colorScheme = resolved
+      localStorage.setItem('theme', mode)
     }
   }
 

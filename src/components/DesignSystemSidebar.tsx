@@ -84,22 +84,32 @@ export const NAVIGATION_CATEGORIES: NavCategory[] = [
     title: 'Watermelon Card Suite',
     icon: CreditCard,
     items: [
-      {
-        id: 'sec-cards-suite',
-        title: 'Watermelon Suite Overview',
-        badge: '9 Cards',
-        subItems: [
-          { id: 'card-swipe', title: '3D Card Swipe', badge: '3D' },
-          { id: 'card-revealing', title: 'Stacked Revealing Deck', badge: 'Flick' },
-          { id: 'card-wiggling', title: 'Tactile Tilt & Blur', badge: 'Gyro' },
-          { id: 'card-activities', title: 'Activity Ledger Card', badge: 'Ledger' },
-          { id: 'card-profile', title: 'Author Profile & Sparkline', badge: 'SVG' },
-          { id: 'card-expandable', title: 'FLIP Shared-Layout Modal', badge: 'FLIP' },
-          { id: 'card-progress', title: 'Segmented Arc Quota', badge: 'Gauge' },
-          { id: 'card-meeting', title: 'Roundtable Salon Session', badge: 'Live' },
-          { id: 'card-deployment', title: 'Publishing Pipeline', badge: 'Logs' }
-        ]
-      }
+      { id: 'sec-cards-suite', title: 'Watermelon Card Suite', badge: '9 Cards' }
+    ]
+  },
+  {
+    id: 'cat-new-suite',
+    title: 'Interactive Studio Suite',
+    icon: Sparkles,
+    items: [
+      { id: 'sec-ai-bar', title: 'Contextual AI Bar', badge: 'AI' },
+      { id: 'sec-feedback', title: 'Feedback Widget', badge: 'Rating' },
+      { id: 'sec-expandable-profile', title: 'Expandable Profile Card', badge: 'FLIP' },
+      { id: 'sec-option-picker', title: 'Quick Option Picker', badge: 'Choice' },
+      { id: 'sec-switcher', title: 'Quick Switcher', badge: 'Mode' },
+      { id: 'sec-tags', title: 'Interactive Tags', badge: 'Pill' },
+      { id: 'sec-task-widget', title: 'Task Widget Disclosure', badge: 'Checklist' },
+      { id: 'sec-pagination', title: 'Continuous Pagination', badge: 'Paging' },
+      { id: 'sec-create-community', title: 'Create Community', badge: 'Social' },
+      { id: 'sec-create-disclosure', title: 'Create New Disclosure', badge: 'Action' },
+      { id: 'sec-discrete-tabs', title: 'Discrete Tabs', badge: 'Sliding' },
+      { id: 'sec-dock', title: 'Dock Component', badge: 'macOS' },
+      { id: 'sec-edit-profile', title: 'Edit Profile Card', badge: 'Account' },
+      { id: 'sec-event-reminders', title: 'Event Reminders', badge: 'Alerts' },
+      { id: 'sec-extended-toolbar', title: 'Extended Toolbar', badge: 'Mobile' },
+      { id: 'sec-frequency', title: 'Frequency Selector', badge: 'Cadence' },
+      { id: 'sec-tour', title: 'Feature Tour', badge: 'Spotlight' },
+      { id: 'sec-list-stack', title: 'List Stack', badge: 'Deck' }
     ]
   }
 ]

@@ -6,6 +6,7 @@ import Footer from '../components/Footer'
 import Toast from '../components/Toast'
 import { ClerkSync } from '../components/ClerkSync'
 import { AuthModal } from '../components/AuthModal'
+import { UserOnboardingModal } from '../components/UserOnboardingModal'
 import { AppProvider } from '../context/AppContext'
 
 import appCss from '../styles.css?url'
@@ -15,7 +16,7 @@ const CLERK_PUBLISHABLE_KEY =
   (typeof process !== 'undefined' && process.env?.VITE_CLERK_PUBLISHABLE_KEY) ||
   'pk_test_aW52aXRpbmctYm9hLTg5NDIuY2xlcmsuYWNjb3VudHMuZGV2JA'
 
-const THEME_INIT_SCRIPT = `(function(){try{var root=document.documentElement;root.classList.remove('dark','theme-sepia');root.classList.add('light');root.setAttribute('data-theme','light');root.style.colorScheme='light';window.localStorage.setItem('theme','light');var cookies=document.cookie||'';var hasSession=window.localStorage.getItem('hatchpen_has_session')==='true'||cookies.indexOf('__session=')!==-1||/__client_uat=[1-9]/.test(cookies);if(hasSession){root.classList.add('has-auth-session');}else{root.classList.remove('has-auth-session');}}catch(e){}})();`
+const THEME_INIT_SCRIPT = `(function(){try{var root=document.documentElement;var saved=window.localStorage.getItem('theme')||'light';var prefersDark=window.matchMedia('(prefers-color-scheme: dark)').matches;var resolved=saved==='auto'?(prefersDark?'dark':'light'):saved;root.classList.remove('light','dark','theme-sepia');root.classList.add(resolved);root.setAttribute('data-theme',resolved);root.style.colorScheme=resolved;var cookies=document.cookie||'';var hasSession=window.localStorage.getItem('hatchpen_has_session')==='true'||cookies.indexOf('__session=')!==-1||/__client_uat=[1-9]/.test(cookies);if(hasSession){root.classList.add('has-auth-session');}else{root.classList.remove('has-auth-session');}}catch(e){}})();`
 
 export const Route = createRootRoute({
   head: () => ({
@@ -87,6 +88,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
     <AppProvider>
       <ClerkSync />
       <AuthModal />
+      <UserOnboardingModal />
       <Header />
       <main className="flex-1 w-full max-w-full overflow-x-hidden pb-16 md:pb-0 bg-[var(--bg-canvas)]">
         {children}

@@ -28,6 +28,8 @@ export default function Header() {
   const { signOut } = useClerk()
   const {
     unreadNotificationCount,
+    siteTheme,
+    setSiteTheme,
     openAuthModal,
     customAvatarUrl,
   } = useApp()
@@ -40,6 +42,12 @@ export default function Header() {
 
   const routerState = useRouterState()
   const currentPath = routerState.location.pathname
+
+  const [mounted, setMounted] = useState(false)
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Global Cmd+K shortcut listener
   React.useEffect(() => {
@@ -182,7 +190,15 @@ export default function Header() {
           )}
 
 
-          {/* Clerk Authentication & User Profile */}
+          {/* Dark Mode Quick Toggle */}
+          <button
+            onClick={() => setSiteTheme(siteTheme === 'dark' ? 'light' : 'dark')}
+            className="flex h-8 w-8 items-center justify-center rounded border border-transparent text-[var(--ink-muted)] hover:border-[var(--border-subtle)] hover:text-[var(--ink-primary)] transition-colors flex-shrink-0 cursor-pointer"
+            title={mounted && siteTheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            aria-label="Toggle dark mode"
+          >
+            {mounted && siteTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
           {!isLoaded ? (
             <div className="h-8 w-8 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-subtle)] animate-pulse shrink-0" />
           ) : isSignedIn ? (
@@ -363,6 +379,18 @@ export default function Header() {
               </Link>
             </>
           )}
+          {/* Mobile Theme Toggle */}
+          <div className="pt-2 border-t border-[var(--border-subtle)] flex items-center justify-between py-1.5">
+            <span className="text-xs text-[var(--ink-secondary)]">Theme Appearance</span>
+            <button
+              type="button"
+              onClick={() => setSiteTheme(siteTheme === 'dark' ? 'light' : 'dark')}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-subtle)] text-xs font-mono text-[var(--ink-primary)] cursor-pointer"
+            >
+              {siteTheme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+              <span>{siteTheme === 'dark' ? 'Dark' : 'Light'}</span>
+            </button>
+          </div>
           <div className="pt-2 border-t border-[var(--border-subtle)]">
             {!isSignedIn ? (
               <button

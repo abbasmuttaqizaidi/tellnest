@@ -11,6 +11,8 @@ import {
   Drawer,
   ExpandableProfile,
   FilterDisclosure,
+  DropdownSelect,
+  MultiDropdownSelect,
   AnimatedSearch,
   OmniSearch,
   CardSwipe,
@@ -24,9 +26,28 @@ import {
   DeploymentCard,
   UnisexAvatar,
   UnisexAvatarIcon,
+  ContextualAIBar,
+  FeedbackComponent,
+  ExpandableProfileCard,
+  OptionPicker,
+  QuickSwitcher,
+  Tags,
+  TaskWidget,
+  ContinuousPagination,
+  CreateCommunity,
+  CreateNewDisclosure,
+  DiscreteTabs,
+  Dock,
+  EditProfile,
+  EventReminders,
+  ExtendedToolbar,
+  FrequencySelector,
+  FeatureTour,
+  ListStack,
 } from '../design-system'
 import { HatchpenLogo, HatchpenEmblem } from '../components/HatchpenLogo'
 import DesignSystemSidebar from '../components/DesignSystemSidebar'
+import { StoryCard } from '../components/StoryCard'
 import { cn } from '../lib/utils'
 import {
   Sparkles,
@@ -39,6 +60,12 @@ import {
   SlidersHorizontal,
   Bookmark,
   Share2,
+  Music,
+  Heart,
+  MessageSquare,
+  Terminal,
+  RefreshCw,
+  Compass,
 } from 'lucide-react'
 
 export const Route = createFileRoute('/design-system')({
@@ -92,6 +119,19 @@ function DesignSystemShowcasePage() {
   const [omniFixedScope, setOmniFixedScope] = useState('all')
   const [omniRespQuery, setOmniRespQuery] = useState('')
 
+  // Storybook state for new Interactive Studio Suite components
+  const [storybookPage, setStorybookPage] = useState(1)
+  const [storybookSwitcherMode, setStorybookSwitcherMode] = useState<'individual' | 'team'>('individual')
+  const [storybookPickerVal, setStorybookPickerVal] = useState('serif')
+  const [storybookTourStep, setStorybookTourStep] = useState(0)
+  const [storybookFrequency, setStorybookFrequency] = useState('Weekly')
+
+  // Storybook Studio Global Controls State
+  const [storybookViewMode, setStorybookViewMode] = useState<'canvas' | 'docs'>('canvas')
+  const [viewportMode, setViewportMode] = useState<'responsive' | 'desktop' | 'tablet' | 'mobile'>('responsive')
+  const [gridOverlay, setGridOverlay] = useState(false)
+  const [expandAllStories, setExpandAllStories] = useState(false)
+
   const scrollToSection = (id: string) => {
     const el = document.getElementById(id)
     if (el) {
@@ -105,37 +145,191 @@ function DesignSystemShowcasePage() {
     }
   }
 
+  const getViewportClass = () => {
+    switch (viewportMode) {
+      case 'mobile':
+        return 'max-w-[390px] mx-auto transition-all duration-300'
+      case 'tablet':
+        return 'max-w-[768px] mx-auto transition-all duration-300'
+      case 'desktop':
+        return 'max-w-[1024px] mx-auto transition-all duration-300'
+      default:
+        return 'w-full'
+    }
+  }
+
   return (
-    <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-12">
+    <div className="min-h-screen py-6 sm:py-8 px-3 sm:px-6 lg:px-8 max-w-[1536px] mx-auto space-y-6">
       
-      {/* Header */}
-      <div className="border-b border-[var(--border-subtle)] pb-8">
-        <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-[var(--ink-muted)] mb-2">
-          <Sparkles className="h-4 w-4" />
-          <span>HatchPen • Component Architecture</span>
+      {/* Storybook Global Navigation Header Bar */}
+      <header className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 sm:p-5 shadow-xs transition-all">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          {/* Brand & Breadcrumbs */}
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-[var(--ink-muted)]">
+              <span className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[var(--bg-subtle)] text-[var(--ink-primary)] font-semibold">
+                <Sparkles className="h-3.5 w-3.5" /> Storybook UI
+              </span>
+              <span>/</span>
+              <span>Hatchpen Design System</span>
+              <span>/</span>
+              <span className="text-[var(--ink-primary)] font-medium">Stories & Architecture</span>
+            </div>
+            <h1 className="font-serif text-2xl sm:text-3xl font-semibold text-[var(--ink-primary)] tracking-tight">
+              Component Storybook & Primitives Explorer
+            </h1>
+            <p className="text-xs sm:text-sm text-[var(--ink-muted)] max-w-2xl leading-relaxed">
+              Living design system workbench: 19 interactive stories from <code>live_instructions.md</code>, Watermelon UI card dynamics, and editorial typography primitives.
+            </p>
+          </div>
+
+          {/* Storybook Mode & Viewport Controls Toolbar */}
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 bg-[var(--bg-canvas)] p-2 rounded-xl border border-[var(--border-subtle)] self-start lg:self-center">
+            {/* Canvas vs Docs Toggle */}
+            <div className="flex items-center rounded-lg bg-[var(--bg-surface)] border border-[var(--border-subtle)] p-0.5 shadow-xs">
+              <button
+                type="button"
+                onClick={() => setStorybookViewMode('canvas')}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-mono font-medium transition-all',
+                  storybookViewMode === 'canvas'
+                    ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] shadow-xs'
+                    : 'text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
+                )}
+              >
+                <Eye className="h-3.5 w-3.5" />
+                <span>Canvas</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setStorybookViewMode('docs')}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-mono font-medium transition-all',
+                  storybookViewMode === 'docs'
+                    ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] shadow-xs'
+                    : 'text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
+                )}
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+                <span>Docs</span>
+              </button>
+            </div>
+
+            {/* Viewport Simulation Switcher */}
+            <div className="hidden sm:flex items-center rounded-lg bg-[var(--bg-surface)] border border-[var(--border-subtle)] p-0.5 text-xs font-mono text-[var(--ink-muted)]">
+              <button
+                type="button"
+                title="100% Fluid Width"
+                onClick={() => setViewportMode('responsive')}
+                className={cn(
+                  'px-2.5 py-1.5 rounded-md transition-all',
+                  viewportMode === 'responsive'
+                    ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)]'
+                    : 'hover:text-[var(--ink-primary)]'
+                )}
+              >
+                Auto (100%)
+              </button>
+              <button
+                type="button"
+                title="Desktop Viewport (1024px)"
+                onClick={() => setViewportMode('desktop')}
+                className={cn(
+                  'px-2.5 py-1.5 rounded-md transition-all',
+                  viewportMode === 'desktop'
+                    ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)]'
+                    : 'hover:text-[var(--ink-primary)]'
+                )}
+              >
+                Desktop
+              </button>
+              <button
+                type="button"
+                title="Tablet Viewport (768px)"
+                onClick={() => setViewportMode('tablet')}
+                className={cn(
+                  'px-2.5 py-1.5 rounded-md transition-all',
+                  viewportMode === 'tablet'
+                    ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)]'
+                    : 'hover:text-[var(--ink-primary)]'
+                )}
+              >
+                Tablet
+              </button>
+              <button
+                type="button"
+                title="Mobile Viewport (390px)"
+                onClick={() => setViewportMode('mobile')}
+                className={cn(
+                  'px-2.5 py-1.5 rounded-md transition-all',
+                  viewportMode === 'mobile'
+                    ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)]'
+                    : 'hover:text-[var(--ink-primary)]'
+                )}
+              >
+                Mobile
+              </button>
+            </div>
+
+            {/* Grid & Expansion Utilities */}
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                title="Toggle Storybook Alignment Grid"
+                onClick={() => setGridOverlay(!gridOverlay)}
+                className={cn(
+                  'p-1.5 rounded-lg border text-xs font-mono transition-all',
+                  gridOverlay
+                    ? 'border-[var(--ink-primary)] bg-[var(--bg-surface)] text-[var(--ink-primary)] font-bold'
+                    : 'border-[var(--border-subtle)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
+                )}
+              >
+                # Grid
+              </button>
+              <button
+                type="button"
+                title="Expand / Collapse Documentation Drawers"
+                onClick={() => setExpandAllStories(!expandAllStories)}
+                className={cn(
+                  'p-1.5 rounded-lg border text-xs font-mono transition-all',
+                  expandAllStories
+                    ? 'border-[var(--ink-primary)] bg-[var(--bg-surface)] text-[var(--ink-primary)] font-bold'
+                    : 'border-[var(--border-subtle)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
+                )}
+              >
+                {expandAllStories ? 'Hide Docs' : 'Show All Specs'}
+              </button>
+            </div>
+          </div>
         </div>
-        <h1 className="font-serif text-4xl sm:text-5xl font-semibold text-[var(--ink-primary)]">
-          Design System & Animated Primitives
-        </h1>
-        <p className="mt-2 text-sm text-[var(--ink-muted)] max-w-2xl leading-relaxed">
-          A modular, cohesive library of tactile, spring-animated UI components built on 
-          <strong> React 19</strong>, <strong>Motion</strong>, and <strong>Watermelon UI</strong>, 
-          strictly adhering to the <strong>Monochrome Executive & Literary</strong> design standards.
-        </p>
-      </div>
+      </header>
 
       {/* Mobile Sticky Quick Navigation Bar */}
-      <div className="lg:hidden sticky top-14 z-30 -mx-4 sm:-mx-6 px-4 sm:px-6 py-2.5 bg-[var(--bg-canvas)]/95 backdrop-blur-md border-y border-[var(--border-subtle)] flex items-center justify-between gap-3 shadow-sm">
+      <div className="lg:hidden sticky top-14 z-30 -mx-3 sm:-mx-6 px-3 sm:px-6 py-2.5 bg-[var(--bg-canvas)]/95 backdrop-blur-md border-y border-[var(--border-subtle)] flex items-center justify-between gap-3 shadow-sm">
         <button
           type="button"
           onClick={() => setMobileNavOpen(true)}
           className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-xs font-mono font-medium text-[var(--ink-primary)] hover:border-[var(--ink-primary)] transition-colors shadow-xs"
         >
           <Sparkles className="h-3.5 w-3.5" />
-          <span>Architecture Index</span>
+          <span>Story Navigator</span>
         </button>
 
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 text-xs font-mono">
+          <button
+            type="button"
+            onClick={() => scrollToSection('sec-new-suite')}
+            className="px-2.5 py-1 rounded bg-[var(--ink-primary)] text-[var(--accent-contrast)] whitespace-nowrap font-medium"
+          >
+            Studio Suite (18)
+          </button>
+          <button
+            type="button"
+            onClick={() => scrollToSection('sec-cards-suite')}
+            className="px-2.5 py-1 rounded bg-[var(--bg-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] whitespace-nowrap"
+          >
+            Cards (9)
+          </button>
           <button
             type="button"
             onClick={() => scrollToSection('sec-buttons')}
@@ -145,24 +339,10 @@ function DesignSystemShowcasePage() {
           </button>
           <button
             type="button"
-            onClick={() => scrollToSection('sec-tabs')}
-            className="px-2.5 py-1 rounded bg-[var(--bg-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] whitespace-nowrap"
-          >
-            Tabs
-          </button>
-          <button
-            type="button"
             onClick={() => scrollToSection('sec-omnisearch')}
             className="px-2.5 py-1 rounded bg-[var(--bg-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] whitespace-nowrap"
           >
             Search
-          </button>
-          <button
-            type="button"
-            onClick={() => scrollToSection('sec-cards-suite')}
-            className="px-2.5 py-1 rounded bg-[var(--bg-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] whitespace-nowrap"
-          >
-            Cards
           </button>
         </div>
       </div>
@@ -174,8 +354,12 @@ function DesignSystemShowcasePage() {
           <DesignSystemSidebar />
         </aside>
 
-        {/* Main Content Area */}
-        <main className="lg:col-span-9 space-y-16 min-w-0">
+        {/* Main Content Area in Viewport Simulation Container */}
+        <main className={cn(
+          'lg:col-span-9 space-y-16 min-w-0 transition-all duration-300',
+          getViewportClass(),
+          gridOverlay && 'relative bg-[linear-gradient(to_right,rgba(128,128,128,0.06)_1px,transparent_1px),linear-gradient(to_bottom,rgba(128,128,128,0.06)_1px,transparent_1px)] bg-[size:24px_24px] p-4 rounded-2xl border border-dashed border-[var(--border-subtle)]'
+        )}>
           {/* SECTION 1: BUTTONS */}
           <section id="sec-buttons" className="scroll-mt-24 space-y-4">
         <div className="border-b border-[var(--border-subtle)] pb-2 flex items-center justify-between">
@@ -444,6 +628,58 @@ function DesignSystemShowcasePage() {
                 { id: 'scripts', label: 'Screenplays & Scripts', badge: '12' },
                 { id: 'memoir', label: 'Personal Narratives', badge: '35' },
               ]}
+            />
+          </div>
+        </div>
+
+        {/* DropdownSelect Showcase */}
+        <div className="p-6 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div>
+            <p className="text-sm font-semibold text-[var(--ink-primary)]">
+              Clean Dropdown Select
+            </p>
+            <p className="text-xs text-[var(--ink-muted)] mt-0.5 max-w-md">
+              A standard, accessible dropdown select component built for forms, onboarding flows, and filter settings with keyboard navigation and spring transitions.
+            </p>
+          </div>
+
+          <div className="w-full sm:w-64">
+            <DropdownSelect
+              options={[
+                { id: 'she_her', label: 'Female (she/her)' },
+                { id: 'he_him', label: 'Male (he/him)' },
+                { id: 'they_them', label: 'They / Them' },
+                { id: 'prefer_not', label: 'I prefer not to say' },
+                { id: 'any_all', label: 'Any / All Pronouns' },
+              ]}
+              defaultValue="she_her"
+              placeholder="Select pronouns..."
+            />
+          </div>
+        </div>
+
+        {/* MultiDropdownSelect Showcase */}
+        <div className="p-6 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div>
+            <p className="text-sm font-semibold text-[var(--ink-primary)]">
+              Multi-Select Dropdown
+            </p>
+            <p className="text-xs text-[var(--ink-muted)] mt-0.5 max-w-md">
+              A tactile multi-selection dropdown component featuring removable selection badges, item checkboxes, and spring transitions.
+            </p>
+          </div>
+
+          <div className="w-full sm:w-80">
+            <MultiDropdownSelect
+              options={[
+                { id: 'fiction', label: 'Fiction' },
+                { id: 'romance', label: 'Romance' },
+                { id: 'fantasy', label: 'Fantasy' },
+                { id: 'mystery', label: 'Mystery' },
+                { id: 'scifi', label: 'Science Fiction' },
+              ]}
+              defaultValues={['fiction', 'fantasy']}
+              placeholder="Select genres..."
             />
           </div>
         </div>
@@ -1020,6 +1256,510 @@ function DesignSystemShowcasePage() {
             <DeploymentCard />
           </div>
         </div>
+
+      </section>
+
+      {/* SECTION: STORYBOOK INTERACTIVE STUDIO SUITE */}
+      <section id="sec-new-suite" className="space-y-12 pt-8 border-t border-[var(--border-subtle)]">
+        <div className="border-b border-[var(--border-subtle)] pb-4 flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+          <div>
+            <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-[var(--ink-muted)] mb-1">
+              <Sparkles className="h-4 w-4 text-[var(--ink-primary)]" />
+              <span>Storybook Studio Registry</span>
+            </div>
+            <h2 className="font-serif text-3xl font-semibold text-[var(--ink-primary)]">
+              Interactive Studio Suite
+            </h2>
+            <p className="text-xs text-[var(--ink-muted)] mt-1">
+              18 isolated component stories specified in <code>live_instructions.md</code> with live canvas renderers, interactive state controls, and architectural usage guides.
+            </p>
+          </div>
+          <span className="font-mono text-xs px-2.5 py-1 rounded-full bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--ink-primary)] font-semibold">
+            18 Live Stories
+          </span>
+        </div>
+
+        {/* 1. Contextual AI Bar */}
+        <StoryCard
+          id="sec-ai-bar"
+          title="Contextual AI Bar"
+          componentName="ContextualAIBar"
+          category="Editor Dock"
+          badge="AI Ambient"
+          description="Floating prose enhancement dock used in Writer Studio editor for inline rewrites, sensory expansion, and tone adaptation."
+          viewMode={storybookViewMode}
+          defaultDocsOpen={expandAllStories}
+          usageNotes={{
+            primaryLocation: "Writer Studio Editor (/write/editor/$workId/$chapterId)",
+            workflow: "Floating prose enhancement dock at the bottom of the writing canvas. Allows authors to trigger inline literary rewrites, tone modulation, sensory imagery expansion, or soundtrack mood ambience without leaving the editor."
+          }}
+          codeSnippet={`<ContextualAIBar
+  placeholder="Refine literary pacing, sensory imagery..."
+  musicIcon={<Music className="h-4 w-4 text-[var(--ink-primary)]" />}
+  sparkleIcon={<Sparkles className="h-4 w-4 text-[var(--ink-primary)]" />}
+  tools={[
+    <Sparkles key="1" className="h-4 w-4" />,
+    <Heart key="2" className="h-4 w-4" />,
+    <MessageSquare key="3" className="h-4 w-4" />
+  ]}
+/>`}
+        >
+          <div className="w-full flex justify-center py-4">
+            <ContextualAIBar
+              placeholder="Refine literary pacing, sensory imagery, or prose style..."
+              musicIcon={<Music className="h-4 w-4 text-[var(--ink-primary)]" />}
+              sparkleIcon={<Sparkles className="h-4 w-4 text-[var(--ink-primary)]" />}
+              tools={[
+                <Sparkles key="1" className="h-4 w-4" />,
+                <Heart key="2" className="h-4 w-4" />,
+                <MessageSquare key="3" className="h-4 w-4" />
+              ]}
+            />
+          </div>
+        </StoryCard>
+
+        {/* 2. Feedback Component */}
+        <StoryCard
+          id="sec-feedback"
+          title="Feedback Sentiment Widget"
+          componentName="FeedbackComponent"
+          category="Critique & Reader"
+          badge="Spring Micro-Feedback"
+          description="End-of-chapter sentiment collector with animated thumb-up/down expansion for critique commentary."
+          viewMode={storybookViewMode}
+          defaultDocsOpen={expandAllStories}
+          usageNotes={{
+            primaryLocation: "Chapter Reader End-of-Chapter Ornament (/read/$workId/$chapterId)",
+            workflow: "Positioned at the conclusion of a serialized chapter to capture instant reader sentiment (thumbs up/down with animated expansion for critique comments) and overall feedback to assist authors in revising drafts."
+          }}
+          codeSnippet={`<FeedbackComponent
+  onSubmit={(data) => {
+    console.log('Feedback submitted:', data.rating, data.feedback)
+  }}
+/>`}
+        >
+          <div className="py-2">
+            <FeedbackComponent
+              onSubmit={(data) => {
+                alert(`Feedback submitted: ${data.rating} - "${data.feedback}"`)
+              }}
+            />
+          </div>
+        </StoryCard>
+
+        {/* 3. Expandable Profile Card */}
+        <StoryCard
+          id="sec-expandable-profile"
+          title="Expandable Profile Card"
+          componentName="ExpandableProfileCard"
+          category="Directory & Bio"
+          badge="FLIP Shared Layout"
+          description="Author and curator profile card with fluid FLIP expansion into full modal view with background, focus areas, and contact CTA."
+          viewMode={storybookViewMode}
+          defaultDocsOpen={expandAllStories}
+          usageNotes={{
+            primaryLocation: "Author Profile Directory (/discover) & Featured Curators",
+            workflow: "Compact author cards that seamlessly expand into an interactive modal overlay using FLIP shared-layout animations to display the author's full background, notable manuscripts, and direct connection actions without navigating away from the catalog."
+          }}
+          codeSnippet={`<ExpandableProfileCard
+  title="Elena Vance"
+  subtitle="Investigative Novelist"
+  imageSrc="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=1000"
+/>`}
+        >
+          <ExpandableProfileCard
+            title="Elena Vance"
+            subtitle="Investigative Novelist"
+            imageSrc="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=1000"
+          />
+        </StoryCard>
+
+        {/* 4. Quick Option Picker */}
+        <StoryCard
+          id="sec-option-picker"
+          title="Quick Option Picker"
+          componentName="OptionPicker"
+          category="Settings & Controls"
+          badge="Fluid Segment"
+          description="Tactile segmented selection pill for typography styles, manuscript states, or reading layouts."
+          viewMode={storybookViewMode}
+          defaultDocsOpen={expandAllStories}
+          usageNotes={{
+            primaryLocation: "Reader Display Settings Drawer (/read) & Draft Publishing Modal",
+            workflow: "Smooth tactile selector for single or multiple exclusive choices such as Reading Mode (Serif vs Inter vs Mono), Manuscript Status (Draft, In Review, Serialized), or Font Spacing."
+          }}
+          controls={
+            <span>Active Selection: <strong className="text-[var(--ink-primary)]">{storybookPickerVal}</strong></span>
+          }
+          codeSnippet={`<OptionPicker
+  options={[
+    { id: 'serif', title: 'Newsreader Serif', count: 12 },
+    { id: 'sans', title: 'Inter Clean', count: 8 },
+    { id: 'mono', title: 'JetBrains Code', count: 4 },
+  ]}
+  defaultSelected="serif"
+  onSelect={(opt) => setSelected(opt.id)}
+/>`}
+        >
+          <OptionPicker
+            options={[
+              { id: 'serif', title: 'Newsreader Serif', count: 12 },
+              { id: 'sans', title: 'Inter Clean', count: 8 },
+              { id: 'mono', title: 'JetBrains Code', count: 4 },
+            ]}
+            defaultSelected="serif"
+            onSelect={(opt) => setStorybookPickerVal(opt.id)}
+          />
+        </StoryCard>
+
+        {/* 5. Quick Switcher */}
+        <StoryCard
+          id="sec-switcher"
+          title="Quick Switcher"
+          componentName="QuickSwitcher"
+          category="Header & Navigation"
+          badge="Continuous Pill"
+          description="Sliding mode switcher for toggling between Reader Workspace and Writer Studio modes."
+          viewMode={storybookViewMode}
+          defaultDocsOpen={expandAllStories}
+          usageNotes={{
+            primaryLocation: "Main Navigation Bar / Header (Header.tsx) & Reader Header",
+            workflow: "Instant mode toggle between 'Reader Mode' (distraction-free prose consumption) and 'Writer Studio' (manuscript drafts and editorial analytics), or switching between multiple literary pen-names."
+          }}
+          controls={
+            <span>Active Scope: <strong className="text-[var(--ink-primary)] capitalize">{storybookSwitcherMode}</strong></span>
+          }
+          codeSnippet={`<QuickSwitcher
+  initialMode="individual"
+  onChange={(mode) => setMode(mode)}
+/>`}
+        >
+          <QuickSwitcher
+            initialMode={storybookSwitcherMode}
+            onChange={(mode) => setStorybookSwitcherMode(mode)}
+          />
+        </StoryCard>
+
+        {/* 6. Tags Component */}
+        <StoryCard
+          id="sec-tags"
+          title="Interactive Tags"
+          componentName="Tags"
+          category="Inputs & Metadata"
+          badge="Spring Tags"
+          description="Interactive tag pills with fluid addition, deletion, and counter badges for catalog metadata and manuscript genres."
+          viewMode={storybookViewMode}
+          defaultDocsOpen={expandAllStories}
+          usageNotes={{
+            primaryLocation: "New Manuscript Creation (/write/new) & Catalog Search Filters",
+            workflow: "Interactive animated pill tags for categorizing literary works with genres, themes, and tropes with animated addition and deletion."
+          }}
+          codeSnippet={`<Tags
+  initialTags={[
+    { id: '1', label: 'Nordic Noir', count: 42 },
+    { id: '2', label: 'Serialized Fiction', count: 18 },
+    { id: '3', label: 'Historical Mystery', count: 27 },
+  ]}
+/>`}
+        >
+          <Tags
+            initialTags={[
+              { id: '1', label: 'Nordic Noir', count: 42 },
+              { id: '2', label: 'Serialized Fiction', count: 18 },
+              { id: '3', label: 'Historical Mystery', count: 27 },
+              { id: '4', label: 'Literary Essays', count: 15 },
+            ]}
+          />
+        </StoryCard>
+
+        {/* 7. Task Widget Disclosure */}
+        <StoryCard
+          id="sec-task-widget"
+          title="Task Widget Disclosure"
+          componentName="TaskWidget"
+          category="Editorial Dashboard"
+          badge="Interactive Checklist"
+          description="Expandable editorial progress widget tracking chapter deadlines, subtasks, and peer revisions with checkmarks."
+          viewMode={storybookViewMode}
+          defaultDocsOpen={expandAllStories}
+          usageNotes={{
+            primaryLocation: "Writer Studio Dashboard (/write) & Editorial Production Pipeline",
+            workflow: "Expandable editorial progress card tracking chapter deadlines, developmental editing checklists, cover design reviews, and publication milestones with interactive completion checkmarks."
+          }}
+          codeSnippet={`<TaskWidget
+  data={{
+    title: 'Chapter 24 Final Developmental Review',
+    progress: 75,
+    completedCount: 3,
+    totalCount: 4,
+    status: 'In Progress',
+    subtasks: [...]
+  }}
+/>`}
+        >
+          <TaskWidget
+            data={{
+              title: 'Chapter 24 Final Developmental Review',
+              progress: 75,
+              completedCount: 3,
+              totalCount: 4,
+              priority: 'Urgent',
+              status: 'In Progress',
+              subtasks: [
+                { id: '1', title: 'Verify pacing in Act 2 climax', completed: true },
+                { id: '2', title: 'Standardize character dialect footnotes', completed: true },
+                { id: '3', title: 'Polish sensory drop cap opening', completed: true },
+                { id: '4', title: 'Generate SVG chapter cover ornament', completed: false },
+              ],
+              assignees: [
+                { name: 'Elena Rostova', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200', color: 'bg-emerald-500' },
+                { name: 'Julian Thorne', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200', color: 'bg-indigo-500' },
+              ]
+            }}
+          />
+        </StoryCard>
+
+        {/* 8. Continuous Pagination */}
+        <StoryCard
+          id="sec-pagination"
+          title="Continuous Pagination"
+          componentName="ContinuousPagination"
+          category="Reading Navigation"
+          badge="Tactile Spring"
+          description="Tactile spring pagination buttons with hover elevation and spring scale transitions for long multi-chapter novels."
+          viewMode={storybookViewMode}
+          defaultDocsOpen={expandAllStories}
+          usageNotes={{
+            primaryLocation: "Serialized Chapter Browser (/works/$workId) & Reading Library",
+            workflow: "High-fidelity tactile page switcher with spring animations, providing smooth linear jumping across long multi-volume serialized novels."
+          }}
+          controls={
+            <span>Page Range: <strong>1 .. 7</strong></span>
+          }
+          codeSnippet={`<ContinuousPagination
+  totalPages={7}
+  defaultPage={1}
+/>`}
+        >
+          <ContinuousPagination
+            totalPages={7}
+            defaultPage={storybookPage}
+          />
+        </StoryCard>
+
+        {/* 9. Create Community */}
+        <StoryCard
+          id="sec-create-community"
+          title="Create Community Modal Card"
+          componentName="CreateCommunity"
+          category="Book Clubs & Circles"
+          badge="Social Guild"
+          description="Interactive dialog to establish literary salons, reading circles, and critique guilds."
+          viewMode={storybookViewMode}
+          defaultDocsOpen={expandAllStories}
+          usageNotes={{
+            primaryLocation: "Reader Book Clubs & Literary Salons Hub (/community or Salon Drawer)",
+            workflow: "Guided modal card allowing readers and authors to establish private or public literary reading circles, shared manuscript review circles, or genre-specific book clubs."
+          }}
+          codeSnippet={`<CreateCommunity />`}
+        >
+          <CreateCommunity />
+        </StoryCard>
+
+        {/* 10. Create New Disclosure */}
+        <StoryCard
+          id="sec-create-disclosure"
+          title="Create New Action Disclosure"
+          componentName="CreateNewDisclosure"
+          category="Global Actions"
+          badge="Spring Grid"
+          description="Spring-animated expanding quick action menu for 1-click creation of manuscripts, essays, and salons."
+          viewMode={storybookViewMode}
+          defaultDocsOpen={expandAllStories}
+          usageNotes={{
+            primaryLocation: "Global Header Action Hub (Header.tsx) & Writer Dashboard (/write)",
+            workflow: "Spring-animated expandable grid menu providing 1-click creation shortcuts: 'New Serial Manuscript', 'Draft Essay', 'Schedule Event/Salon', or 'Open Reading Circle'."
+          }}
+          codeSnippet={`<CreateNewDisclosure />`}
+        >
+          <CreateNewDisclosure />
+        </StoryCard>
+
+        {/* 11. Discrete Tabs */}
+        <StoryCard
+          id="sec-discrete-tabs"
+          title="Discrete Tabs"
+          componentName="DiscreteTabs"
+          category="Navigation & Views"
+          badge="Sliding Indicator"
+          description="Sliding-pill tab switcher with smooth indicator transitions for user profile sub-views and author folios."
+          viewMode={storybookViewMode}
+          defaultDocsOpen={expandAllStories}
+          usageNotes={{
+            primaryLocation: "User Profile (/profile) & Author Page (/author/$authorId)",
+            workflow: "Sleek sliding-pill tab switcher for cleanly toggling between user sub-views, manuscript drafts vs published works, and reading metrics."
+          }}
+          codeSnippet={`<DiscreteTabs />`}
+        >
+          <DiscreteTabs />
+        </StoryCard>
+
+        {/* 12. Dock Component */}
+        <StoryCard
+          id="sec-dock"
+          title="Dock Utility Component"
+          componentName="Dock"
+          category="Floating Utilities"
+          badge="macOS Magnification"
+          description="macOS-style magnification dock for reader utilities, search, and navigation with proximity spring scaling."
+          viewMode={storybookViewMode}
+          defaultDocsOpen={expandAllStories}
+          usageNotes={{
+            primaryLocation: "Desktop / Tablet Screen Edge and Reader Canvas Floating Utility",
+            workflow: "macOS-style magnification dock fixed to the bottom or side of the screen providing instant access to Search, Reading Library, Writer Studio, Notifications, and Settings with physical cursor proximity magnification."
+          }}
+          codeSnippet={`<Dock />`}
+        >
+          <div className="py-6">
+            <Dock />
+          </div>
+        </StoryCard>
+
+        {/* 13. Edit Profile */}
+        <StoryCard
+          id="sec-edit-profile"
+          title="Edit Profile Card"
+          componentName="EditProfile"
+          category="Account & Onboarding"
+          badge="Form Card"
+          description="Profile and onboarding form interface for updating pen name, handle, avatar, pronouns, and bio statement."
+          viewMode={storybookViewMode}
+          defaultDocsOpen={expandAllStories}
+          usageNotes={{
+            primaryLocation: "Profile Settings & Onboarding Step 1 (/settings, /profile, New User Modal)",
+            workflow: "Card interface for updating user handle, pen name, avatar photo, pronouns, biographical statement, and social portfolio links."
+          }}
+          codeSnippet={`<EditProfile
+  initialData={{
+    name: 'Julian Thorne',
+    role: 'Historical Essayist',
+    bio: 'Documenting Cold-War maritime communication infrastructure...',
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200'
+  }}
+/>`}
+        >
+          <EditProfile
+            initialData={{
+              name: 'Julian Thorne',
+              role: 'Historical Essayist',
+              bio: 'Documenting Cold-War maritime communication infrastructure and Northern Baltic archives.',
+              avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200'
+            }}
+          />
+        </StoryCard>
+
+        {/* 14. Event Reminders */}
+        <StoryCard
+          id="sec-event-reminders"
+          title="Event Reminders"
+          componentName="EventReminders"
+          category="Scheduler & Alerts"
+          badge="Release Countdown"
+          description="Allows authors to schedule upcoming release alerts and live literary reading salon reminders for readers."
+          viewMode={storybookViewMode}
+          defaultDocsOpen={expandAllStories}
+          usageNotes={{
+            primaryLocation: "Author Manuscript Release Scheduler (/write/manage/$workId) & Upcoming Salons",
+            workflow: "Allows authors to schedule and configure automated release notifications and countdown reminders for upcoming chapter drops or live reading salons."
+          }}
+          codeSnippet={`<EventReminders />`}
+        >
+          <EventReminders />
+        </StoryCard>
+
+        {/* 15. Extended Toolbar */}
+        <StoryCard
+          id="sec-extended-toolbar"
+          title="Extended Toolbar"
+          componentName="ExtendedToolbar"
+          category="Mobile Ergonomics"
+          badge="Bottom Navigation"
+          description="Multi-segment tactile action bar designed for mobile screen navigation and one-thumb reading utilities."
+          viewMode={storybookViewMode}
+          defaultDocsOpen={expandAllStories}
+          usageNotes={{
+            primaryLocation: "Mobile View Bottom / Top Navigation (MobileNav.tsx) and Mobile Reader Controls",
+            workflow: "Multi-segment tactile action bar designed specifically for mobile ergonomics, providing one-thumb access to chapter drawer, font size adjustments, bookmarks, search, and navigation."
+          }}
+          codeSnippet={`<ExtendedToolbar />`}
+        >
+          <ExtendedToolbar />
+        </StoryCard>
+
+        {/* 16. Frequency Selector */}
+        <StoryCard
+          id="sec-frequency"
+          title="Frequency Selector"
+          componentName="FrequencySelector"
+          category="Publishing Cadence"
+          badge="Interactive Cadence"
+          description="Serialization cadence picker allowing authors to commit to weekly, bi-weekly, or monthly chapter release intervals."
+          viewMode={storybookViewMode}
+          defaultDocsOpen={expandAllStories}
+          usageNotes={{
+            primaryLocation: "Serialized Novel Release Schedule (/write/manage/$workId) & Preferences",
+            workflow: "Interactive cadence picker allowing authors to commit to a publishing frequency (e.g., Weekly on Mondays, Bi-weekly, Monthly) and readers to choose notification intervals."
+          }}
+          controls={
+            <span>Cadence Selected: <strong className="text-[var(--ink-primary)]">{storybookFrequency}</strong></span>
+          }
+          codeSnippet={`<FrequencySelector
+  onChange={(data) => setFrequency(data.type)}
+/>`}
+        >
+          <FrequencySelector
+            value={{ type: (storybookFrequency as any) || 'Weekly', subValue: 'Mon' }}
+            onChange={(data) => setStorybookFrequency(data.type)}
+          />
+        </StoryCard>
+
+        {/* 17. Feature Tour */}
+        <StoryCard
+          id="sec-tour"
+          title="Feature Tour"
+          componentName="FeatureTour"
+          category="Onboarding & Guides"
+          badge="Spotlight Flow"
+          description="Guided interactive spotlight tour introducing first-time readers to key platform features and layout modes."
+          viewMode={storybookViewMode}
+          defaultDocsOpen={expandAllStories}
+          usageNotes={{
+            primaryLocation: "New User First-Time Experience / Onboarding Completion and Writer Studio Launch",
+            workflow: "Guided interactive spotlight tour highlighting key platform features: 3D Book Jacket Carousel, Distraction-Free Chapter Reader, Writer Studio, and Shelves system."
+          }}
+          codeSnippet={`<FeatureTour />`}
+        >
+          <FeatureTour />
+        </StoryCard>
+
+        {/* 18. List Stack */}
+        <StoryCard
+          id="sec-list-stack"
+          title="List Stack"
+          componentName="ListStack"
+          category="Queue & Deck"
+          badge="Animated Deck"
+          description="Stacked card deck with animated reordering and swipe dismissals for organizing reading queues and priority folios."
+          viewMode={storybookViewMode}
+          defaultDocsOpen={expandAllStories}
+          usageNotes={{
+            primaryLocation: "Reading Library (/library), Author's Works List, and Trending Serialized Folios",
+            workflow: "Stacked card arrangement with animated reordering, expansion, and swipe dismissals for organizing reading queues and priority to-read manuscripts."
+          }}
+          codeSnippet={`<ListStack />`}
+        >
+          <ListStack />
+        </StoryCard>
 
       </section>
 

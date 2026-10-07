@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useUser, useAuth } from '@clerk/react'
-import { syncClerkUserToProfile } from '../lib/supabase/queries/authors'
+import { syncClerkUserServerFn } from '../server/authors'
 import { createClerkSupabaseClient } from '../lib/supabase/client'
 
 /**
@@ -32,12 +32,14 @@ export function ClerkSync() {
           user.username ||
           'Tellnest Author'
 
-        // 1. Sync User into Supabase `profiles` table
-        await syncClerkUserToProfile({
-          clerkUserId: user.id,
-          username,
-          displayName,
-          avatarUrl: user.imageUrl || '/unisex-avatar.svg',
+        // 1. Sync User into Supabase `profiles` table via server function (Service Role Key runs strictly on server)
+        await syncClerkUserServerFn({
+          data: {
+            clerkUserId: user.id,
+            username,
+            displayName,
+            avatarUrl: user.imageUrl || '/unisex-avatar.svg',
+          },
         })
 
         lastSyncedIdRef.current = user.id

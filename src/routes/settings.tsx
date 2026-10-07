@@ -1,9 +1,23 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useState, useRef } from 'react'
 import { useUser } from '@clerk/react'
 import { useApp } from '../context/AppContext'
 import { ProtectedRoute } from '../components/ProtectedRoute'
-import { Settings, User, Eye, Bell, Lock, ShieldCheck, Sun, Moon, Coffee, Upload, RotateCcw, Loader2 } from 'lucide-react'
+import {
+  Settings,
+  User,
+  Eye,
+  Bell,
+  Lock,
+  ShieldCheck,
+  Sun,
+  Moon,
+  Coffee,
+  Upload,
+  RotateCcw,
+  Loader2,
+  ArrowLeft
+} from 'lucide-react'
 import { UnisexAvatar, isDefaultOrInitialAvatar } from '../components/UnisexAvatar'
 import { uploadImage, optimizeAvatarImage, STORAGE_BUCKETS } from '../lib/supabase/storage'
 
@@ -124,9 +138,18 @@ function SettingsPage() {
       
       {/* Header */}
       <div className="pb-6 border-b border-[var(--border-subtle)] mb-8">
-        <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1">
-          <Settings className="h-3.5 w-3.5" />
-          <span>System & Experience Preferences</span>
+        <div className="flex items-center justify-between gap-4 mb-2">
+          <Link
+            to="/profile"
+            className="inline-flex items-center gap-1.5 text-xs font-mono text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors no-underline"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Back to Profile</span>
+          </Link>
+          <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)]">
+            <Settings className="h-3.5 w-3.5" />
+            <span>Preferences</span>
+          </div>
         </div>
         <h1 className="font-serif text-3xl font-semibold text-[var(--ink-primary)]">
           Preferences & Settings

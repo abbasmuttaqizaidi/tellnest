@@ -47,6 +47,9 @@ export function AuthModal() {
     const targetUrl = authReturnUrl || '/'
 
     try {
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('hatchpen_just_signed_up_google', 'true')
+      }
       // 1. Wait briefly for Clerk to finish loading if needed
       if (!clerk.loaded) {
         let attempts = 0

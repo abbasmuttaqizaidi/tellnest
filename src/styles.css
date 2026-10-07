@@ -32,21 +32,33 @@
 }
 
 :root[data-theme="dark"],
-.dark,
+.dark {
+  --bg-canvas: #090D14;
+  --bg-surface: #111722;
+  --bg-subtle: #172030;
+  --border-subtle: #1E293B;
+  --border-strong: #334155;
+  --ink-primary: #F8FAFC;
+  --ink-secondary: #E2E8F0;
+  --ink-muted: #94A3B8;
+  --ink-faint: #64748B;
+  --accent-ink: #F8FAFC;
+  --accent-contrast: #090D14;
+}
+
 :root[data-theme="sepia"],
 .theme-sepia {
-  /* Enforce Strict White Background Globally */
-  --bg-canvas: #FFFFFF;
-  --bg-surface: #FFFFFF;
-  --bg-subtle: #F8FAFC;
-  --border-subtle: #E2E8F0;
-  --border-strong: #CBD5E1;
-  --ink-primary: #010611;
-  --ink-secondary: #0F172A;
-  --ink-muted: #64748B;
-  --ink-faint: #94A3B8;
-  --accent-ink: #010611;
-  --accent-contrast: #FFFFFF;
+  --bg-canvas: #F6F1EA;
+  --bg-surface: #FAF7F2;
+  --bg-subtle: #EDE5DA;
+  --border-subtle: #E0D5C5;
+  --border-strong: #CEC0AD;
+  --ink-primary: #2C2219;
+  --ink-secondary: #4A3A2C;
+  --ink-muted: #7A6553;
+  --ink-faint: #A69280;
+  --accent-ink: #2C2219;
+  --accent-contrast: #F6F1EA;
 }
 
 * {
@@ -59,23 +71,18 @@ body,
   min-height: 100%;
   max-width: 100%;
   overflow-x: hidden;
-  background-color: #FFFFFF !important;
-  background: #FFFFFF !important;
 }
 
 html {
   overflow-x: hidden;
   scroll-behavior: smooth;
-  background-color: #FFFFFF !important;
-  background: #FFFFFF !important;
 }
 
 body {
   margin: 0;
   color: var(--ink-secondary);
   font-family: var(--font-sans);
-  background-color: #FFFFFF !important;
-  background: #FFFFFF !important;
+  background-color: var(--bg-canvas);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
@@ -282,8 +289,24 @@ html.has-auth-session .public-home-container {
   display: none !important;
 }
 
-/* Hatchpen Brand Logo */
+/* Hatchpen Brand Logo Theme Inversion */
 .hatchpen-brand-logo {
   transition: filter 0.2s ease-in-out;
+}
+
+:root[data-theme="dark"] .hatchpen-brand-logo:not(.hatchpen-brand-logo--inverted),
+.dark .hatchpen-brand-logo:not(.hatchpen-brand-logo--inverted),
+[data-theme="dark"] img[src*="hatchpen-logo"],
+.dark img[src*="hatchpen-logo"],
+[data-theme="dark"] img[src*="hatchpen-app-icon"],
+.dark img[src*="hatchpen-app-icon"],
+[data-theme="dark"] img[src*="hatchpen-icon"]:not([src*="inverted"]),
+.dark img[src*="hatchpen-icon"]:not([src*="inverted"]) {
+  filter: invert(1) brightness(1.15);
+}
+
+.hatchpen-brand-logo--inverted,
+img[src*="inverted"] {
+  filter: none !important;
 }
 
