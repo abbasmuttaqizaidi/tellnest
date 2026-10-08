@@ -18,7 +18,7 @@ export interface FilterDisclosureProps {
   onChange?: (id: string) => void
   label?: string
   className?: string
-  align?: 'left' | 'right'
+  align?: 'left' | 'right' | 'auto'
   disabled?: boolean
 }
 
@@ -29,7 +29,7 @@ export const FilterDisclosure: FC<FilterDisclosureProps> = ({
   onChange,
   label = 'Filter Catalog',
   className,
-  align = 'right',
+  align = 'auto',
   disabled = false,
 }) => {
   const [open, setOpen] = useState(false)
@@ -39,6 +39,7 @@ export const FilterDisclosure: FC<FilterDisclosureProps> = ({
   const containerRef = useRef<HTMLDivElement>(null)
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  const [effectiveAlign, setEffectiveAlign] = useState<'left' | 'right'>('left')
 
   const [internalActive, setInternalActive] = useState<string>(
     defaultActiveId || items[0]?.id || ''
@@ -48,6 +49,30 @@ export const FilterDisclosure: FC<FilterDisclosureProps> = ({
   const active = isControlled ? controlledActiveId : internalActive
 
   const activeItem = items.find((i) => i.id === active) || items[0]
+
+  // Detect whether to align left or right based on viewport space
+  useEffect(() => {
+    if (open && containerRef.current) {
+      if (align === 'left' || align === 'right') {
+        setEffectiveAlign(align)
+      } else {
+        const rect = containerRef.current.getBoundingClientRect()
+        const popupWidth = 288 // 18rem / 72 in Tailwind
+        const spaceOnRight = window.innerWidth - rect.left
+        const spaceOnLeft = rect.right
+
+        // If there's enough room on the right, align left (opens to the right)
+        // Otherwise, align right (opens to the left) so it stays within viewport
+        if (spaceOnRight >= popupWidth) {
+          setEffectiveAlign('left')
+        } else if (spaceOnLeft >= popupWidth) {
+          setEffectiveAlign('right')
+        } else {
+          setEffectiveAlign('left')
+        }
+      }
+    }
+  }, [open, align])
 
   // Cleanup pending close timer on unmount
   useEffect(() => {
@@ -123,22 +148,45 @@ export const FilterDisclosure: FC<FilterDisclosureProps> = ({
       ref={containerRef}
       className={cn('relative inline-flex items-center font-sans select-none', className)}
     >
+      {/* Anchor Trigger Button: Always remains stably in the DOM */}
+      <button
+        type="button"
+        disabled={disabled || items.length === 0}
+        onClick={() => setOpen((prev) => !prev)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={label}
+        className={cn(
+          'flex items-center gap-2 rounded-full border bg-[var(--bg-surface)] px-3.5 py-1.5 shadow-xs text-xs font-medium transition-colors',
+          open
+            ? 'border-[var(--ink-primary)] text-[var(--ink-primary)] ring-1 ring-[var(--ink-primary)]'
+            : 'border-[var(--border-subtle)] text-[var(--ink-secondary)]',
+          disabled || items.length === 0
+            ? 'opacity-50 cursor-not-allowed'
+            : 'hover:border-[var(--border-strong)] hover:text-[var(--ink-primary)] cursor-pointer'
+        )}
+      >
+        <Filter className="h-3.5 w-3.5 text-[var(--ink-muted)] flex-shrink-0" />
+        <span className="font-sans font-medium truncate max-w-[12rem]">
+          {activeItem?.label || (items.length === 0 ? 'No Options' : 'Filter')}
+        </span>
+      </button>
+
+      {/* Floating Dropdown Popup: Positioned cleanly below the button without shifting layout */}
       <MotionConfig transition={SPRINGS.smooth}>
-        <AnimatePresence mode="popLayout" initial={false}>
-          {open ? (
+        <AnimatePresence>
+          {open && (
             <motion.div
-              key="open"
-              layoutId={layoutId}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.1 } }}
+              initial={{ opacity: 0, y: 6, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 6, scale: 0.96, transition: { duration: 0.12 } }}
               role="listbox"
               aria-label={label}
               onKeyDown={handleListKeyDown}
               tabIndex={-1}
               className={cn(
-                'absolute top-0 z-50 flex w-72 max-w-[calc(100vw-2rem)] flex-col gap-1 overflow-hidden rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-2 shadow-2xl',
-                align === 'left' ? 'left-0' : 'right-0'
+                'absolute top-full mt-2 z-50 flex w-72 max-w-[calc(100vw-2rem)] flex-col gap-1 overflow-hidden rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-2 shadow-2xl',
+                effectiveAlign === 'left' ? 'left-0' : 'right-0'
               )}
             >
               {/* Header */}
@@ -157,26 +205,29 @@ export const FilterDisclosure: FC<FilterDisclosureProps> = ({
                 </button>
               </div>
 
-              {/* Items List */}
-              <div ref={listRef} className="space-y-0.5 max-h-72 overflow-y-auto">
+              {/* Items List: Clean stable container without momentary scrollbars or width jumps */}
+              <div
+                ref={listRef}
+                className={cn(
+                  'space-y-0.5 max-h-64 overflow-x-hidden',
+                  items.length > 5 ? 'overflow-y-auto scrollbar-thin' : 'overflow-y-hidden'
+                )}
+              >
                 {items.length === 0 ? (
                   <div className="p-4 text-center text-xs font-mono text-[var(--ink-muted)]">
                     No options available
                   </div>
                 ) : (
-                  items.map((item, index) => {
+                  items.map((item) => {
                     const selected = active === item.id
 
                     return (
-                      <motion.button
+                      <button
                         key={item.id}
+                        type="button"
                         role="option"
                         aria-selected={selected}
-                        initial={{ opacity: 0, y: 12 }}
-                        animate={{ opacity: 1, y: 0 }}
                         onClick={() => handleSelect(item.id)}
-                        whileTap={{ scale: 0.98 }}
-                        transition={{ ...SPRINGS.snappy, delay: index * 0.025 }}
                         className={cn(
                           'flex w-full cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-left transition-colors text-xs focus:outline-none focus-visible:ring-1 focus-visible:ring-[var(--ink-primary)]',
                           selected
@@ -223,37 +274,12 @@ export const FilterDisclosure: FC<FilterDisclosureProps> = ({
                             {selected && <Check className="h-3 w-3 stroke-[3]" />}
                           </div>
                         </div>
-                      </motion.button>
+                      </button>
                     )
                   })
                 )}
               </div>
             </motion.div>
-          ) : (
-            <div key="close" className="flex items-center">
-              <motion.button
-                layoutId={layoutId}
-                type="button"
-                disabled={disabled || items.length === 0}
-                onClick={() => setOpen(true)}
-                whileHover={disabled ? undefined : { scale: 1.02 }}
-                whileTap={disabled ? undefined : { scale: 0.98 }}
-                aria-haspopup="listbox"
-                aria-expanded={false}
-                aria-label={label}
-                className={cn(
-                  'z-20 flex items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3.5 py-1.5 shadow-xs text-xs font-medium text-[var(--ink-secondary)] transition-colors',
-                  disabled || items.length === 0
-                    ? 'opacity-50 cursor-not-allowed'
-                    : 'hover:border-[var(--border-strong)] hover:text-[var(--ink-primary)] cursor-pointer'
-                )}
-              >
-                <Filter className="h-3.5 w-3.5 text-[var(--ink-muted)] flex-shrink-0" />
-                <span className="font-sans font-medium truncate max-w-[12rem]">
-                  {activeItem?.label || (items.length === 0 ? 'No Options' : 'Filter')}
-                </span>
-              </motion.button>
-            </div>
           )}
         </AnimatePresence>
       </MotionConfig>

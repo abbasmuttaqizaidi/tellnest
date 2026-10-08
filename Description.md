@@ -1,5 +1,15 @@
 # Platform Specification & Design System Architecture — Stories by Relay
 
+> [!IMPORTANT]
+> ### CANONICAL KNOWLEDGE BASE & AGENT DIRECTIVE
+> To fully understand, develop, and maintain this project without regressions or design drift, **you must read and commit the following core specification documents to memory**:
+> 1. **[`PRD.md`](file:///Users/syedabbasmuttaqizaidi/Desktop/development/stories-by-relay/PRD.md)** — Canonical Product Requirements Document detailing product vision, the episodic structural hierarchy (`Work ➔ Act ➔ Chapter`), weekly automatic collections logic (`New Chapters This Week` vs `New This Week`), and core functional route specifications.
+> 2. **[`Architecture.md`](file:///Users/syedabbasmuttaqizaidi/Desktop/development/stories-by-relay/Architecture.md)** — Comprehensive technical architecture, full-stack data flow, complete directory and file structure, state management (`AppContext`), Nitro server functions (`src/server/`), and full tech stack specifications.
+> 3. **[`rules.md`](file:///Users/syedabbasmuttaqizaidi/Desktop/development/stories-by-relay/rules.md)** — Strict engineering and workflow rules: mandatory component and filter reuse, strict auth flow preservation (zero regression on login/signup), Git constraints (no pushing without explicit user order), robust error handling, public vs. private route boundaries, end-to-end SEO mandates, and language policy (Hinglish conversation, English code/docs).
+> 4. **[`Phases.md`](file:///Users/syedabbasmuttaqizaidi/Desktop/development/stories-by-relay/Phases.md)** — Project roadmap, active milestones, completed deliverables (Phases 1–3), active Writer Studio scope (Phase 4), and upcoming community/monetization gates (Phases 5–7).
+> 5. **[`Design.md`](file:///Users/syedabbasmuttaqizaidi/Desktop/development/stories-by-relay/Design.md)** — Complete synchronized design token matrix: typography mapping (`Outfit`, `Inter`, `JetBrains Mono`), Tri-theme colors (Light, Obsidian Dark, Sepia), spring physics tokens (`SPRINGS.snappy`, `SPRINGS.smooth`, `SPRINGS.bouncy`), card surface tokens, and centralized primitive behaviors.
+> 6. **[`live_instructions.md`](file:///Users/syedabbasmuttaqizaidi/Desktop/development/stories-by-relay/live_instructions.md)** — Business rules for canonical 16 categories, grouped genres, and time-based collections logic.
+
 ---
 
 ## 1. Executive Overview

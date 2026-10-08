@@ -37,6 +37,7 @@ import {
   CreateCommunity,
   CreateNewDisclosure,
   DiscreteTabs,
+  DiscreteDisclosureTabs,
   Dock,
   EditProfile,
   EventReminders,
@@ -134,6 +135,11 @@ function DesignSystemShowcasePage() {
   const [storybookPickerVal, setStorybookPickerVal] = useState('serif')
   const [storybookTourStep, setStorybookTourStep] = useState(0)
   const [storybookFrequency, setStorybookFrequency] = useState('Weekly')
+
+  // Discrete Disclosure Tabs Showcase State
+  const [demoSort, setDemoSort] = useState('popularity')
+  const [demoStatus, setDemoStatus] = useState('all')
+  const [demoGenre, setDemoGenre] = useState('sci-fi')
 
   // Storybook Studio Global Controls State
   const [storybookViewMode, setStorybookViewMode] = useState<'canvas' | 'docs'>('canvas')
@@ -447,6 +453,80 @@ function DesignSystemShowcasePage() {
           <p className="text-xs font-mono text-[var(--ink-muted)]">
             Current active selection: <strong className="text-[var(--ink-primary)]">{activeTab}</strong>
           </p>
+        </div>
+
+        {/* Discrete Disclosure Expanding Tabs Showcase */}
+        <div className="p-6 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--border-subtle)] pb-3">
+            <div>
+              <h3 className="font-serif text-lg font-semibold text-[var(--ink-primary)]">
+                Discrete Disclosure Tabs
+              </h3>
+              <p className="text-xs text-[var(--ink-muted)] mt-0.5">
+                Compact icon pills that expand smoothly on selection to reveal their label and trigger an anchored dropdown without shifting surrounding elements.
+              </p>
+            </div>
+            <span className="font-mono text-[10px] uppercase px-2 py-0.5 rounded bg-[var(--bg-subtle)] text-[var(--ink-muted)] border border-[var(--border-subtle)] self-start sm:self-center">
+              Expanding Pill + Anchored Popup
+            </span>
+          </div>
+
+          <div className="py-2">
+            <DiscreteDisclosureTabs
+              size="sm"
+              tabs={[
+                {
+                  id: 'sort',
+                  label: 'Sort',
+                  icon: <SlidersHorizontal className="h-3.5 w-3.5" />,
+                  activeItemId: demoSort,
+                  onItemChange: setDemoSort,
+                  menuTitle: 'Sort Manuscripts',
+                  items: [
+                    { id: 'popularity', label: 'Most Popular', badge: 'Top' },
+                    { id: 'updated', label: 'Recently Updated' },
+                    { id: 'rating', label: 'Highest Rated' },
+                  ],
+                },
+                {
+                  id: 'status',
+                  label: 'Status',
+                  icon: <CheckCircle className="h-3.5 w-3.5" />,
+                  activeItemId: demoStatus,
+                  onItemChange: setDemoStatus,
+                  menuTitle: 'Publication Status',
+                  items: [
+                    { id: 'all', label: 'All Statuses' },
+                    { id: 'ongoing', label: 'Ongoing (Serialized)' },
+                    { id: 'completed', label: 'Completed' },
+                    { id: 'hiatus', label: 'On Hiatus' },
+                  ],
+                },
+                {
+                  id: 'genre',
+                  label: 'Genre',
+                  icon: <BookOpen className="h-3.5 w-3.5" />,
+                  activeItemId: demoGenre,
+                  onItemChange: setDemoGenre,
+                  menuTitle: 'Literary Genre',
+                  items: [
+                    { id: 'all', label: 'All Genres' },
+                    { id: 'sci-fi', label: 'Speculative Sci-Fi', badge: 42 },
+                    { id: 'fantasy', label: 'High Fantasy', badge: 38 },
+                    { id: 'noir', label: 'Metropolitan Noir', badge: 19 },
+                  ],
+                },
+              ]}
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-4 text-xs font-mono text-[var(--ink-muted)] pt-2 border-t border-[var(--border-subtle)]/60">
+            <span>Sort: <strong className="text-[var(--ink-primary)]">{demoSort}</strong></span>
+            <span>•</span>
+            <span>Status: <strong className="text-[var(--ink-primary)]">{demoStatus}</strong></span>
+            <span>•</span>
+            <span>Genre: <strong className="text-[var(--ink-primary)]">{demoGenre}</strong></span>
+          </div>
         </div>
       </section>
 

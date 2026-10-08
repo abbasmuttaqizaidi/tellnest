@@ -1,12 +1,12 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useState, useMemo } from 'react'
-import { Compass, TrendingUp, Sparkles, Clock, CheckCircle2 } from 'lucide-react'
+import { Compass, TrendingUp, Sparkles, Clock, CheckCircle2, SlidersHorizontal, CheckCircle, BookOpen } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import type { Work } from '../data/mockData'
 import { getWorkLatestActivityDate } from '../data/mockData'
 import WorkCard from '../components/WorkCard'
 import EmptyState from '../components/EmptyState'
-import { AnimatedTabs, Button, FilterDisclosure, AnimatedSearch } from '../design-system'
+import { AnimatedTabs, Button, FilterDisclosure, DiscreteDisclosureTabs } from '../design-system'
 import { generateMeta } from '../lib/seo'
 
 export const Route = createFileRoute('/discover')({
@@ -112,7 +112,7 @@ function DiscoverPage() {
     <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
       
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between pb-8 border-b border-[var(--border-subtle)] gap-4">
+      <div className="pb-8 border-b border-[var(--border-subtle)]">
         <div>
           <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1">
             <Compass className="h-3.5 w-3.5" />
@@ -125,99 +125,86 @@ function DiscoverPage() {
             Explore original fiction, serials, essays, poetry, and memoirs curated by readers and editors.
           </p>
         </div>
-
-        {/* Animated Search with Curtain Reveal */}
-        <div className="w-full md:w-80">
-          <AnimatedSearch
-            variant="curtain-reveal"
-            size="sm"
-            placeholder="Filter by title, author, tag..."
-            value={searchTerm}
-            onChange={setSearchTerm}
-            shortcut="/"
-            suggestions={[
-              '✨ Trending',
-              'Nordic Noir',
-              'Elena Rostova',
-              'Philosophy',
-              'Kyoto',
-            ]}
-            onSelectSuggestion={(s) => {
-              if (s.includes('Trending')) {
-                setActiveTab('trending')
-              } else {
-                setSearchTerm(s)
-              }
-            }}
-          />
-        </div>
       </div>
 
       {/* Discovery Navigation & Filter Bar */}
-      <div className="py-4 border-b border-[var(--border-subtle)] space-y-4">
-        {/* Row 1: Primary Discovery Collection Tabs */}
-        <div className="w-full overflow-x-auto scrollbar-none pb-1">
-          <AnimatedTabs
-            size="sm"
-            activeId={activeTab}
-            onChange={(id) => setActiveTab(id as any)}
-            tabs={[
-              { id: 'new_chapters', label: 'New Chapters This Week', icon: <Clock className="h-3.5 w-3.5" /> },
-              { id: 'new_this_week', label: 'New This Week', icon: <Sparkles className="h-3.5 w-3.5" /> },
-              { id: 'trending', label: 'Trending', icon: <TrendingUp className="h-3.5 w-3.5" /> },
-              { id: 'rising', label: 'Rising Stories', icon: <Sparkles className="h-3.5 w-3.5" /> },
-              { id: 'recent', label: 'Recently Updated', icon: <Clock className="h-3.5 w-3.5" /> },
-              { id: 'completed', label: 'Completed Works', icon: <CheckCircle2 className="h-3.5 w-3.5" /> }
-            ]}
-          />
-        </div>
-
-        {/* Row 2: Secondary Filter Controls Strip (Sort, Status, Genre) */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-[var(--border-subtle)]/60">
-          <div className="flex flex-wrap items-center gap-2">
-            <FilterDisclosure
-              label="Sort Manuscripts"
-              activeId={sortBy}
-              onChange={(id) => setSortBy(id as any)}
-              items={[
-                { id: 'popularity', label: 'Most Popular' },
-                { id: 'updated', label: 'Recently Updated' },
-                { id: 'rating', label: 'Highest Rated' },
-              ]}
-            />
-
-            <FilterDisclosure
-              label="Publication Status"
-              activeId={selectedStatus}
-              onChange={setSelectedStatus}
-              items={[
-                { id: 'all', label: 'All Statuses' },
-                { id: 'Ongoing', label: 'Ongoing (Serialized)' },
-                { id: 'Completed', label: 'Completed' },
-                { id: 'On Hiatus', label: 'On Hiatus' },
-              ]}
-            />
-
-            <FilterDisclosure
-              label="Genre Filter"
-              activeId={selectedGenre}
-              onChange={setSelectedGenre}
-              items={[
-                { id: 'all', label: 'All Genres' },
-                ...genres.map((g) => ({ id: g.slug, label: g.name }))
+      <div className="py-4 border-b border-[var(--border-subtle)] space-y-3">
+        {/* Upper Row: Collection Tabs (Left) + Discrete Filter Disclosure Tabs (Right) */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          {/* Primary Discovery Collection Tabs */}
+          <div className="overflow-x-auto scrollbar-none pb-1 lg:pb-0">
+            <AnimatedTabs
+              size="sm"
+              activeId={activeTab}
+              onChange={(id) => setActiveTab(id as any)}
+              tabs={[
+                { id: 'new_chapters', label: 'New Chapters This Week', icon: <Clock className="h-3.5 w-3.5" /> },
+                { id: 'new_this_week', label: 'New This Week', icon: <Sparkles className="h-3.5 w-3.5" /> },
+                { id: 'trending', label: 'Trending', icon: <TrendingUp className="h-3.5 w-3.5" /> },
+                { id: 'rising', label: 'Rising Stories', icon: <Sparkles className="h-3.5 w-3.5" /> },
+                { id: 'recent', label: 'Recently Updated', icon: <Clock className="h-3.5 w-3.5" /> },
+                { id: 'completed', label: 'Completed Works', icon: <CheckCircle2 className="h-3.5 w-3.5" /> }
               ]}
             />
           </div>
 
-          {hasActiveFilters && (
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="text-xs text-[var(--ink-muted)] hover:text-[var(--ink-primary)] underline cursor-pointer"
-            >
-              Reset all active filters
-            </button>
-          )}
+          {/* Secondary Discrete Disclosure Tabs (Sort, Status, Genre) + Reset Button */}
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <DiscreteDisclosureTabs
+              size="sm"
+              tabs={[
+                {
+                  id: 'sort',
+                  label: 'Sort',
+                  icon: <SlidersHorizontal className="h-3.5 w-3.5" />,
+                  activeItemId: sortBy,
+                  onItemChange: (id) => setSortBy(id as any),
+                  menuTitle: 'Sort Manuscripts',
+                  items: [
+                    { id: 'popularity', label: 'Most Popular' },
+                    { id: 'updated', label: 'Recently Updated' },
+                    { id: 'rating', label: 'Highest Rated' },
+                  ],
+                },
+                {
+                  id: 'status',
+                  label: 'Status',
+                  icon: <CheckCircle className="h-3.5 w-3.5" />,
+                  activeItemId: selectedStatus,
+                  onItemChange: setSelectedStatus,
+                  menuTitle: 'Publication Status',
+                  items: [
+                    { id: 'all', label: 'All Statuses' },
+                    { id: 'Ongoing', label: 'Ongoing (Serialized)' },
+                    { id: 'Completed', label: 'Completed' },
+                    { id: 'On Hiatus', label: 'On Hiatus' },
+                  ],
+                },
+                {
+                  id: 'genre',
+                  label: 'Genre',
+                  icon: <BookOpen className="h-3.5 w-3.5" />,
+                  activeItemId: selectedGenre,
+                  onItemChange: setSelectedGenre,
+                  menuTitle: 'Genre Filter',
+                  items: [
+                    { id: 'all', label: 'All Genres' },
+                    ...genres.map((g) => ({ id: g.slug, label: g.name })),
+                  ],
+                },
+              ]}
+            />
+
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="text-xs text-[var(--ink-muted)] hover:text-[var(--ink-primary)] underline cursor-pointer ml-1"
+              >
+                Reset
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -226,7 +213,7 @@ function DiscoverPage() {
       <div className="my-6 flex items-center gap-1.5 overflow-x-auto pb-2 max-w-full min-w-0 scrollbar-none">
         <button
           onClick={() => setSelectedCategory('all')}
-          className={`px-3 py-1 rounded-full text-xs font-mono transition-colors ${
+          className={`px-3 py-1 rounded-full text-xs font-mono whitespace-nowrap shrink-0 transition-colors ${
             selectedCategory === 'all'
               ? 'border border-[var(--ink-primary)] bg-[var(--bg-surface)] text-[var(--ink-primary)] font-semibold'
               : 'border border-[var(--border-subtle)] text-[var(--ink-muted)] hover:border-[var(--border-strong)]'
@@ -238,7 +225,7 @@ function DiscoverPage() {
           <button
             key={cat.slug}
             onClick={() => setSelectedCategory(cat.slug)}
-            className={`px-3 py-1 rounded-full text-xs whitespace-nowrap transition-colors ${
+            className={`px-3 py-1 rounded-full text-xs whitespace-nowrap shrink-0 transition-colors ${
               selectedCategory === cat.slug
                 ? 'border border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-medium'
                 : 'border border-[var(--border-subtle)] text-[var(--ink-secondary)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)]'
