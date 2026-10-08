@@ -20,8 +20,15 @@ import {
 } from 'lucide-react'
 import { UnisexAvatar, isDefaultOrInitialAvatar } from '../components/UnisexAvatar'
 import { uploadImage, optimizeAvatarImage, STORAGE_BUCKETS } from '../lib/supabase/storage'
+import { generateMeta } from '../lib/seo'
 
 export const Route = createFileRoute('/settings')({
+  head: () =>
+    generateMeta({
+      title: 'Settings & Preferences',
+      description: 'Account settings, reading themes, and notification preferences.',
+      noindex: true,
+    }),
   component: () => (
     <ProtectedRoute
       title="User Preferences & Folio Settings"

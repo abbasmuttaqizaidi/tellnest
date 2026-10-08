@@ -51,7 +51,7 @@ export function StoryCard({
   return (
     <article
       id={id}
-      className="scroll-mt-28 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] overflow-hidden shadow-xs hover:border-[var(--border-strong)] transition-colors"
+      className="scroll-mt-28 rounded-2xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all"
     >
       {/* Story Card Header */}
       <div className="px-5 py-4 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">

@@ -3,6 +3,9 @@ export interface Chapter {
   number: number
   title: string
   subtitle?: string
+  actId?: string
+  actNumber?: number
+  actTitle?: string
   status: 'published' | 'draft' | 'scheduled'
   isNew?: boolean
   isUpdated?: boolean
@@ -11,6 +14,17 @@ export interface Chapter {
   publishedAt?: string
   updatedAt?: string
   content: string
+}
+
+export interface Act {
+  id: string
+  workId: string
+  number: number
+  title: string
+  slug: string
+  description?: string
+  status?: 'published' | 'draft'
+  chapters?: Chapter[]
 }
 
 export interface Author {
@@ -25,6 +39,28 @@ export interface Author {
   totalReads: string
   featuredQuote?: string
   verified?: boolean
+}
+
+export type WorkActivityType =
+  | 'work_created'
+  | 'work_metadata_updated'
+  | 'act_created'
+  | 'act_updated'
+  | 'chapter_drafted'
+  | 'chapter_updated'
+  | 'chapter_published'
+
+export interface WorkActivityDetail {
+  actId?: string
+  actNumber?: number
+  actTitle?: string
+  actStatus?: string
+  chapterId?: string
+  chapterNumber?: number
+  chapterTitle?: string
+  chapterStatus?: string
+  updatedAt?: string
+  summaryText?: string
 }
 
 export interface Work {
@@ -46,6 +82,10 @@ export interface Work {
   trending?: boolean
   rising?: boolean
   editorPick?: boolean
+  // Collections per live_instructions.md lines 196-230
+  new_this_week?: boolean
+  new_chapters_this_week?: boolean
+  collection?: string[]
   synopsis: string
   fullDescription: string
   chaptersCount: number
@@ -56,10 +96,15 @@ export interface Work {
   ratingCount: number
   createdAt: string
   updatedAt: string
+  lastActivityAt?: string
+  lastActivityType?: WorkActivityType
+  lastActivityDetail?: WorkActivityDetail
+  acts?: Act[]
   chapters: Chapter[]
 }
 
 export interface CategoryInfo {
+  id?: string
   name: string
   slug: string
   description: string
@@ -68,8 +113,10 @@ export interface CategoryInfo {
 }
 
 export interface GenreInfo {
+  id?: string
   name: string
   slug: string
+  group?: string
   description: string
   worksCount: number
 }
@@ -109,30 +156,25 @@ export interface CommentItem {
   replies?: CommentItem[]
 }
 
-export const CATEGORIES: CategoryInfo[] = [
-  { name: 'Fiction', slug: 'fiction', description: 'Imaginative storytelling spanning modern realism, speculative worlds, and human conflict.', worksCount: 1420, accentLetter: 'F' },
-  { name: 'Novels', slug: 'novels', description: 'Long-form narrative architecture with deep character psychology and continuous arcs.', worksCount: 890, accentLetter: 'N' },
-  { name: 'Short Stories', slug: 'short-stories', description: 'Compressed, sharp, and impactful singular narratives designed for solitary reading.', worksCount: 2310, accentLetter: 'S' },
-  { name: 'Essays', slug: 'essays', description: 'Thoughtful cultural critiques, literary philosophy, and meditations on contemporary life.', worksCount: 1640, accentLetter: 'E' },
-  { name: 'Poetry', slug: 'poetry', description: 'Verse, cadence, and measured brevity exploring memory, form, and quiet revelations.', worksCount: 940, accentLetter: 'P' },
-  { name: 'Creative Non-Fiction', slug: 'creative-non-fiction', description: 'Truth rendered with literary precision, memoir, investigative journeys, and witness.', worksCount: 780, accentLetter: 'C' },
-  { name: 'Personal Narratives', slug: 'personal-narratives', description: 'Firsthand dispatches of transformation, grief, displacement, and human endurance.', worksCount: 650, accentLetter: 'M' },
-  { name: 'Serialized Stories', slug: 'serialized-stories', description: 'Episodic publishing released chapter by chapter with evolving communal discourse.', worksCount: 1120, accentLetter: 'Z' },
-  { name: 'Scripts', slug: 'scripts', description: 'Screenplays, stage plays, audio dramas, and cinematic dialogue manuscripts.', worksCount: 320, accentLetter: 'D' },
-  { name: "Children's Stories", slug: 'childrens-stories', description: 'Fables, wonder, and moral architecture crafted for young minds and bedtime reading.', worksCount: 410, accentLetter: 'K' },
-  { name: 'Fan Fiction', slug: 'fan-fiction', description: 'Reimagined mythologies and character explorations in established canonical universes.', worksCount: 1850, accentLetter: 'X' },
-]
+import { GLOBAL_CATEGORIES, GLOBAL_GENRES } from '../lib/taxonomy'
 
-export const GENRES: GenreInfo[] = [
-  { name: 'Literary', slug: 'literary', description: 'Focus on stylistic depth, interiority, and thematic resonance.', worksCount: 1840 },
-  { name: 'Mystery', slug: 'mystery', description: 'Procedural deductions, missing persons, and secrets buried beneath civility.', worksCount: 960 },
-  { name: 'Thriller', slug: 'thriller', description: 'High-stakes tension, psychological claustrophobia, and ticking clocks.', worksCount: 820 },
-  { name: 'Science Fiction', slug: 'science-fiction', description: 'Technological futures, orbital mechanics, planetary solitude, and artificial minds.', worksCount: 1140 },
-  { name: 'Fantasy', slug: 'fantasy', description: 'Ancient archives, subtle magics, forgotten dynasties, and cartographic voyages.', worksCount: 1390 },
-  { name: 'Historical', slug: 'historical', description: 'Faithful recreations of vanished centuries, wars, and private letters.', worksCount: 670 },
-  { name: 'Romance', slug: 'romance', description: 'Intimacy, longing, fragile pacts, and the quiet gravitation between two lives.', worksCount: 1580 },
-  { name: 'Philosophy', slug: 'philosophy', description: 'Epistemology, architectural ethics, mortality, and modern solitude.', worksCount: 490 },
-]
+export const CATEGORIES: CategoryInfo[] = GLOBAL_CATEGORIES.map((c) => ({
+  id: c.id,
+  name: c.name,
+  slug: c.slug,
+  description: c.description,
+  worksCount: c.worksCount || 0,
+  accentLetter: c.accentLetter,
+}))
+
+export const GENRES: GenreInfo[] = GLOBAL_GENRES.map((g) => ({
+  id: g.id,
+  name: g.name,
+  slug: g.slug,
+  group: g.group,
+  description: g.description,
+  worksCount: g.worksCount || 0,
+}))
 
 export const AUTHORS: Author[] = [
   {
@@ -204,168 +246,6 @@ export const AUTHORS: Author[] = [
 
 export const WORKS: Work[] = [
   {
-    id: 'work-1',
-    title: 'The Cold Perimeter',
-    subtitle: 'A Novel of Atmospheric Reconnaissance',
-    author: AUTHORS[1],
-    cover: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80',
-    category: 'Novels',
-    categorySlug: 'novels',
-    genre: 'Thriller',
-    genreSlug: 'thriller',
-    tags: ['Atmospheric', 'Cold War', 'Surveillance', 'Architecture', 'Exile'],
-    language: 'English',
-    status: 'Ongoing',
-    visibility: 'Public',
-    isMature: false,
-    featured: true,
-    trending: true,
-    editorPick: true,
-    synopsis: 'Stationed at an decommissioned radar observatory along the 64th parallel, archivist David Miller discovers that intercepted signals from thirty years ago are matching today’s satellite positions with mathematical perfection.',
-    fullDescription: 'The Cold Perimeter is an exploration of memory, institutional complicity, and high-latitude isolation. When civil communication engineer David Miller arrives at Station Nine—a monolithic concrete bunker built during the height of early satellite telemetry—he expects months of uninterrupted clerical reconciliation. Instead, within the subterranean magnetic tape vaults, he uncovers encrypted dispatch transcripts that predict diplomatic movements twenty days before they occur in Geneva. As the perimeter fencing begins recording unlogged seismic tremors and perimeter lights flicker at precisely 03:14 every morning, Miller must decide whether the voice transmitting through the parabolic array belongs to a forgotten intelligence asset or an autonomous system whose creators have long vanished.',
-    chaptersCount: 16,
-    publishedChaptersCount: 14,
-    totalReads: '482K',
-    totalSaves: 18450,
-    ratingScore: 4.9,
-    ratingCount: 3820,
-    createdAt: '2025-08-12',
-    updatedAt: 'Yesterday',
-    chapters: [
-      {
-        id: 'ch-1',
-        number: 1,
-        title: 'The Concrete Meridian',
-        subtitle: 'Arrival at Station Nine',
-        status: 'published',
-        wordCount: 3420,
-        readTimeMinutes: 14,
-        publishedAt: 'Aug 14, 2025',
-        content: `The helicopter blades were already slowing when the wheels made contact with the salt-crusted tarmac. Through the scratched plexiglass of the passenger cabin, Station Nine looked less like a manned research post and more like a slab of grey basalt sheared off the mountain by an ancient avalanche.
-
-There were no trees. Above the sixty-fourth parallel, the earth abandons ornamentation. Only lichen clung to the volcanic scree, yellowish-grey, like dried tallow on cold iron.
-
-David Miller set his duffel bag onto the damp aggregate. The wind came off the gulf without warning—cold, flat, smelling of brine and diesel exhaust. A man in a heavy shearling coat was waiting beside the fuel bunker, his hands buried deep within his pockets, a canvas cap pulled down to the bridge of his brow.
-
-"You're late by two tides," the man said as David approached. His voice had the dry rasp of someone who spent forty days at a time speaking only to maintenance logs.
-
-"The headwind over Tromsø held the transit flight," David replied, squinting against the spray. "Are you Keller?"
-
-"I was Keller when the contract was signed," the man said, turning toward the heavy steel doorway recessed into the cliffside. "Now I am simply the person who hands you the brass keys and catches the return rotor. Leave the duffel by the compressor hatch; the boy will haul it to Level Three."
-
-Inside the tunnel, the temperature dropped four degrees before rising again, thick with the dry mineral heat of steam radiators. Fluorescent tubes hummed overhead at sixty cycles, casting long, clean rectangles against the damp board-formed concrete.
-
-"The manifest listed seventeen civil technicians," David noted, consulting the leather-bound ledger tucked beneath his arm. "The platform seems deserted."
-
-Keller stopped at the entrance to the elevator cage. He looked back over his shoulder, his gray eyes narrowing in the artificial glare.
-
-"The manifest is forty months old, Mr. Miller. In this sector, things do not stay staffed. They evaporate quietly. The telemetry runs on relays; the relays run on diesel; and diesel arrives every six weeks unless the ice closes the fiord. If you came looking for conversation, you brought the wrong training."
-
-David stepped into the cage. The iron gate clattered shut with the sound of a rifle bolt chambering a round. As the hydraulic piston groaned into motion, descending past layers of damp granite, David smelled the first trace of ozone—sharp, metallic, unmistakably the scent of powered vacuum tubes and high-voltage transmission lines that had not cooled since 1974.`
-      },
-      {
-        id: 'ch-2',
-        number: 2,
-        title: 'Signal in the Static',
-        subtitle: 'Decoded telemetry from Sector 4',
-        status: 'published',
-        isNew: true,
-        wordCount: 4180,
-        readTimeMinutes: 17,
-        publishedAt: 'Yesterday',
-        content: `At twenty minutes past three in the morning, the console in Room 14 began its sequence.
-
-It was not an alarm. Station Nine had no klaxons for irregularities—only a quiet solenoid that engaged behind the brass indicator plate, dropping a white celluloid tag into view behind the beveled glass window.
-
-David had been reading an unclassified meteorological survey from the previous spring. The quiet *clack* of the solenoid cut through the droning hum of the ventilation shaft like a knife through grease.
-
-He set his mug down on the blotter. The coffee had grown lukewarm and bitter, rimmed with a pale skim of condensed evaporated milk.
-
-He walked across the parquet flooring, his wool socks silent against the oiled oak. In the third row of instrument racks, beneath the stencil that read *TRANSIT TELEMETRY — NON-CIVILIAN*, the white tag hung suspended: **CHANNEL 04 / FREQUENCY 812.44 MHz**.
-
-That frequency had been decommissioned under the Helsinki Maritime Accords nineteen years ago. No transmitter in the Scandinavian corridor had clearance to modulate within twenty megahertz of that band.
-
-David pulled the carbon headset over his ears. He turned the vernier dial three millimeters counterclockwise to center the needle on the phosphor dial.
-
-First, there was only the sea noise—the cosmic background hiss of solar wind breaking against the ionosphere, a sound like dry oats pouring through a copper funnel.
-
-Then came the cadence.
-
-Not Morse. Not standard Baudot teleprinter code. It was a ternary pulse: three intervals of differing duration, followed by a dead-stop of exactly nine seconds.
-
-David adjusted the stylus on the drum recorder. The carbon paper beneath the needle was fresh. The needle began to jump, scratching jagged black parabolas into the wax surface.
-
-*One. Three. Seven. Space. One. Three. Seven. Space.*
-
-He leaned in closer. The ink was clear. But beneath the cadence, embedded in the harmonic bleed of the carrier wave, someone was breathing.
-
-It was the measured, rhythmic breath of an individual sitting in a room no larger than this one, their microphone key locked open, exhaling at twelve breaths per minute into the arctic night.`
-      },
-      {
-        id: 'ch-3',
-        number: 3,
-        title: 'The Subterranean Vaults',
-        subtitle: 'Unregistered magnetic archives',
-        status: 'published',
-        wordCount: 3890,
-        readTimeMinutes: 16,
-        publishedAt: 'Sep 28, 2025',
-        content: `Level Four was not marked on the station blueprints that David had signed for in Oslo.
-
-The stairway continued down past the mechanical rooms, behind a fire damper that had been painted over so many times the seam had disappeared into the lime-wash wall. David had only found the latch because the draft pulling under the threshold was cold enough to frost the tips of his work boots.
-
-The key on the third brass ring turned with a dry, grinding resistance. Inside, the air smelled of vinegar—the unmistakable decomposition of cellulose acetate film stock.
-
-A corridor eighty meters long stretched into the belly of the bedrock. On either side, steel shelving rose from floor to ceiling, stacked with olive-drab canisters, each labeled with stenciled white alphanumeric codes: *ARC-72-B*, *ARC-73-A*, *ARC-73-C*.
-
-David pulled on a pair of white cotton gloves from his coat pocket. He pulled down the canister marked *ARC-74-DELTA*.
-
-The seal had never been broken. The lead wire with the official customs stamp was intact.
-
-He snapped the wire with his pocket shears and unscrewed the wingnuts. Inside, nested in oiled paper, was a spool of half-inch magnetic tape and a handwritten logbook with an embossed blue linen cover.
-
-He opened the book to the first entry.
-
-The handwriting was compact, slanting sharply to the right, executed with an engineer’s drafting pen.
-
-*14 October 1974. Signal acquisition confirmed at 03:14. Coordinates match the trajectory of Cosmos-690. However, the modulation contains human phonetic markers in an unidentified dialect. We have attempted to notify the Admiralty Board. No acknowledgment received. Orders remain: record, seal, shelve.*
-
-David turned the page. The entries continued for five years, night after night, in the exact same pen, in the exact same hand.
-
-The last entry was dated two weeks ago.`
-      },
-      {
-        id: 'ch-4',
-        number: 4,
-        title: 'The Perimeter Line',
-        subtitle: 'Footprints in the frost',
-        status: 'published',
-        wordCount: 3600,
-        readTimeMinutes: 15,
-        publishedAt: 'Sep 20, 2025',
-        content: `At dawn, the sun made only a brief, anemic gesture above the eastern headland—a lemon-colored smudge against bruised violet clouds that never truly cleared the horizon.
-
-David stepped through the exterior airlock, his parka zipped to the chin. The cold hit like a physical blow, seizing the moisture inside his nostrils.
-
-He carried a handheld induction detector and a pair of field binoculars. The perimeter wire ran for four kilometers along the spine of the ridge, marking the boundary of the military concession.
-
-Halfway to Tower Three, where the cliffs plunged four hundred meters into the black water of the fiord, the wire hung slack.
-
-David knelt in the crusted snow. The four strands of galvanized steel had not snapped under the wind; they had been cut cleanly with hydraulic bolt cutters. The metal ends were bright and unoxidized.
-
-Beside the breach, clear in the blue morning light, were footprints.
-
-They came up from the cliff face—an impossible ascent over sheer, ice-sheathed granite where even gulls refused to nest. They crossed the wire, paused for several paces beside the surveyor’s cairn, and then turned toward Station Nine's diesel exhaust vents.
-
-David raised the binoculars. On the observation catwalk three hundred meters above him, silhouette against the pale sky, stood a figure.
-
-It was not Keller. Keller had boarded the helicopter twelve hours ago.
-
-The figure was holding a hand-wound transit compass, aiming it directly down at where David knelt in the snow.`
-      }
-    ]
-  },
-  {
     id: 'work-2',
     title: 'A Winter in Kyoto',
     subtitle: 'Selected Essays on Transit, Rain, and Solitude',
@@ -373,9 +253,9 @@ The figure was holding a hand-wound transit compass, aiming it directly down at 
     cover: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=800&q=80',
     category: 'Essays',
     categorySlug: 'essays',
-    genre: 'Literary',
-    genreSlug: 'literary',
-    tags: ['Kyoto', 'Solitude', 'Architecture', 'Travel', 'Meditation'],
+    genre: 'Literary Fiction',
+    genreSlug: 'literary-fiction',
+    tags: ['Isolation', 'Architecture', 'Meditation', 'Urban'],
     language: 'English',
     status: 'Completed',
     visibility: 'Public',
@@ -432,11 +312,11 @@ There is no lesson to be drawn from this, except that quietness is not the absen
     subtitle: 'Dispatches from the Department of Unverifiable Occurrences',
     author: AUTHORS[3],
     cover: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&q=80',
-    category: 'Fiction',
-    categorySlug: 'fiction',
-    genre: 'Philosophy',
-    genreSlug: 'philosophy',
-    tags: ['Satire', 'Borges', 'Bureaucracy', 'Magic Realism', 'Subtle'],
+    category: 'Novels',
+    categorySlug: 'novels',
+    genre: 'Philosophical Fiction',
+    genreSlug: 'philosophical-fiction',
+    tags: ['Magical Realism', 'Power & Corruption', 'Unreliable Narrator', 'Slow‑Burn'],
     language: 'English',
     status: 'Ongoing',
     visibility: 'Public',
@@ -478,11 +358,11 @@ Klein arrived with his brass calipers and three reams of manifold carbon paper.`
     subtitle: 'A Maritime Investigation',
     author: AUTHORS[0],
     cover: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=800&q=80',
-    category: 'Creative Non-Fiction',
-    categorySlug: 'creative-non-fiction',
-    genre: 'Historical',
-    genreSlug: 'historical',
-    tags: ['Maritime', 'Navigation', 'Shipwrecks', 'Cartography', 'History'],
+    category: 'Non‑Fiction',
+    categorySlug: 'non-fiction',
+    genre: 'Historical Fiction',
+    genreSlug: 'historical-fiction',
+    tags: ['Historical Setting', 'Coastal', 'Isolation', 'Survival'],
     language: 'English',
     status: 'Completed',
     visibility: 'Public',
@@ -528,9 +408,9 @@ There had only been Robert MacIntyre, a brass ruling pen, and an unbreakable vow
     cover: 'https://images.unsplash.com/photo-1518495973542-4542c06a5843?auto=format&fit=crop&w=800&q=80',
     category: 'Poetry',
     categorySlug: 'poetry',
-    genre: 'Literary',
-    genreSlug: 'literary',
-    tags: ['Poetry', 'Arctic', 'Light', 'Silence', 'Landscape'],
+    genre: 'Literary Fiction',
+    genreSlug: 'literary-fiction',
+    tags: ['Arctic / High Latitude', 'Isolation', 'Melancholic', 'Dreamlike'],
     language: 'English',
     status: 'Completed',
     visibility: 'Public',
@@ -578,11 +458,11 @@ between noon and death.`
     subtitle: 'A Screenplay in Three Interrogations',
     author: AUTHORS[1],
     cover: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=800&q=80',
-    category: 'Scripts',
-    categorySlug: 'scripts',
+    category: 'Scripts / Screenplays',
+    categorySlug: 'scripts-screenplays',
     genre: 'Mystery',
     genreSlug: 'mystery',
-    tags: ['Screenplay', 'Noir', 'Interrogation', 'Vienna', 'Cinema'],
+    tags: ['Historical Setting', 'Dark', 'Gritty', 'Paranoid Atmosphere', 'Anti‑Hero'],
     language: 'English',
     status: 'Ongoing',
     visibility: 'Public',
@@ -641,11 +521,11 @@ She was alive on Tuesday.`
     subtitle: 'A Personal Narrative of Printing, Lead, and Patience',
     author: AUTHORS[0],
     cover: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=800&q=80',
-    category: 'Personal Narratives',
-    categorySlug: 'personal-narratives',
-    genre: 'Literary',
-    genreSlug: 'literary',
-    tags: ['Letterpress', 'Typography', 'Apprenticeship', 'Memoir', 'Craft'],
+    category: 'Memoir / Autobiography',
+    categorySlug: 'memoir-autobiography',
+    genre: 'Literary Fiction',
+    genreSlug: 'literary-fiction',
+    tags: ['Workplace', 'Memory', 'Slow‑Burn', 'Coming‑of‑Age'],
     language: 'English',
     status: 'Completed',
     visibility: 'Public',
@@ -689,11 +569,11 @@ Donald MacLean would stand behind me with a folded rule in his fist. If my hand 
     subtitle: 'A Tale for Young Observers',
     author: AUTHORS[4],
     cover: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=800&q=80',
-    category: "Children's Stories",
-    categorySlug: 'childrens-stories',
+    category: 'Children’s Fiction',
+    categorySlug: 'childrens-fiction',
     genre: 'Fantasy',
     genreSlug: 'fantasy',
-    tags: ['Children', 'Fairytale', 'Astronomy', 'Horology', 'Wonder'],
+    tags: ['Child Protagonist', 'Hopeful', 'Dreamlike', 'Standalone'],
     language: 'English',
     status: 'Completed',
     visibility: 'Public',
@@ -733,34 +613,15 @@ In his pocket was a key cast from meteor iron—heavy, cool to the touch, and sm
 
 export const FEED_EVENTS: FeedEvent[] = [
   {
-    id: 'feed-1',
-    type: 'chapter_release',
-    author: AUTHORS[1],
-    work: {
-      id: WORKS[0].id,
-      title: WORKS[0].title,
-      cover: WORKS[0].cover,
-      category: WORKS[0].category,
-      genre: WORKS[0].genre,
-    },
-    chapter: {
-      id: 'ch-2',
-      number: 2,
-      title: 'Signal in the Static',
-    },
-    timestamp: '3 hours ago',
-    note: 'Elena Rostova published Chapter 2 of The Cold Perimeter. 4,180 words.'
-  },
-  {
     id: 'feed-2',
     type: 'new_work',
     author: AUTHORS[3],
     work: {
-      id: WORKS[2].id,
-      title: WORKS[2].title,
-      cover: WORKS[2].cover,
-      category: WORKS[2].category,
-      genre: WORKS[2].genre,
+      id: WORKS[1].id,
+      title: WORKS[1].title,
+      cover: WORKS[1].cover,
+      category: WORKS[1].category,
+      genre: WORKS[1].genre,
     },
     timestamp: 'Yesterday',
     note: 'Soren Vance published a new serialized philosophical fiction: The Bureaucracy of Miracles.'
@@ -803,24 +664,24 @@ export const FEED_EVENTS: FeedEvent[] = [
 export const INITIAL_COMMENTS: CommentItem[] = [
   {
     id: 'comm-1',
-    workId: 'work-1',
-    chapterId: 'ch-1',
+    workId: 'work-2',
+    chapterId: 'ch-201',
     authorName: 'Claire Beaumont',
     authorHandle: 'cbeaumont',
     authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
-    content: 'The description of Station Nine as a "slab of grey basalt sheared off the mountain" immediately sets the psychological claustrophobia. The pacing here is remarkably confident.',
+    content: 'The description of Kyoto in the rain immediately sets the contemplation. The pacing here is remarkably confident.',
     timestamp: '2 days ago',
     likesCount: 38,
     replies: [
       {
         id: 'comm-1-1',
-        workId: 'work-1',
-        chapterId: 'ch-1',
-        authorName: 'Elena Rostova',
-        authorHandle: 'elena_rostova',
-        authorAvatar: AUTHORS[1].avatar,
+        workId: 'work-2',
+        chapterId: 'ch-201',
+        authorName: 'Kenji Takahashi',
+        authorHandle: 'kenjitakahashi',
+        authorAvatar: AUTHORS[2].avatar,
         isWorkAuthor: true,
-        content: 'Thank you, Claire. I spent three weeks researching the architectural drawings of NATO listening posts built in Finnmark between 1968 and 1974. The board-formed concrete details are accurate to that era.',
+        content: 'Thank you, Claire. I spent three weeks researching the local rail lines between Arashiyama and Gion.',
         timestamp: '1 day ago',
         likesCount: 19
       }
@@ -828,12 +689,12 @@ export const INITIAL_COMMENTS: CommentItem[] = [
   },
   {
     id: 'comm-2',
-    workId: 'work-1',
-    chapterId: 'ch-1',
+    workId: 'work-2',
+    chapterId: 'ch-201',
     authorName: 'Arthur Vance',
     authorHandle: 'avance_arch',
     authorAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80',
-    content: 'The line "If you came looking for conversation, you brought the wrong training" is pure gold. Excited to follow this serialized dispatch.',
+    content: 'The quiet stillness is pure gold. Excited to follow this serialized dispatch.',
     timestamp: '3 days ago',
     likesCount: 14
   }
@@ -849,6 +710,8 @@ export interface WriterWorkSummary {
   totalSaves: number
   lastUpdated: string
   category: string
+  genre?: string
+  tags?: string[]
 }
 
 export const USER_WRITER_WORKS: WriterWorkSummary[] = [
@@ -883,7 +746,7 @@ export const USER_WRITER_WORKS: WriterWorkSummary[] = [
     totalReads: '0',
     totalSaves: 0,
     lastUpdated: 'Yesterday',
-    category: 'Historical'
+    category: 'Short Stories'
   }
 ]
 
@@ -903,11 +766,11 @@ export const INITIAL_NOTIFICATIONS: NotificationItem[] = [
   {
     id: 'notif-1',
     type: 'update',
-    actorName: 'Elena Rostova',
-    actorAvatar: AUTHORS[1].avatar,
+    actorName: 'Kenji Takahashi',
+    actorAvatar: AUTHORS[2].avatar,
     title: 'Chapter 2 released',
-    description: 'Elena published "Signal in the Static" for The Cold Perimeter.',
-    targetUrl: '/read/work-1/ch-2',
+    description: 'Kenji published "Rain on Cedar Shingles" for A Winter in Kyoto.',
+    targetUrl: '/read/work-2/ch-202',
     timestamp: '2 hours ago',
     isRead: false
   },
@@ -918,7 +781,7 @@ export const INITIAL_NOTIFICATIONS: NotificationItem[] = [
     actorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
     title: 'New comment on your work',
     description: 'Left a note on Chapter 1 of The Silent Meridian: "Remarkable atmosphere..."',
-    targetUrl: '/read/work-1/ch-1',
+    targetUrl: '/read/writer-work-1/ch-1',
     timestamp: '1 day ago',
     isRead: false
   },
@@ -945,3 +808,119 @@ export const INITIAL_NOTIFICATIONS: NotificationItem[] = [
     isRead: true
   }
 ]
+
+/**
+ * Parses both ISO dates and relative time strings into a valid Date
+ * Handles: "Just now", "2 hours ago", "Today", "Yesterday", "4 days ago", "1 week ago", "3 weeks ago", "1 month ago"
+ */
+export function parseFuzzyDate(val?: string): Date {
+  if (!val) return new Date(0)
+  
+  // Try standard ISO / Date parse first
+  const parsed = new Date(val)
+  if (!isNaN(parsed.getTime())) return parsed
+
+  const lower = val.toLowerCase().trim()
+  const now = Date.now()
+
+  if (lower === 'just now' || lower === 'now') return new Date(now)
+  if (lower === 'today') return new Date(now - 1000 * 60 * 60 * 2) // ~2 hours ago today
+  if (lower === 'yesterday') return new Date(now - 1000 * 60 * 60 * 24)
+
+  const match = lower.match(/^(\d+)\s+(second|minute|hour|day|week|month|year)s?\s+ago$/)
+  if (match) {
+    const num = parseInt(match[1], 10)
+    const unit = match[2]
+    const msMap: Record<string, number> = {
+      second: 1000,
+      minute: 1000 * 60,
+      hour: 1000 * 60 * 60,
+      day: 1000 * 60 * 60 * 24,
+      week: 1000 * 60 * 60 * 24 * 7,
+      month: 1000 * 60 * 60 * 24 * 30,
+      year: 1000 * 60 * 60 * 24 * 365
+    }
+    return new Date(now - num * (msMap[unit] || 1000))
+  }
+
+  return new Date(0)
+}
+
+/**
+ * Calculates the exact latest activity timestamp for a work by inspecting:
+ * 1. Explicit lastActivityAt
+ * 2. Latest chapter update / publishedAt
+ * 3. Latest act update
+ * 4. Work updatedAt / createdAt
+ */
+export function getWorkLatestActivityDate(work: Work): Date {
+  if (work.lastActivityAt) {
+    const parsed = parseFuzzyDate(work.lastActivityAt)
+    if (parsed.getTime() > 0) return parsed
+  }
+
+  let latestMs = 0
+  const parseTime = (val?: string) => parseFuzzyDate(val).getTime()
+
+  // Work baseline
+  latestMs = Math.max(latestMs, parseTime(work.updatedAt), parseTime(work.createdAt))
+
+  // Chapters
+  if (work.chapters && work.chapters.length > 0) {
+    for (const ch of work.chapters) {
+      latestMs = Math.max(latestMs, parseTime(ch.updatedAt), parseTime(ch.publishedAt))
+    }
+  }
+
+  // Acts
+  if (work.acts && work.acts.length > 0) {
+    for (const act of work.acts) {
+      if (act.chapters && act.chapters.length > 0) {
+        for (const ch of act.chapters) {
+          latestMs = Math.max(latestMs, parseTime(ch.updatedAt), parseTime(ch.publishedAt))
+        }
+      }
+    }
+  }
+
+  return latestMs > 0 ? new Date(latestMs) : new Date(0)
+}
+
+/**
+ * Formats a human-readable recent narrative activity badge
+ * e.g. "Act II, Ch 1 drafted" or "Chapter 4 published"
+ */
+export function formatWorkActivitySummary(work: Work): { label: string; detail: string; isRecent: boolean } {
+  const detail = work.lastActivityDetail
+
+  let summary = ''
+  if (detail?.actNumber && detail?.chapterNumber) {
+    summary = `Act ${detail.actNumber}, Ch ${detail.chapterNumber}`
+  } else if (detail?.chapterNumber) {
+    summary = `Chapter ${detail.chapterNumber}`
+  } else if (detail?.actNumber) {
+    summary = `Act ${detail.actNumber}`
+  }
+
+  const actionText = 
+    work.lastActivityType === 'chapter_published'
+      ? 'published'
+      : work.lastActivityType === 'chapter_drafted'
+      ? 'drafted'
+      : work.lastActivityType === 'chapter_updated'
+      ? 'updated'
+      : work.lastActivityType === 'act_created'
+      ? 'act added'
+      : 'updated'
+
+  const fullDetail = summary ? `${summary} ${actionText}` : `Manuscript ${actionText}`
+  const activityDate = getWorkLatestActivityDate(work)
+  const isRecent = (Date.now() - activityDate.getTime()) < 1000 * 60 * 60 * 24 * 14 // within 14 days
+
+  return {
+    label: actionText,
+    detail: fullDetail,
+    isRecent
+  }
+}
+

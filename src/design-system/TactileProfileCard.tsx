@@ -48,7 +48,7 @@ export const TactileProfileCard: React.FC<TactileProfileCardProps> = ({
         layout
         transition={SPRINGS.smooth}
         className={cn(
-          'overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-xs transition-colors',
+          'overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all',
           isExpanded ? 'border-[var(--border-strong)]' : 'hover:border-[var(--border-strong)]'
         )}
       >

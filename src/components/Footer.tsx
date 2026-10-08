@@ -1,11 +1,12 @@
 import React from 'react'
 import { Link, useRouterState } from '@tanstack/react-router'
-import { CATEGORIES } from '../data/mockData'
+import { useApp } from '../context/AppContext'
 
 import { HatchpenLogo } from './HatchpenLogo'
 
 export default function Footer() {
   const routerState = useRouterState()
+  const { categories } = useApp()
   const isReaderMode = routerState.location.pathname.startsWith('/read/')
   const isEditorMode = routerState.location.pathname.startsWith('/write/editor')
 
@@ -35,7 +36,7 @@ export default function Footer() {
               Categories
             </h4>
             <ul className="space-y-1.5 list-none p-0 m-0">
-              {CATEGORIES.slice(0, 6).map(cat => (
+              {categories.slice(0, 6).map(cat => (
                 <li key={cat.slug}>
                   <Link
                     to="/category/$slug"
@@ -54,7 +55,7 @@ export default function Footer() {
               Formats
             </h4>
             <ul className="space-y-1.5 list-none p-0 m-0">
-              {CATEGORIES.slice(6, 12).map(cat => (
+              {categories.slice(6, 12).map(cat => (
                 <li key={cat.slug}>
                   <Link
                     to="/category/$slug"

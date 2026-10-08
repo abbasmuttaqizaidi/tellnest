@@ -1,0 +1,22 @@
+# Robots.txt for Hatchpen
+User-agent: *
+Allow: /
+Allow: /discover
+Allow: /works/
+Allow: /read/
+Allow: /author/
+Allow: /category/
+Allow: /genre/
+
+# Disallow private user states and authenticated editors
+Disallow: /settings
+Disallow: /notifications
+Disallow: /library
+Disallow: /write/editor/
+Disallow: /write/manage/
+Disallow: /write/analytics/
+Disallow: /secret-adminpanel
+Disallow: /sso-callback
+
+# Sitemap location
+Sitemap: https://hatchpen.com/sitemap.xml

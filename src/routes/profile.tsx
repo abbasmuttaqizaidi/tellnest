@@ -21,16 +21,15 @@ import { Modal, DiscreteTabs } from '../design-system'
 import { getUserProfileServerFn, updateUserProfileServerFn } from '../server/authors'
 import { GENRES } from '../data/mockData'
 
+import { generateMeta } from '../lib/seo'
+
 export const Route = createFileRoute('/profile')({
-  head: () => ({
-    meta: [
-      { title: 'Your profile — Hatchpen' },
-      {
-        name: 'description',
-        content: 'Manage your Hatchpen profile, followers, writings, reading and writing settings and interests.',
-      },
-    ],
-  }),
+  head: () =>
+    generateMeta({
+      title: 'Your Creator Profile',
+      description: 'Manage your Hatchpen profile, published manuscripts, reading preferences, and credentials.',
+      noindex: true,
+    }),
   component: () => (
     <ProtectedRoute
       title="Personal Creator Profile"

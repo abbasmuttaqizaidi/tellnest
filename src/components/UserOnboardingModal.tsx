@@ -53,34 +53,19 @@ export const STANDARD_INTERESTS: Array<{ id: string; name: string }> = [
   { id: 'world_literature', name: 'World Literature' },
 ]
 
-// Standard Genres (Array of objects from database taxonomy)
-export const STANDARD_GENRES: Array<{ id: string; name: string }> = [
-  { id: 'romance', name: 'Romance' },
-  { id: 'fantasy', name: 'Fantasy' },
-  { id: 'mystery', name: 'Mystery' },
-  { id: 'horror', name: 'Horror' },
-  { id: 'science-fiction', name: 'Science Fiction' },
-  { id: 'thriller', name: 'Thriller' },
-  { id: 'historical', name: 'Historical' },
-  { id: 'adventure', name: 'Adventure' },
-  { id: 'drama', name: 'Drama' },
-  { id: 'comedy', name: 'Comedy' },
-]
+import { GLOBAL_CATEGORIES, GLOBAL_GENRES } from '../lib/taxonomy'
 
-// Standard Categories (Array of objects from database taxonomy)
-export const STANDARD_CATEGORIES: Array<{ id: string; name: string }> = [
-  { id: 'fiction', name: 'Fiction' },
-  { id: 'novels', name: 'Novels' },
-  { id: 'short-stories', name: 'Short Stories' },
-  { id: 'poetry', name: 'Poetry' },
-  { id: 'essays', name: 'Essays' },
-  { id: 'creative-non-fiction', name: 'Creative Non-Fiction' },
-  { id: 'personal-narratives', name: 'Personal Narratives' },
-  { id: 'childrens-stories', name: "Children's Stories" },
-  { id: 'scripts', name: 'Scripts' },
-  { id: 'fan-fiction', name: 'Fan Fiction' },
-  { id: 'serialized-stories', name: 'Serialized Stories' },
-]
+// Standard Genres (from global taxonomy)
+export const STANDARD_GENRES: Array<{ id: string; name: string }> = GLOBAL_GENRES.map((g) => ({
+  id: g.slug,
+  name: g.name,
+}))
+
+// Standard Categories (from global taxonomy)
+export const STANDARD_CATEGORIES: Array<{ id: string; name: string }> = GLOBAL_CATEGORIES.map((c) => ({
+  id: c.slug,
+  name: c.name,
+}))
 
 export function UserOnboardingModal() {
   const { user, isLoaded, isSignedIn } = useUser()

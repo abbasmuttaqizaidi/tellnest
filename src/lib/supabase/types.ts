@@ -239,6 +239,7 @@ export interface Database {
           slug: string
           description: string | null
           display_order: number
+          accent_letter?: string | null
           is_active: boolean
           is_indexable: boolean
           created_at: string
@@ -250,6 +251,7 @@ export interface Database {
           slug: string
           description?: string | null
           display_order?: number
+          accent_letter?: string | null
           is_active?: boolean
           is_indexable?: boolean
           created_at?: string
@@ -261,6 +263,7 @@ export interface Database {
           slug?: string
           description?: string | null
           display_order?: number
+          accent_letter?: string | null
           is_active?: boolean
           is_indexable?: boolean
           created_at?: string
@@ -272,6 +275,7 @@ export interface Database {
           id: string
           name: string
           slug: string
+          genre_group?: string | null
           description: string | null
           display_order: number
           is_active: boolean
@@ -283,6 +287,7 @@ export interface Database {
           id?: string
           name: string
           slug: string
+          genre_group?: string | null
           description?: string | null
           display_order?: number
           is_active?: boolean
@@ -294,6 +299,7 @@ export interface Database {
           id?: string
           name?: string
           slug?: string
+          genre_group?: string | null
           description?: string | null
           display_order?: number
           is_active?: boolean
@@ -374,6 +380,9 @@ export interface Database {
           comment_count: number
           published_at: string | null
           last_published_at: string | null
+          last_activity_at: string
+          last_activity_type: string
+          last_activity_detail: Json
           created_at: string
           updated_at: string
         }
@@ -402,6 +411,9 @@ export interface Database {
           comment_count?: number
           published_at?: string | null
           last_published_at?: string | null
+          last_activity_at?: string
+          last_activity_type?: string
+          last_activity_detail?: Json
           created_at?: string
           updated_at?: string
         }
@@ -422,6 +434,9 @@ export interface Database {
           content_warning_required?: boolean
           content_warning_text?: string | null
           reading_time_minutes?: number | null
+          last_activity_at?: string
+          last_activity_type?: string
+          last_activity_detail?: Json
           word_count?: number
           chapter_count?: number
           view_count?: number
@@ -434,10 +449,49 @@ export interface Database {
           updated_at?: string
         }
       }
+      acts: {
+        Row: {
+          id: string
+          work_id: string
+          act_number: number
+          title: string
+          slug: string
+          description: string | null
+          status: PublicationStatus
+          display_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          work_id: string
+          act_number: number
+          title: string
+          slug: string
+          description?: string | null
+          status?: PublicationStatus
+          display_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          work_id?: string
+          act_number?: number
+          title?: string
+          slug?: string
+          description?: string | null
+          status?: PublicationStatus
+          display_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
       chapters: {
         Row: {
           id: string
           work_id: string
+          act_id: string | null
           chapter_number: number
           title: string
           slug: string
@@ -454,6 +508,7 @@ export interface Database {
         Insert: {
           id?: string
           work_id: string
+          act_id?: string | null
           chapter_number: number
           title: string
           slug: string
@@ -470,6 +525,7 @@ export interface Database {
         Update: {
           id?: string
           work_id?: string
+          act_id?: string | null
           chapter_number?: number
           title?: string
           slug?: string

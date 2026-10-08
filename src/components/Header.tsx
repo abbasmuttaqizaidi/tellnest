@@ -32,13 +32,24 @@ export default function Header() {
     setSiteTheme,
     openAuthModal,
     customAvatarUrl,
+    genres,
+    showToast,
   } = useApp()
   const activeAvatar = customAvatarUrl || user?.imageUrl
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [navSearchQuery, setNavSearchQuery] = useState('')
+  const [navSearchScope, setNavSearchScope] = useState('all')
   const [isNavSearchOpen, setIsNavSearchOpen] = useState(false)
+
+  const navSearchScopes = React.useMemo(() => [
+    { id: 'all', label: 'All' },
+    ...genres.map((g) => ({
+      id: g.slug,
+      label: g.name,
+    })),
+  ], [genres])
 
   const routerState = useRouterState()
   const currentPath = routerState.location.pathname
@@ -102,6 +113,14 @@ export default function Header() {
               >
                 Discover
               </Link>
+              <Link
+                to="/search"
+                className={`px-3 py-1.5 rounded transition-colors hover:text-[var(--ink-primary)] ${
+                  currentPath.startsWith('/search') ? 'text-[var(--ink-primary)] font-semibold' : ''
+                }`}
+              >
+                Search
+              </Link>
               {isSignedIn && (
                 <>
                   <Link
@@ -139,25 +158,30 @@ export default function Header() {
               isExpanded={isNavSearchOpen}
               onExpand={() => setIsNavSearchOpen(true)}
               onCollapse={() => setIsNavSearchOpen(false)}
-              onSubmit={(q) => {
-                if (q.trim()) {
-                  navigate({
-                    to: '/search',
-                    search: { q: q.trim() } as any,
-                  })
-                  setIsNavSearchOpen(false)
+              onSubmit={(q, scope) => {
+                const trimmed = q.trim()
+                if (!trimmed) return
+                if (trimmed.length < 5) {
+                  showToast('Please enter at least 5 letters to search.')
+                  return
                 }
+                const activeGenre = scope || navSearchScope
+                navigate({
+                  to: '/search',
+                  search: {
+                    q: trimmed,
+                    ...(activeGenre && activeGenre !== 'all' ? { genre: activeGenre } : {}),
+                  } as any,
+                })
+                setIsNavSearchOpen(false)
               }}
-              scopes={[
-                { id: 'all', label: 'All' },
-                { id: 'works', label: 'Works' },
-                { id: 'authors', label: 'Authors' },
-                { id: 'essays', label: 'Essays' },
-              ]}
+              scopes={navSearchScopes}
+              activeScope={navSearchScope}
+              onScopeChange={setNavSearchScope}
               shortcut="/"
               placeholders={[
                 "Search manuscripts...",
-                "Search 'The Cold Perimeter'...",
+                "Search 'A Winter in Kyoto'...",
                 "Search 'Elena Vance'...",
                 "Search by theme or tag...",
               ]}
@@ -314,6 +338,13 @@ export default function Header() {
             className="block py-1.5 text-[var(--ink-secondary)] hover:text-[var(--ink-primary)]"
           >
             Discover
+          </Link>
+          <Link
+            to="/search"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block py-1.5 text-[var(--ink-secondary)] hover:text-[var(--ink-primary)]"
+          >
+            Search
           </Link>
           {isSignedIn && (
             <>

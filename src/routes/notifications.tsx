@@ -5,8 +5,15 @@ import EmptyState from '../components/EmptyState'
 import { FilterDisclosure } from '../design-system'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { Bell, Check, CheckCheck, BookOpen, MessageSquare, Sparkles, Clock } from 'lucide-react'
+import { generateMeta } from '../lib/seo'
 
 export const Route = createFileRoute('/notifications')({
+  head: () =>
+    generateMeta({
+      title: 'Notifications',
+      description: 'Your editorial updates, chapter releases, and discussion notifications.',
+      noindex: true,
+    }),
   component: () => (
     <ProtectedRoute
       title="Folio Notifications"

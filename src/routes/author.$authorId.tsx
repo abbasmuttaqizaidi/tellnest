@@ -12,10 +12,63 @@ import {
   Quote,
   Eye,
   CheckCircle2,
-  Clock
 } from 'lucide-react'
+import { AUTHORS } from '../data/mockData'
+import { generateMeta } from '../lib/seo'
 
 export const Route = createFileRoute('/author/$authorId')({
+  head: ({ params }) => {
+    let author = AUTHORS.find((a) => a.id === params.authorId || a.handle.toLowerCase() === params.authorId.toLowerCase())
+    if (!author && typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('hatchpen_admin_posted_works')
+        if (stored) {
+          const list = JSON.parse(stored)
+          const matched = list.find(
+            (w: any) =>
+              w.author?.id === params.authorId ||
+              w.author?.handle?.toLowerCase() === params.authorId.toLowerCase()
+          )
+          if (matched) author = matched.author
+        }
+      } catch (e) {}
+    }
+
+    if (!author) {
+      return generateMeta({
+        title: 'Author Archive',
+        noindex: true,
+      })
+    }
+
+    return generateMeta({
+      title: `${author.name} (@${author.handle}) — Author Archive`,
+      description: author.bio || `Read serialized fiction and literary works by ${author.name} on Hatchpen.`,
+      canonicalUrl: `https://hatchpen.com/author/${author.id}`,
+      ogType: 'profile',
+      ogImage: author.avatar,
+      ogImageAlt: `${author.name} avatar`,
+      keywords: [
+        author.name,
+        author.handle,
+        'author archive',
+        'indie author',
+        'serialized novelist',
+      ],
+      jsonLd: {
+        '@context': 'https://schema.org',
+        '@type': 'ProfilePage',
+        mainEntity: {
+          '@type': 'Person',
+          name: author.name,
+          alternateName: `@${author.handle}`,
+          description: author.bio,
+          image: author.avatar,
+          url: `https://hatchpen.com/author/${author.id}`,
+        },
+      },
+    })
+  },
   component: AuthorProfilePage,
 })
 
@@ -36,8 +89,15 @@ function AuthorProfilePage() {
 
   // Find works written by this author
   const authorWorks = useMemo(() => {
-    return allWorks.filter((w) => w.author.id === authorId)
-  }, [allWorks, authorId])
+    if (!author) return []
+    return allWorks.filter(
+      (w) =>
+        w.author.id === author.id ||
+        w.author.handle.toLowerCase() === author.handle.toLowerCase() ||
+        w.author.id === authorId ||
+        w.author.handle.toLowerCase() === authorId.toLowerCase()
+    )
+  }, [allWorks, author, authorId])
 
   const filteredWorks = useMemo(() => {
     let works = authorWorks

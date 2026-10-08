@@ -24,10 +24,10 @@ export interface PaletteSearchProps {
 const DEFAULT_ITEMS: PaletteItem[] = [
   {
     id: 'w1',
-    title: 'The Cold Perimeter',
+    title: 'A Winter in Kyoto',
     category: 'Works',
-    subtitle: 'By Elena Vance • Fiction / Noir',
-    href: '/works/w1',
+    subtitle: 'By Kenji Takahashi • Literary / Essays',
+    href: '/works/work-2',
   },
   {
     id: 'w2',

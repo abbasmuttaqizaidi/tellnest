@@ -6,21 +6,41 @@ import WorkCard from '../components/WorkCard'
 import EmptyState from '../components/EmptyState'
 import { FilterDisclosure, AnimatedSearch } from '../design-system'
 import { ArrowLeft, BookOpen, SlidersHorizontal, Sparkles } from 'lucide-react'
+import { generateMeta } from '../lib/seo'
 
 export const Route = createFileRoute('/category/$slug')({
+  head: ({ params }) => {
+    const found = CATEGORIES.find((c) => c.slug === params.slug)
+    const categoryName =
+      found?.name ||
+      params.slug
+        .split('-')
+        .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+        .join(' ')
+
+    return generateMeta({
+      title: `${categoryName} — Literary Archive`,
+      description:
+        found?.description ||
+        `Curated literary works, manuscripts, and narratives in the ${categoryName} category on Hatchpen.`,
+      canonicalUrl: `https://hatchpen.com/category/${params.slug}`,
+      keywords: [categoryName, 'literary works', 'online fiction', 'serial publication'],
+      ogType: 'website',
+    })
+  },
   component: CategoryTemplatePage,
 })
 
 function CategoryTemplatePage() {
   const { slug } = Route.useParams()
-  const { allWorks } = useApp()
+  const { allWorks, categories } = useApp()
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
   const [sortBy, setSortBy] = useState<'popularity' | 'updated'>('popularity')
   const [searchQuery, setSearchQuery] = useState<string>('')
 
-  // Find category meta or create fallback dynamic category for any future category
+  // Find category meta from live DB taxonomy or fallback dynamic category
   const categoryInfo = useMemo(() => {
-    const found = CATEGORIES.find((c) => c.slug === slug)
+    const found = categories.find((c) => c.slug === slug)
     if (found) return found
     const humanName = slug.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')
     return {
@@ -30,7 +50,7 @@ function CategoryTemplatePage() {
       worksCount: 0,
       accentLetter: humanName.charAt(0)
     }
-  }, [slug])
+  }, [slug, categories])
 
   // Filter works matching this category
   const categoryWorks = useMemo(() => {

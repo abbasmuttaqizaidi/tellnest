@@ -20,6 +20,7 @@ import { Route as SearchRouteImport } from './routes/search'
 import { Route as SecretAdminpanelRouteImport } from './routes/secret-adminpanel'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SsoCallbackRouteImport } from './routes/sso-callback'
+import { Route as AdminWorkEditorWorkIdRouteImport } from './routes/admin-work-editor.$workId'
 import { Route as AuthorAuthorIdRouteImport } from './routes/author.$authorId'
 import { Route as CategorySlugRouteImport } from './routes/category.$slug'
 import { Route as GenreSlugRouteImport } from './routes/genre.$slug'
@@ -86,6 +87,11 @@ const SsoCallbackRoute = SsoCallbackRouteImport.update({
   path: '/sso-callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminWorkEditorWorkIdRoute = AdminWorkEditorWorkIdRouteImport.update({
+  id: '/admin-work-editor/$workId',
+  path: '/admin-work-editor/$workId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthorAuthorIdRoute = AuthorAuthorIdRouteImport.update({
   id: '/author/$authorId',
   path: '/author/$authorId',
@@ -150,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/secret-adminpanel': typeof SecretAdminpanelRoute
   '/settings': typeof SettingsRoute
   '/sso-callback': typeof SsoCallbackRoute
+  '/admin-work-editor/$workId': typeof AdminWorkEditorWorkIdRoute
   '/author/$authorId': typeof AuthorAuthorIdRoute
   '/category/$slug': typeof CategorySlugRoute
   '/genre/$slug': typeof GenreSlugRoute
@@ -173,6 +180,7 @@ export interface FileRoutesByTo {
   '/secret-adminpanel': typeof SecretAdminpanelRoute
   '/settings': typeof SettingsRoute
   '/sso-callback': typeof SsoCallbackRoute
+  '/admin-work-editor/$workId': typeof AdminWorkEditorWorkIdRoute
   '/author/$authorId': typeof AuthorAuthorIdRoute
   '/category/$slug': typeof CategorySlugRoute
   '/genre/$slug': typeof GenreSlugRoute
@@ -197,6 +205,7 @@ export interface FileRoutesById {
   '/secret-adminpanel': typeof SecretAdminpanelRoute
   '/settings': typeof SettingsRoute
   '/sso-callback': typeof SsoCallbackRoute
+  '/admin-work-editor/$workId': typeof AdminWorkEditorWorkIdRoute
   '/author/$authorId': typeof AuthorAuthorIdRoute
   '/category/$slug': typeof CategorySlugRoute
   '/genre/$slug': typeof GenreSlugRoute
@@ -222,6 +231,7 @@ export interface FileRouteTypes {
     | '/secret-adminpanel'
     | '/settings'
     | '/sso-callback'
+    | '/admin-work-editor/$workId'
     | '/author/$authorId'
     | '/category/$slug'
     | '/genre/$slug'
@@ -245,6 +255,7 @@ export interface FileRouteTypes {
     | '/secret-adminpanel'
     | '/settings'
     | '/sso-callback'
+    | '/admin-work-editor/$workId'
     | '/author/$authorId'
     | '/category/$slug'
     | '/genre/$slug'
@@ -268,6 +279,7 @@ export interface FileRouteTypes {
     | '/secret-adminpanel'
     | '/settings'
     | '/sso-callback'
+    | '/admin-work-editor/$workId'
     | '/author/$authorId'
     | '/category/$slug'
     | '/genre/$slug'
@@ -292,6 +304,7 @@ export interface RootRouteChildren {
   SecretAdminpanelRoute: typeof SecretAdminpanelRoute
   SettingsRoute: typeof SettingsRoute
   SsoCallbackRoute: typeof SsoCallbackRoute
+  AdminWorkEditorWorkIdRoute: typeof AdminWorkEditorWorkIdRoute
   AuthorAuthorIdRoute: typeof AuthorAuthorIdRoute
   CategorySlugRoute: typeof CategorySlugRoute
   GenreSlugRoute: typeof GenreSlugRoute
@@ -383,6 +396,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SsoCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin-work-editor/$workId': {
+      id: '/admin-work-editor/$workId'
+      path: '/admin-work-editor/$workId'
+      fullPath: '/admin-work-editor/$workId'
+      preLoaderRoute: typeof AdminWorkEditorWorkIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/author/$authorId': {
       id: '/author/$authorId'
       path: '/author/$authorId'
@@ -468,6 +488,7 @@ const rootRouteChildren: RootRouteChildren = {
   SecretAdminpanelRoute: SecretAdminpanelRoute,
   SettingsRoute: SettingsRoute,
   SsoCallbackRoute: SsoCallbackRoute,
+  AdminWorkEditorWorkIdRoute: AdminWorkEditorWorkIdRoute,
   AuthorAuthorIdRoute: AuthorAuthorIdRoute,
   CategorySlugRoute: CategorySlugRoute,
   GenreSlugRoute: GenreSlugRoute,

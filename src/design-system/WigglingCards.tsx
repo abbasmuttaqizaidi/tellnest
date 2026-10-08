@@ -118,7 +118,7 @@ const WigglingCardItem: React.FC<WigglingCardItemProps> = ({
         flexShrink: 0,
       }}
       onClick={onSelect}
-      className="relative flex h-72 flex-col justify-between rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 shadow-xs hover:border-[var(--border-strong)] transition-colors cursor-grab active:cursor-grabbing select-none"
+      className="relative flex h-72 flex-col justify-between rounded-2xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all cursor-grab active:cursor-grabbing select-none"
     >
       <div>
         <div className="flex items-center justify-between">

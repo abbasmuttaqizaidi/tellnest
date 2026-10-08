@@ -10,10 +10,13 @@ import {
   Button,
   Badge,
   AnimatedTabs,
+  DiscreteTabs,
   MetricProgressCard,
   FilterDisclosure,
   BottomSheet,
+  SpotlightCard,
 } from '../design-system'
+import { UnisexAvatar } from '../components/UnisexAvatar'
 import { useUser } from '@clerk/react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -41,56 +44,38 @@ import {
   SlidersHorizontal,
   X,
 } from 'lucide-react'
+import { generateMeta } from '../lib/seo'
 
 export const Route = createFileRoute('/')({
+  head: () =>
+    generateMeta({
+      title: 'Writings. Beyond the Hype.',
+      description:
+        'Discover curated serialized fiction, long-form literature, indie novelists, and immersive storytelling on Hatchpen.',
+      canonicalUrl: 'https://hatchpen.com/',
+      keywords: [
+        'serialized fiction',
+        'read novels online',
+        'indie literature',
+        'web novels',
+        'stories by chapter',
+        'free reading',
+        'fiction community',
+      ],
+      ogType: 'website',
+      jsonLd: {
+        '@context': 'https://schema.org',
+        '@type': 'WebPage',
+        name: 'Hatchpen — Writings. Beyond the Hype.',
+        url: 'https://hatchpen.com/',
+        description:
+          'Discover curated serialized fiction, long-form literature, indie novelists, and immersive storytelling on Hatchpen.',
+      },
+    }),
   component: HomePage,
 })
 
 function HomePage() {
-  const { isSignedIn, isLoaded, user } = useUser()
-
-  // Synchronously initialize auth state from pre-render signals (cookie & localStorage)
-  const [cachedAuth, setCachedAuth] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false
-    try {
-      return (
-        window.localStorage.getItem('hatchpen_has_session') === 'true' ||
-        document.documentElement.classList.contains('has-auth-session') ||
-        document.cookie.includes('__session=') ||
-        /__client_uat=[1-9]/.test(document.cookie)
-      )
-    } catch {
-      return false
-    }
-  })
-
-  // Synchronize cache whenever Clerk finishes hydration or auth state changes
-  useEffect(() => {
-    if (isLoaded) {
-      setCachedAuth(!!isSignedIn)
-      try {
-        localStorage.setItem('hatchpen_has_session', isSignedIn ? 'true' : 'false')
-        if (isSignedIn) {
-          document.documentElement.classList.add('has-auth-session')
-          const name = user?.firstName || user?.username
-          if (name) {
-            localStorage.setItem('hatchpen_user_name', name)
-          }
-        } else {
-          document.documentElement.classList.remove('has-auth-session')
-          localStorage.removeItem('hatchpen_user_name')
-        }
-      } catch {}
-    }
-  }, [isLoaded, isSignedIn, user])
-
-  // While Clerk hydrates (!isLoaded), use cachedAuth to prevent the public home flash
-  const showSignedIn = isLoaded ? isSignedIn : cachedAuth
-
-  if (showSignedIn) {
-    return <SignedInHome />
-  }
-
   return <PublicHome />
 }
 
@@ -98,7 +83,8 @@ function HomePage() {
    PUBLIC HOME PAGE — Curated Atmospheric Literary Salon & Bookstore
    ========================================================================== */
 function PublicHome() {
-  const { allWorks, openAuthModal } = useApp()
+  const { allWorks, recentWorks, openAuthModal, isWorkSaved, toggleSaveWork, genres } = useApp()
+  const { isSignedIn } = useUser()
   const navigate = useNavigate()
   const [homeQuery, setHomeQuery] = useState('')
 
@@ -133,9 +119,10 @@ function PublicHome() {
       .slice(0, 3)
   }, [activeHeroChapter])
 
+  // Catalog stacks display sorted by real-time recent activity
   const catalogDisplayWorks = useMemo(() => {
-    return allWorks.slice(0, 6)
-  }, [allWorks])
+    return recentWorks.slice(0, 6)
+  }, [recentWorks])
 
   const trendingWorks = allWorks.filter((w) => w.trending || w.featured).slice(0, 4)
   const completedWorks = allWorks.filter((w) => w.status === 'Completed').slice(0, 3)
@@ -144,478 +131,216 @@ function PublicHome() {
     <div className="public-home-container min-h-screen py-6 sm:py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-12 sm:space-y-16">
       
       {/* =========================================================================
-          HERO CAROUSEL WITH INLINE "READ A TASTE"
+          HERO SECTION — EXACT DESIGN SPECIFICATION (Live_instructions.md)
           ========================================================================= */}
-      <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5 sm:p-8 lg:p-10 shadow-sm relative overflow-visible lg:overflow-hidden flex flex-col justify-center lg:h-[540px]">
+      <section className="relative w-full overflow-hidden bg-[#fbfaf7] dark:bg-[var(--bg-surface)] text-[var(--color-on-surface)] rounded-2xl border border-[var(--border-subtle)]/40 shadow-[0_12px_44px_rgba(0,0,0,0.06)] hover:shadow-[0_16px_56px_rgba(0,0,0,0.08)] transition-all">
+        {/* Ambient subtle background depth elements */}
+        <div className="pointer-events-none absolute -top-40 right-[-10%] w-[55vw] h-[55vw] rounded-full bg-[var(--color-surface-container-low)]/60 blur-3xl opacity-70"></div>
+        <div className="pointer-events-none absolute bottom-0 left-[-5%] w-[40vw] h-[40vw] rounded-full bg-[var(--color-surface-container)]/50 blur-3xl opacity-60"></div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 lg:gap-12 items-center flex-1">
-          
-          {/* Main Selected Manuscript Content */}
-          <div className="order-2 lg:order-1 lg:col-span-7 flex flex-col justify-center items-center text-center lg:items-start lg:text-left w-full">
-            <div className="w-full space-y-3.5 sm:space-y-4">
-              
-              {/* Badges, Reading Info & Discrete Carousel Controls (Desktop only; on mobile genre is on the card and controls are swipe dots) */}
-              <div className="hidden lg:flex items-center justify-between gap-2.5 w-full">
-                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 justify-center lg:justify-start">
-                  <Badge variant="outline" size="sm">
-                    {activeHeroWork.category}
-                  </Badge>
-                  <Badge variant="secondary" size="sm">
-                    {activeHeroWork.genre}
-                  </Badge>
-                  <span className="text-xs text-[var(--ink-muted)] font-mono hidden sm:inline">
-                    {activeHeroWork.status}
-                  </span>
-                  <span className="text-xs text-[var(--ink-faint)] font-mono hidden sm:inline">•</span>
-                  <span className="text-[11px] sm:text-xs text-[var(--ink-muted)] font-mono flex items-center gap-1">
-                    <Clock className="h-3 w-3 inline" />
-                    {activeHeroWork.chapters?.[0]?.readTimeMinutes || 12}m
-                  </span>
-                </div>
-
-                {/* Compact Carousel Nav */}
-                <div className="flex items-center gap-1 shrink-0">
-                  <span className="font-mono text-xs text-[var(--ink-faint)] mr-1">
-                    {String(activeHeroIndex + 1).padStart(2, '0')}/{String(heroWorks.length).padStart(2, '0')}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setActiveHeroIndex((prev) => (prev > 0 ? prev - 1 : heroWorks.length - 1))}
-                    className="p-1 sm:p-1.5 rounded-md border border-[var(--border-subtle)] hover:border-[var(--ink-primary)] active:scale-95 text-[var(--ink-primary)] transition cursor-pointer"
-                    title="Previous Manuscript"
-                    aria-label="Previous Manuscript"
-                  >
-                    <ChevronLeft className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveHeroIndex((prev) => (prev < heroWorks.length - 1 ? prev + 1 : 0))}
-                    className="p-1 sm:p-1.5 rounded-md border border-[var(--border-subtle)] hover:border-[var(--ink-primary)] active:scale-95 text-[var(--ink-primary)] transition cursor-pointer"
-                    title="Next Manuscript"
-                    aria-label="Next Manuscript"
-                  >
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Title & Subtitle */}
-              <div>
-                <h2 className="font-serif text-2xl sm:text-4xl lg:text-5xl font-semibold tracking-tight text-[var(--ink-primary)] leading-[1.15]">
-                  {activeHeroWork.title}
-                </h2>
-                {activeHeroWork.subtitle && (
-                  <p className="mt-1 font-serif text-xs sm:text-base text-[var(--ink-muted)] italic truncate">
-                    {activeHeroWork.subtitle}
-                  </p>
-                )}
-              </div>
-
-              {/* Responsive viewing window */}
-              <div className="relative w-full sm:h-[270px] sm:overflow-hidden">
-                <AnimatePresence mode="wait">
-                  {heroViewMode === 'overview' ? (
-                    <motion.div
-                      key="overview-content"
-                      initial={{ opacity: 0, y: 15 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -20 }}
-                      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                      className="flex flex-col justify-between items-center lg:items-start w-full sm:absolute sm:inset-0 space-y-3 sm:space-y-0"
-                    >
-                      <p className="text-xs sm:text-base leading-relaxed text-[var(--ink-secondary)] max-w-2xl font-serif line-clamp-3 sm:line-clamp-4">
-                        {activeHeroWork.synopsis}
-                      </p>
-
-                      {/* Author Attribution */}
-                      <div className="flex items-center gap-2.5 py-1">
-                        <Link
-                          to="/author/$authorId"
-                          params={{ authorId: activeHeroWork.author.id }}
-                          className="flex items-center gap-2.5 text-inherit no-underline group"
-                        >
-                          <OptimizedImage
-                            src={activeHeroWork.author.avatar}
-                            alt={activeHeroWork.author.name}
-                            width={40}
-                            height={40}
-                            className="h-8 w-8 sm:h-10 sm:w-10 rounded-full object-cover grayscale border border-[var(--border-strong)]"
-                          />
-                          <div className="text-left">
-                            <p className="text-xs font-semibold text-[var(--ink-primary)] group-hover:underline">
-                              {activeHeroWork.author.name}
-                            </p>
-                            <p className="text-[10px] sm:text-[11px] font-mono text-[var(--ink-muted)]">
-                              @{activeHeroWork.author.handle} • {activeHeroWork.author.location}
-                            </p>
-                          </div>
-                        </Link>
-                      </div>
-
-                      {/* Action buttons (desktop only; on mobile they are overlaid vertically directly on the active cover) */}
-                      <div className="hidden lg:flex flex-row items-center justify-start gap-3 pt-2 w-full">
-                        <Link
-                          to="/read/$workId/$chapterId"
-                          params={{
-                            workId: activeHeroWork.id,
-                            chapterId: activeHeroWork.chapters[0]?.id || 'ch-1',
-                          }}
-                          className="inline-flex items-center justify-center gap-2 rounded border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-5 py-2.5 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 active:scale-[0.99] transition no-underline shadow-xs"
-                        >
-                          <BookOpen className="h-4 w-4" />
-                          <span>Begin Chapter 1</span>
-                        </Link>
-
-                        <button
-                          type="button"
-                          onClick={handleOpenSample}
-                          className="inline-flex items-center justify-center gap-2 rounded border border-[var(--border-strong)] bg-[var(--bg-surface)] px-4 py-2.5 text-xs font-medium text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] active:scale-[0.99] transition cursor-pointer"
-                        >
-                          <Feather className="h-3.5 w-3.5" />
-                          <span>Sample Opening Lines</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => openAuthModal()}
-                          className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition cursor-pointer"
-                        >
-                          <Bookmark className="h-3.5 w-3.5" />
-                          <span>Save to Library</span>
-                        </button>
-                      </div>
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key="taste-content"
-                      initial={{ opacity: 0, y: 25 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -20 }}
-                      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                      className="flex flex-col justify-between text-left h-full sm:absolute sm:inset-0 space-y-3 sm:space-y-0"
-                    >
-                      <div className="flex items-center justify-between pb-2 border-b border-dashed border-[var(--border-subtle)] text-[11px] sm:text-xs font-mono text-[var(--ink-muted)]">
-                        <span className="flex items-center gap-1.5 font-medium text-[var(--ink-primary)] truncate">
-                          <Feather className="h-3.5 w-3.5 shrink-0" />
-                          <span className="truncate">Sample • {activeHeroChapter?.title || 'Chapter 1'}</span>
-                        </span>
-                        <span className="shrink-0">{activeHeroChapter?.readTimeMinutes || 12}m read</span>
-                      </div>
-
-                      {/* Typeset Prose with Literary Drop Cap & Scrollable viewport */}
-                      <div className="space-y-2.5 sm:space-y-3.5 max-h-[170px] sm:max-h-[160px] overflow-y-auto pr-2 scrollbar-thin my-1">
-                        {activeTasteParagraphs.map((paragraph, index) => {
-                          if (index === 0) {
-                            const firstChar = paragraph.charAt(0)
-                            const restOfParagraph = paragraph.slice(1)
-                            return (
-                              <p key={index} className="font-serif text-xs sm:text-sm leading-relaxed text-[var(--ink-primary)]">
-                                <span className="float-left text-2xl sm:text-3xl font-serif font-bold text-[var(--ink-primary)] leading-none mr-2 mt-0.5 border-b-2 border-[var(--ink-primary)] pb-0.5">
-                                  {firstChar}
-                                </span>
-                                {restOfParagraph}
-                              </p>
-                            )
-                          }
-                          return (
-                            <p key={index} className="font-serif text-xs sm:text-sm leading-relaxed text-[var(--ink-secondary)]">
-                              {paragraph}
-                            </p>
-                          )
-                        })}
-                      </div>
-
-                      {/* Action buttons inside Taste Mode */}
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 pt-2 border-t border-[var(--border-subtle)]">
-                        <button
-                          type="button"
-                          onClick={() => setHeroViewMode('overview')}
-                          className="flex-1 inline-flex items-center justify-center gap-2 rounded border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-5 py-2.5 sm:py-2 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 active:scale-[0.99] transition cursor-pointer shadow-xs"
-                        >
-                          <ArrowLeft className="h-3.5 w-3.5" />
-                          <span>Back to Synopsis</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => openAuthModal()}
-                          className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded border border-[var(--border-subtle)] text-xs text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:border-[var(--border-strong)] transition cursor-pointer"
-                        >
-                          <Bookmark className="h-3.5 w-3.5" />
-                          <span>Save Manuscript</span>
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column: Physical Book Jacket Presentation
-              - Mobile View: 3D Stacked Depth Carousel (Front card is taller, 4 background cards are tucked behind with smaller heights and scales)
-              - Desktop View: Classic elegant book jacket with bottom overlapping thumbnails dock
-          */}
-          <div className="order-1 lg:order-2 lg:col-span-5 flex flex-col items-center justify-center w-full">
+        <div className="relative max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 py-8 sm:py-10 lg:py-12 flex flex-col justify-center">
+          {/* Two-Column Editorial Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 xl:gap-16 items-center">
             
-            {/* 1. MOBILE-ONLY STACKED DEPTH CAROUSEL (strict block lg:hidden) */}
-            <div className="block lg:hidden w-full max-w-[360px] mx-auto py-2">
-              <div className="relative h-[470px] w-full flex items-center justify-center select-none touch-pan-y">
-                {heroWorks.map((work, idx) => {
-                  // Calculate distance from active index in a cyclical 5-item carousel (-2, -1, 0, 1, 2)
-                  const count = heroWorks.length
-                  let offset = (idx - activeHeroIndex) % count
-                  if (offset > 2) offset -= count
-                  if (offset < -2) offset += count
+            {/* Left Column: Typographic Sanctuary */}
+            <div className="lg:col-span-7 flex flex-col items-start pr-0 lg:pr-4">
+              {/* Primary Display Headline */}
+              <h1 className="text-[42px] sm:text-[50px] lg:text-[58px] xl:text-[64px] leading-[1.06] tracking-tight font-normal text-[var(--color-on-surface)] font-serif mb-5 sm:mb-6">
+                Writings. <br className="hidden sm:inline" />
+                <span className="italic font-light text-[var(--color-on-surface)]/90">Beyond the hype</span>
+              </h1>
 
-                  const isFront = offset === 0
-                  const isVisible = Math.abs(offset) <= 2
-                  if (!isVisible) return null
+              {/* Subtitle Paragraph (SEO Optimized & Italicized) */}
+              <p className="text-[16px] sm:text-[17px] leading-[1.7] text-[var(--color-on-surface-variant)] max-w-2xl mb-6 sm:mb-8 italic font-normal">
+                Discover independent serialized novels, long-form fiction, and reflective essays. A digital literary publication where readers follow chapter-by-chapter releases and authors publish original manuscripts with dedicated readership.
+              </p>
 
-                  // Depth styling parameters:
-                  // Front card: taller (h-[420px], scale 1.0, z-30, w: 260px)
-                  // Offset +/- 1: tucked behind with smaller height (h-[350px], scale 0.90, z-20)
-                  // Offset +/- 2: tucked even further behind (h-[295px], scale 0.82, z-10)
-                  const zIndex = 30 - Math.abs(offset) * 10
-                  const xTranslate = offset * 34 // horizontal peek offset
-                  const scale = 1 - Math.abs(offset) * 0.08
-                  const height = isFront ? 420 : Math.abs(offset) === 1 ? 350 : 295
-                  const opacity = isFront ? 1 : Math.abs(offset) === 1 ? 0.78 : 0.55
+              {/* Call to Action Cluster */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full sm:w-auto mb-8 sm:mb-10">
+                <Link
+                  to="/read//"
+                  params={{
+                    workId: activeHeroWork?.id || 'work-2',
+                    chapterId: activeHeroWork?.chapters?.[0]?.id || 'ch-201',
+                  }}
+                  className="inline-flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-full bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-medium text-[14px] hover:opacity-90 shadow-md hover:shadow-lg transition-all duration-200 group no-underline"
+                  data-path="discover"
+                >
+                  <span>Begin Reading Unhurried</span>
+                  <span className="transition-transform duration-200 group-hover:translate-x-1">→</span>
+                </Link>
 
-                  return (
-                    <motion.div
-                      key={work.id}
-                      animate={{
-                        x: xTranslate,
-                        scale: scale,
-                        opacity: opacity,
-                        zIndex: zIndex,
-                        height: height,
-                      }}
-                      transition={{
-                        type: 'spring',
-                        stiffness: 260,
-                        damping: 28,
-                        mass: 0.6,
-                      }}
-                      drag={isFront ? 'x' : false}
-                      dragConstraints={{ left: 0, right: 0 }}
-                      dragElastic={0.15}
-                      onDragEnd={(_e, info) => {
-                        if (info.offset.x < -35 || info.velocity.x < -200) {
-                          // Swipe left -> Next
-                          setActiveHeroIndex((prev) => (prev < heroWorks.length - 1 ? prev + 1 : 0))
-                        } else if (info.offset.x > 35 || info.velocity.x > 200) {
-                          // Swipe right -> Prev
-                          setActiveHeroIndex((prev) => (prev > 0 ? prev - 1 : heroWorks.length - 1))
-                        }
-                      }}
-                      onClick={() => {
-                        if (!isFront) {
-                          setActiveHeroIndex(idx)
-                        }
-                      }}
-                      style={{
-                        width: '260px',
-                        transformOrigin: 'center center',
-                        willChange: 'transform, opacity',
-                        transform: 'translateZ(0)',
-                      }}
-                      className={`absolute rounded-xl overflow-hidden border border-[var(--border-strong)] bg-[var(--bg-subtle)] transform-gpu select-none cursor-pointer ${
-                        isFront
-                          ? 'ring-2 ring-[var(--ink-primary)] shadow-2xl cursor-grab active:cursor-grabbing'
-                          : 'shadow-md cursor-pointer hover:opacity-90'
-                      }`}
-                    >
-                      <OptimizedImage
-                        src={work.cover}
-                        alt={work.title}
-                        priority={isFront}
-                        width={420}
-                        height={630}
-                        draggable={false}
-                        containerClassName="h-full w-full"
-                        className="h-full w-full object-cover pointer-events-none select-none"
-                      />
-
-                      {/* Spine depth shadow */}
-                      <div className="absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-black/40 to-transparent pointer-events-none z-10" />
-
-                      {/* Front Card Badge */}
-                      {isFront && (
-                        <div className="absolute top-2.5 right-2.5 rounded bg-black/80 px-2 py-0.5 text-[9px] font-mono font-medium text-white shadow-xs backdrop-blur-xs z-20">
-                          {work.publishedChaptersCount} Chs
-                        </div>
-                      )}
-
-                      {/* Genre Tag Indicator (replaces 01/02 numbering, same font size & pill design) */}
-                      {work.genre && (
-                        <div className="absolute top-2.5 left-2.5 rounded bg-black/70 px-1.5 py-0.5 text-[8px] font-mono text-white/90 backdrop-blur-2xs z-20 uppercase tracking-wider">
-                          {work.genre}
-                        </div>
-                      )}
-
-                      {/* Overlaid Vertical Action Buttons on Front Card */}
-                      {isFront && (
-                        <div
-                          className="absolute inset-x-0 bottom-0 pt-12 pb-3.5 px-3 bg-gradient-to-t from-black/95 via-black/70 to-transparent flex flex-col gap-2 z-20"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Link
-                            to="/read/$workId/$chapterId"
-                            params={{
-                              workId: work.id,
-                              chapterId: work.chapters[0]?.id || 'ch-1',
-                            }}
-                            className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-white text-black py-2.5 px-3 text-xs font-semibold hover:bg-neutral-100 active:scale-[0.98] transition shadow-md no-underline"
-                          >
-                            <BookOpen className="h-3.5 w-3.5" />
-                            <span>Begin Chapter 1</span>
-                          </Link>
-
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleOpenSample()
-                            }}
-                            className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-black/60 border border-white/25 text-white backdrop-blur-md py-2 px-3 text-xs font-medium hover:bg-black/80 active:scale-[0.98] transition cursor-pointer"
-                          >
-                            <Feather className="h-3.5 w-3.5" />
-                            <span>Sample Opening Lines</span>
-                          </button>
-                        </div>
-                      )}
-                    </motion.div>
-                  )
-                })}
+                <a
+                  href="#catalog-stacks"
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-[var(--color-surface-container-lowest)]/90 hover:bg-[var(--color-surface-container-lowest)] text-[var(--color-on-surface)] font-medium text-[14px] shadow-sm hover:shadow transition-all duration-200 border border-[var(--color-surface-container-high)]/60 no-underline cursor-pointer"
+                  data-path="serialization"
+                >
+                  <span className="material-symbols-outlined text-[18px] text-[var(--color-secondary)]">auto_stories</span>
+                  <span>Explore The Library</span>
+                </a>
               </div>
 
-              {/* Mobile Swipe Indicators & Tap Nav */}
-              <div className="flex items-center justify-center gap-2 pt-1">
-                {heroWorks.map((_, dotIdx) => (
-                  <button
-                    key={dotIdx}
-                    type="button"
-                    onClick={() => setActiveHeroIndex(dotIdx)}
-                    className={`h-1.5 rounded-full transition-all cursor-pointer ${
-                      dotIdx === activeHeroIndex
-                        ? 'w-6 bg-[var(--ink-primary)]'
-                        : 'w-1.5 bg-[var(--border-strong)] hover:bg-[var(--ink-muted)]'
-                    }`}
-                    aria-label={`Go to slide ${dotIdx + 1}`}
-                  />
-                ))}
+              {/* Trust Points / Manifesto Signals */}
+              <div className="flex flex-wrap items-center gap-y-2 gap-x-3 text-[var(--color-secondary)] text-[13px] tracking-wide mb-8">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-outline-variant)]"></span>
+                <span>Zero algorithmic rush</span>
+                <span className="text-[var(--color-outline-variant)]">•</span>
+                <span>90% direct author patronage</span>
+                <span className="text-[var(--color-outline-variant)]">•</span>
+                <span>Pure longform</span>
               </div>
+
+              {/* Polished Installment Spotlight Card using Design System */}
+              <Link
+                to="/works/$workId"
+                params={{ workId: activeHeroWork?.id || 'work-2' }}
+                className="w-full max-w-xl no-underline text-inherit block"
+              >
+                <SpotlightCard
+                  eyebrow="Featured this week"
+                  title={activeHeroWork?.title || 'The Glass Archipelago'}
+                  subtitle={`— ${activeHeroWork?.author?.name || 'Alistair Vance'}`}
+                  badgeLabel={`Installment ${activeHeroWork?.chaptersCount || 28}`}
+                  icon="local_library"
+                  className="!border-[var(--border-subtle)]/40 hover:!border-[var(--border-strong)]/60 !shadow-[0_8px_30px_rgba(0,0,0,0.06)] hover:!shadow-[0_12px_36px_rgba(0,0,0,0.09)]"
+                />
+              </Link>
             </div>
 
-            {/* 2. DESKTOP-ONLY CLASSIC SHOWCASE (strict hidden lg:block) */}
-            <div className="hidden lg:block relative group w-full max-w-[310px]">
-              {/* Main Physical Book Cover */}
-              <div className="aspect-[2/3] w-full overflow-hidden rounded-lg border border-[var(--border-strong)] shadow-xl bg-[var(--bg-subtle)] relative touch-pan-y select-none">
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={activeHeroWork.id}
-                    initial={{ opacity: 0, scale: 0.96 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.96 }}
-                    transition={{ duration: 0.3, ease: 'easeInOut' }}
-                    className="absolute inset-0"
-                  >
-                    <OptimizedImage
-                      src={activeHeroWork.cover}
-                      alt={activeHeroWork.title}
-                      priority={true}
-                      width={600}
-                      height={900}
-                      sizes="310px"
-                      draggable={false}
-                      containerClassName="h-full w-full"
-                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-102 pointer-events-none select-none"
-                    />
-                  </motion.div>
-                </AnimatePresence>
-
-                {/* Left/Right Quick Tap Arrows for desktop */}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setActiveHeroIndex((prev) => (prev > 0 ? prev - 1 : heroWorks.length - 1))
-                  }}
-                  className="absolute left-1.5 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/40 hover:bg-black/70 text-white backdrop-blur-xs transition cursor-pointer z-10 opacity-0 group-hover:opacity-100"
-                  aria-label="Previous Cover"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setActiveHeroIndex((prev) => (prev < heroWorks.length - 1 ? prev + 1 : 0))
-                  }}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/40 hover:bg-black/70 text-white backdrop-blur-xs transition cursor-pointer z-10 opacity-0 group-hover:opacity-100"
-                  aria-label="Next Cover"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-
-                {/* Spine depth shadow */}
-                <div className="absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-black/30 to-transparent pointer-events-none z-10" />
-                {/* Soft bottom vignette so overlapping thumbnails sit cleanly */}
-                <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/50 via-black/15 to-transparent pointer-events-none z-10" />
-              </div>
-
-              {/* Available chapters badge positioned at top right */}
-              <div className="absolute -top-3 -right-2 rounded border border-[var(--border-strong)] bg-[var(--bg-surface)] px-3 py-1.5 shadow-md z-20 pointer-events-none">
-                <span className="font-mono text-[10px] text-[var(--ink-secondary)] font-medium">
-                  {activeHeroWork.publishedChaptersCount} Chs Available
-                </span>
-              </div>
-
-              {/* Elegant Overlapping Thumbnail Carousel Dock at bottom */}
-              <div className="absolute -bottom-5 inset-x-3 z-20">
-                <div className="rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)]/95 backdrop-blur-md p-1.5 shadow-xl flex items-center justify-between gap-1.5">
-                  {heroWorks.map((work, idx) => {
-                    const isActive = idx === activeHeroIndex
-                    return (
-                      <button
-                        key={work.id}
-                        type="button"
-                        onClick={() => setActiveHeroIndex(idx)}
-                        className={`group/thumb relative flex-1 flex flex-col items-center p-1 rounded-lg transition-all cursor-pointer ${
-                          isActive
-                            ? 'bg-[var(--bg-subtle)] ring-1.5 ring-[var(--ink-primary)] shadow-xs scale-102'
-                            : 'hover:bg-[var(--bg-subtle)] opacity-70 hover:opacity-100'
-                        }`}
-                        title={work.title}
-                        aria-label={`Select ${work.title}`}
-                      >
-                        <div className="aspect-[2/3] w-full rounded overflow-hidden border border-[var(--border-subtle)] shadow-xs">
-                          <OptimizedImage
-                            src={work.cover}
-                            alt={work.title}
-                            width={100}
-                            height={150}
-                            containerClassName="h-full w-full"
-                            className={`h-full w-full object-cover transition-all ${
-                              isActive ? '' : 'grayscale group-hover/thumb:grayscale-0'
-                            }`}
-                          />
-                        </div>
-                        <span className="font-mono text-[9px] text-[var(--ink-primary)] mt-1 truncate w-full text-center font-medium block">
-                          0{idx + 1}
-                        </span>
-                      </button>
-                    )
-                  })}
+            {/* Right Column: Visual Anchor & Folio Showcase */}
+            <div className="lg:col-span-5 relative flex items-center justify-center">
+              <div className="relative w-full max-w-lg lg:max-w-none flex flex-col py-1 gap-2.5">
+                {/* Subtle ambient glow background element */}
+                <div className="pointer-events-none absolute -top-12 -right-8 w-64 h-64 rounded-full bg-[var(--color-surface-container-high)]/30 blur-3xl -z-10"></div>
+                
+                {/* Curated Compact Header Ribbon */}
+                <div className="flex items-center justify-between pb-0 px-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--ink-primary)]"></span>
+                    <span className="text-[11px] font-semibold tracking-[0.14em] uppercase text-[var(--color-secondary)] font-mono">
+                      Marginalia & Dispatches
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[10px] font-medium text-[var(--color-secondary)] bg-[var(--color-surface-container)] px-2 py-0.5 rounded-full border border-[var(--color-surface-container-high)]/60">
+                    <span className="material-symbols-outlined text-[12px] text-[var(--ink-primary)]">verified</span>
+                    <span>Human-curated</span>
+                  </div>
                 </div>
+
+                {/* Card 1: Reader Discovery Dispatch (Compact) */}
+                <div className="relative bg-[var(--color-surface-container-lowest)] rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 border border-[var(--border-subtle)]/40 hover:border-[var(--border-strong)]/60 shadow-[0_8px_30px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_36px_rgba(0,0,0,0.09)] transition-all duration-200 group">
+                  <div className="flex items-center justify-between gap-3 mb-1.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-6 h-6 rounded-full bg-[var(--color-surface-container-low)] flex items-center justify-center text-[var(--color-on-surface)] font-semibold text-[10px] border border-[var(--color-surface-container-high)]/60 shrink-0">
+                        ER
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="text-[12.5px] font-medium text-[var(--color-on-surface)] leading-tight truncate">
+                          Elena Rostova
+                        </h4>
+                        <p className="text-[10.5px] text-[var(--color-secondary)] truncate">
+                          Literary Essayist & Reader
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-[9.5px] font-medium tracking-wider uppercase text-[var(--color-secondary)] px-2 py-0.5 rounded bg-[var(--color-surface-container-low)] border border-[var(--color-surface-container-high)]/40 whitespace-nowrap">
+                      Dispatch 14
+                    </span>
+                  </div>
+                  
+                  <p className="text-[12.5px] leading-snug text-[var(--color-on-surface)] font-normal mb-2 text-[var(--color-on-surface)]/90">
+                    “I stopped chasing algorithmic bestsellers. On HatchPen,{' '}
+                    <mark className="bg-amber-200/80 dark:bg-amber-500/30 px-1 py-0.5 rounded text-inherit">
+                      I found stories no one’s talking about
+                    </mark>
+                    —but they’re as good as the classics. Great writing, zero noise.”
+                  </p>
+                  
+                  <div className="flex items-center justify-between pt-1.5 border-t border-[var(--border-subtle)]/40 text-[10.5px]">
+                    <div className="flex items-center gap-1.5 text-[var(--color-secondary)] truncate">
+                      <span className="material-symbols-outlined text-[13px] text-[var(--ink-primary)] shrink-0">auto_stories</span>
+                      <span className="text-[var(--color-on-surface-variant)] truncate">
+                        Reading: <em className="font-medium text-[var(--color-on-surface)] not-italic">The Unmaking of Winter</em>
+                      </span>
+                    </div>
+                    <span className="text-[var(--color-outline-variant)] whitespace-nowrap shrink-0 text-[10px]">
+                      2d ago
+                    </span>
+                  </div>
+                </div>
+
+                {/* Card 2: Debut Writer Journey Dispatch (Compact) */}
+                <div className="relative sm:ml-4 bg-[#fcfbf9] dark:bg-[var(--color-surface-container-lowest)] rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 border border-[var(--border-subtle)]/40 hover:border-[var(--border-strong)]/60 shadow-[0_8px_30px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_36px_rgba(0,0,0,0.09)] transition-all duration-200">
+                  <div className="flex items-center justify-between gap-3 mb-1.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-6 h-6 rounded-full bg-[var(--ink-primary)] text-[var(--accent-contrast)] flex items-center justify-center font-semibold text-[10px] shrink-0">
+                        MC
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <h4 className="text-[12.5px] font-medium text-[var(--color-on-surface)] leading-tight truncate">
+                            Marcus Chen
+                          </h4>
+                          <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-[var(--color-surface-container)] text-[var(--color-secondary)] uppercase tracking-wider">
+                            Author
+                          </span>
+                        </div>
+                        <p className="text-[10.5px] text-[var(--color-secondary)] truncate">
+                          Serial: <em className="text-[var(--color-on-surface)] not-italic">The Salt Garden</em>
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-[9.5px] font-medium tracking-wider uppercase text-[var(--color-secondary)] px-2 py-0.5 rounded bg-[var(--color-surface-container-low)] border border-[var(--color-surface-container-high)]/40 whitespace-nowrap">
+                      Author Dispatch
+                    </span>
+                  </div>
+
+                  <p className="text-[12.5px] leading-snug text-[var(--color-on-surface)] font-normal mb-2 text-[var(--color-on-surface)]/90">
+                    “
+                    <mark className="bg-amber-200/80 dark:bg-amber-500/30 px-1 py-0.5 rounded text-inherit">
+                      I’m a new writer
+                    </mark>
+                    . On HatchPen, my work didn’t disappear into the feed—it was pushed to readers who actually stayed. For the first time,{' '}
+                    <mark className="bg-amber-200/80 dark:bg-amber-500/30 px-1 py-0.5 rounded text-inherit">
+                      my writing found an audience
+                    </mark>
+                    .”
+                  </p>
+
+                  <div className="flex items-center justify-between pt-1.5 border-t border-[var(--border-subtle)]/40 text-[10.5px]">
+                    <div className="flex items-center gap-1.5 text-[var(--color-secondary)] truncate">
+                      <span className="material-symbols-outlined text-[13px] text-[var(--ink-primary)] shrink-0">favorite</span>
+                      <span className="text-[var(--color-on-surface-variant)] font-medium truncate">
+                        1,400 readers • 0 algorithmic push
+                      </span>
+                    </div>
+                    <span className="text-[var(--color-outline-variant)] whitespace-nowrap shrink-0 text-[10px]">
+                      Verified
+                    </span>
+                  </div>
+                </div>
+
+                {/* Tactile Footnote / Seal Pill (Compact) */}
+                <div className="relative bg-[var(--color-surface-container-lowest)]/80 backdrop-blur-sm rounded-xl py-1.5 px-3 border border-[var(--border-subtle)]/40 hover:border-[var(--border-strong)]/60 shadow-[0_8px_30px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_36px_rgba(0,0,0,0.09)] flex items-center justify-between gap-2.5 transition-all">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="material-symbols-outlined text-[13px] text-[var(--ink-primary)] shrink-0">local_library</span>
+                    <span className="text-[10.5px] text-[var(--color-secondary)] truncate">
+                      Where quiet stories find their true, deliberate readers.
+                    </span>
+                  </div>
+                  <span className="text-[9.5px] font-medium text-[var(--color-secondary)] whitespace-nowrap shrink-0 font-mono">
+                    • Member Archive
+                  </span>
+                </div>
+
               </div>
             </div>
 
           </div>
-
         </div>
+
+        {/* Quiet Bottom Architectural Accent Rule */}
+        <div className="w-full h-[1px] bg-[var(--color-surface-container-high)]/60"></div>
       </section>
 
       {/* =========================================================================
@@ -648,13 +373,25 @@ function PublicHome() {
               <button
                 type="button"
                 onClick={() => {
-                  setMobileSheetTasteOpen(false)
-                  openAuthModal()
+                  if (!isSignedIn) {
+                    setMobileSheetTasteOpen(false)
+                    openAuthModal()
+                  } else if (activeHeroWork?.id) {
+                    toggleSaveWork(activeHeroWork.id)
+                  }
                 }}
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-lg border border-[var(--border-strong)] text-xs text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition cursor-pointer"
+                className={`inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-lg border text-xs transition cursor-pointer ${
+                  activeHeroWork && isWorkSaved(activeHeroWork.id)
+                    ? 'border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-medium'
+                    : 'border-[var(--border-strong)] text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)]'
+                }`}
               >
-                <Bookmark className="h-4 w-4" />
-                <span>Save</span>
+                <Bookmark
+                  className={`h-4 w-4 ${
+                    activeHeroWork && isWorkSaved(activeHeroWork.id) ? 'fill-current' : ''
+                  }`}
+                />
+                <span>{activeHeroWork && isWorkSaved(activeHeroWork.id) ? 'Saved' : 'Save'}</span>
               </button>
             </div>
           }
@@ -763,7 +500,7 @@ function PublicHome() {
               key={work.id}
               to="/works/$workId"
               params={{ workId: work.id }}
-              className="group flex flex-col rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-2.5 hover:border-[var(--ink-primary)] transition-all no-underline text-inherit shadow-2xs hover:shadow-sm"
+              className="group flex flex-col rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] p-2.5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all no-underline text-inherit"
             >
               {/* Book Jacket Aspect with subtle spine */}
               <div className="aspect-[2/3] w-full rounded overflow-hidden border border-[var(--border-subtle)] bg-[var(--bg-subtle)] relative mb-2.5">
@@ -858,7 +595,7 @@ function PublicHome() {
                   key={work.id}
                   to="/works/$workId"
                   params={{ workId: work.id }}
-                  className="group flex items-center gap-4 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3 hover:border-[var(--border-strong)] transition-all no-underline text-inherit shadow-2xs"
+                  className="group flex items-center gap-4 rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] p-3 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all no-underline text-inherit"
                 >
                   <img
                     src={work.cover}
@@ -892,22 +629,22 @@ function PublicHome() {
               <h3 className="font-serif text-xl font-semibold text-[var(--ink-primary)]">
                 Literary Genres
               </h3>
-              <span className="font-mono text-xs text-[var(--ink-faint)]">{GENRES.length} Shelves</span>
+              <span className="font-mono text-xs text-[var(--ink-faint)]">{genres.length} Shelves</span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2.5">
-              {GENRES.map((genre) => (
+            <div className="grid grid-cols-2 gap-2.5 max-h-[480px] overflow-y-auto pr-1 scrollbar-thin">
+              {genres.map((genre) => (
                 <Link
                   key={genre.slug}
                   to="/genre/$slug"
                   params={{ slug: genre.slug }}
-                  className="rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-2.5 hover:border-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-all no-underline text-inherit shadow-2xs"
+                  className="rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] p-2.5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] hover:bg-[var(--bg-subtle)] transition-all no-underline text-inherit"
                 >
                   <p className="font-serif text-xs font-semibold text-[var(--ink-primary)]">
                     {genre.name}
                   </p>
                   <p className="font-mono text-[10px] text-[var(--ink-faint)] mt-0.5">
-                    {genre.worksCount} cataloged
+                    {genre.worksCount || 0} cataloged
                   </p>
                 </Link>
               ))}
@@ -948,7 +685,7 @@ function PublicHome() {
       {/* =========================================================================
           8. PUBLIC INVITATION / MEMBERSHIP CALL TO ACTION
           ========================================================================= */}
-      <section className="rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-8 sm:p-14 text-center space-y-6 shadow-sm">
+      <section className="rounded-2xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] p-8 sm:p-14 text-center space-y-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all">
         <div className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-[var(--border-strong)] bg-[var(--bg-canvas)] text-[var(--ink-primary)] shadow-2xs">
           <BookOpen className="h-5 w-5" />
         </div>
@@ -963,14 +700,24 @@ function PublicHome() {
         </div>
 
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-          <button
-            type="button"
-            onClick={() => openAuthModal()}
-            className="inline-flex items-center gap-2 rounded border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-6 py-2.5 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 transition-opacity cursor-pointer shadow-xs"
-          >
-            <span>Join The Hatchpen Reading Room</span>
-            <ArrowRight className="h-3.5 w-3.5" />
-          </button>
+          {!isSignedIn ? (
+            <button
+              type="button"
+              onClick={() => openAuthModal()}
+              className="inline-flex items-center gap-2 rounded border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-6 py-2.5 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 transition-opacity cursor-pointer shadow-xs"
+            >
+              <span>Join The Hatchpen Reading Room</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          ) : (
+            <Link
+              to="/library"
+              className="inline-flex items-center gap-2 rounded border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-6 py-2.5 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 transition-opacity cursor-pointer shadow-xs no-underline"
+            >
+              <span>Open Your Library</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          )}
 
           <Link
             to="/discover"
@@ -986,7 +733,7 @@ function PublicHome() {
 }
 
 /* ==========================================================================
-   SIGNED-IN HOME PAGE — Personalized Reader Dashboard & Studio Hub
+   SIGNED-IN HOME PAGE — Editorial Reading Desk & Member Dashboard
    ========================================================================== */
 function SignedInHome() {
   const { user } = useUser()
@@ -995,6 +742,7 @@ function SignedInHome() {
     savedWorkIds,
     readingProgress,
     followedAuthorIds,
+    customAvatarUrl,
   } = useApp()
   const [activeTab, setActiveTab] = useState('for-you')
 
@@ -1005,6 +753,9 @@ function SignedInHome() {
     ? allWorks.find((w) => w.id === latestReadEntry[0])
     : null
   const latestProgressData = latestReadEntry ? latestReadEntry[1] : null
+
+  // Recommended fallback manuscript when queue is empty
+  const recommendedWork = allWorks.find((w) => w.featured || w.editorPick) || allWorks[0]
 
   // Tabbed collections
   const forYouWorks = useMemo(() => {
@@ -1025,54 +776,79 @@ function SignedInHome() {
 
   const cachedName = typeof window !== 'undefined' ? localStorage.getItem('hatchpen_user_name') : null
   const displayName =
-    user?.firstName || user?.username || cachedName || user?.emailAddresses?.[0]?.emailAddress?.split('@')[0] || 'Author'
+    user?.firstName || user?.username || cachedName || user?.emailAddresses?.[0]?.emailAddress?.split('@')[0] || 'Reader'
+
+  // Time-of-day dynamic greeting
+  const hour = typeof window !== 'undefined' ? new Date().getHours() : 12
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+  const todayDate = typeof window !== 'undefined'
+    ? new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
+    : 'Desk Edition'
 
   const dashboardTabs = [
-    { id: 'for-you', label: 'Curated For You', icon: <Sparkles className="h-3.5 w-3.5" /> },
+    { id: 'for-you', label: 'For You', icon: <Sparkles className="h-3.5 w-3.5" /> },
     {
       id: 'following',
-      label: 'From Followed',
+      label: `From Followed${followedWorks.length > 0 ? ` (${followedWorks.length})` : ''}`,
       icon: <Users className="h-3.5 w-3.5" />,
-      badge: followedWorks.length > 0 ? followedWorks.length : undefined,
+      activeColor: 'text-[var(--ink-primary)]',
     },
     {
       id: 'saved',
-      label: 'Your Library',
+      label: `Your Library${savedWorks.length > 0 ? ` (${savedWorks.length})` : ''}`,
       icon: <Bookmark className="h-3.5 w-3.5" />,
-      badge: savedWorks.length > 0 ? savedWorks.length : undefined,
+      activeColor: 'text-[var(--ink-primary)]',
     },
-    { id: 'trending', label: 'Trending', icon: <Flame className="h-3.5 w-3.5" /> },
+    {
+      id: 'trending',
+      label: 'Trending',
+      icon: <Flame className="h-3.5 w-3.5" />,
+      activeColor: 'text-[var(--ink-primary)]',
+    },
   ]
 
+  const activeAvatar = customAvatarUrl || user?.imageUrl
+
   return (
-    <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-12">
+    <div className="min-h-screen py-6 sm:py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-8 sm:space-y-10">
       
-      {/* PERSONALIZED SALUTATION & QUICK COMMAND BAR */}
-      <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 sm:p-8 shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2 font-mono text-[11px] text-[var(--ink-muted)]">
-              <span>Hatchpen Author Folio</span>
-              <span>•</span>
-              <span className="text-[var(--ink-primary)] font-semibold">Active Session</span>
+      {/* 1. EDITORIAL SALUTATION HEADER */}
+      <section className="rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] p-5 sm:p-7 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
+          <div className="flex items-start gap-4">
+            <div className="h-12 w-12 shrink-0 rounded-full border border-[var(--border-subtle)] shadow-xs overflow-hidden bg-[var(--ink-primary)] flex items-center justify-center">
+              <UnisexAvatar
+                src={activeAvatar}
+                hasImage={user?.hasImage}
+                name={displayName}
+                size="lg"
+                className="h-full w-full object-cover"
+              />
             </div>
-            <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-[var(--ink-primary)]">
-              Welcome back, {displayName}.
-            </h1>
-            <p className="text-xs sm:text-sm text-[var(--ink-muted)]">
-              Pick up your reading queue or draft a new serialized manuscript.
-            </p>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 font-mono text-[11px] text-[var(--ink-muted)]">
+                <span>{todayDate}</span>
+                <span>•</span>
+                <span className="text-[var(--ink-primary)] font-medium">Editorial Desk</span>
+              </div>
+              <h1 className="font-serif text-xl sm:text-2xl lg:text-3xl font-semibold tracking-tight text-[var(--ink-primary)]">
+                {greeting}, {displayName}.
+              </h1>
+              <p className="text-xs text-[var(--ink-secondary)]">
+                Pick up where you left off or explore newly serialized folios.
+              </p>
+            </div>
           </div>
 
-          {/* Quick Action Shortcuts (Including Writer Studio access) */}
-          <div className="flex flex-wrap items-center gap-3">
+          {/* Quick Action Shortcuts */}
+          <div className="flex flex-wrap items-center gap-2.5">
             <Link to="/write/new" className="no-underline">
               <Button
                 variant="primary"
                 size="sm"
                 leftIcon={<PenLine className="h-3.5 w-3.5 shrink-0" />}
               >
-                Write Story
+                + New Story
               </Button>
             </Link>
 
@@ -1085,62 +861,74 @@ function SignedInHome() {
                 My Library ({savedWorkIds.length})
               </Button>
             </Link>
+
+            <Link to="/discover" className="no-underline">
+              <Button
+                variant="ghost"
+                size="sm"
+                leftIcon={<CompassIcon className="h-3.5 w-3.5 shrink-0" />}
+              >
+                Catalog
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
 
-      {/* DUAL WIDGET: CONTINUE READING & READING QUOTA */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      {/* 2. DUAL PRIORITY GRID: CONTINUE READING SHELF & READING PULSE */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
         
-        {/* Left: Active Reading Card (7 cols) */}
+        {/* Left: Active Reading Card / Next Pick (7 cols) */}
         <div className="lg:col-span-7">
           {latestReadWork && latestProgressData ? (
-            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 shadow-xs space-y-5">
-              <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-3">
+            <div className="rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] p-5 sm:p-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all space-y-4">
+              <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2.5">
                 <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-[var(--ink-primary)]" />
-                  <h3 className="font-serif text-lg font-semibold text-[var(--ink-primary)]">
+                  <Clock className="h-3.5 w-3.5 text-[var(--ink-primary)]" />
+                  <h2 className="font-serif text-base sm:text-lg font-semibold text-[var(--ink-primary)]">
                     Continue Reading
-                  </h3>
+                  </h2>
                 </div>
                 <Link
                   to="/library"
-                  className="font-mono text-xs text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:underline inline-flex items-center gap-1"
+                  className="font-mono text-xs text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:underline inline-flex items-center gap-1 no-underline"
                 >
-                  View All in Queue <ArrowRight className="h-3 w-3" />
+                  View Queue ({progressEntries.length}) <ArrowRight className="h-3 w-3" />
                 </Link>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-5 items-start sm:items-center">
-                <div className="relative aspect-[3/4] w-24 sm:w-28 flex-shrink-0 overflow-hidden rounded-md border border-[var(--border-subtle)] bg-[var(--bg-subtle)]">
+              <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 items-start sm:items-center">
+                <div className="relative aspect-[16/10] sm:aspect-[3/4] w-full sm:w-28 flex-shrink-0 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-subtle)]">
                   <img
                     src={latestReadWork.cover}
                     alt={latestReadWork.title}
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-cover transition hover:scale-105 duration-300"
                     loading="lazy"
                     decoding="async"
                   />
                 </div>
 
-                <div className="flex-1 space-y-3 min-w-0">
+                <div className="flex-1 space-y-2.5 min-w-0 w-full">
                   <div>
                     <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-wider text-[var(--ink-muted)]">
                       <span>{latestReadWork.category}</span>
                       <span>•</span>
-                      <span>Chapter {latestProgressData.chapterNumber}</span>
+                      <span>{latestReadWork.genre}</span>
+                      <span>•</span>
+                      <span>Part {latestProgressData.chapterNumber}</span>
                     </div>
-                    <h4 className="font-serif text-xl font-semibold text-[var(--ink-primary)] truncate mt-0.5">
+                    <h3 className="font-serif text-lg font-semibold text-[var(--ink-primary)] truncate mt-0.5">
                       {latestReadWork.title}
-                    </h4>
+                    </h3>
                     <p className="text-xs text-[var(--ink-muted)] truncate">
                       By {latestReadWork.author.name}
                     </p>
                   </div>
 
-                  {/* Visual Progress Bar */}
-                  <div className="space-y-1.5">
+                  {/* Progress Bar */}
+                  <div className="space-y-1">
                     <div className="flex justify-between text-[11px] font-mono text-[var(--ink-muted)]">
-                      <span>Reading Progress</span>
+                      <span>Chapter Completion</span>
                       <span className="font-semibold text-[var(--ink-primary)]">
                         {latestProgressData.progressPercent}%
                       </span>
@@ -1160,7 +948,7 @@ function SignedInHome() {
                         workId: latestReadWork.id,
                         chapterId: latestProgressData.chapterId,
                       }}
-                      className="no-underline"
+                      className="no-underline inline-block"
                     >
                       <Button
                         variant="primary"
@@ -1175,94 +963,161 @@ function SignedInHome() {
               </div>
             </div>
           ) : (
-            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 sm:p-8 shadow-xs space-y-4">
-              <div className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-strong)] bg-[var(--bg-canvas)] text-[var(--ink-primary)]">
-                <BookOpen className="h-5 w-5" />
+            <div className="rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] p-5 sm:p-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all space-y-4">
+              <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2.5">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-3.5 w-3.5 text-[var(--ink-primary)]" />
+                  <h2 className="font-serif text-base sm:text-lg font-semibold text-[var(--ink-primary)]">
+                    Editor's Desk Selection
+                  </h2>
+                </div>
+                <span className="font-mono text-[11px] text-[var(--ink-muted)]">
+                  Start Your Queue
+                </span>
               </div>
-              <div className="space-y-1">
-                <h3 className="font-serif text-xl font-semibold text-[var(--ink-primary)]">
-                  Begin Your Personal Reading Queue
-                </h3>
-                <p className="text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed">
-                  You do not have any active manuscripts in progress yet. Browse the curated feed below or explore genres to bookmark your first folio.
-                </p>
-              </div>
-              <Link to="/discover" className="inline-block no-underline pt-2">
-                <Button
-                  variant="primary"
-                  size="sm"
-                  leftIcon={<CompassIcon className="h-3.5 w-3.5 shrink-0" />}
-                >
-                  Discover Manuscripts
-                </Button>
-              </Link>
+
+              {recommendedWork && (
+                <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 items-start sm:items-center">
+                  <div className="relative aspect-[16/10] sm:aspect-[3/4] w-full sm:w-28 flex-shrink-0 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-subtle)]">
+                    <img
+                      src={recommendedWork.cover}
+                      alt={recommendedWork.title}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  </div>
+
+                  <div className="flex-1 space-y-2 min-w-0">
+                    <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-wider text-[var(--ink-muted)]">
+                      <span>{recommendedWork.category}</span>
+                      <span>•</span>
+                      <span>{recommendedWork.genre}</span>
+                    </div>
+                    <h3 className="font-serif text-lg font-semibold text-[var(--ink-primary)] truncate">
+                      {recommendedWork.title}
+                    </h3>
+                    <p className="text-xs text-[var(--ink-secondary)] line-clamp-2 leading-relaxed">
+                      {recommendedWork.synopsis}
+                    </p>
+                    <div className="pt-1">
+                      <Link
+                        to="/works/$workId"
+                        params={{ workId: recommendedWork.id }}
+                        className="no-underline inline-block"
+                      >
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          leftIcon={<BookOpen className="h-3.5 w-3.5 shrink-0" />}
+                        >
+                          Begin Chapter 1
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        {/* Right: Metric Progress Card (5 cols) */}
-        <div className="lg:col-span-5">
-          <MetricProgressCard
-            usedPercent={savedWorkIds.length > 0 ? Math.min(100, savedWorkIds.length * 20) : 45}
-            currentLabel={`${savedWorkIds.length} Saved in Library`}
-            limitLabel="10 Recommended Goal"
-            title="Literary Reading Activity"
-            subtitle="Paced reading across serialized chapters"
-            className="w-full"
-          />
+        {/* Right: Daily Reading Pulse & Activity (5 cols) */}
+        <div className="lg:col-span-5 space-y-3.5">
+          <div className="rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all space-y-4">
+            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2.5">
+              <div className="flex items-center gap-2">
+                <Flame className="h-3.5 w-3.5 text-[var(--ink-primary)]" />
+                <h2 className="font-serif text-base font-semibold text-[var(--ink-primary)]">
+                  Daily Reading Pulse
+                </h2>
+              </div>
+              <span className="font-mono text-[11px] text-[var(--ink-muted)]">
+                Active Streak
+              </span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] p-2">
+                <p className="font-mono text-base font-semibold text-[var(--ink-primary)]">
+                  {progressEntries.length}
+                </p>
+                <p className="text-[10px] uppercase font-mono text-[var(--ink-muted)]">In Progress</p>
+              </div>
+              <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] p-2">
+                <p className="font-mono text-base font-semibold text-[var(--ink-primary)]">
+                  {savedWorkIds.length}
+                </p>
+                <p className="text-[10px] uppercase font-mono text-[var(--ink-muted)]">Saved</p>
+              </div>
+              <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] p-2">
+                <p className="font-mono text-base font-semibold text-[var(--ink-primary)]">
+                  {followedAuthorIds.length}
+                </p>
+                <p className="text-[10px] uppercase font-mono text-[var(--ink-muted)]">Following</p>
+              </div>
+            </div>
+
+            <MetricProgressCard
+              usedPercent={savedWorkIds.length > 0 ? Math.min(100, savedWorkIds.length * 20) : 40}
+              currentLabel={`${savedWorkIds.length} Manuscripts`}
+              limitLabel="10 Goal"
+              title="Reading Cadence"
+              subtitle="Paced weekly serialization goal"
+              className="w-full border-0 p-0 shadow-none bg-transparent"
+            />
+          </div>
         </div>
 
       </div>
 
-      {/* INTERACTIVE MEMBER FEED TABS */}
-      <section className="space-y-6 pt-8 border-t border-[var(--border-subtle)]">
+      {/* 3. MEMBER FEED STREAMS (DiscreteTabs Navigation) */}
+      <section className="space-y-6 pt-6 border-t border-[var(--border-subtle)]">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 className="font-serif text-2xl font-semibold text-[var(--ink-primary)]">
+            <h2 className="font-serif text-xl sm:text-2xl font-semibold text-[var(--ink-primary)]">
               Your Reading Stream
             </h2>
             <p className="text-xs text-[var(--ink-muted)] mt-0.5">
-              Personalized works, followed authors, and active bookmarks
+              Personalized recommendations, updates from followed authors, and saved library queue.
             </p>
           </div>
 
-          <AnimatedTabs
-            tabs={dashboardTabs}
-            activeId={activeTab}
-            onChange={setActiveTab}
+          <DiscreteTabs
+            defaultTab={activeTab}
             size="sm"
-            variant="pill"
+            onTabChange={(tabId) => setActiveTab(tabId)}
+            tabs={dashboardTabs}
           />
         </div>
 
-        {/* Tab Content 1: Curated For You */}
+        {/* Tab 1: Curated For You */}
         {activeTab === 'for-you' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {forYouWorks.map((work) => (
               <WorkCard key={work.id} work={work} layout="portrait" />
             ))}
           </div>
         )}
 
-        {/* Tab Content 2: From Followed Authors */}
+        {/* Tab 2: From Followed Authors */}
         {activeTab === 'following' && (
           <div>
             {followedWorks.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                 {followedWorks.map((work) => (
                   <WorkCard key={work.id} work={work} layout="portrait" />
                 ))}
               </div>
             ) : (
-              <div className="rounded-lg border border-dashed border-[var(--border-strong)] p-12 text-center space-y-3">
-                <Users className="h-8 w-8 mx-auto text-[var(--ink-faint)]" />
-                <h4 className="font-serif text-lg font-semibold text-[var(--ink-primary)]">
+              <div className="rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] p-10 text-center space-y-3 bg-[var(--bg-surface)] shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all">
+                <Users className="h-6 w-6 mx-auto text-[var(--ink-faint)]" />
+                <h3 className="font-serif text-base font-semibold text-[var(--ink-primary)]">
                   No Followed Authors Yet
-                </h4>
+                </h3>
                 <p className="text-xs text-[var(--ink-muted)] max-w-sm mx-auto">
-                  Follow authors below or in the Writers directory to receive their newly published chapters in this feed.
+                  Follow authors to receive notifications when they publish new serialized chapters.
                 </p>
-                <Link to="/discover" className="inline-block no-underline pt-2">
+                <Link to="/discover" className="inline-block no-underline pt-1">
                   <Button variant="outline" size="sm">
                     Discover Authors
                   </Button>
@@ -1272,25 +1127,25 @@ function SignedInHome() {
           </div>
         )}
 
-        {/* Tab Content 3: Saved Library Queue */}
+        {/* Tab 3: Saved Library */}
         {activeTab === 'saved' && (
           <div>
             {savedWorks.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                 {savedWorks.map((work) => (
                   <WorkCard key={work.id} work={work} layout="portrait" />
                 ))}
               </div>
             ) : (
-              <div className="rounded-lg border border-dashed border-[var(--border-strong)] p-12 text-center space-y-3">
-                <Bookmark className="h-8 w-8 mx-auto text-[var(--ink-faint)]" />
-                <h4 className="font-serif text-lg font-semibold text-[var(--ink-primary)]">
+              <div className="rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] p-10 text-center space-y-3 bg-[var(--bg-surface)] shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all">
+                <Bookmark className="h-6 w-6 mx-auto text-[var(--ink-faint)]" />
+                <h3 className="font-serif text-base font-semibold text-[var(--ink-primary)]">
                   Your Library is Empty
-                </h4>
+                </h3>
                 <p className="text-xs text-[var(--ink-muted)] max-w-sm mx-auto">
-                  Click the bookmark icon on any manuscript to add it to your private reading queue.
+                  Bookmark stories while browsing to build your offline queue and saved folios.
                 </p>
-                <Link to="/discover" className="inline-block no-underline pt-2">
+                <Link to="/discover" className="inline-block no-underline pt-1">
                   <Button variant="outline" size="sm">
                     Browse Manuscripts
                   </Button>
@@ -1300,9 +1155,9 @@ function SignedInHome() {
           </div>
         )}
 
-        {/* Tab Content 4: Trending */}
+        {/* Tab 4: Trending */}
         {activeTab === 'trending' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {trendingWorks.map((work) => (
               <WorkCard key={work.id} work={work} layout="portrait" />
             ))}
@@ -1310,50 +1165,50 @@ function SignedInHome() {
         )}
       </section>
 
-      {/* AUTHORS RESIDENCE RECOMMENDATIONS */}
-      <section className="space-y-6 pt-8 border-t border-[var(--border-subtle)]">
+      {/* 4. AUTHORS IN RESIDENCE (RECOMMENDATIONS) */}
+      <section className="space-y-4 pt-6 border-t border-[var(--border-subtle)]">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="font-serif text-2xl font-semibold text-[var(--ink-primary)]">
-              Authors You Might Enjoy
+            <h2 className="font-serif text-lg sm:text-xl font-semibold text-[var(--ink-primary)]">
+              Writers & Voices to Follow
             </h2>
             <p className="text-xs text-[var(--ink-muted)] mt-0.5">
-              Acclaimed serialized writers and essayists on The Relay
+              Acclaimed serialized novelists, essayists, and poets on Hatchpen
             </p>
           </div>
           <Link
             to="/discover"
-            className="text-xs font-medium text-[var(--ink-primary)] hover:underline inline-flex items-center gap-1"
+            className="text-xs font-medium text-[var(--ink-primary)] hover:underline inline-flex items-center gap-1 no-underline"
           >
-            Explore All Authors <ArrowRight className="h-3 w-3" />
+            All Writers <ArrowRight className="h-3 w-3" />
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {AUTHORS.slice(0, 3).map((author) => (
             <AuthorCard key={author.id} author={author} />
           ))}
         </div>
       </section>
 
-      {/* WRITER STUDIO JUMP CARD */}
-      <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-8 sm:p-10 shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2 max-w-xl">
+      {/* 5. WRITER STUDIO QUICK LAUNCH */}
+      <section className="rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] p-6 sm:p-8 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
+          <div className="space-y-1.5 max-w-xl">
             <div className="flex items-center gap-2">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--border-strong)] bg-[var(--bg-subtle)] text-[var(--ink-primary)]">
-                <Feather className="h-4 w-4" />
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-[var(--border-subtle)] bg-[var(--bg-canvas)] text-[var(--ink-primary)]">
+                <Feather className="h-3.5 w-3.5" />
               </span>
-              <h3 className="font-serif text-xl font-semibold text-[var(--ink-primary)]">
+              <h2 className="font-serif text-lg font-semibold text-[var(--ink-primary)]">
                 Writer Studio
-              </h3>
+              </h2>
             </div>
-            <p className="text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed">
-              Have a story or serialized manuscript to release? Draft chapters in a distraction-free environment, organize table of contents, and track reader metrics.
+            <p className="text-xs sm:text-sm text-[var(--ink-secondary)] leading-relaxed">
+              Have a serial manuscript or story to release? Draft chapters in a clean, distraction-free environment and distribute to readers.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
             <Link to="/write" className="no-underline">
               <Button variant="outline" size="sm">
                 Open Studio
@@ -1365,7 +1220,7 @@ function SignedInHome() {
                 size="sm"
                 leftIcon={<PenLine className="h-3.5 w-3.5 shrink-0" />}
               >
-                New Manuscript
+                + New Manuscript
               </Button>
             </Link>
           </div>

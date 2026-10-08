@@ -6,20 +6,40 @@ import WorkCard from '../components/WorkCard'
 import EmptyState from '../components/EmptyState'
 import { FilterDisclosure, AnimatedSearch } from '../design-system'
 import { ArrowLeft } from 'lucide-react'
+import { generateMeta } from '../lib/seo'
 
 export const Route = createFileRoute('/genre/$slug')({
+  head: ({ params }) => {
+    const found = GENRES.find((g) => g.slug === params.slug)
+    const genreName =
+      found?.name ||
+      params.slug
+        .split('-')
+        .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+        .join(' ')
+
+    return generateMeta({
+      title: `${genreName} Stories & Serialized Literature`,
+      description:
+        found?.description ||
+        `Curated literary manuscripts, serial fiction, and independent works in the ${genreName} genre on Hatchpen.`,
+      canonicalUrl: `https://hatchpen.com/genre/${params.slug}`,
+      keywords: [genreName, `${genreName} fiction`, 'read novels', 'indie books', 'Hatchpen genre'],
+      ogType: 'website',
+    })
+  },
   component: GenreTemplatePage,
 })
 
 function GenreTemplatePage() {
   const { slug } = Route.useParams()
-  const { allWorks } = useApp()
+  const { allWorks, genres } = useApp()
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
   const [sortBy, setSortBy] = useState<'popularity' | 'updated'>('popularity')
   const [searchQuery, setSearchQuery] = useState<string>('')
 
   const genreInfo = useMemo(() => {
-    const found = GENRES.find((g) => g.slug === slug)
+    const found = genres.find((g) => g.slug === slug)
     if (found) return found
     const humanName = slug.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')
     return {
@@ -28,7 +48,7 @@ function GenreTemplatePage() {
       description: `Curated narrative works in the ${humanName} genre.`,
       worksCount: 0
     }
-  }, [slug])
+  }, [slug, genres])
 
   const genreWorks = useMemo(() => {
     return allWorks.filter((w) => {

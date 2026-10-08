@@ -2,6 +2,7 @@ import React from 'react'
 import { Link } from '@tanstack/react-router'
 import { Bookmark, BookOpen, Clock, Star } from 'lucide-react'
 import type { Work } from '../data/mockData'
+import { formatWorkActivitySummary } from '../data/mockData'
 import { useApp } from '../context/AppContext'
 import { OptimizedImage } from './OptimizedImage'
 
@@ -14,10 +15,11 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
   const { isWorkSaved, toggleSaveWork, readingProgress } = useApp()
   const saved = isWorkSaved(work.id)
   const progress = readingProgress[work.id]
+  const activity = formatWorkActivitySummary(work)
 
   if (layout === 'horizontal') {
     return (
-      <div className="group relative flex flex-row gap-3.5 sm:gap-6 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3 sm:p-4 hover:border-[var(--border-strong)] transition-all">
+      <div className="group relative flex flex-row gap-3.5 sm:gap-6 rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] p-3 sm:p-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all">
         {/* Cover */}
         <Link
           to="/works/$workId"
@@ -44,12 +46,17 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
         <div className="flex flex-1 flex-col justify-between">
           <div>
             <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-[var(--ink-muted)]">
                   {work.category}
                 </span>
                 <span className="text-[11px] text-[var(--ink-faint)]">•</span>
                 <span className="text-xs text-[var(--ink-muted)]">{work.genre}</span>
+                {activity.detail && activity.isRecent && (
+                  <span className="rounded bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 text-[9px] font-mono font-medium tracking-wide">
+                    ✦ {activity.detail}
+                  </span>
+                )}
               </div>
               <button
                 onClick={(e) => {
@@ -124,7 +131,7 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
 
   // Portrait Layout (Default)
   return (
-    <div className="group relative flex flex-col justify-between rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3.5 hover:border-[var(--border-strong)] transition-all">
+    <div className="group relative flex flex-col justify-between rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] p-3.5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all">
       <div>
         {/* Cover Presentation */}
         <div className="relative aspect-[3/4] w-full overflow-hidden rounded bg-[var(--bg-subtle)]">
@@ -154,16 +161,28 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
             <Bookmark className={`h-3.5 w-3.5 ${saved ? 'fill-black' : ''}`} />
           </button>
 
-          {/* Status Badge */}
-          <div className="absolute bottom-2 left-2 flex gap-1">
+          {/* Status & Collections / Recent Activity Badge */}
+          <div className="absolute bottom-2 left-2 right-2 flex flex-wrap items-center gap-1">
             <span className="rounded bg-black/80 px-2 py-0.5 text-[9px] font-mono font-medium text-white uppercase tracking-wider backdrop-blur-sm">
               {work.status}
             </span>
-            {work.trending && (
+            {work.new_chapters_this_week ? (
+              <span className="rounded bg-indigo-600/90 text-white px-2 py-0.5 text-[9px] font-mono font-medium tracking-wide backdrop-blur-sm">
+                ✦ New Chapters This Week
+              </span>
+            ) : work.new_this_week ? (
+              <span className="rounded bg-amber-600/90 text-white px-2 py-0.5 text-[9px] font-mono font-medium tracking-wide backdrop-blur-sm">
+                ✦ New This Week
+              </span>
+            ) : activity.detail && activity.isRecent ? (
+              <span className="rounded bg-emerald-600/90 text-white px-2 py-0.5 text-[9px] font-mono font-medium tracking-wide backdrop-blur-sm truncate max-w-[150px]">
+                ✦ {activity.detail}
+              </span>
+            ) : work.trending ? (
               <span className="rounded bg-black/80 px-2 py-0.5 text-[9px] font-mono font-medium text-white uppercase tracking-wider backdrop-blur-sm">
                 Trending
               </span>
-            )}
+            ) : null}
           </div>
         </div>
 

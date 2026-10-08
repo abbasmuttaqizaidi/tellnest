@@ -2,8 +2,14 @@ import { createFileRoute } from '@tanstack/react-router'
 import { AuthenticateWithRedirectCallback } from '@clerk/react'
 import { Loader2 } from 'lucide-react'
 import { HatchpenLogo } from '../components/HatchpenLogo'
+import { generateMeta } from '../lib/seo'
 
 export const Route = createFileRoute('/sso-callback')({
+  head: () =>
+    generateMeta({
+      title: 'Authenticating Session',
+      noindex: true,
+    }),
   component: SSOCallbackPage,
 })
 

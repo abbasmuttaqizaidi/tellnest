@@ -730,6 +730,7 @@ export const AnimatedSearch: FC<AnimatedSearchProps> = ({
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
             autoFocus={autoFocus}
+            enterKeyHint="search"
             className={cn(
               'w-full bg-transparent px-2 text-[var(--ink-primary)] placeholder-[var(--ink-muted)] focus:outline-none font-sans',
               sizeStyles.text
@@ -737,7 +738,7 @@ export const AnimatedSearch: FC<AnimatedSearchProps> = ({
           />
 
           <div className="pr-3 flex items-center gap-2 flex-shrink-0">
-            {resultsCount !== undefined && query && (
+            {resultsCount !== undefined && (
               <motion.span
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -748,14 +749,25 @@ export const AnimatedSearch: FC<AnimatedSearchProps> = ({
             )}
 
             {query ? (
-              <button
-                type="button"
-                onClick={handleClear}
-                className="p-1 rounded-full text-[var(--ink-muted)] hover:bg-[var(--bg-subtle)] hover:text-[var(--ink-primary)] transition-colors"
-                aria-label="Clear search"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => onSubmit?.(query)}
+                  className="p-1 rounded-full text-[var(--ink-muted)] hover:bg-[var(--bg-subtle)] hover:text-[var(--ink-primary)] transition-colors cursor-pointer"
+                  aria-label="Submit search"
+                  title="Search (Press Enter)"
+                >
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClear}
+                  className="p-1 rounded-full text-[var(--ink-muted)] hover:bg-[var(--bg-subtle)] hover:text-[var(--ink-primary)] transition-colors cursor-pointer"
+                  aria-label="Clear search"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
             ) : (
               shortcut && (
                 <kbd className="hidden sm:inline-flex items-center font-mono text-[10px] text-[var(--ink-muted)] bg-[var(--bg-subtle)] border border-[var(--border-subtle)] rounded px-1.5 py-0.5">

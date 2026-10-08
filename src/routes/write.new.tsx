@@ -1,11 +1,19 @@
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useApp } from '../context/AppContext'
-import { CATEGORIES, GENRES } from '../data/mockData'
+import { CATEGORIES } from '../data/mockData'
+import { GLOBAL_GENRES, GENRE_GROUPS, SUGGESTED_TAGS } from '../lib/taxonomy'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { ArrowLeft, BookOpen, Upload, Sparkles, CheckCircle2 } from 'lucide-react'
+import { generateMeta } from '../lib/seo'
 
 export const Route = createFileRoute('/write/new')({
+  head: () =>
+    generateMeta({
+      title: 'Create New Manuscript',
+      description: 'Start publishing a new serialized literary work, novel, or essay series on Hatchpen.',
+      noindex: true,
+    }),
   component: () => (
     <ProtectedRoute
       title="Create New Manuscript"
@@ -27,16 +35,16 @@ const SAMPLE_COVERS = [
 ]
 
 function CreateWorkPage() {
-  const { addWriterWork } = useApp()
+  const { addWriterWork, categories, genres } = useApp()
   const navigate = useNavigate()
 
   const [title, setTitle] = useState('')
   const [subtitle, setSubtitle] = useState('')
   const [description, setDescription] = useState('')
-  const [category, setCategory] = useState(CATEGORIES[0].name)
-  const [genre, setGenre] = useState(GENRES[0].name)
+  const [category, setCategory] = useState(categories[0]?.name || 'Novels')
+  const [genre, setGenre] = useState(genres[0]?.name || 'Literary Fiction')
   const [cover, setCover] = useState(SAMPLE_COVERS[0])
-  const [tags, setTags] = useState('Atmospheric, Serialized')
+  const [tags, setTags] = useState('Isolation, Memory')
   const [language, setLanguage] = useState('English')
   const [status, setStatus] = useState<'Ongoing' | 'Completed'>('Ongoing')
   const [visibility, setVisibility] = useState<'Public' | 'Unlisted' | 'Draft'>('Public')
@@ -46,12 +54,21 @@ function CreateWorkPage() {
     e.preventDefault()
     if (!title.trim()) return
 
+    const parsedTags: string[] = tags
+      ? tags
+          .split(',')
+          .map((t) => t.trim())
+          .filter((t) => t.length > 0)
+      : []
+
     const newId = addWriterWork({
       title: title.trim(),
       cover,
       status: 'Published',
       chaptersCount: 1,
-      category
+      category,
+      genre,
+      tags: parsedTags,
     })
 
     // Navigate to chapter management or editor
@@ -95,7 +112,7 @@ function CreateWorkPage() {
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. The Cold Perimeter"
+              placeholder="e.g. A Winter in Kyoto"
               className="w-full rounded-lg border border-[var(--border-strong)] bg-[var(--bg-surface)] px-4 py-2.5 font-serif text-lg text-[var(--ink-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--ink-primary)] placeholder-[var(--ink-faint)]"
             />
           </div>
@@ -139,7 +156,7 @@ function CreateWorkPage() {
               onChange={(e) => setCategory(e.target.value)}
               className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 text-xs text-[var(--ink-primary)] focus:outline-none focus:border-[var(--border-strong)]"
             >
-              {CATEGORIES.map((cat) => (
+              {categories.map((cat) => (
                 <option key={cat.slug} value={cat.name}>
                   {cat.name}
                 </option>
@@ -156,11 +173,19 @@ function CreateWorkPage() {
               onChange={(e) => setGenre(e.target.value)}
               className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 text-xs text-[var(--ink-primary)] focus:outline-none focus:border-[var(--border-strong)]"
             >
-              {GENRES.map((g) => (
-                <option key={g.slug} value={g.name}>
-                  {g.name}
-                </option>
-              ))}
+              {GENRE_GROUPS.map((groupName) => {
+                const groupGenres = genres.filter((g) => g.group === groupName)
+                if (groupGenres.length === 0) return null
+                return (
+                  <optgroup key={groupName} label={groupName}>
+                    {groupGenres.map((g) => (
+                      <option key={g.slug} value={g.name}>
+                        {g.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )
+              })}
             </select>
           </div>
         </div>
@@ -204,15 +229,18 @@ function CreateWorkPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
-              Tags (Comma separated)
+              Tags (Optional, comma-separated)
             </label>
             <input
               type="text"
               value={tags}
               onChange={(e) => setTags(e.target.value)}
-              placeholder="e.g. Noir, Cold War, Solitude"
+              placeholder="e.g. Isolation, Memory, Urban, Slow‑Burn"
               className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 text-xs text-[var(--ink-primary)] focus:outline-none focus:border-[var(--border-strong)]"
             />
+            <p className="mt-1 text-[10px] text-[var(--ink-faint)] font-mono">
+              Suggested: Isolation, Memory, Urban, Slow‑Burn, Dark, Identity
+            </p>
           </div>
 
           <div>

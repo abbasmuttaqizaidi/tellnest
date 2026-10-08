@@ -14,10 +14,67 @@ import {
   Type,
   MessageSquare,
   Share2,
-  CheckCircle2
 } from 'lucide-react'
+import { WORKS } from '../data/mockData'
+import { generateMeta } from '../lib/seo'
 
 export const Route = createFileRoute('/read/$workId/$chapterId')({
+  head: ({ params }) => {
+    let work = WORKS.find((w) => w.id === params.workId)
+    if (!work && typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('hatchpen_admin_posted_works')
+        if (stored) {
+          const list = JSON.parse(stored)
+          const matched = list.find((w: any) => w.id === params.workId)
+          if (matched) work = matched
+        }
+      } catch (e) {}
+    }
+
+    const chapter =
+      work?.chapters.find((c) => c.id === params.chapterId || c.number.toString() === params.chapterId) ||
+      work?.chapters[0]
+
+    if (!work || !chapter) {
+      return generateMeta({
+        title: 'Chapter Not Found',
+        noindex: true,
+      })
+    }
+
+    const title = `${chapter.title} — ${work.title} by ${work.author.name}`
+    const excerpt =
+      chapter.content.slice(0, 150).replace(/\n/g, ' ').trim() + '...'
+
+    return generateMeta({
+      title,
+      description: excerpt,
+      canonicalUrl: `https://hatchpen.com/read/${work.id}/${chapter.id}`,
+      ogType: 'article',
+      ogImage: work.cover,
+      author: work.author.name,
+      keywords: [work.title, chapter.title, work.author.name, 'read chapter online'],
+      jsonLd: {
+        '@context': 'https://schema.org',
+        '@type': 'Article',
+        headline: `${chapter.title} (${work.title})`,
+        author: {
+          '@type': 'Person',
+          name: work.author.name,
+          url: `https://hatchpen.com/author/${work.author.id}`,
+        },
+        publisher: {
+          '@type': 'Organization',
+          name: 'Hatchpen',
+          url: 'https://hatchpen.com',
+        },
+        image: work.cover,
+        description: excerpt,
+        mainEntityOfPage: `https://hatchpen.com/read/${work.id}/${chapter.id}`,
+      },
+    })
+  },
   component: ReaderPage,
 })
 
@@ -38,10 +95,11 @@ function ReaderPage() {
   const [scrollProgress, setScrollProgress] = useState(0)
   const [commentsVisible, setCommentsVisible] = useState(false)
 
-  // Find chapter
+  // Find chapter with flexible ID or number matching, defaulting to first chapter if available
   const currentChapterIndex = useMemo(() => {
-    if (!work) return -1
-    return work.chapters.findIndex((c) => c.id === chapterId)
+    if (!work || !work.chapters.length) return -1
+    const idx = work.chapters.findIndex((c) => c.id === chapterId || c.number.toString() === chapterId)
+    return idx !== -1 ? idx : 0
   }, [work, chapterId])
 
   const chapter = work?.chapters[currentChapterIndex]

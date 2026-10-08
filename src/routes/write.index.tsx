@@ -16,8 +16,15 @@ import {
   Settings
 } from 'lucide-react'
 import { ProtectedRoute } from '../components/ProtectedRoute'
+import { generateMeta } from '../lib/seo'
 
 export const Route = createFileRoute('/write/')({
+  head: () =>
+    generateMeta({
+      title: 'Creator Studio & Manuscripts',
+      description: 'Manage, edit, serialize, and publish your literary manuscripts on Hatchpen.',
+      noindex: true,
+    }),
   component: () => (
     <ProtectedRoute
       title="Writer Studio & Manuscript Vault"

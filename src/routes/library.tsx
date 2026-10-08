@@ -6,8 +6,15 @@ import EmptyState from '../components/EmptyState'
 import { AnimatedTabs, FilterDisclosure, AnimatedSearch, ActivitiesCard } from '../design-system'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { Bookmark, Clock, CheckCircle2, BookOpen, ArrowRight, Play, Sparkles } from 'lucide-react'
+import { generateMeta } from '../lib/seo'
 
 export const Route = createFileRoute('/library')({
+  head: () =>
+    generateMeta({
+      title: 'Your Reading Library',
+      description: 'Your private synchronized reading history, bookmarks, and saved manuscripts on Hatchpen.',
+      noindex: true,
+    }),
   component: () => (
     <ProtectedRoute
       title="Personal Reading Library"

@@ -10,25 +10,48 @@
 }
 
 :root {
-  /* HatchPen Monochrome Palette — Strict White Canvas */
-  --bg-canvas: #FFFFFF;
-  --bg-surface: #FFFFFF;
-  --bg-subtle: #F8FAFC;
-  --border-subtle: #E2E8F0;
-  --border-strong: #CBD5E1;
-  --ink-primary: #010611;
-  --ink-secondary: #0F172A;
-  --ink-muted: #64748B;
-  --ink-faint: #94A3B8;
-  --accent-ink: #010611;
-  --accent-contrast: #FFFFFF;
+  /* Warm Literary Paper Canvas (Live_instructions.md #fbfaf7 palette) */
+  --bg-canvas: #fbfaf7;
+  --bg-surface: #ffffff;
+  --bg-subtle: #f4f2ec;
+  --border-subtle: #e6e3da;
+  --border-strong: #d3cfc4;
+  --ink-primary: #191c1e;
+  --ink-secondary: #2d3133;
+  --ink-muted: #575f6e;
+  --ink-faint: #80848e;
+  --accent-ink: #191c1e;
+  --accent-contrast: #ffffff;
 
-  /* Reader Warm / Sepia values */
-  --sepia-canvas: #FFFFFF;
-  --sepia-surface: #FFFFFF;
-  --sepia-border: #E2E8F0;
-  --sepia-ink: #010611;
-  --sepia-secondary: #0F172A;
+  /* Live Instructions Theme Palette Tokens */
+  --color-surface-container-low: #f2f4f6;
+  --color-surface-container: #eceef0;
+  --color-surface-container-high: #e6e8ea;
+  --color-surface-container-highest: #e0e3e5;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface: #f7f9fb;
+  --color-on-surface: #191c1e;
+  --color-on-surface-variant: #45474b;
+  --color-secondary: #575f6e;
+  --color-outline-variant: #c6c6cb;
+  --color-primary-container: #181c24;
+  --color-on-primary-container: #80848e;
+}
+
+:root[data-theme="dark"],
+.dark {
+  --color-surface-container-low: #141820;
+  --color-surface-container: #1a202c;
+  --color-surface-container-high: #242c3d;
+  --color-surface-container-highest: #2d3748;
+  --color-surface-container-lowest: #0d1117;
+  --color-surface: #090D14;
+  --color-on-surface: #F8FAFC;
+  --color-on-surface-variant: #CBD5E1;
+  --color-secondary: #94A3B8;
+  --color-outline-variant: #334155;
+  --color-primary-container: #F8FAFC;
+  --color-on-primary-container: #090D14;
 }
 
 :root[data-theme="dark"],
@@ -284,10 +307,6 @@ div[class*="development-badge"] {
   }
 }
 
-/* Zero-Flicker Session Protection: prevents public hero flash when authenticated users reload */
-html.has-auth-session .public-home-container {
-  display: none !important;
-}
 
 /* Hatchpen Brand Logo Theme Inversion */
 .hatchpen-brand-logo {

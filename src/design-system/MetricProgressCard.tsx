@@ -70,7 +70,7 @@ export const MetricProgressCard: React.FC<MetricProgressCardProps> = ({
 
   return (
     <div className={cn('w-full max-w-md select-none font-sans', className)}>
-      <div className="overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-xs transition-colors">
+      <div className="overflow-hidden rounded-2xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all">
         
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)]">

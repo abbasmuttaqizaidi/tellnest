@@ -17,8 +17,14 @@ import {
   ExternalLink
 } from 'lucide-react'
 import { ProtectedRoute } from '../components/ProtectedRoute'
+import { generateMeta } from '../lib/seo'
 
 export const Route = createFileRoute('/write/manage/$workId')({
+  head: () =>
+    generateMeta({
+      title: 'Manage Manuscript',
+      noindex: true,
+    }),
   component: () => (
     <ProtectedRoute
       title="Manuscript Management & Folio Index"

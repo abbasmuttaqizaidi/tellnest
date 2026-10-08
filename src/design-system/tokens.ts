@@ -31,3 +31,23 @@ export const TAPS = {
   card: { scale: 0.985 },
   subtle: { scale: 0.99 },
 }
+
+/**
+ * Standard Unified Card Tokens
+ * Enforces uniform borders, shadows, backgrounds, and hover interactions across all cards.
+ */
+export const CARD_TOKENS = {
+  // Border standard
+  border: 'border border-[var(--border-subtle)] hover:border-[var(--border-strong)]',
+  borderDefault: 'border border-[var(--border-subtle)]',
+  borderHover: 'hover:border-[var(--border-strong)]',
+  
+  // Shadow standard
+  shadow: 'shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)]',
+  shadowDefault: 'shadow-[0_4px_20px_rgba(0,0,0,0.03)]',
+  shadowHover: 'hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)]',
+  
+  // Standard card container utility class
+  base: 'border border-[var(--border-subtle)] hover:border-[var(--border-strong)] shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all',
+}
+

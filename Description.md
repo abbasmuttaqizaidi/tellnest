@@ -37,6 +37,19 @@ Designed at the intersection of classical print typography and modern reactive s
 - **Interactive Component Gallery**: Complete living catalog of all tactile cards, search bars, disclosure pills, sliders, modals, and drawers.
 - **Quick-Jump Nav Sidebar**: Floating sidebar for instant navigation across all component categories.
 
+### 2.5. Content Hierarchy & Literary Terminology
+The platform strictly follows an episodic, manuscript-grade structural hierarchy:
+
+```
+Work (Manuscript / Literary Project)
+└── Act (Major Arc / Phase / Installment Tier)
+    └── Chapter (Episodic Prose Installment / Scene)
+```
+
+- **`Work`**: Replaces the generic term "Story". A *Work* represents the overarching manuscript, serialized novel, essay collection, or anthology written by an author.
+- **`Act`**: A *Work* can contain multiple *Acts*. An *Act* represents a major thematic narrative block, story arc, volume, or serialized phase (e.g., *Act I: The Inception*, *Act II: The Crossing*, *Act III: The Reckoning*).
+- **`Chapter`**: An *Act* contains multiple *Chapters*. A *Chapter* is the individual episodic installment delivered to readers with reading-time metrics, drop caps, and comment margins.
+
 ---
 
 ## 3. Design System Component Catalog (`src/design-system`)
@@ -79,6 +92,7 @@ All UI elements are centralized in `src/design-system/` and exported via `src/de
 | **`MeetingCard`** | Schedule card with participant avatar stacks and action triggers. |
 | **`DeploymentCard`** | Infrastructure-style status card with animated ping rings, branch badges, and terminal logs. |
 | **`CardAccordion`** | Spring-animated accordion for grouped editorial content. |
+| **`SpotlightCard`** | Executive tactile editorial card engineered for featuring weekly manuscripts, serialized installments, or dispatches with archival pill badge. |
 
 ### 3.5. Tokens (`src/design-system/tokens.ts`)
 - **`SPRINGS.snappy`**: High-frequency spring (`stiffness: 420, damping: 32`) for tabs, toggles, and compact triggers.

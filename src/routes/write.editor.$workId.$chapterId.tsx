@@ -16,8 +16,14 @@ import {
   Type
 } from 'lucide-react'
 import { ProtectedRoute } from '../components/ProtectedRoute'
+import { generateMeta } from '../lib/seo'
 
 export const Route = createFileRoute('/write/editor/$workId/$chapterId')({
+  head: () =>
+    generateMeta({
+      title: 'Chapter Editor',
+      noindex: true,
+    }),
   component: () => (
     <ProtectedRoute
       title="Writer Chapter Editor"
@@ -75,15 +81,19 @@ function ChapterEditorPage() {
   const handleManualSave = () => {
     if (work && currentChapter) {
       setAutosaveStatus('saving')
-      updateChapterContent(work.id, currentChapter.id, title, content)
+      updateChapterContent(work.id, currentChapter.id, title, content, currentChapter.status)
       setAutosaveStatus('saved')
       showToast('Chapter saved')
     }
   }
 
   const handlePublish = () => {
-    handleManualSave()
-    showToast('Chapter successfully published to subscribers!')
+    if (work && currentChapter) {
+      setAutosaveStatus('saving')
+      updateChapterContent(work.id, currentChapter.id, title, content, 'published')
+      setAutosaveStatus('saved')
+      showToast('Chapter successfully published to subscribers!')
+    }
   }
 
   if (!work || !currentChapter) {

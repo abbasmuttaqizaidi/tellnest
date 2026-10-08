@@ -14,7 +14,7 @@ export default function AuthorCard({ author }: AuthorCardProps) {
   const followed = isAuthorFollowed(author.id)
 
   return (
-    <div className="flex flex-col justify-between rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5 hover:border-[var(--border-strong)] transition-all">
+    <div className="flex flex-col justify-between rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all">
       <div>
         <div className="flex items-start justify-between gap-3">
           <Link

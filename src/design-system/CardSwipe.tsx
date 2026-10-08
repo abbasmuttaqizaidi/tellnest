@@ -122,7 +122,7 @@ const CarouselCardItem: React.FC<CarouselCardItemProps> = ({
       }}
       transition={SPRING_OPTIONS}
       onClick={onSelect}
-      className="flex cursor-grab flex-col justify-between rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 transition-colors active:cursor-grabbing hover:border-[var(--border-strong)] shadow-xs select-none"
+      className="flex cursor-grab flex-col justify-between rounded-2xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] p-6 active:cursor-grabbing shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all select-none"
     >
       <div>
         <div className="flex items-center justify-between mb-6">

@@ -51,7 +51,7 @@ export const DeploymentCard: React.FC<DeploymentCardProps> = ({
       <motion.div
         layout
         transition={SPRINGS.smooth}
-        className="overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5 shadow-xs transition-colors hover:border-[var(--border-strong)]"
+        className="overflow-hidden rounded-2xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all"
       >
         <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
           <div className="flex items-center gap-2">

@@ -14,10 +14,65 @@ import {
   CheckCircle2,
   ArrowRight,
   UserPlus,
-  UserCheck
+  UserCheck,
 } from 'lucide-react'
+import { WORKS } from '../data/mockData'
+import { generateMeta } from '../lib/seo'
 
 export const Route = createFileRoute('/works/$workId')({
+  head: ({ params }) => {
+    let work = WORKS.find((w) => w.id === params.workId)
+    if (!work && typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('hatchpen_admin_posted_works')
+        if (stored) {
+          const list = JSON.parse(stored)
+          const matched = list.find((w: any) => w.id === params.workId)
+          if (matched) work = matched
+        }
+      } catch (e) {}
+    }
+
+    if (!work) {
+      return generateMeta({
+        title: 'Manuscript Not Found',
+        noindex: true,
+      })
+    }
+
+    return generateMeta({
+      title: `${work.title} by ${work.author.name}`,
+      description: work.synopsis || work.fullDescription.slice(0, 160),
+      canonicalUrl: `https://hatchpen.com/works/${work.id}`,
+      ogType: 'book',
+      ogImage: work.cover,
+      ogImageAlt: `${work.title} cover art`,
+      author: work.author.name,
+      keywords: [
+        work.genre,
+        work.category,
+        ...(work.tags || []),
+        'read online',
+        'serialized manuscript',
+      ],
+      jsonLd: {
+        '@context': 'https://schema.org',
+        '@type': 'Book',
+        name: work.title,
+        author: {
+          '@type': 'Person',
+          name: work.author.name,
+          url: `https://hatchpen.com/author/${work.author.id}`,
+        },
+        genre: work.genre,
+        description: work.synopsis,
+        image: work.cover,
+        inLanguage: work.language || 'English',
+        numberOfPages: work.publishedChaptersCount || work.chaptersCount,
+        url: `https://hatchpen.com/works/${work.id}`,
+      },
+    })
+  },
   component: WorkDetailPage,
 })
 
@@ -165,6 +220,16 @@ function WorkDetailPage() {
               {work.isMature && (
                 <span className="rounded bg-stone-200 dark:bg-stone-800 px-1.5 py-0.5 text-[9px] uppercase font-bold text-stone-700 dark:text-stone-300">
                   Mature 18+
+                </span>
+              )}
+              {work.new_chapters_this_week && (
+                <span className="rounded bg-indigo-500/15 border border-indigo-500/30 text-indigo-700 dark:text-indigo-400 px-2 py-0.5 text-[10px] font-mono font-medium tracking-wide">
+                  ✦ New Chapters This Week
+                </span>
+              )}
+              {work.new_this_week && (
+                <span className="rounded bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 px-2 py-0.5 text-[10px] font-mono font-medium tracking-wide">
+                  ✦ New This Week
                 </span>
               )}
             </div>

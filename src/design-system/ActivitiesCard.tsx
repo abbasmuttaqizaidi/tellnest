@@ -66,7 +66,7 @@ export const ActivitiesCard: FC<ActivitiesCardProps> = ({
     <MotionConfig transition={{ type: 'spring', bounce: 0, duration: 0.6 }}>
       <motion.div
         layout
-        className="w-xs overflow-hidden rounded-xl border-2 border-[#e7e6e6]/60 bg-[#FEFEFE] shadow-lg sm:w-sm sm:rounded-[20px] dark:border-neutral-800 dark:bg-neutral-900"
+        className="w-xs overflow-hidden rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[#FEFEFE] dark:bg-neutral-900 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all sm:w-sm sm:rounded-[20px]"
       >
         <motion.button
           onClick={() => setOpen(!open)}

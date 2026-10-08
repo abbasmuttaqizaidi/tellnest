@@ -19,6 +19,7 @@ export * from './ExpandableProfile'
 export * from './FilterDisclosure'
 export * from './AnimatedSearch'
 export * from './OmniSearch'
+export * from './SpotlightCard'
 
 // Watermelon UI Card & Interaction Suite
 export * from './CardSwipe'

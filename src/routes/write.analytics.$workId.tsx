@@ -11,8 +11,14 @@ import {
   Clock
 } from 'lucide-react'
 import { ProtectedRoute } from '../components/ProtectedRoute'
+import { generateMeta } from '../lib/seo'
 
 export const Route = createFileRoute('/write/analytics/$workId')({
+  head: () =>
+    generateMeta({
+      title: 'Manuscript Analytics',
+      noindex: true,
+    }),
   component: () => (
     <ProtectedRoute
       title="Writer Folio Analytics"

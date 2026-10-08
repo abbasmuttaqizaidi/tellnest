@@ -144,7 +144,7 @@ export const RevealingCards: React.FC<RevealingCardsProps> = ({
                 initial={false}
                 transition={SPRINGS.smooth}
                 className={cn(
-                  'h-full w-full overflow-hidden border p-6 flex flex-col justify-between transition-colors shadow-md',
+                  'h-full w-full overflow-hidden border p-6 flex flex-col justify-between transition-all shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)]',
                   isTop
                     ? 'border-[var(--border-strong)] bg-[var(--bg-surface)]'
                     : 'border-[var(--border-subtle)] bg-[var(--bg-subtle)]/90'

@@ -44,6 +44,7 @@ import {
   FrequencySelector,
   FeatureTour,
   ListStack,
+  SpotlightCard,
 } from '../design-system'
 import { HatchpenLogo, HatchpenEmblem } from '../components/HatchpenLogo'
 import DesignSystemSidebar from '../components/DesignSystemSidebar'
@@ -68,7 +69,15 @@ import {
   Compass,
 } from 'lucide-react'
 
+import { generateMeta } from '../lib/seo'
+
 export const Route = createFileRoute('/design-system')({
+  head: () =>
+    generateMeta({
+      title: 'Hatchpen Design System Laboratory',
+      description: 'Living design system catalog, UI primitives, interactive components, and token specifications.',
+      noindex: true,
+    }),
   component: DesignSystemShowcasePage,
 })
 
@@ -962,7 +971,7 @@ function DesignSystemShowcasePage() {
                 onScopeChange={setOmniFixedScope}
                 shortcut="/"
                 placeholders={[
-                  "Search 'The Cold Perimeter'...",
+                  "Search 'A Winter in Kyoto'...",
                   "Search 'Elena Vance'...",
                   "Search 'Nordic Noir essays'...",
                   "Search 'Chronicles of Kyoto'...",
@@ -1759,6 +1768,204 @@ function DesignSystemShowcasePage() {
           codeSnippet={`<ListStack />`}
         >
           <ListStack />
+        </StoryCard>
+
+        {/* 19. SpotlightCard Component */}
+        <StoryCard
+          id="sec-spotlight-card"
+          title="Spotlight Card"
+          componentName="SpotlightCard"
+          category="Editorial Cards"
+          badge="Featured Folio Pill"
+          description="Executive tactile editorial card engineered for featuring weekly manuscripts, serialized installments, or editorial dispatches."
+          viewMode={storybookViewMode}
+          defaultDocsOpen={expandAllStories}
+          usageNotes={{
+            primaryLocation: "Discovery Hero (/), Author Profile Highlights, and Featured Weekly Folios",
+            workflow: "Presents a high-craft featured manuscript with an archival category badge, square icon container, title attribution, and pill indicator with subtle spring tap feedback."
+          }}
+          codeSnippet={`{/* 1. Default Installment Spotlight */}
+<SpotlightCard
+  variant="default"
+  eyebrow="Featured this week"
+  title="The Glass Archipelago"
+  subtitle="— Alistair Vance"
+  badgeLabel="Installment 28"
+  icon="local_library"
+  onClick={() => {}}
+/>
+
+{/* 2. Author in Residence Variant */}
+<SpotlightCard
+  variant="author"
+  eyebrow="Author in Residence"
+  title="Elena Rostova"
+  subtitle="— 14 Published Dispatches"
+  badgeLabel="Verified Author"
+  badgeVariant="success"
+  avatarUrl="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80"
+  onClick={() => {}}
+/>
+
+{/* 3. Reading Progress Resume Variant */}
+<SpotlightCard
+  variant="reading-progress"
+  eyebrow="Continue Reading"
+  title="The Redacted Script"
+  subtitle="— Chapter 4"
+  badgeLabel="In Progress"
+  badgeVariant="accent"
+  progressPercent={65}
+  meta="Page 142 of 218 • 18 min left"
+  onClick={() => {}}
+/>
+
+{/* 4. Literary Dispatch Variant */}
+<SpotlightCard
+  variant="dispatch"
+  eyebrow="Reader Dispatch"
+  title="The Silent Meridian"
+  subtitle="— Critique by Marcus Chen"
+  badgeLabel="Editor's Pick"
+  meta="“A masterclass in psychological claustrophobia.”"
+  onClick={() => {}}
+/>`}
+        >
+          <div className="w-full max-w-xl mx-auto py-2 space-y-3">
+            {/* Variant 1: Default (Classic Pill) */}
+            <div>
+              <p className="text-[11px] font-mono text-[var(--color-secondary)] mb-1 uppercase tracking-wider">1. Classic Pill (Default)</p>
+              <SpotlightCard
+                variant="default"
+                eyebrow="Featured this week"
+                title="The Glass Archipelago"
+                subtitle="— Alistair Vance"
+                badgeLabel="Installment 28"
+                icon="local_library"
+                onClick={() => {}}
+              />
+            </div>
+
+            {/* Variant 2: Compact Micro-Bar */}
+            <div>
+              <p className="text-[11px] font-mono text-[var(--color-secondary)] mb-1 uppercase tracking-wider">2. Compact Micro-Bar</p>
+              <SpotlightCard
+                variant="compact"
+                eyebrow="Trending"
+                title="A Chronicle of Whispers"
+                subtitle="— S. Thorne"
+                badgeLabel="New Part"
+                badgeVariant="accent"
+                onClick={() => {}}
+              />
+            </div>
+
+            {/* Variant 3: Minimal Marker */}
+            <div>
+              <p className="text-[11px] font-mono text-[var(--color-secondary)] mb-1 uppercase tracking-wider">3. Minimal Marker (Ghost)</p>
+              <SpotlightCard
+                variant="minimal"
+                eyebrow="Editor's Choice"
+                title="Solitary Echoes"
+                subtitle="— Literary Anthology Vol. 2"
+                badgeLabel="Staff Pick"
+                badgeVariant="warning"
+                onClick={() => {}}
+              />
+            </div>
+
+            {/* Variant 4: Banner Artwork Cover */}
+            <div>
+              <p className="text-[11px] font-mono text-[var(--color-secondary)] mb-1 uppercase tracking-wider">4. Cover Banner (Artwork)</p>
+              <SpotlightCard
+                variant="banner"
+                eyebrow="Curated Collection"
+                title="The Obsidian Library"
+                subtitle="Complete Anthology · 12 Chapters"
+                badgeLabel="Featured"
+                badgeVariant="success"
+                imageUrl="https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=300&q=80"
+                onClick={() => {}}
+              />
+            </div>
+
+            {/* Variant 5: Stacked Two-Tier */}
+            <div>
+              <p className="text-[11px] font-mono text-[var(--color-secondary)] mb-1 uppercase tracking-wider">5. Stacked Two-Tier</p>
+              <SpotlightCard
+                variant="stacked"
+                eyebrow="Weekly Highlight"
+                title="Beneath the Copper Sky"
+                subtitle="An epic historical saga following five generations across the silk routes."
+                badgeLabel="9 Chapters"
+                badgeVariant="outline"
+                icon="auto_stories"
+                meta="Updated 2 hours ago • 45k words"
+                onClick={() => {}}
+              />
+            </div>
+
+            {/* Variant 6: Audio Narration Pill */}
+            <div>
+              <p className="text-[11px] font-mono text-[var(--color-secondary)] mb-1 uppercase tracking-wider">6. Audio Narration Pill</p>
+              <SpotlightCard
+                variant="audio"
+                eyebrow="Audiobook Chapter"
+                title="Midnight at the Grand Archive"
+                subtitle="— Narrated by David R."
+                badgeLabel="Audio"
+                badgeVariant="accent"
+                progressPercent={58}
+                meta="18:24 / 32:00"
+                onClick={() => {}}
+              />
+            </div>
+
+            {/* Variant 7: Author Profile */}
+            <div>
+              <p className="text-[11px] font-mono text-[var(--color-secondary)] mb-1 uppercase tracking-wider">7. Author Spotlight</p>
+              <SpotlightCard
+                variant="author"
+                eyebrow="Author in Residence"
+                title="Elena Rostova"
+                subtitle="— 14 Published Dispatches"
+                badgeLabel="Verified"
+                badgeVariant="success"
+                avatarUrl="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80"
+                onClick={() => {}}
+              />
+            </div>
+
+            {/* Variant 8: Reading Progress */}
+            <div>
+              <p className="text-[11px] font-mono text-[var(--color-secondary)] mb-1 uppercase tracking-wider">8. Reader Progress Bar</p>
+              <SpotlightCard
+                variant="reading-progress"
+                eyebrow="Continue Reading"
+                title="The Redacted Script"
+                subtitle="— Chapter 4"
+                badgeLabel="In Progress"
+                badgeVariant="accent"
+                progressPercent={65}
+                meta="Page 142 of 218 • 18 min left"
+                onClick={() => {}}
+              />
+            </div>
+
+            {/* Variant 9: Dispatch Footnote */}
+            <div>
+              <p className="text-[11px] font-mono text-[var(--color-secondary)] mb-1 uppercase tracking-wider">9. Reader Dispatch (Footnote)</p>
+              <SpotlightCard
+                variant="dispatch"
+                eyebrow="Reader Dispatch"
+                title="The Silent Meridian"
+                subtitle="— Critique by Marcus Chen"
+                badgeLabel="Editor's Pick"
+                meta="“A masterclass in psychological claustrophobia.”"
+                onClick={() => {}}
+              />
+            </div>
+          </div>
         </StoryCard>
 
       </section>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useId, type FC } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { Search, X, ChevronDown, Check, Loader2 } from 'lucide-react'
+import { Search, X, ChevronDown, Check, Loader2, ArrowRight } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { SPRINGS } from './tokens'
 
@@ -312,6 +312,7 @@ export const OmniSearch: FC<OmniSearchProps> = ({
       className={cn(
         'relative inline-block align-middle select-none',
         expandMode === 'responsive' && expanded && 'w-full flex-1 min-w-0',
+        scopeDropdownOpen && 'z-50',
         className
       )}
     >
@@ -319,7 +320,9 @@ export const OmniSearch: FC<OmniSearchProps> = ({
         layout
         transition={SPRINGS.snappy}
         className={cn(
-          'relative flex items-center overflow-hidden rounded-full border transition-colors duration-150',
+          'relative flex items-center rounded-full border transition-colors duration-150',
+          !expanded ? 'overflow-hidden' : 'overflow-visible',
+          scopeDropdownOpen && 'z-50',
           !expanded
             ? cn(
                 sizeMap.button,
@@ -366,10 +369,14 @@ export const OmniSearch: FC<OmniSearchProps> = ({
             
             {/* OPTIONAL SCOPE DROPDOWN (Split-Pill compound partition) */}
             {hasScopes && scopes && scopes.length > 0 ? (
-              <div ref={scopeRef} className="relative flex items-center flex-shrink-0">
+              <div ref={scopeRef} className={cn('relative flex items-center flex-shrink-0', scopeDropdownOpen && 'z-50')}>
                 <button
                   type="button"
-                  onClick={() => setScopeDropdownOpen((prev) => !prev)}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setScopeDropdownOpen((prev) => !prev)
+                  }}
                   className={cn(
                     'flex items-center gap-1 rounded-full font-mono font-medium transition-all cursor-pointer outline-none',
                     sizeMap.scopeBtn,
@@ -404,19 +411,24 @@ export const OmniSearch: FC<OmniSearchProps> = ({
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 4, scale: 0.96 }}
                       transition={SPRINGS.snappy}
-                      className="absolute top-full left-0 mt-2 z-50 min-w-44 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-1.5 shadow-xl select-none"
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute top-full left-0 mt-2 z-50 min-w-52 max-w-64 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-1.5 shadow-2xl ring-1 ring-black/5 select-none"
                     >
                       <div className="px-2.5 py-1 mb-1 border-b border-[var(--border-subtle)] text-[10px] font-mono uppercase tracking-wider text-[var(--ink-muted)]">
                         Select Inquire Scope
                       </div>
-                      <div className="space-y-0.5">
+                      <div className="space-y-0.5 max-h-64 sm:max-h-80 overflow-y-auto overscroll-contain pr-1">
                         {scopes.map((s) => {
                           const isScopeActive = s.id === currentScope
                           return (
                             <button
                               type="button"
                               key={s.id}
-                              onClick={() => handleScopeSelect(s.id)}
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                handleScopeSelect(s.id)
+                              }}
                               className={cn(
                                 'w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-mono transition-colors text-left cursor-pointer',
                                 isScopeActive
@@ -426,7 +438,7 @@ export const OmniSearch: FC<OmniSearchProps> = ({
                             >
                               <div className="flex items-center gap-2 truncate">
                                 {s.icon && <span>{s.icon}</span>}
-                                <span>{s.label}</span>
+                                <span className="truncate">{s.label}</span>
                               </div>
                               {isScopeActive && (
                                 <Check className="h-3 w-3 flex-shrink-0 ml-2" />
@@ -474,6 +486,7 @@ export const OmniSearch: FC<OmniSearchProps> = ({
                 onKeyDown={handleKeyDown}
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setIsFocused(false)}
+                enterKeyHint="search"
                 className={cn(
                   'w-full h-full bg-transparent border-none outline-none font-sans text-[var(--ink-primary)] placeholder-transparent',
                   sizeMap.input
@@ -512,15 +525,26 @@ export const OmniSearch: FC<OmniSearchProps> = ({
 
               {/* Clear / Collapse Action Button */}
               {query ? (
-                <button
-                  type="button"
-                  onClick={handleClear}
-                  className="rounded-full p-1 text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
-                  title="Clear inquiry"
-                  aria-label="Clear search input"
-                >
-                  <X className={sizeMap.icon} />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => onSubmit?.(query, hasScopes ? currentScope : undefined)}
+                    className="rounded-full p-1 text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+                    title="Search (Enter)"
+                    aria-label="Submit search"
+                  >
+                    <ArrowRight className={sizeMap.icon} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleClear}
+                    className="rounded-full p-1 text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+                    title="Clear inquiry"
+                    aria-label="Clear search input"
+                  >
+                    <X className={sizeMap.icon} />
+                  </button>
+                </div>
               ) : (
                 <button
                   type="button"

@@ -6,8 +6,15 @@ import EmptyState from '../components/EmptyState'
 import { FilterDisclosure, AnimatedSearch } from '../design-system'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { Users, BookOpen, Clock, Sparkles, ArrowRight, UserCheck } from 'lucide-react'
+import { generateMeta } from '../lib/seo'
 
 export const Route = createFileRoute('/following')({
+  head: () =>
+    generateMeta({
+      title: 'Following Feed — Writer Dispatches',
+      description: 'Activity feed and serialized chapters from creators you follow on Hatchpen.',
+      noindex: true,
+    }),
   component: () => (
     <ProtectedRoute
       title="Writer Dispatches & Follows"
