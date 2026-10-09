@@ -6,7 +6,8 @@ import {
   INITIAL_NOTIFICATIONS,
   CATEGORIES,
   GENRES,
-  getWorkLatestActivityDate
+  getWorkLatestActivityDate,
+  getWorkSlug
 } from '../data/mockData'
 import type {
   Work,
@@ -19,12 +20,15 @@ import type {
   GenreInfo
 } from '../data/mockData'
 import { getTaxonomyServerFn } from '../server/taxonomy'
-import { getPlatformWorksServerFn } from '../server/works'
+import { getPlatformWorksServerFn, getUserBookmarksServerFn, toggleBookmarkServerFn } from '../server/works'
+import { useUser } from '@clerk/react'
 
 export interface ReaderSettings {
   fontSize: 'sm' | 'base' | 'lg' | 'xl'
   fontFamily: 'serif' | 'sans' | 'mono'
   lineHeight: 'tight' | 'normal' | 'relaxed' | 'loose'
+  customLineHeight?: number
+  paragraphSpacing?: number
   readingWidth: 'narrow' | 'medium' | 'wide'
   theme: 'light' | 'sepia' | 'dark'
 }
@@ -62,9 +66,10 @@ interface AppContextType {
   addWriterWork: (work: Omit<WriterWorkSummary, 'id' | 'lastUpdated' | 'totalReads' | 'totalSaves'>) => string
   allWorks: Work[]
   recentWorks: Work[]
+  isWorksLoading: boolean
   getWorkById: (id: string) => Work | undefined
   getAuthorById: (id: string) => Author | undefined
-  updateChapterContent: (workId: string, chapterId: string, title: string, content: string, status?: 'draft' | 'published') => void
+  updateChapterContent: (workId: string, chapterId: string, title: string, content: string, status?: 'draft' | 'published', bannerImage?: string | null) => void
   addNewChapter: (workId: string, title: string, actId?: string) => Chapter
   addActToWork: (workId: string, title: string, description?: string) => void
   updateActInWork: (workId: string, actId: string, title: string, description?: string) => void
@@ -105,9 +110,11 @@ interface AppContextType {
 }
 
 const defaultReaderSettings: ReaderSettings = {
-  fontSize: 'lg',
+  fontSize: 'base',
   fontFamily: 'serif',
-  lineHeight: 'relaxed',
+  lineHeight: 'normal',
+  customLineHeight: 1.5,
+  paragraphSpacing: 16,
   readingWidth: 'medium',
   theme: 'light'
 }
@@ -146,11 +153,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return 'light'
   })
 
-  const [savedWorkIds, setSavedWorkIds] = useState<string[]>(['work-2', 'work-4'])
+  const { user, isSignedIn, isLoaded: isUserLoaded } = useUser()
+
+  // Bookmarks are connected strictly to DB for authenticated users (no localStorage)
+  const [savedWorkIds, setSavedWorkIds] = useState<string[]>([])
   const [followedAuthorIds, setFollowedAuthorIds] = useState<string[]>(['auth-1', 'auth-2'])
   const [readingProgress, setReadingProgress] = useState<Record<string, ReadingProgress>>(initialProgress)
   const [writerWorks, setWriterWorks] = useState<WriterWorkSummary[]>(USER_WRITER_WORKS)
-  const [allWorks, setAllWorks] = useState<Work[]>([...WORKS])
+  const [allWorks, setAllWorks] = useState<Work[]>(() => {
+    let base = [...WORKS]
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('hatchpen_admin_posted_works')
+        if (stored) {
+          const list: Work[] = JSON.parse(stored)
+          for (const item of list) {
+            const idx = base.findIndex((w) => w.id === item.id)
+            if (idx >= 0) {
+              base[idx] = { ...base[idx], ...item }
+            } else {
+              base.unshift(item)
+            }
+          }
+        }
+      } catch (e) {}
+    }
+    return base
+  })
   const [isWorksLoading, setIsWorksLoading] = useState(false)
 
   // Fetch works from Database (works_with_collections view) and sync into allWorks
@@ -182,6 +211,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     reloadWorksFromDb()
   }, [reloadWorksFromDb])
+
+  // Load user bookmarks strictly from DB when authenticated
+  useEffect(() => {
+    if (!isUserLoaded) return
+
+    if (!isSignedIn || !user) {
+      setSavedWorkIds([])
+      return
+    }
+
+    let isMounted = true
+    async function loadBookmarks() {
+      try {
+        const res = await getUserBookmarksServerFn({ data: user.id })
+        if (isMounted && res && Array.isArray(res.bookmarkIds)) {
+          setSavedWorkIds(res.bookmarkIds)
+        }
+      } catch (err) {
+        console.warn('[AppContext] Failed to load bookmarks from DB:', err)
+      }
+    }
+
+    loadBookmarks()
+    return () => {
+      isMounted = false
+    }
+  }, [user, isSignedIn, isUserLoaded])
+
   const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const [customAvatarUrl, setCustomAvatarUrlState] = useState<string | null>(() => {
@@ -321,9 +378,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   const toggleSaveWork = (workId: string) => {
+    // 1. Strict Requirement: If user is not signed in, show Sign In / Sign Up modal immediately
+    if (!isSignedIn || !user) {
+      openAuthModal()
+      showToast('Please sign in to bookmark stories to your library')
+      return
+    }
+
+    // 2. Optimistic UI update
+    const currentlySaved = savedWorkIds.includes(workId)
     setSavedWorkIds(prev => {
-      const exists = prev.includes(workId)
-      if (exists) {
+      if (currentlySaved) {
         showToast('Removed from Library')
         return prev.filter(id => id !== workId)
       } else {
@@ -331,6 +396,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return [...prev, workId]
       }
     })
+
+    // 3. Strict Requirement: Persist directly to PostgreSQL database (no localStorage)
+    toggleBookmarkServerFn({
+      data: {
+        clerkUserId: user.id,
+        workId,
+      },
+    })
+      .then((res) => {
+        if (res && Array.isArray(res.bookmarkIds)) {
+          setSavedWorkIds(res.bookmarkIds)
+        }
+      })
+      .catch((err) => {
+        console.error('[AppContext] Failed to update bookmark in DB:', err)
+        showToast('Failed to save bookmark. Please try again.')
+        // Rollback on failure
+        setSavedWorkIds(prev =>
+          currentlySaved ? [...prev, workId] : prev.filter(id => id !== workId)
+        )
+      })
   }
 
   const isWorkSaved = (workId: string) => savedWorkIds.includes(workId)
@@ -435,7 +521,47 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return newId
   }
 
-  const getWorkById = (id: string) => allWorks.find(w => w.id === id)
+  const getWorkById = (idOrSlug: string) => {
+    if (!idOrSlug) return undefined
+    const clean = idOrSlug.trim().toLowerCase()
+
+    // 1. Check allWorks in state (which includes DB works once synced)
+    const inState = allWorks.find(
+      (w) =>
+        w.id === idOrSlug ||
+        (w.slug && w.slug.toLowerCase() === clean) ||
+        getWorkSlug(w) === clean
+    )
+    if (inState) return inState
+
+    // 2. Fallback to static baseline WORKS collection
+    const inMock = WORKS.find(
+      (w) =>
+        w.id === idOrSlug ||
+        (w.slug && w.slug.toLowerCase() === clean) ||
+        getWorkSlug(w) === clean
+    )
+    if (inMock) return inMock
+
+    // 3. Fallback to localStorage admin posted works (ensures instant availability even during cold boot / SSR)
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('hatchpen_admin_posted_works')
+        if (stored) {
+          const list: Work[] = JSON.parse(stored)
+          const inLocal = list.find(
+            (w) =>
+              w.id === idOrSlug ||
+              (w.slug && w.slug.toLowerCase() === clean) ||
+              getWorkSlug(w) === clean
+          )
+          if (inLocal) return inLocal
+        }
+      } catch (e) {}
+    }
+
+    return undefined
+  }
   const getAuthorById = (id: string): Author | undefined => {
     if (!id) return undefined
     // 1. Direct match in static AUTHORS collection
@@ -472,10 +598,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     chapterId: string, 
     title: string, 
     content: string,
-    status?: 'draft' | 'published'
+    status?: 'draft' | 'published',
+    bannerImage?: string | null
   ) => {
     setAllWorks(prev => prev.map(work => {
-      if (work.id !== workId) return work
+      const isMatch =
+        work.id === workId ||
+        work.slug === workId ||
+        work.id.toLowerCase() === workId.toLowerCase() ||
+        (work.slug && work.slug.toLowerCase() === workId.toLowerCase())
+      if (!isMatch) return work
       const words = content.trim().split(/\s+/).filter(Boolean).length
       const nowIso = new Date().toISOString()
       
@@ -492,6 +624,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ...ch,
           title,
           content,
+          bannerImage: bannerImage !== undefined ? (bannerImage || undefined) : ch.bannerImage,
           status: status || ch.status,
           wordCount: words,
           readTimeMinutes: Math.max(1, Math.ceil(words / 220)),
@@ -513,6 +646,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               ...c,
               title,
               content,
+              bannerImage: bannerImage !== undefined ? (bannerImage || undefined) : c.bannerImage,
               status: status || c.status,
               wordCount: words,
               readTimeMinutes: Math.max(1, Math.ceil(words / 220)),
@@ -877,6 +1011,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         addWriterWork,
         allWorks,
         recentWorks,
+        isWorksLoading,
         getWorkById,
         getAuthorById,
         updateChapterContent,

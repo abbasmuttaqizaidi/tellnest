@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate, useRouter } from '@tanstack/react-router'
 import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useApp } from '../context/AppContext'
@@ -7,6 +7,7 @@ import {
   adminUpdateWorkServerFn,
   adminUpsertActServerFn,
   adminPostChapterServerFn,
+  adminUpdateChapterServerFn,
   getAdminWorkActsAnalyticsServerFn,
   type WorkActAnalytics,
 } from '../server/admin'
@@ -34,11 +35,24 @@ import {
   PenTool,
 } from 'lucide-react'
 import { generateMeta } from '../lib/seo'
-import type { Work, Act, Chapter } from '../data/mockData'
+import { getWorkSlug, type Work, type Act, type Chapter } from '../data/mockData'
+import { CloudinaryImageUpload } from '../components/CloudinaryImageUpload'
+import { ViewsBreakdownModal } from '../components/ViewsBreakdownModal'
+import { formatViewCount } from '../lib/utils'
+
+import { getPublicWorkServerFn } from '../server/works'
 
 const ADMIN_TOKEN_KEY = 'tellnest_admin_session_token'
 
 export const Route = createFileRoute('/admin-work-editor/$workId')({
+  loader: async ({ params }) => {
+    try {
+      const dbWork = await getPublicWorkServerFn({ data: params.workId })
+      return { loadedWork: dbWork }
+    } catch {
+      return { loadedWork: null }
+    }
+  },
   head: () =>
     generateMeta({
       title: 'Admin Manuscript Editor',
@@ -57,7 +71,9 @@ const PRESET_COVERS = [
 
 function AdminWorkEditorPage() {
   const { workId } = Route.useParams()
+  const loaderData = Route.useLoaderData()
   const navigate = useNavigate()
+  const router = useRouter()
   const {
     getWorkById,
     allWorks,
@@ -65,6 +81,7 @@ function AdminWorkEditorPage() {
     addActToWork,
     updateActInWork,
     addAdminPostedChapter,
+    updateChapterContent,
     reloadWorksFromDb,
     categories,
     genres,
@@ -74,25 +91,41 @@ function AdminWorkEditorPage() {
   // 1. Authentication State
   const [adminToken, setAdminToken] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
-      return sessionStorage.getItem(ADMIN_TOKEN_KEY)
+      return (
+        sessionStorage.getItem(ADMIN_TOKEN_KEY) ||
+        localStorage.getItem(ADMIN_TOKEN_KEY)
+      )
     }
     return null
   })
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false)
   const [isVerifying, setIsVerifying] = useState<boolean>(true)
 
-  // 2. Resolve Work target
+  // Local work override for instantaneous UI updates after edits
+  const [localWorkOverride, setLocalWorkOverride] = useState<Work | null>(null)
+
+  // Clear local override when loaderData refreshes from the server
+  useEffect(() => {
+    if (loaderData?.loadedWork) {
+      setLocalWorkOverride(null)
+    }
+  }, [loaderData?.loadedWork])
+
+  // 2. Resolve Work target (localWorkOverride first, then loaderData, then context, then mock/allWorks)
   const work = useMemo(() => {
-    return (
-      getWorkById(workId) ||
-      allWorks.find(
-        (w) =>
-          w.id === workId ||
-          w.id.toLowerCase() === workId.toLowerCase() ||
-          w.title.toLowerCase().replace(/[^a-z0-9]+/g, '-') === workId.toLowerCase()
-      )
+    if (localWorkOverride) return localWorkOverride
+    const fromAllWorks = allWorks.find(
+      (w) =>
+        w.id === workId ||
+        w.id.toLowerCase() === workId.toLowerCase() ||
+        (w.slug && w.slug.toLowerCase() === workId.toLowerCase()) ||
+        w.title.toLowerCase().replace(/[^a-z0-9]+/g, '-') === workId.toLowerCase()
     )
-  }, [workId, getWorkById, allWorks])
+    return loaderData?.loadedWork || fromAllWorks || getWorkById(workId)
+  }, [localWorkOverride, loaderData?.loadedWork, workId, getWorkById, allWorks])
+
+  // Track initial hydration to avoid resetting form while user is typing
+  const initialHydratedRef = useState<{ hydratedWorkId: string | null }>({ hydratedWorkId: null })[0]
 
   // 3. Form State
   const [title, setTitle] = useState(work?.title || '')
@@ -128,8 +161,10 @@ function AdminWorkEditorPage() {
   const [actDescInput, setActDescInput] = useState('')
   const [isSubmittingAct, setIsSubmittingAct] = useState(false)
 
-  // 5. Chapter Modal State (Add chapter to specific act)
+  // 5. Chapter Modal State (Add or Edit chapter)
   const [showChapterModal, setShowChapterModal] = useState(false)
+  const [chapterModalMode, setChapterModalMode] = useState<'create' | 'edit'>('create')
+  const [editingChapterId, setEditingChapterId] = useState<string | null>(null)
   const [targetActForChapter, setTargetActForChapter] = useState<{
     id: string
     number: number
@@ -139,16 +174,21 @@ function AdminWorkEditorPage() {
   const [chTitleInput, setChTitleInput] = useState('')
   const [chSubtitleInput, setChSubtitleInput] = useState('')
   const [chStatusInput, setChStatusInput] = useState<'published' | 'draft'>('published')
+  const [chBannerInput, setChBannerInput] = useState<string>('')
+  const [isBannerUploading, setIsBannerUploading] = useState(false)
+  const [isCoverUploading, setIsCoverUploading] = useState(false)
   const [chContentInput, setChContentInput] = useState('')
   const [isSubmittingChapter, setIsSubmittingChapter] = useState(false)
 
   // 6. DB Acts breakdown state
   const [dbActs, setDbActs] = useState<WorkActAnalytics[]>([])
   const [loadingDbActs, setLoadingDbActs] = useState(false)
+  const [showViewsModal, setShowViewsModal] = useState(false)
 
-  // Sync state if work arrives/changes
+  // Sync state ONLY on initial load of this manuscript or when work ID changes, NOT on every background re-fetch while editing
   useEffect(() => {
-    if (work) {
+    if (work && initialHydratedRef.hydratedWorkId !== work.id) {
+      initialHydratedRef.hydratedWorkId = work.id
       setTitle(work.title)
       setSubtitle(work.subtitle || '')
       setCover(work.cover || PRESET_COVERS[0].url)
@@ -162,7 +202,7 @@ function AdminWorkEditorPage() {
       setAuthorName(work.author.name || '')
       setAuthorHandle(work.author.handle || '')
     }
-  }, [work])
+  }, [work, initialHydratedRef])
 
   // Verify Admin Session on mount
   useEffect(() => {
@@ -221,7 +261,10 @@ function AdminWorkEditorPage() {
         description: da.description || undefined,
         status: 'published' as const,
         chapters: (work?.chapters || []).filter(
-          (c) => c.actNumber === da.actNumber || (da.actNumber === 1 && !c.actNumber)
+          (c) =>
+            (c.actId && c.actId === da.id) ||
+            c.actNumber === da.actNumber ||
+            (da.actNumber === 1 && !c.actNumber && !c.actId)
         ),
       }))
     }
@@ -255,6 +298,10 @@ function AdminWorkEditorPage() {
     }
     if (!adminToken) {
       setSaveError('Admin authorization token expired. Please re-login.')
+      return
+    }
+    if (isCoverUploading) {
+      setSaveError('Please wait for the cover image to finish uploading.')
       return
     }
 
@@ -291,9 +338,11 @@ function AdminWorkEditorPage() {
         },
       })
 
-      // 2. Update React AppContext & localStorage
-      updateWork(work.id, {
+      // 2. Update React AppContext & local override
+      const updatedSlug = result.slug || work.slug || getWorkSlug(work)
+      const updatedFields: Partial<Work> = {
         title: title.trim(),
+        slug: updatedSlug,
         subtitle: subtitle.trim() || undefined,
         cover: cover.trim(),
         category,
@@ -310,10 +359,21 @@ function AdminWorkEditorPage() {
           name: authorName.trim() || work.author.name,
           handle: authorHandle.trim() || work.author.handle,
         },
+      }
+
+      setLocalWorkOverride((prev) => {
+        const base = prev || work
+        if (!base) return null
+        return {
+          ...base,
+          ...updatedFields,
+        }
       })
 
+      updateWork(work.id, updatedFields)
       showToast(result.message || 'Manuscript updated successfully')
-      reloadWorksFromDb()
+      await reloadWorksFromDb()
+      await router.invalidate()
     } catch (err: any) {
       console.error('[handleSaveDetails] Error:', err)
       setSaveError(err?.message || 'Failed to update manuscript')
@@ -375,6 +435,7 @@ function AdminWorkEditorPage() {
       setShowActModal(false)
       loadActsFromDb(adminToken)
       reloadWorksFromDb()
+      await router.invalidate()
       showToast(`Act ${actNumberInput} saved successfully`)
     } catch (err: any) {
       console.error('[handleSaveAct] Error:', err)
@@ -386,6 +447,8 @@ function AdminWorkEditorPage() {
 
   // Chapter creation modal trigger
   const openAddChapterModal = (act: { id: string; number: number; title: string }) => {
+    setChapterModalMode('create')
+    setEditingChapterId(null)
     setTargetActForChapter(act)
     const totalChapters = work?.chapters?.length || 0
     const nextNum = totalChapters + 1
@@ -393,14 +456,38 @@ function AdminWorkEditorPage() {
     setChTitleInput(`Chapter ${nextNum}: `)
     setChSubtitleInput('')
     setChStatusInput('published')
+    setChBannerInput('')
     setChContentInput('')
     setShowChapterModal(true)
   }
 
-  // Save Chapter handler
+  // Chapter edit modal trigger
+  const openEditChapterModal = (ch: Chapter) => {
+    setChapterModalMode('edit')
+    setEditingChapterId(ch.id)
+    const matchedAct = computedActs.find((a) => a.id === ch.actId || a.number === ch.actNumber) || computedActs[0]
+    setTargetActForChapter(matchedAct ? { id: matchedAct.id, number: matchedAct.number, title: matchedAct.title } : null)
+    setChNumberInput(ch.number)
+    setChTitleInput(ch.title)
+    setChSubtitleInput(ch.subtitle || '')
+    setChStatusInput(ch.status === 'draft' ? 'draft' : 'published')
+    setChBannerInput(ch.bannerImage || '')
+    setChContentInput(ch.content || '')
+    setShowChapterModal(true)
+  }
+
+  // Save / Update Chapter handler
   const handleSaveChapter = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!work || !adminToken || !targetActForChapter) return
+    if (!work) return
+    if (!adminToken) {
+      showToast('Admin session expired. Please re-login.')
+      return
+    }
+    if (isBannerUploading) {
+      showToast('Please wait for the banner image to finish uploading.')
+      return
+    }
     if (!chTitleInput.trim()) {
       showToast('Chapter title is required')
       return
@@ -415,48 +502,141 @@ function AdminWorkEditorPage() {
       const words = chContentInput.trim().split(/\s+/).filter(Boolean).length
       const readMinutes = Math.max(1, Math.ceil(words / 220))
 
-      // 1. Supabase server call
-      const res = await adminPostChapterServerFn({
-        data: {
-          adminToken,
-          workId: work.id,
-          workTitle: work.title,
-          chapterNumber: chNumberInput,
-          actId: targetActForChapter.id.startsWith('act-') ? undefined : targetActForChapter.id,
-          actNumber: targetActForChapter.number,
+      if (chapterModalMode === 'edit' && editingChapterId) {
+        // --- EDIT MODE ---
+        // 1. Supabase server update
+        await adminUpdateChapterServerFn({
+          data: {
+            adminToken,
+            workId: work.id,
+            chapterId: editingChapterId,
+            title: chTitleInput.trim(),
+            subtitle: chSubtitleInput.trim() || undefined,
+            content: chContentInput.trim(),
+            status: chStatusInput,
+            bannerImagePath: chBannerInput.trim() || null,
+          },
+        })
+
+        // 2. Immediate local optimistic state update so UI updates INSTANTLY
+        setLocalWorkOverride((prev) => {
+          const base = prev || work
+          if (!base) return null
+          const updatedChapters = (base.chapters || []).map((ch) => {
+            if (ch.id !== editingChapterId) return ch
+            return {
+              ...ch,
+              title: chTitleInput.trim(),
+              subtitle: chSubtitleInput.trim() || undefined,
+              content: chContentInput.trim(),
+              status: chStatusInput,
+              bannerImage: chBannerInput.trim() || undefined,
+              wordCount: words,
+              readTimeMinutes: readMinutes,
+            }
+          })
+          const updatedActs = (base.acts || []).map((act) => ({
+            ...act,
+            chapters: (act.chapters || []).map((ch) =>
+              ch.id === editingChapterId
+                ? {
+                    ...ch,
+                    title: chTitleInput.trim(),
+                    subtitle: chSubtitleInput.trim() || undefined,
+                    content: chContentInput.trim(),
+                    status: chStatusInput,
+                    bannerImage: chBannerInput.trim() || undefined,
+                    wordCount: words,
+                    readTimeMinutes: readMinutes,
+                  }
+                : ch
+            ),
+          }))
+          return {
+            ...base,
+            chapters: updatedChapters,
+            acts: updatedActs,
+          }
+        })
+
+        // 3. Client AppContext update
+        updateChapterContent(
+          work.id,
+          editingChapterId,
+          chTitleInput.trim(),
+          chContentInput.trim(),
+          chStatusInput,
+          chBannerInput.trim() || null
+        )
+        setShowChapterModal(false)
+        loadActsFromDb(adminToken)
+        reloadWorksFromDb()
+        showToast(`Chapter "${chTitleInput.trim()}" successfully updated!`)
+
+        // 4. Invalidate TanStack router cache to re-pull fresh DB data into route loader
+        await router.invalidate()
+      } else {
+        // --- CREATE MODE ---
+        if (!targetActForChapter) {
+          showToast('Target act is required for creating a chapter')
+          return
+        }
+
+        // 1. Supabase server call
+        const res = await adminPostChapterServerFn({
+          data: {
+            adminToken,
+            workId: work.id,
+            workTitle: work.title,
+            chapterNumber: chNumberInput,
+            actId: targetActForChapter.id.startsWith('act-') ? undefined : targetActForChapter.id,
+            actNumber: targetActForChapter.number,
+            title: chTitleInput.trim(),
+            subtitle: chSubtitleInput.trim() || undefined,
+            genre,
+            category,
+            content: chContentInput.trim(),
+            status: chStatusInput,
+            bannerImagePath: chBannerInput.trim() || null,
+          },
+        })
+
+        // 2. Client AppContext & local override injection
+        const newCh: Chapter = {
+          id: res.supabaseChapterId || res.chapterId || `admin-ch-${Date.now()}-${chNumberInput}`,
+          number: chNumberInput,
           title: chTitleInput.trim(),
           subtitle: chSubtitleInput.trim() || undefined,
-          genre,
-          category,
-          content: chContentInput.trim(),
+          actId: targetActForChapter.id,
+          actNumber: targetActForChapter.number,
+          actTitle: targetActForChapter.title,
           status: chStatusInput,
-        },
-      })
+          bannerImage: chBannerInput.trim() || undefined,
+          wordCount: words,
+          readTimeMinutes: readMinutes,
+          publishedAt: new Date().toISOString(),
+          content: chContentInput.trim(),
+        }
 
-      // 2. Client AppContext injection
-      const newCh: Chapter = {
-        id: res.supabaseChapterId || res.chapterId || `admin-ch-${Date.now()}-${chNumberInput}`,
-        number: chNumberInput,
-        title: chTitleInput.trim(),
-        subtitle: chSubtitleInput.trim() || undefined,
-        actId: targetActForChapter.id,
-        actNumber: targetActForChapter.number,
-        actTitle: targetActForChapter.title,
-        status: chStatusInput,
-        wordCount: words,
-        readTimeMinutes: readMinutes,
-        publishedAt: new Date().toISOString(),
-        content: chContentInput.trim(),
+        setLocalWorkOverride((prev) => {
+          const base = prev || work
+          if (!base) return null
+          return {
+            ...base,
+            chapters: [...(base.chapters || []), newCh],
+          }
+        })
+
+        addAdminPostedChapter(work.id, newCh)
+        setShowChapterModal(false)
+        loadActsFromDb(adminToken)
+        reloadWorksFromDb()
+        showToast(res.message || `Chapter ${chNumberInput} added to Act ${targetActForChapter.number}!`)
+        await router.invalidate()
       }
-
-      addAdminPostedChapter(work.id, newCh)
-      setShowChapterModal(false)
-      loadActsFromDb(adminToken)
-      reloadWorksFromDb()
-      showToast(res.message || `Chapter ${chNumberInput} added to Act ${targetActForChapter.number}!`)
     } catch (err: any) {
       console.error('[handleSaveChapter] Error:', err)
-      showToast(err?.message || 'Failed to add chapter')
+      showToast(err?.message || 'Failed to save chapter')
     } finally {
       setIsSubmittingChapter(false)
     }
@@ -540,7 +720,7 @@ function AdminWorkEditorPage() {
         <div className="flex items-center gap-2">
           <Link
             to="/works/$workId"
-            params={{ workId: work.id }}
+            params={{ workId: getWorkSlug(work) }}
             target="_blank"
             className="inline-flex items-center gap-1.5 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-1.5 text-xs font-mono text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] no-underline"
           >
@@ -586,20 +766,37 @@ function AdminWorkEditorPage() {
                 {title}
               </h1>
 
-              <p className="text-xs font-mono text-[var(--ink-muted)] flex items-center gap-2">
+              <div className="text-xs font-mono text-[var(--ink-muted)] flex flex-wrap items-center gap-2">
                 <span>By {authorName} (@{authorHandle})</span>
                 <span>•</span>
                 <span>{work.chapters?.length || 0} Chapters</span>
                 <span>•</span>
                 <span>{computedActs.length} Acts</span>
                 <span>•</span>
-                <span>{work.totalReads} Views</span>
-              </p>
+                <button
+                  type="button"
+                  onClick={() => setShowViewsModal(true)}
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded border border-[var(--border-subtle)] hover:border-amber-500 bg-[var(--bg-subtle)] hover:bg-[var(--bg-canvas)] text-[var(--ink-primary)] transition cursor-pointer font-bold text-[11px]"
+                  title={`${formatViewCount(work.totalReads, false)} views • Click to view & adjust 3-layer view counts`}
+                >
+                  <Eye className="h-3 w-3 text-amber-500" />
+                  <span>{formatViewCount(work.totalReads, true)} Views</span>
+                  <span className="text-[9px] uppercase tracking-wider text-amber-600 dark:text-amber-400 font-semibold">(Adjust)</span>
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Quick Act / Chapter CTAs */}
           <div className="flex flex-wrap items-center gap-2.5">
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<Eye className="h-3.5 w-3.5 text-amber-500" />}
+              onClick={() => setShowViewsModal(true)}
+            >
+              Adjust Views
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -820,32 +1017,47 @@ function AdminWorkEditorPage() {
               </div>
             </div>
 
-            {/* Cover Image URL */}
-            <div className="space-y-2">
-              <label className="block text-xs font-mono font-medium text-[var(--ink-secondary)]">
-                Cover Image URL
-              </label>
-              <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
-                <input
-                  type="text"
-                  value={cover}
-                  onChange={(e) => setCover(e.target.value)}
-                  className="flex-1 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2 text-xs font-mono text-[var(--ink-primary)] focus:outline-none focus:border-[var(--ink-primary)]"
-                />
-              </div>
+            {/* Cover Image URL & Cloudinary Upload */}
+            <div className="space-y-3">
+              <CloudinaryImageUpload
+                label="Upload Book Cover Image (Cloudinary CDN)"
+                currentImageUrl={cover}
+                onImageUploaded={(url) => setCover(url)}
+                onImageRemoved={() => setCover('')}
+                onUploading={setIsCoverUploading}
+                folder="covers"
+                recommendedDimensions="600 × 900 px"
+                aspectRatioHint="Portrait (2:3)"
+                maxSizeMb={10}
+              />
 
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                <span className="text-[10px] font-mono text-[var(--ink-muted)]">Quick Presets:</span>
-                {PRESET_COVERS.map((preset) => (
-                  <button
-                    key={preset.label}
-                    type="button"
-                    onClick={() => setCover(preset.url)}
-                    className="text-[10px] font-mono px-2 py-0.5 rounded border border-[var(--border-subtle)] bg-[var(--bg-subtle)] hover:border-[var(--ink-primary)] cursor-pointer"
-                  >
-                    {preset.label}
-                  </button>
-                ))}
+              <div className="space-y-1.5 pt-1">
+                <label className="block text-[11px] font-mono text-[var(--ink-muted)]">
+                  Or Paste External Image URL
+                </label>
+                <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+                  <input
+                    type="text"
+                    value={cover}
+                    onChange={(e) => setCover(e.target.value)}
+                    placeholder="https://..."
+                    className="flex-1 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2 text-xs font-mono text-[var(--ink-primary)] focus:outline-none focus:border-[var(--ink-primary)]"
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <span className="text-[10px] font-mono text-[var(--ink-muted)]">Quick Presets:</span>
+                  {PRESET_COVERS.map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => setCover(preset.url)}
+                      className="text-[10px] font-mono px-2 py-0.5 rounded border border-[var(--border-subtle)] bg-[var(--bg-subtle)] hover:border-[var(--ink-primary)] cursor-pointer"
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -934,7 +1146,10 @@ function AdminWorkEditorPage() {
           <div className="space-y-4">
             {computedActs.map((act) => {
               const actChapters = (work.chapters || []).filter(
-                (c) => c.actNumber === act.number || (act.number === 1 && !c.actNumber)
+                (c) =>
+                  (c.actId && c.actId === act.id) ||
+                  c.actNumber === act.number ||
+                  (act.number === 1 && !c.actNumber && !c.actId)
               )
 
               return (
@@ -1015,12 +1230,21 @@ function AdminWorkEditorPage() {
                               {ch.status}
                             </Badge>
 
+                            <button
+                              type="button"
+                              onClick={() => openEditChapterModal(ch)}
+                              className="px-2.5 py-1 rounded border border-[var(--border-strong)] bg-[var(--bg-canvas)] hover:border-[var(--ink-primary)] text-[var(--ink-primary)] font-medium text-[11px] cursor-pointer"
+                            >
+                              Edit Chapter
+                            </button>
+
                             <Link
                               to="/write/editor/$workId/$chapterId"
                               params={{ workId: work.id, chapterId: ch.id }}
-                              className="px-2.5 py-1 rounded bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-medium text-[11px] no-underline"
+                              className="px-2 py-1 rounded bg-[var(--bg-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] font-medium text-[11px] no-underline"
+                              title="Open in Writer Canvas"
                             >
-                              Editor
+                              Studio
                             </Link>
                           </div>
                         </div>
@@ -1087,7 +1311,7 @@ function AdminWorkEditorPage() {
                       )}
                     </td>
                     <td className="py-3 px-4 text-[var(--ink-muted)]">
-                      Act {ch.actNumber || 1}
+                      Act {ch.actNumber || computedActs.find((a) => a.id === ch.actId)?.number || 1}
                     </td>
                     <td className="py-3 px-4 text-[var(--ink-muted)]">
                       {ch.wordCount.toLocaleString()} w • {ch.readTimeMinutes} min
@@ -1099,13 +1323,13 @@ function AdminWorkEditorPage() {
                     </td>
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <Link
-                          to="/write/editor/$workId/$chapterId"
-                          params={{ workId: work.id, chapterId: ch.id }}
-                          className="px-2.5 py-1 rounded bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-medium text-[11px] no-underline"
+                        <button
+                          type="button"
+                          onClick={() => openEditChapterModal(ch)}
+                          className="px-2.5 py-1 rounded bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-medium text-[11px] hover:opacity-90 cursor-pointer"
                         >
-                          Launch Editor
-                        </Link>
+                          Edit Content
+                        </button>
                         <Link
                           to="/read/$workId/$chapterId"
                           params={{ workId: work.id, chapterId: ch.id }}
@@ -1207,17 +1431,21 @@ function AdminWorkEditorPage() {
         </div>
       )}
 
-      {/* MODAL: ADD CHAPTER TO ACT */}
-      {showChapterModal && targetActForChapter && (
+      {/* MODAL: ADD / EDIT CHAPTER */}
+      {showChapterModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150 overflow-y-auto">
           <div className="w-full max-w-2xl rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-6 shadow-2xl space-y-4 my-8">
             <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
               <div>
                 <h3 className="font-serif text-lg font-semibold text-[var(--ink-primary)]">
-                  Add Chapter to Act {targetActForChapter.number}
+                  {chapterModalMode === 'edit'
+                    ? `Edit Chapter ${chNumberInput}`
+                    : `Add Chapter to Act ${targetActForChapter?.number || 1}`}
                 </h3>
                 <p className="text-xs text-[var(--ink-muted)]">
-                  {targetActForChapter.title}
+                  {chapterModalMode === 'edit'
+                    ? 'Modify chapter title, manuscript narrative, and publication status.'
+                    : targetActForChapter?.title || 'Serialized Manuscript Act'}
                 </p>
               </div>
               <button
@@ -1287,6 +1515,19 @@ function AdminWorkEditorPage() {
                 />
               </div>
 
+              {/* Cloudinary Chapter Banner Upload */}
+              <CloudinaryImageUpload
+                label="Chapter Banner Image (Cloudinary CDN)"
+                currentImageUrl={chBannerInput}
+                onImageUploaded={(url) => setChBannerInput(url)}
+                onImageRemoved={() => setChBannerInput('')}
+                onUploading={setIsBannerUploading}
+                folder="banners"
+                recommendedDimensions="1200 × 450 px"
+                aspectRatioHint="Wide Landscape (~21:9)"
+                maxSizeMb={10}
+              />
+
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <label className="block text-[11px] font-mono text-[var(--ink-secondary)]">
@@ -1300,7 +1541,7 @@ function AdminWorkEditorPage() {
                 </div>
                 <textarea
                   required
-                  rows={8}
+                  rows={10}
                   placeholder="Paste or write the chapter content here..."
                   value={chContentInput}
                   onChange={(e) => setChContentInput(e.target.value)}
@@ -1322,15 +1563,28 @@ function AdminWorkEditorPage() {
                   size="sm"
                   type="submit"
                   isLoading={isSubmittingChapter}
-                  leftIcon={<Plus className="h-3.5 w-3.5" />}
+                  leftIcon={chapterModalMode === 'edit' ? <Save className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
                 >
-                  Publish Chapter {chNumberInput}
+                  {chapterModalMode === 'edit' ? 'Save Chapter Changes' : `Publish Chapter ${chNumberInput}`}
                 </Button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* MODAL: 3-LAYER VIEWS BREAKDOWN WITH ADMIN INCREMENT / DECREMENT */}
+      <ViewsBreakdownModal
+        isOpen={showViewsModal}
+        onClose={() => setShowViewsModal(false)}
+        work={localWorkOverride || work}
+        adminToken={adminToken}
+        allowAdminAdjust={true}
+        onViewsUpdated={(updated) => {
+          setLocalWorkOverride(updated)
+          reloadWorksFromDb()
+        }}
+      />
 
     </div>
   )

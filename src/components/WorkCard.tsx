@@ -2,9 +2,10 @@ import React from 'react'
 import { Link } from '@tanstack/react-router'
 import { Bookmark, BookOpen, Clock, Star } from 'lucide-react'
 import type { Work } from '../data/mockData'
-import { formatWorkActivitySummary } from '../data/mockData'
+import { formatWorkActivitySummary, getWorkSlug } from '../data/mockData'
 import { useApp } from '../context/AppContext'
 import { OptimizedImage } from './OptimizedImage'
+import { formatViewCount } from '../lib/utils'
 
 interface WorkCardProps {
   work: Work
@@ -16,6 +17,7 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
   const saved = isWorkSaved(work.id)
   const progress = readingProgress[work.id]
   const activity = formatWorkActivitySummary(work)
+  const workSlug = getWorkSlug(work)
 
   if (layout === 'horizontal') {
     return (
@@ -23,7 +25,7 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
         {/* Cover */}
         <Link
           to="/works/$workId"
-          params={{ workId: work.id }}
+          params={{ workId: workSlug }}
           className="relative aspect-[2/3] w-20 sm:w-36 flex-shrink-0 overflow-hidden rounded bg-[var(--bg-subtle)]"
         >
           <OptimizedImage
@@ -76,7 +78,7 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
 
             <Link
               to="/works/$workId"
-              params={{ workId: work.id }}
+              params={{ workId: workSlug }}
               className="mt-2 block no-underline text-inherit"
             >
               <h3 className="font-serif text-lg sm:text-xl font-semibold leading-snug text-[var(--ink-primary)] group-hover:underline">
@@ -116,7 +118,9 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
                 <BookOpen className="h-3 w-3" />
                 {work.publishedChaptersCount} Chs
               </span>
-              <span>{work.totalReads} Reads</span>
+              <span title={`${formatViewCount(work.totalReads, false)} Reads`}>
+                {formatViewCount(work.totalReads, true)} Reads
+              </span>
               {progress && (
                 <span className="text-[var(--ink-primary)] font-semibold">
                   Progress: {progress.progressPercent}%
@@ -135,7 +139,7 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
       <div>
         {/* Cover Presentation */}
         <div className="relative aspect-[3/4] w-full overflow-hidden rounded bg-[var(--bg-subtle)]">
-          <Link to="/works/$workId" params={{ workId: work.id }}>
+          <Link to="/works/$workId" params={{ workId: workSlug }}>
             <OptimizedImage
               src={work.cover}
               alt={work.title}
@@ -200,7 +204,7 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
         {/* Title */}
         <Link
           to="/works/$workId"
-          params={{ workId: work.id }}
+          params={{ workId: workSlug }}
           className="mt-1 block no-underline text-inherit"
         >
           <h3 className="font-serif text-base font-semibold leading-tight text-[var(--ink-primary)] group-hover:underline line-clamp-1">
@@ -231,9 +235,13 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
           <span className="truncate text-[var(--ink-secondary)] font-medium">{work.author.name}</span>
         </Link>
 
-        <span className="font-mono text-[10px] text-[var(--ink-faint)]">
-          {work.publishedChaptersCount} chs
-        </span>
+        <div className="flex items-center gap-2 font-mono text-[10px] text-[var(--ink-faint)]">
+          <span title={`${formatViewCount(work.totalReads, false)} Reads`}>
+            {formatViewCount(work.totalReads, true)} reads
+          </span>
+          <span>•</span>
+          <span>{work.publishedChaptersCount} chs</span>
+        </div>
       </div>
     </div>
   )

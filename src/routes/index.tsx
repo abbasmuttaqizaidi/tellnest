@@ -43,8 +43,10 @@ import {
   Filter,
   SlidersHorizontal,
   X,
+  Eye,
 } from 'lucide-react'
 import { generateMeta } from '../lib/seo'
+import { formatViewCount } from '../lib/utils'
 
 export const Route = createFileRoute('/')({
   head: () =>
@@ -530,9 +532,15 @@ function PublicHome() {
                   </h4>
                 </div>
 
-                <div className="pt-2 mt-2 border-t border-[var(--border-subtle)] flex items-center justify-between text-[11px] text-[var(--ink-muted)]">
+                <div className="pt-2 mt-2 border-t border-[var(--border-subtle)] flex items-center justify-between text-[11px] text-[var(--ink-muted)] gap-1">
                   <span className="truncate">By {work.author.name}</span>
-                  <ArrowRight className="h-3 w-3 text-[var(--ink-faint)] group-hover:text-[var(--ink-primary)] group-hover:translate-x-0.5 transition-all flex-shrink-0" />
+                  <div
+                    className="flex items-center gap-1 font-mono text-[10px] text-[var(--ink-muted)] shrink-0 bg-[var(--bg-subtle)] px-1.5 py-0.5 rounded"
+                    title={`${formatViewCount(work.totalReads, false)} Reads`}
+                  >
+                    <Eye className="h-3 w-3 text-[var(--ink-faint)]" />
+                    <span>{formatViewCount(work.totalReads, true)}</span>
+                  </div>
                 </div>
               </div>
             </Link>

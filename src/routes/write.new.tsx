@@ -6,6 +6,7 @@ import { GLOBAL_GENRES, GENRE_GROUPS, SUGGESTED_TAGS } from '../lib/taxonomy'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { ArrowLeft, BookOpen, Upload, Sparkles, CheckCircle2 } from 'lucide-react'
 import { generateMeta } from '../lib/seo'
+import { CloudinaryImageUpload } from '../components/CloudinaryImageUpload'
 
 export const Route = createFileRoute('/write/new')({
   head: () =>
@@ -190,39 +191,29 @@ function CreateWorkPage() {
           </div>
         </div>
 
-        {/* Cover Art Selector */}
+        {/* Cover Art Selector (Cloudinary Curated Gallery + Custom Upload) */}
         <div>
-          <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
-            Cover Artwork
-          </label>
-          <p className="text-[11px] text-[var(--ink-muted)] mb-3">
-            Select an architectural editorial cover or paste an image URL.
-          </p>
-
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-3">
-            {SAMPLE_COVERS.map((imgUrl, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => setCover(imgUrl)}
-                className={`relative aspect-[3/4] rounded-md overflow-hidden border-2 transition-all ${
-                  cover === imgUrl
-                    ? 'border-[var(--ink-primary)] ring-2 ring-[var(--ink-primary)]'
-                    : 'border-transparent opacity-70 hover:opacity-100'
-                }`}
-              >
-                <img src={imgUrl} alt="Cover option" loading="lazy" decoding="async" className="h-full w-full object-cover grayscale" />
-              </button>
-            ))}
-          </div>
-
-          <input
-            type="text"
-            value={cover}
-            onChange={(e) => setCover(e.target.value)}
-            placeholder="Custom Cover Image URL..."
-            className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 text-xs font-mono text-[var(--ink-muted)] focus:outline-none focus:border-[var(--border-strong)]"
+          <CloudinaryImageUpload
+            label="Cover Artwork"
+            currentImageUrl={cover}
+            onImageUploaded={(url) => setCover(url)}
+            onImageRemoved={() => setCover('')}
+            folder="covers"
+            recommendedDimensions="600 × 900 px"
+            aspectRatioHint="Portrait (2:3)"
+            maxSizeMb={10}
+            allowPlatformPicker={true}
           />
+
+          <div className="mt-2.5">
+            <input
+              type="text"
+              value={cover}
+              onChange={(e) => setCover(e.target.value)}
+              placeholder="Or paste external image URL..."
+              className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 text-xs font-mono text-[var(--ink-muted)] focus:outline-none focus:border-[var(--border-strong)]"
+            />
+          </div>
         </div>
 
         {/* Tags & Language */}

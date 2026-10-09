@@ -4,6 +4,7 @@ import type { Author } from '../data/mockData'
 import { useApp } from '../context/AppContext'
 import { UserPlus, UserCheck, BookOpen } from 'lucide-react'
 import { OptimizedImage } from './OptimizedImage'
+import { formatViewCount } from '../lib/utils'
 
 interface AuthorCardProps {
   author: Author
@@ -76,7 +77,9 @@ export default function AuthorCard({ author }: AuthorCardProps) {
           {author.worksCount} Works
         </span>
         <span>{author.followersCount.toLocaleString()} Followers</span>
-        <span>{author.totalReads} Reads</span>
+        <span title={`${formatViewCount(author.totalReads, false)} Reads`}>
+          {formatViewCount(author.totalReads, true)} Reads
+        </span>
       </div>
     </div>
   )

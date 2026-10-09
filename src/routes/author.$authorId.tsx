@@ -15,10 +15,29 @@ import {
 } from 'lucide-react'
 import { AUTHORS } from '../data/mockData'
 import { generateMeta } from '../lib/seo'
+import { getPublicAuthorServerFn } from '../server/works'
+import { formatViewCount } from '../lib/utils'
 
 export const Route = createFileRoute('/author/$authorId')({
-  head: ({ params }) => {
-    let author = AUTHORS.find((a) => a.id === params.authorId || a.handle.toLowerCase() === params.authorId.toLowerCase())
+  loader: async ({ params }) => {
+    const raw = (params.authorId || '').trim().toLowerCase()
+    const staticAuthor = AUTHORS.find((a) => a.id === params.authorId || a.handle.toLowerCase() === raw)
+    if (staticAuthor) return { author: staticAuthor }
+
+    try {
+      const dbAuthor = await getPublicAuthorServerFn({ data: params.authorId })
+      if (dbAuthor) return { author: dbAuthor }
+    } catch (e) {
+      console.warn('[Route /author/$authorId] Loader lookup error:', e)
+    }
+
+    return { author: null }
+  },
+  head: ({ params, loaderData }) => {
+    let author = loaderData?.author
+    if (!author) {
+      author = AUTHORS.find((a) => a.id === params.authorId || a.handle.toLowerCase() === params.authorId.toLowerCase())
+    }
     if (!author && typeof window !== 'undefined') {
       try {
         const stored = localStorage.getItem('hatchpen_admin_posted_works')
@@ -74,6 +93,7 @@ export const Route = createFileRoute('/author/$authorId')({
 
 function AuthorProfilePage() {
   const { authorId } = Route.useParams()
+  const loaderData = Route.useLoaderData()
   const {
     getAuthorById,
     allWorks,
@@ -85,7 +105,7 @@ function AuthorProfilePage() {
   const [sortBy, setSortBy] = useState<'popularity' | 'updated' | 'title'>('popularity')
   const [searchQuery, setSearchQuery] = useState<string>('')
 
-  const author = getAuthorById(authorId)
+  const author = loaderData?.author || getAuthorById(authorId)
 
   // Find works written by this author
   const authorWorks = useMemo(() => {
@@ -225,8 +245,8 @@ function AuthorProfilePage() {
             <p className="text-xl font-semibold text-[var(--ink-primary)]">{author.followersCount.toLocaleString()}</p>
             <p className="text-[10px] text-[var(--ink-muted)] uppercase tracking-wider">Followers</p>
           </div>
-          <div>
-            <p className="text-xl font-semibold text-[var(--ink-primary)]">{author.totalReads}</p>
+          <div title={`${formatViewCount(author.totalReads, false)} Lifetime Reads`}>
+            <p className="text-xl font-semibold text-[var(--ink-primary)]">{formatViewCount(author.totalReads, true)}</p>
             <p className="text-[10px] text-[var(--ink-muted)] uppercase tracking-wider">Lifetime Reads</p>
           </div>
         </div>

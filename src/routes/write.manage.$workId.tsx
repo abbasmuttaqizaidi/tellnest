@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
 import EmptyState from '../components/EmptyState'
 import { FilterDisclosure, AnimatedSearch } from '../design-system'
@@ -18,8 +18,30 @@ import {
 } from 'lucide-react'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { generateMeta } from '../lib/seo'
+import { getWorkSlug, WORKS } from '../data/mockData'
+import { getPublicWorkServerFn } from '../server/works'
+import { formatViewCount } from '../lib/utils'
 
 export const Route = createFileRoute('/write/manage/$workId')({
+  loader: async ({ params }) => {
+    const rawParam = (params.workId || '').trim().toLowerCase()
+    const staticWork = WORKS.find(
+      (w) =>
+        w.id === params.workId ||
+        (w.slug && w.slug.toLowerCase() === rawParam) ||
+        getWorkSlug(w) === rawParam
+    )
+    if (staticWork) return { work: staticWork }
+
+    try {
+      const dbWork = await getPublicWorkServerFn({ data: params.workId })
+      if (dbWork) return { work: dbWork }
+    } catch (e) {
+      console.warn('[Route /write/manage/$workId] Loader DB lookup error:', e)
+    }
+
+    return { work: null }
+  },
   head: () =>
     generateMeta({
       title: 'Manage Manuscript',
@@ -38,16 +60,24 @@ export const Route = createFileRoute('/write/manage/$workId')({
 
 function WorkManagementPage() {
   const { workId } = Route.useParams()
+  const loaderData = Route.useLoaderData()
   const { getWorkById, allWorks, addNewChapter, showToast } = useApp()
   const navigate = useNavigate()
 
-  const work = getWorkById(workId) || allWorks[0]
-  const [chapters, setChapters] = useState(work.chapters)
+  const work = loaderData?.work || getWorkById(workId) || allWorks[0]
+  const [chapters, setChapters] = useState(work?.chapters || [])
   const [chapterFilter, setChapterFilter] = useState<string>('all')
   const [chapterSort, setChapterSort] = useState<string>('number')
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [newChapterModalOpen, setNewChapterModalOpen] = useState(false)
   const [newChapterTitle, setNewChapterTitle] = useState('')
+
+  // Sync chapters whenever the resolved work changes
+  useEffect(() => {
+    if (work?.chapters) {
+      setChapters(work.chapters)
+    }
+  }, [work])
 
   const displayedChapters = useMemo(() => {
     let result = chapters
@@ -136,7 +166,7 @@ function WorkManagementPage() {
                 {work.title}
               </h1>
               <p className="font-mono text-xs text-[var(--ink-muted)] mt-0.5">
-                {chapters.length} Chapters • {work.totalReads} Lifetime Reads
+                {chapters.length} Chapters • <span title={`${formatViewCount(work.totalReads, false)} Lifetime Reads`}>{formatViewCount(work.totalReads, true)} Lifetime Reads</span>
               </p>
             </div>
           </div>
@@ -145,7 +175,7 @@ function WorkManagementPage() {
           <div className="flex flex-wrap items-center gap-2">
             <Link
               to="/works/$workId"
-              params={{ workId: work.id }}
+              params={{ workId: getWorkSlug(work) }}
               className="inline-flex items-center gap-1.5 rounded border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3.5 py-2 text-xs font-medium text-[var(--ink-secondary)] hover:border-[var(--border-strong)] no-underline"
             >
               <Eye className="h-3.5 w-3.5" />

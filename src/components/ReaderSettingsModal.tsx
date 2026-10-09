@@ -11,11 +11,11 @@ export default function ReaderSettingsModal({ isOpen, onClose }: ReaderSettingsM
   const { readerSettings, updateReaderSettings } = useApp()
 
   // Map scale string to number for slider
-  const sizeToNum = { sm: 16, base: 18, lg: 22, xl: 26 }
+  const sizeToNum = { sm: 15, base: 17, lg: 19, xl: 22 }
   const numToSize = (n: number) => {
-    if (n <= 17) return 'sm'
-    if (n <= 20) return 'base'
-    if (n <= 24) return 'lg'
+    if (n <= 15) return 'sm'
+    if (n <= 17) return 'base'
+    if (n <= 20) return 'lg'
     return 'xl'
   }
 
@@ -132,32 +132,78 @@ export default function ReaderSettingsModal({ isOpen, onClose }: ReaderSettingsM
           />
         </div>
 
-        {/* Reading Line Spacing */}
-        <div>
-          <label className="block text-[11px] font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-2">
-            Line Spacing Cadence
-          </label>
+        {/* Reading Line Spacing (Line Height) */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="block text-[11px] font-mono uppercase tracking-wider text-[var(--ink-muted)]">
+              Line Spacing (Line Height)
+            </label>
+            <span className="font-mono text-xs font-semibold text-[var(--ink-primary)]">
+              {readerSettings.customLineHeight || (readerSettings.lineHeight === 'tight' ? 1.35 : readerSettings.lineHeight === 'normal' ? 1.5 : readerSettings.lineHeight === 'relaxed' ? 1.75 : 2.0)}x
+            </span>
+          </div>
+
           <div className="grid grid-cols-4 gap-2">
             {[
-              { id: 'tight', label: 'Tight' },
-              { id: 'normal', label: 'Normal' },
-              { id: 'relaxed', label: 'Relaxed' },
-              { id: 'loose', label: 'Spacious' },
-            ].map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => updateReaderSettings({ lineHeight: item.id as any })}
-                className={`py-1.5 rounded-lg border text-center font-mono text-[11px] transition-all cursor-pointer ${
-                  readerSettings.lineHeight === item.id
-                    ? 'border-[var(--ink-primary)] bg-[var(--bg-subtle)] text-[var(--ink-primary)] font-bold'
-                    : 'border-[var(--border-subtle)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
+              { id: 'tight', label: '1.35x Tight', val: 1.35 },
+              { id: 'normal', label: '1.5x Normal', val: 1.5 },
+              { id: 'relaxed', label: '1.75x Relaxed', val: 1.75 },
+              { id: 'loose', label: '2.0x Spacious', val: 2.0 },
+            ].map((item) => {
+              const currentVal = readerSettings.customLineHeight || (readerSettings.lineHeight === 'tight' ? 1.35 : readerSettings.lineHeight === 'normal' ? 1.5 : readerSettings.lineHeight === 'relaxed' ? 1.75 : 2.0)
+              const isSelected = Math.abs(currentVal - item.val) < 0.04
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() =>
+                    updateReaderSettings({
+                      lineHeight: item.id as any,
+                      customLineHeight: item.val,
+                    })
+                  }
+                  className={`py-1.5 px-1 rounded-lg border text-center font-mono text-[11px] transition-all cursor-pointer ${
+                    isSelected
+                      ? 'border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-bold shadow-xs'
+                      : 'border-[var(--border-subtle)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:border-[var(--border-strong)]'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              )
+            })}
           </div>
+
+          <TactileSlider
+            label="Fine-tune Line Height"
+            min={1.2}
+            max={2.4}
+            step={0.05}
+            unit="x"
+            value={readerSettings.customLineHeight || (readerSettings.lineHeight === 'tight' ? 1.35 : readerSettings.lineHeight === 'normal' ? 1.5 : readerSettings.lineHeight === 'relaxed' ? 1.75 : 2.0)}
+            onChange={(val) => {
+              const rounded = Math.round(val * 100) / 100
+              const named =
+                rounded <= 1.35 ? 'tight' : rounded <= 1.55 ? 'normal' : rounded <= 1.85 ? 'relaxed' : 'loose'
+              updateReaderSettings({
+                customLineHeight: rounded,
+                lineHeight: named,
+              })
+            }}
+          />
+        </div>
+
+        {/* Paragraph Gap Between Sections */}
+        <div>
+          <TactileSlider
+            label="Paragraph Break Gap"
+            min={8}
+            max={32}
+            step={2}
+            unit="px"
+            value={readerSettings.paragraphSpacing !== undefined ? readerSettings.paragraphSpacing : 16}
+            onChange={(val) => updateReaderSettings({ paragraphSpacing: val })}
+          />
         </div>
 
         {/* Reading Page Width */}

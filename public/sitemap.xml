@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <!-- Core Discovery Pages -->
+  <!-- Core Discovery & Catalog Pages -->
   <url>
     <loc>https://hatchpen.com/</loc>
     <changefreq>daily</changefreq>
@@ -12,7 +12,7 @@
     <priority>0.9</priority>
   </url>
 
-  <!-- Categories -->
+  <!-- 16 Canonical Categories (live_instructions.md) -->
   <url>
     <loc>https://hatchpen.com/category/novels</loc>
     <changefreq>weekly</changefreq>
@@ -24,7 +24,12 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://hatchpen.com/category/essays</loc>
+    <loc>https://hatchpen.com/category/flash-fiction</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://hatchpen.com/category/serialized-fiction</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -34,29 +39,69 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://hatchpen.com/category/serialized-series</loc>
+    <loc>https://hatchpen.com/category/essays</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://hatchpen.com/category/non-fiction</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://hatchpen.com/category/memoir-autobiography</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://hatchpen.com/category/childrens-fiction</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://hatchpen.com/category/middle-grade</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://hatchpen.com/category/young-adult-ya</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://hatchpen.com/category/new-adult</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://hatchpen.com/category/fan-fiction</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://hatchpen.com/category/anthologies-collections</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://hatchpen.com/category/graphic-novels-comics</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://hatchpen.com/category/scripts-screenplays</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
 
-  <!-- Genres -->
+  <!-- Grouped Literary Genres -->
   <url>
-    <loc>https://hatchpen.com/genre/fantasy</loc>
+    <loc>https://hatchpen.com/genre/literary-fiction</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://hatchpen.com/genre/sci-fi</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://hatchpen.com/genre/mystery</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://hatchpen.com/genre/romance</loc>
+    <loc>https://hatchpen.com/genre/contemporary-fiction</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -66,12 +111,27 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://hatchpen.com/genre/historical-fiction</loc>
+    <loc>https://hatchpen.com/genre/mystery</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://hatchpen.com/genre/literary</loc>
+    <loc>https://hatchpen.com/genre/science-fiction</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://hatchpen.com/genre/cyberpunk</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://hatchpen.com/genre/fantasy</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://hatchpen.com/genre/magical-realism</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -81,66 +141,88 @@
     <priority>0.8</priority>
   </url>
 
-  <!-- Featured Literary Manuscripts -->
+  <!-- SEO-Fetchable Slug-Based Works -->
   <url>
-    <loc>https://hatchpen.com/works/work-1</loc>
+    <loc>https://hatchpen.com/works/the-cold-parameter</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://hatchpen.com/works/a-winter-in-kyoto</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://hatchpen.com/works/the-bureaucracy-of-miracles</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://hatchpen.com/works/the-cartographer-of-lost-ships</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://hatchpen.com/works/station-seven-transcripts</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://hatchpen.com/works/archive-of-erased-names</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://hatchpen.com/works/the-long-apprenticeship</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://hatchpen.com/works/the-starlight-clockmaker</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- Serialized Chapter Read URLs -->
+  <url>
+    <loc>https://hatchpen.com/read/the-cold-parameter/ch-101</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://hatchpen.com/works/work-2</loc>
+    <loc>https://hatchpen.com/read/a-winter-in-kyoto/ch-201</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://hatchpen.com/works/work-3</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://hatchpen.com/works/work-4</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://hatchpen.com/works/work-5</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://hatchpen.com/works/work-6</loc>
+    <loc>https://hatchpen.com/read/the-bureaucracy-of-miracles/ch-301</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
 
-  <!-- Featured Authors -->
+  <!-- Author Folios -->
   <url>
-    <loc>https://hatchpen.com/author/author-1</loc>
+    <loc>https://hatchpen.com/author/auth-1</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://hatchpen.com/author/author-2</loc>
+    <loc>https://hatchpen.com/author/auth-2</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://hatchpen.com/author/author-3</loc>
+    <loc>https://hatchpen.com/author/auth-3</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://hatchpen.com/author/author-4</loc>
+    <loc>https://hatchpen.com/author/auth-4</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://hatchpen.com/author/author-5</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>https://hatchpen.com/author/author-6</loc>
+    <loc>https://hatchpen.com/author/auth-5</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react'
 import { Link } from '@tanstack/react-router'
 import type { Chapter, Work } from '../data/mockData'
+import { getWorkSlug } from '../data/mockData'
 import { X, CheckCircle2, Clock } from 'lucide-react'
 import { AnimatedSearch } from '../design-system'
 
@@ -81,7 +82,7 @@ export default function ChapterDrawer({
                 <Link
                   key={ch.id}
                   to="/read/$workId/$chapterId"
-                  params={{ workId: work.id, chapterId: ch.id }}
+                  params={{ workId: getWorkSlug(work), chapterId: ch.id }}
                   onClick={onClose}
                   className={`group flex items-start justify-between rounded-lg p-3 text-left transition-all no-underline ${
                     isCurrent

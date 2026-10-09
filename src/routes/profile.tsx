@@ -22,6 +22,7 @@ import { getUserProfileServerFn, updateUserProfileServerFn } from '../server/aut
 import { GENRES } from '../data/mockData'
 
 import { generateMeta } from '../lib/seo'
+import { formatViewCount } from '../lib/utils'
 
 export const Route = createFileRoute('/profile')({
   head: () =>
@@ -506,7 +507,7 @@ function UserProfilePage() {
                         {s.title}
                       </p>
                       <p className="text-[11px] text-[var(--ink-muted)] mt-0.5 font-mono">
-                        {genreName} · {chaptersTotal} parts · {readsTotal} reads
+                        {genreName} · {chaptersTotal} parts · <span title={`${formatViewCount(readsTotal, false)} reads`}>{formatViewCount(readsTotal, true)} reads</span>
                       </p>
                     </div>
                   </Link>
@@ -855,7 +856,9 @@ function UserProfilePage() {
               <p className="text-[10px] text-[var(--ink-muted)] uppercase">Writings</p>
             </div>
             <div>
-              <p className="font-semibold text-sm sm:text-base text-[var(--ink-primary)]">{readsCount}</p>
+              <p className="font-semibold text-sm sm:text-base text-[var(--ink-primary)]" title={`${formatViewCount(readsCount, false)} Reads`}>
+                {formatViewCount(readsCount, true)}
+              </p>
               <p className="text-[10px] text-[var(--ink-muted)] uppercase">Reads</p>
             </div>
           </div>
@@ -878,8 +881,11 @@ function UserProfilePage() {
                 <span className="text-xs font-semibold text-[var(--ink-primary)] font-serif">
                   {s.title}
                 </span>
-                <span className="ml-auto text-[11px] font-mono text-[var(--ink-muted)]">
-                  {s.totalReads ?? s.view_count ?? '0'} reads
+                <span 
+                  className="ml-auto text-[11px] font-mono text-[var(--ink-muted)]"
+                  title={`${formatViewCount(s.totalReads ?? s.view_count ?? '0', false)} reads`}
+                >
+                  {formatViewCount(s.totalReads ?? s.view_count ?? '0', true)} reads
                 </span>
               </li>
             ))}

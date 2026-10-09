@@ -14,6 +14,8 @@ export interface Chapter {
   publishedAt?: string
   updatedAt?: string
   content: string
+  bannerImage?: string
+  viewCount?: number
 }
 
 export interface Act {
@@ -25,6 +27,7 @@ export interface Act {
   description?: string
   status?: 'published' | 'draft'
   chapters?: Chapter[]
+  viewCount?: number
 }
 
 export interface Author {
@@ -66,6 +69,7 @@ export interface WorkActivityDetail {
 export interface Work {
   id: string
   title: string
+  slug?: string
   subtitle?: string
   author: Author
   cover: string
@@ -922,5 +926,31 @@ export function formatWorkActivitySummary(work: Work): { label: string; detail: 
     detail: fullDetail,
     isRecent
   }
+}
+
+/**
+ * Generate a clean, SEO-friendly kebab-case slug from any title.
+ * All special characters (e.g. '?', '!', ',', '.', ':', ';', quotes) are converted to hyphens.
+ * Example: "Who I met in Tokoyo? Now I remember" -> "who-i-met-in-tokoyo-now-i-remember"
+ */
+export function slugifyTitle(title: string): string {
+  if (!title) return ''
+  return title
+    .toLowerCase()
+    .trim()
+    // Replace all non-alphanumeric characters with a hyphen
+    .replace(/[^a-z0-9]+/g, '-')
+    // Remove leading and trailing hyphens
+    .replace(/^-+|-+$/g, '')
+}
+
+/**
+ * Get canonical SEO slug for any work.
+ */
+export function getWorkSlug(work: Pick<Work, 'id' | 'title' | 'slug'>): string {
+  if (work.slug && work.slug.trim()) {
+    return slugifyTitle(work.slug) || work.slug.trim().toLowerCase()
+  }
+  return slugifyTitle(work.title) || work.id
 }
 

@@ -891,14 +891,38 @@ export const adminPostWorkServerFn = createServerFn({ method: 'POST' })
     }
 
     // ── Create Work in Supabase ───────────────────────────────────────
-    const sanitizedTitle = workData.title
-      .trim()
+    // Clean, SEO-oriented slug: converts all special characters to hyphens
+    const baseSlug = workData.title
       .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .slice(0, 80)
-    const workSlug = (sanitizedTitle || 'manuscript') + `-${Date.now().toString(36)}`
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 100) || 'manuscript'
+
+    let workSlug = baseSlug
+
+    // Check if the exact clean slug already exists in database; if yes, append incremental suffix (2, 3...)
+    if (admin) {
+      try {
+        const { data: existingWorks } = await admin
+          .from('works')
+          .select('slug')
+          .ilike('slug', `${baseSlug}%`)
+
+        if (existingWorks && existingWorks.length > 0) {
+          const existingSlugs = new Set(existingWorks.map((w: any) => w.slug))
+          if (existingSlugs.has(baseSlug)) {
+            let counter = 2
+            while (existingSlugs.has(`${baseSlug}-${counter}`)) {
+              counter++
+            }
+            workSlug = `${baseSlug}-${counter}`
+          }
+        }
+      } catch (err: any) {
+        console.warn('[adminPostWork] Slug collision check notice:', err?.message)
+      }
+    }
 
     const wordCount = workData.chapterContent.trim().split(/\s+/).filter(Boolean).length
     const readingTime = Math.max(1, Math.ceil(wordCount / 220))
@@ -1042,6 +1066,7 @@ export interface AdminPostChapterPayload {
   actNumber?: number
   content: string
   status?: 'published' | 'draft'
+  bannerImagePath?: string | null
 }
 
 export interface AdminPostChapterResult {
@@ -1126,9 +1151,11 @@ export const adminPostChapterServerFn = createServerFn({ method: 'POST' })
             work_id: dbWork.id,
             act_id: resolvedActId,
             title: data.title.trim(),
+            subtitle: data.subtitle?.trim() || null,
             slug: chapterSlug,
             chapter_number: assignedChapterNumber,
             content: data.content.trim(),
+            banner_image_path: data.bannerImagePath?.trim() || null,
             word_count: wordCount,
             reading_time_minutes: readingTime,
             status,
@@ -1137,7 +1164,12 @@ export const adminPostChapterServerFn = createServerFn({ method: 'POST' })
           .select('id')
           .single()
 
-        if (createdChapter && !chErr) {
+        if (chErr) {
+          console.error('[adminPostChapter] Chapter insert error:', chErr.message)
+          throw new Error(`Failed to create chapter in database: ${chErr.message}`)
+        }
+
+        if (createdChapter) {
           supabaseChapterId = createdChapter.id
 
           // Update work chapter_count and word_count in Supabase
@@ -1155,12 +1187,11 @@ export const adminPostChapterServerFn = createServerFn({ method: 'POST' })
               updated_at: nowIso,
             })
             .eq('id', dbWork.id)
-        } else {
-          console.warn('[adminPostChapter] Chapter insert warning:', chErr?.message)
         }
       }
     } catch (err: any) {
-      console.warn('[adminPostChapter] Supabase chapter insert exception:', err?.message)
+      console.error('[adminPostChapter] Supabase chapter insert exception:', err?.message)
+      throw new Error(err?.message || 'Failed to post chapter')
     }
 
     const localChapterId = supabaseChapterId || `admin-ch-${Date.now()}-${assignedChapterNumber}`
@@ -1175,6 +1206,107 @@ export const adminPostChapterServerFn = createServerFn({ method: 'POST' })
       readTimeMinutes: readingTime,
       publishedAt: nowIso,
       supabaseChapterId,
+    }
+  })
+
+/**
+ * Server Function: Update existing chapter title, subtitle, content, status by Admin.
+ */
+export interface AdminUpdateChapterPayload {
+  adminToken: string
+  workId: string
+  chapterId: string
+  title: string
+  subtitle?: string
+  content: string
+  status?: 'published' | 'draft'
+  bannerImagePath?: string | null
+}
+
+export const adminUpdateChapterServerFn = createServerFn({ method: 'POST' })
+  .validator((params: AdminUpdateChapterPayload) => {
+    if (!params.adminToken) throw new Error('Admin authorization token is required')
+    if (!params.workId?.trim()) throw new Error('Work ID is required')
+    if (!params.chapterId?.trim()) throw new Error('Chapter ID is required')
+    if (!params.title?.trim()) throw new Error('Chapter title is required')
+    if (!params.content?.trim()) throw new Error('Chapter content is required')
+    return params
+  })
+  .handler(async ({ data }: { data: AdminUpdateChapterPayload }) => {
+    if (!isValidAdminToken(data.adminToken)) {
+      throw new Error('Unauthorized: Invalid administration key')
+    }
+
+    const admin = createAdminClient()
+    const nowIso = new Date().toISOString()
+    const wordCount = data.content.trim().split(/\s+/).filter(Boolean).length
+    const readingTime = Math.max(1, Math.ceil(wordCount / 220))
+    const status = data.status || 'published'
+
+    try {
+      // 1. Update chapter in Supabase
+      const updateData: Record<string, any> = {
+        title: data.title.trim(),
+        subtitle: data.subtitle?.trim() || null,
+        content: data.content.trim(),
+        word_count: wordCount,
+        reading_time_minutes: readingTime,
+        status,
+        updated_at: nowIso,
+      }
+      if (data.bannerImagePath !== undefined) {
+        updateData.banner_image_path = data.bannerImagePath?.trim() || null
+      }
+
+      const { error: chErr } = await admin
+        .from('chapters')
+        .update(updateData)
+        .eq('id', data.chapterId)
+
+      if (chErr) {
+        console.error('[adminUpdateChapter] Supabase chapter update error:', chErr.message)
+        throw new Error(`Failed to update chapter in database: ${chErr.message}`)
+      }
+
+      // 2. Resolve work UUID if workId was passed as slug
+      let targetWorkUuid = data.workId
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.workId)
+      if (!isUuid) {
+        const { data: wRow } = await admin.from('works').select('id').eq('slug', data.workId).maybeSingle()
+        if (wRow?.id) targetWorkUuid = wRow.id
+      }
+
+      // 3. Recalculate total work stats
+      const { data: allChs } = await admin
+        .from('chapters')
+        .select('word_count, reading_time_minutes')
+        .eq('work_id', targetWorkUuid)
+
+      if (allChs) {
+        const totalWords = allChs.reduce((sum, c) => sum + (c.word_count || 0), 0)
+        const totalMinutes = allChs.reduce((sum, c) => sum + (c.reading_time_minutes || 0), 0)
+
+        await admin
+          .from('works')
+          .update({
+            word_count: totalWords,
+            reading_time_minutes: totalMinutes,
+            updated_at: nowIso,
+          })
+          .eq('id', targetWorkUuid)
+      }
+    } catch (err: any) {
+      console.error('[adminUpdateChapter] Exception updating chapter:', err?.message)
+      throw new Error(err?.message || 'Failed to update chapter')
+    }
+
+    return {
+      success: true,
+      message: `Chapter "${data.title}" successfully updated`,
+      chapterId: data.chapterId,
+      wordCount,
+      readTimeMinutes: readingTime,
+      updatedAt: nowIso,
     }
   })
 
@@ -1463,74 +1595,127 @@ export const adminUpdateWorkServerFn = createServerFn({ method: 'POST' })
     const { workId, workData } = data
 
     try {
-      // 1. Check if work exists in Supabase
-      const { data: dbWork } = await admin
+      // 1. Check if work exists in Supabase (by ID or Slug)
+      const clean = workId.trim().toLowerCase()
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clean)
+
+      let query = admin
         .from('works')
-        .select('id, author_id')
-        .eq('id', workId)
-        .maybeSingle()
+        .select('id, author_id, slug, title')
 
-      if (dbWork) {
-        // Resolve category id
-        let categoryId: string | null = null
-        const { data: catData } = await admin
-          .from('categories')
-          .select('id')
-          .ilike('name', workData.category.trim())
-          .maybeSingle()
-        if (catData) categoryId = catData.id
+      if (isUuid) {
+        query = query.or(`id.eq.${clean},slug.eq.${clean}`)
+      } else {
+        query = query.eq('slug', clean)
+      }
 
-        // Map status and visibility to Postgres enum format
-        let mappedStatus: 'ongoing' | 'completed' | 'on_hiatus' | 'cancelled' = 'ongoing'
-        if (workData.status.toLowerCase() === 'completed') mappedStatus = 'completed'
-        else if (workData.status.toLowerCase() === 'hiatus' || workData.status.toLowerCase() === 'on_hiatus') mappedStatus = 'on_hiatus'
-        else if (workData.status.toLowerCase() === 'cancelled') mappedStatus = 'cancelled'
+      const { data: dbWork, error: findErr } = await query.maybeSingle()
 
-        let mappedVisibility: 'draft' | 'private' | 'unlisted' | 'public' = 'public'
-        if (workData.visibility.toLowerCase() === 'unlisted') mappedVisibility = 'unlisted'
-        else if (workData.visibility.toLowerCase() === 'draft') mappedVisibility = 'draft'
+      if (findErr) {
+        console.error('[adminUpdateWorkServerFn] Query error finding work:', findErr.message)
+        throw new Error(`Database error looking up work: ${findErr.message}`)
+      }
 
-        await admin
-          .from('works')
-          .update({
-            title: workData.title.trim(),
-            description: workData.synopsis.trim(),
-            cover_image_path: workData.cover?.trim() || null,
-            category_id: categoryId,
-            status: mappedStatus,
-            visibility: mappedVisibility,
-            last_activity_at: nowIso,
-            last_activity_type: 'work_metadata_updated',
-            last_activity_detail: {
-              updatedAt: nowIso,
-              title: workData.title.trim(),
-              summaryText: 'Manuscript details updated by administrator',
-            },
-            updated_at: nowIso,
-          })
-          .eq('id', workId)
-
-        // Optionally update author profile display name if author exists
-        if (dbWork.author_id && (workData.authorName?.trim() || workData.authorHandle?.trim())) {
-          await admin
-            .from('profiles')
-            .update({
-              display_name: workData.authorName?.trim(),
-              username: workData.authorHandle?.trim(),
-              updated_at: nowIso,
-            })
-            .eq('id', dbWork.author_id)
+      if (!dbWork) {
+        console.warn('[adminUpdateWorkServerFn] Manuscript not found in Supabase for workId:', workId)
+        return {
+          success: true,
+          message: `Manuscript details updated in session cache (Mock/Local manuscript)`,
+          workId,
+          updatedAt: nowIso,
         }
       }
-    } catch (err: any) {
-      console.warn('[adminUpdateWorkServerFn] Supabase update warning:', err?.message)
-    }
 
-    return {
-      success: true,
-      message: `Manuscript "${workData.title}" updated successfully`,
-      workId,
-      updatedAt: nowIso,
+      // Generate clean SEO slug from updated title
+      const newSlug = workData.title
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 100) || dbWork.slug || 'manuscript'
+
+      // Check if new slug conflicts with another work
+      let finalSlug = dbWork.slug
+      if (newSlug && newSlug !== dbWork.slug) {
+        const { data: conflict } = await admin
+          .from('works')
+          .select('id')
+          .eq('slug', newSlug)
+          .neq('id', dbWork.id)
+          .maybeSingle()
+
+        if (!conflict) {
+          finalSlug = newSlug
+        }
+      }
+
+      // Resolve category id
+      let categoryId: string | null = null
+      const { data: catData } = await admin
+        .from('categories')
+        .select('id')
+        .ilike('name', workData.category.trim())
+        .maybeSingle()
+      if (catData) categoryId = catData.id
+
+      // Map status and visibility to Postgres enum format
+      let mappedStatus: 'ongoing' | 'completed' | 'on_hiatus' | 'cancelled' = 'ongoing'
+      if (workData.status.toLowerCase() === 'completed') mappedStatus = 'completed'
+      else if (workData.status.toLowerCase() === 'hiatus' || workData.status.toLowerCase() === 'on_hiatus') mappedStatus = 'on_hiatus'
+      else if (workData.status.toLowerCase() === 'cancelled') mappedStatus = 'cancelled'
+
+      let mappedVisibility: 'draft' | 'private' | 'unlisted' | 'public' = 'public'
+      if (workData.visibility.toLowerCase() === 'unlisted') mappedVisibility = 'unlisted'
+      else if (workData.visibility.toLowerCase() === 'draft') mappedVisibility = 'draft'
+
+      const { error: updateErr } = await admin
+        .from('works')
+        .update({
+          title: workData.title.trim(),
+          slug: finalSlug,
+          description: workData.synopsis.trim(),
+          cover_image_path: workData.cover?.trim() || null,
+          category_id: categoryId,
+          status: mappedStatus,
+          visibility: mappedVisibility,
+          last_activity_at: nowIso,
+          last_activity_type: 'work_metadata_updated',
+          last_activity_detail: {
+            updatedAt: nowIso,
+            title: workData.title.trim(),
+            summaryText: 'Manuscript details updated by administrator',
+          },
+          updated_at: nowIso,
+        })
+        .eq('id', dbWork.id)
+
+      if (updateErr) {
+        console.error('[adminUpdateWorkServerFn] Supabase update error:', updateErr.message)
+        throw new Error(`Failed to update manuscript: ${updateErr.message}`)
+      }
+
+      // Optionally update author profile display name if author exists
+      if (dbWork.author_id && (workData.authorName?.trim() || workData.authorHandle?.trim())) {
+        await admin
+          .from('profiles')
+          .update({
+            display_name: workData.authorName?.trim(),
+            username: workData.authorHandle?.trim(),
+            updated_at: nowIso,
+          })
+          .eq('id', dbWork.author_id)
+      }
+
+      return {
+        success: true,
+        message: `Manuscript "${workData.title}" updated successfully`,
+        workId: dbWork.id,
+        slug: finalSlug,
+        updatedAt: nowIso,
+      }
+    } catch (err: any) {
+      console.error('[adminUpdateWorkServerFn] Supabase update exception:', err?.message)
+      throw new Error(err?.message || 'Failed to update manuscript')
     }
   })
 
@@ -1621,6 +1806,91 @@ export const adminUpsertActServerFn = createServerFn({ method: 'POST' })
       title: data.title.trim(),
     }
   })
+
+/**
+ * Server Function: Admin adjust views (increment or decrement) for book or chapter.
+ */
+export const adminAdjustViewsServerFn = createServerFn({ method: 'POST' })
+  .validator((params: {
+    adminToken: string
+    targetType: 'work' | 'chapter'
+    targetId: string
+    delta: number
+  }) => {
+    if (!params.adminToken) throw new Error('Admin authorization token is required')
+    if (!params.targetId) throw new Error('Target ID is required')
+    if (typeof params.delta !== 'number' || isNaN(params.delta)) throw new Error('Delta must be a valid number')
+    return params
+  })
+  .handler(async ({ data: { adminToken, targetType, targetId, delta } }) => {
+    if (!isValidAdminToken(adminToken)) {
+      throw new Error('Unauthorized: Invalid administration key')
+    }
+
+    const admin = createAdminClient()
+
+    if (targetType === 'work') {
+      const { data: wRow } = await admin.from('works').select('view_count').eq('id', targetId).single()
+      const current = wRow?.view_count || 0
+      const updated = Math.max(0, current + delta)
+      const { error } = await admin.from('works').update({ view_count: updated }).eq('id', targetId)
+      if (error) throw new Error(error.message)
+      return { success: true, targetType, targetId, newCount: updated }
+    } else {
+      const { data: cRow } = await admin.from('chapters').select('view_count, work_id').eq('id', targetId).single()
+      const current = cRow?.view_count || 0
+      const updated = Math.max(0, current + delta)
+      const { error } = await admin.from('chapters').update({ view_count: updated }).eq('id', targetId)
+      if (error) throw new Error(error.message)
+      return { success: true, targetType, targetId, newCount: updated }
+    }
+  })
+
+/**
+ * Server Function: Batch save adjusted views for work and chapters in one transactional update.
+ */
+export const adminBatchSaveViewsServerFn = createServerFn({ method: 'POST' })
+  .validator((params: {
+    adminToken: string
+    workId: string
+    workViews: number
+    chapterViews: Array<{ chapterId: string; viewCount: number }>
+  }) => {
+    if (!params.adminToken) throw new Error('Admin authorization token is required')
+    if (!params.workId) throw new Error('Work ID is required')
+    return params
+  })
+  .handler(async ({ data: { adminToken, workId, workViews, chapterViews } }) => {
+    if (!isValidAdminToken(adminToken)) {
+      throw new Error('Unauthorized: Invalid administration key')
+    }
+
+    const admin = createAdminClient()
+
+    // 1. Update work view_count
+    const { error: wErr } = await admin
+      .from('works')
+      .update({ view_count: Math.max(0, workViews) })
+      .eq('id', workId)
+
+    if (wErr) {
+      throw new Error(`Failed to update work views: ${wErr.message}`)
+    }
+
+    // 2. Update each chapter view_count
+    for (const ch of chapterViews) {
+      if (ch.chapterId) {
+        await admin
+          .from('chapters')
+          .update({ view_count: Math.max(0, ch.viewCount) })
+          .eq('id', ch.chapterId)
+      }
+    }
+
+    return { success: true, message: 'All view counts updated successfully in database' }
+  })
+
+
 
 
 

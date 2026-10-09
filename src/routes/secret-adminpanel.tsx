@@ -84,7 +84,10 @@ function SecretAdminPanelPage() {
   // Authentication State
   const [adminToken, setAdminToken] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
-      return sessionStorage.getItem(ADMIN_TOKEN_KEY)
+      return (
+        sessionStorage.getItem(ADMIN_TOKEN_KEY) ||
+        localStorage.getItem(ADMIN_TOKEN_KEY)
+      )
     }
     return null
   })
@@ -357,6 +360,7 @@ function SecretAdminPanelPage() {
       const res = await adminLoginServerFn({ data: { passkey: passkeyInput.trim() } })
       if (res.success && res.token) {
         sessionStorage.setItem(ADMIN_TOKEN_KEY, res.token)
+        localStorage.setItem(ADMIN_TOKEN_KEY, res.token)
         setAdminToken(res.token)
         setIsAuthenticated(true)
         setPasskeyInput('')
@@ -373,6 +377,7 @@ function SecretAdminPanelPage() {
   // 4. Handle Admin Logout
   const handleLogout = () => {
     sessionStorage.removeItem(ADMIN_TOKEN_KEY)
+    localStorage.removeItem(ADMIN_TOKEN_KEY)
     setAdminToken(null)
     setIsAuthenticated(false)
     setDashboardData(null)

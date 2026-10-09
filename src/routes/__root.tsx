@@ -194,9 +194,14 @@ export const Route = createRootRoute({
         </div>
       </div>
       <h2 className="font-serif text-2xl font-semibold text-[var(--ink-primary)]">Something Went Wrong</h2>
-      <p className="text-xs text-[var(--ink-muted)] font-mono">
+      <p className="text-xs text-[var(--ink-muted)] font-mono text-red-600 dark:text-red-400 break-words">
         {error instanceof Error ? error.message : 'An unexpected error occurred while rendering.'}
       </p>
+      {error instanceof Error && error.stack && (
+        <pre className="text-[10px] text-left overflow-auto max-h-48 p-3 rounded bg-[var(--bg-subtle)] font-mono text-[var(--ink-muted)]">
+          {error.stack}
+        </pre>
+      )}
       <Link
         to="/"
         className="inline-block rounded-md border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-4 py-2 text-xs font-medium text-[var(--accent-contrast)] hover:opacity-90 transition-opacity no-underline"
@@ -224,46 +229,48 @@ function RootDocument({ children }: { children: React.ReactNode }) {
     </AppProvider>
   )
 
+  const bodyContent = CLERK_PUBLISHABLE_KEY ? (
+    <ClerkProvider
+      publishableKey={CLERK_PUBLISHABLE_KEY}
+      appearance={{
+        variables: {
+          colorPrimary: '#010611',
+          colorText: '#010611',
+          colorTextSecondary: '#64748B',
+          colorBackground: '#FFFFFF',
+          colorInputBackground: '#F8FAFC',
+          colorInputText: '#010611',
+          borderRadius: '0.5rem',
+          fontFamily: '"Outfit", "Inter", -apple-system, BlinkMacSystemFont, sans-serif',
+        },
+        layout: {
+          unsafe_disableDevelopmentModeWarnings: true,
+        },
+        elements: {
+          modalBackdrop: '!flex !items-center !justify-center !p-4',
+          modalContent: '!m-auto !my-auto !max-w-[380px] !w-full !bg-transparent !shadow-none !border-none',
+          rootBox: '!m-auto !max-w-[380px] !w-full !bg-transparent !shadow-none !border-none',
+          cardBox: '!m-auto !max-w-[380px] !w-full !bg-transparent !shadow-none !border-none',
+          card: '!max-w-[380px] !w-full !m-auto',
+          footer: 'hidden',
+          footerAction: 'hidden',
+          badge: 'hidden',
+        },
+      }}
+    >
+      {innerContent}
+    </ClerkProvider>
+  ) : (
+    innerContent
+  )
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
       <body className="min-h-screen flex flex-col font-sans antialiased text-[var(--ink-secondary)] bg-[var(--bg-canvas)] transition-colors duration-150 overflow-x-hidden w-full max-w-full">
-        {CLERK_PUBLISHABLE_KEY ? (
-          <ClerkProvider
-            publishableKey={CLERK_PUBLISHABLE_KEY}
-            appearance={{
-              variables: {
-                colorPrimary: '#010611',
-                colorText: '#010611',
-                colorTextSecondary: '#64748B',
-                colorBackground: '#FFFFFF',
-                colorInputBackground: '#F8FAFC',
-                colorInputText: '#010611',
-                borderRadius: '0.5rem',
-                fontFamily: '"Outfit", "Inter", -apple-system, BlinkMacSystemFont, sans-serif',
-              },
-              layout: {
-                unsafe_disableDevelopmentModeWarnings: true,
-              },
-              elements: {
-                modalBackdrop: '!flex !items-center !justify-center !p-4',
-                modalContent: '!m-auto !my-auto !max-w-[380px] !w-full !bg-transparent !shadow-none !border-none',
-                rootBox: '!m-auto !max-w-[380px] !w-full !bg-transparent !shadow-none !border-none',
-                cardBox: '!m-auto !max-w-[380px] !w-full !bg-transparent !shadow-none !border-none',
-                card: '!max-w-[380px] !w-full !m-auto',
-                footer: 'hidden',
-                footerAction: 'hidden',
-                badge: 'hidden',
-              },
-            }}
-          >
-            {innerContent}
-          </ClerkProvider>
-        ) : (
-          innerContent
-        )}
+        {bodyContent}
         <Scripts />
       </body>
     </html>

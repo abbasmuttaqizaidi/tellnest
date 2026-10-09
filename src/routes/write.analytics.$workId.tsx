@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { generateMeta } from '../lib/seo'
+import { formatViewCount } from '../lib/utils'
 
 export const Route = createFileRoute('/write/analytics/$workId')({
   head: () =>
@@ -97,7 +98,9 @@ function WorkAnalyticsPage() {
             <span className="font-mono text-[10px] uppercase tracking-wider">Total Chapter Reads</span>
             <Eye className="h-4 w-4" />
           </div>
-          <p className="font-serif text-2xl font-semibold text-[var(--ink-primary)]">{work.totalReads}</p>
+          <p className="font-serif text-2xl font-semibold text-[var(--ink-primary)]" title={`${formatViewCount(work.totalReads, false)} Reads`}>
+            {formatViewCount(work.totalReads, true)}
+          </p>
           <p className="font-mono text-[11px] text-emerald-600 dark:text-emerald-400 mt-1">+18.4% vs last cycle</p>
         </div>
 

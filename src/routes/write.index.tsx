@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { generateMeta } from '../lib/seo'
+import { formatViewCount } from '../lib/utils'
 
 export const Route = createFileRoute('/write/')({
   head: () =>
@@ -241,9 +242,9 @@ function WriterDashboardPage() {
                     <div className="flex flex-wrap items-center gap-3 font-mono text-[11px] text-[var(--ink-muted)] mt-1">
                       <span>{work.chaptersCount} Chapters</span>
                       <span>•</span>
-                      <span>{work.totalReads} Reads</span>
+                      <span title={`${formatViewCount(work.totalReads, false)} Reads`}>{formatViewCount(work.totalReads, true)} Reads</span>
                       <span>•</span>
-                      <span>{work.totalSaves} Saves</span>
+                      <span title={`${formatViewCount(work.totalSaves, false)} Saves`}>{formatViewCount(work.totalSaves, true)} Saves</span>
                       <span>•</span>
                       <span className="text-[var(--ink-faint)]">Updated {work.lastUpdated}</span>
                     </div>
