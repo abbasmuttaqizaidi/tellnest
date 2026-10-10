@@ -1,12 +1,14 @@
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useApp } from '../context/AppContext'
+import { useUser } from '@clerk/react'
 import { CATEGORIES } from '../data/mockData'
 import { GLOBAL_GENRES, GENRE_GROUPS, SUGGESTED_TAGS } from '../lib/taxonomy'
 import { ProtectedRoute } from '../components/ProtectedRoute'
-import { ArrowLeft, BookOpen, Upload, Sparkles, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, BookOpen, Upload, Sparkles, CheckCircle2, Loader2 } from 'lucide-react'
 import { generateMeta } from '../lib/seo'
 import { CloudinaryImageUpload } from '../components/CloudinaryImageUpload'
+import { createWriterWorkServerFn } from '../server/writer'
 
 export const Route = createFileRoute('/write/new')({
   head: () =>
@@ -36,7 +38,8 @@ const SAMPLE_COVERS = [
 ]
 
 function CreateWorkPage() {
-  const { addWriterWork, categories, genres } = useApp()
+  const { categories, genres, reloadWriterWorksFromDb, reloadWorksFromDb, showToast } = useApp()
+  const { user } = useUser()
   const navigate = useNavigate()
 
   const [title, setTitle] = useState('')
@@ -50,10 +53,15 @@ function CreateWorkPage() {
   const [status, setStatus] = useState<'Ongoing' | 'Completed'>('Ongoing')
   const [visibility, setVisibility] = useState<'Public' | 'Unlisted' | 'Draft'>('Public')
   const [isMature, setIsMature] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim()) return
+    if (!user) {
+      showToast('Please sign in to register a manuscript')
+      return
+    }
 
     const parsedTags: string[] = tags
       ? tags
@@ -62,21 +70,43 @@ function CreateWorkPage() {
           .filter((t) => t.length > 0)
       : []
 
-    const newId = addWriterWork({
-      title: title.trim(),
-      cover,
-      status: 'Published',
-      chaptersCount: 1,
-      category,
-      genre,
-      tags: parsedTags,
-    })
+    try {
+      setIsSubmitting(true)
+      const res = await createWriterWorkServerFn({
+        data: {
+          clerkUserId: user.id,
+          title: title.trim(),
+          subtitle: subtitle.trim() || undefined,
+          description: description.trim() || undefined,
+          categoryName: category,
+          genreName: genre,
+          cover,
+          tags: parsedTags,
+          language,
+          status,
+          visibility,
+        },
+      })
 
-    // Navigate to chapter management or editor
-    navigate({
-      to: '/write/manage/$workId',
-      params: { workId: newId }
-    })
+      showToast('Manuscript successfully registered in database!')
+
+      // Sync writer works and global platform works
+      await Promise.all([
+        reloadWriterWorksFromDb(),
+        reloadWorksFromDb(),
+      ])
+
+      // Navigate to manuscript manage page
+      navigate({
+        to: '/write/manage/$workId',
+        params: { workId: res.workId },
+      })
+    } catch (err: any) {
+      console.error('[CreateWorkPage] Manuscript creation error:', err)
+      showToast(err?.message || 'Failed to create manuscript')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -310,9 +340,17 @@ function CreateWorkPage() {
 
           <button
             type="submit"
-            className="inline-flex items-center gap-2 rounded-lg border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-6 py-2.5 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 transition-opacity shadow-xs"
+            disabled={isSubmitting}
+            className="inline-flex items-center gap-2 rounded-lg border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-6 py-2.5 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 disabled:opacity-50 transition-opacity shadow-xs"
           >
-            <span>Create Work & Begin Writing</span>
+            {isSubmitting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Registering in Database...</span>
+              </>
+            ) : (
+              <span>Create Work & Begin Writing</span>
+            )}
           </button>
         </div>
 

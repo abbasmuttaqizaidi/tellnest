@@ -218,6 +218,12 @@ export const getPublicAuthorServerFn = createServerFn({ method: 'GET' })
     const { data, error } = await query.maybeSingle()
     if (error || !data) return null
 
+    // Query live followers and authored works count
+    const [{ count: followersCount }, { count: worksCount }] = await Promise.all([
+      supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', data.id),
+      supabase.from('works').select('*', { count: 'exact', head: true }).eq('author_id', data.id),
+    ])
+
     return {
       id: data.id,
       name: data.display_name,
@@ -227,8 +233,8 @@ export const getPublicAuthorServerFn = createServerFn({ method: 'GET' })
         'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
       bio: data.bio || '',
       location: data.location || '',
-      worksCount: 1,
-      followersCount: 0,
+      worksCount: worksCount ?? 1,
+      followersCount: followersCount ?? 0,
       totalReads: '0',
       verified: Boolean(data.is_verified),
     }

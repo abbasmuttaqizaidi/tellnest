@@ -14,7 +14,7 @@ import {
   type MultiSelectOption,
   type Tag,
 } from '../design-system'
-import { saveUserOnboardingServerFn } from '../server/authors'
+import { saveUserOnboardingServerFn, getUserProfileServerFn } from '../server/authors'
 import { Check, Sparkles, BookOpen, User, Layers, ArrowRight, ShieldCheck, ExternalLink, HelpCircle } from 'lucide-react'
 
 // Standard Pronouns List
@@ -111,7 +111,7 @@ export function UserOnboardingModal() {
       return
     }
 
-    const checkOnboardingStatus = () => {
+    const checkOnboardingStatus = async () => {
       // Must have signed up / authenticated via Google
       const isGoogleUser =
         user.externalAccounts?.some((acc: any) =>
@@ -135,6 +135,17 @@ export function UserOnboardingModal() {
       if (clerkMeta.onboardingCompleted) {
         localStorage.setItem(key, 'true')
         return
+      }
+
+      // Robust Database Check: Check Supabase directly so changing ports, incognito, or clearing storage never re-triggers onboarding
+      try {
+        const existingProfile = await getUserProfileServerFn({ data: user.id })
+        if (existingProfile && existingProfile.onboarding_completed) {
+          localStorage.setItem(key, 'true')
+          return
+        }
+      } catch (dbErr) {
+        console.warn('[UserOnboardingModal] Non-blocking warning checking Supabase onboarding status:', dbErr)
       }
 
       // Prepopulate username from Clerk

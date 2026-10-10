@@ -40,8 +40,8 @@ export const Route = createFileRoute('/discover')({
 function DiscoverPage() {
   const { allWorks, recentWorks, categories, genres } = useApp()
 
-  // Discovery Filter State (Defaulting to 'new_chapters' per specification)
-  const [activeTab, setActiveTab] = useState<'new_chapters' | 'new_this_week' | 'trending' | 'rising' | 'recent' | 'completed'>('new_chapters')
+  // Discovery Filter State (Defaulting to 'new_this_week')
+  const [activeTab, setActiveTab] = useState<'new_chapters' | 'new_this_week' | 'trending' | 'rising' | 'recent' | 'completed'>('new_this_week')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [selectedGenre, setSelectedGenre] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
@@ -93,7 +93,7 @@ function DiscoverPage() {
   }, [allWorks, recentWorks, activeTab, selectedCategory, selectedGenre, selectedStatus, sortBy, searchTerm])
 
   const clearFilters = () => {
-    setActiveTab('new_chapters')
+    setActiveTab('new_this_week')
     setSelectedCategory('all')
     setSelectedGenre('all')
     setSelectedStatus('all')
@@ -106,57 +106,53 @@ function DiscoverPage() {
     selectedGenre !== 'all' ||
     selectedStatus !== 'all' ||
     searchTerm.trim() !== '' ||
-    activeTab !== 'new_chapters'
+    activeTab !== 'new_this_week'
 
   return (
-    <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+    <div className="min-h-screen py-5 sm:py-7 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-4 sm:space-y-5">
       
       {/* Header */}
-      <div className="pb-8 border-b border-[var(--border-subtle)]">
+      <div className="pb-4 border-b border-[var(--border-subtle)]">
         <div>
-          <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1">
-            <Compass className="h-3.5 w-3.5" />
-            <span>Digital Library Archive</span>
-          </div>
-          <h1 className="font-serif text-3xl sm:text-4xl font-semibold text-[var(--ink-primary)]">
+          <h1 className="font-serif text-2xl sm:text-3xl font-semibold text-[var(--ink-primary)]">
             Discover Manuscripts
           </h1>
-          <p className="mt-1 text-xs sm:text-sm text-[var(--ink-muted)]">
+          <p className="mt-0.5 text-xs text-[var(--ink-muted)]">
             Explore original fiction, serials, essays, poetry, and memoirs curated by readers and editors.
           </p>
         </div>
       </div>
 
       {/* Discovery Navigation & Filter Bar */}
-      <div className="py-4 border-b border-[var(--border-subtle)] space-y-3">
+      <div className="py-2.5 border-b border-[var(--border-subtle)] space-y-2">
         {/* Upper Row: Collection Tabs (Left) + Discrete Filter Disclosure Tabs (Right) */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
           {/* Primary Discovery Collection Tabs */}
-          <div className="overflow-x-auto scrollbar-none pb-1 lg:pb-0">
+          <div className="overflow-x-auto scrollbar-none pb-0.5 lg:pb-0">
             <AnimatedTabs
               size="sm"
               activeId={activeTab}
               onChange={(id) => setActiveTab(id as any)}
               tabs={[
-                { id: 'new_chapters', label: 'New Chapters This Week', icon: <Clock className="h-3.5 w-3.5" /> },
-                { id: 'new_this_week', label: 'New This Week', icon: <Sparkles className="h-3.5 w-3.5" /> },
-                { id: 'trending', label: 'Trending', icon: <TrendingUp className="h-3.5 w-3.5" /> },
-                { id: 'rising', label: 'Rising Stories', icon: <Sparkles className="h-3.5 w-3.5" /> },
-                { id: 'recent', label: 'Recently Updated', icon: <Clock className="h-3.5 w-3.5" /> },
-                { id: 'completed', label: 'Completed Works', icon: <CheckCircle2 className="h-3.5 w-3.5" /> }
+                { id: 'new_this_week', label: 'New This Week' },
+                { id: 'new_chapters', label: 'New Chapters This Week' },
+                { id: 'trending', label: 'Trending' },
+                { id: 'rising', label: 'Rising Stories' },
+                { id: 'recent', label: 'Recently Updated' },
+                { id: 'completed', label: 'Completed Works' }
               ]}
             />
           </div>
 
           {/* Secondary Discrete Disclosure Tabs (Sort, Status, Genre) + Reset Button */}
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             <DiscreteDisclosureTabs
               size="sm"
               tabs={[
                 {
                   id: 'sort',
                   label: 'Sort',
-                  icon: <SlidersHorizontal className="h-3.5 w-3.5" />,
+                  icon: <SlidersHorizontal className="h-3 w-3" />,
                   activeItemId: sortBy,
                   onItemChange: (id) => setSortBy(id as any),
                   menuTitle: 'Sort Manuscripts',
@@ -169,7 +165,7 @@ function DiscoverPage() {
                 {
                   id: 'status',
                   label: 'Status',
-                  icon: <CheckCircle className="h-3.5 w-3.5" />,
+                  icon: <CheckCircle className="h-3 w-3" />,
                   activeItemId: selectedStatus,
                   onItemChange: setSelectedStatus,
                   menuTitle: 'Publication Status',
@@ -183,7 +179,7 @@ function DiscoverPage() {
                 {
                   id: 'genre',
                   label: 'Genre',
-                  icon: <BookOpen className="h-3.5 w-3.5" />,
+                  icon: <BookOpen className="h-3 w-3" />,
                   activeItemId: selectedGenre,
                   onItemChange: setSelectedGenre,
                   menuTitle: 'Genre Filter',
@@ -208,12 +204,11 @@ function DiscoverPage() {
         </div>
       </div>
 
-
       {/* Category Pills Strip */}
-      <div className="my-6 flex items-center gap-1.5 overflow-x-auto pb-2 max-w-full min-w-0 scrollbar-none">
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full min-w-0 scrollbar-none">
         <button
           onClick={() => setSelectedCategory('all')}
-          className={`px-3 py-1 rounded-full text-xs font-mono whitespace-nowrap shrink-0 transition-colors ${
+          className={`px-2.5 py-0.5 rounded-full text-[11px] font-mono whitespace-nowrap shrink-0 transition-colors ${
             selectedCategory === 'all'
               ? 'border border-[var(--ink-primary)] bg-[var(--bg-surface)] text-[var(--ink-primary)] font-semibold'
               : 'border border-[var(--border-subtle)] text-[var(--ink-muted)] hover:border-[var(--border-strong)]'
@@ -225,7 +220,7 @@ function DiscoverPage() {
           <button
             key={cat.slug}
             onClick={() => setSelectedCategory(cat.slug)}
-            className={`px-3 py-1 rounded-full text-xs whitespace-nowrap shrink-0 transition-colors ${
+            className={`px-2.5 py-0.5 rounded-full text-[11px] whitespace-nowrap shrink-0 transition-colors ${
               selectedCategory === cat.slug
                 ? 'border border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-medium'
                 : 'border border-[var(--border-subtle)] text-[var(--ink-secondary)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)]'
@@ -237,7 +232,7 @@ function DiscoverPage() {
       </div>
 
       {/* Results Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between pt-1">
         <span className="font-mono text-xs text-[var(--ink-muted)]">
           Showing <strong>{filteredWorks.length}</strong> works
         </span>
@@ -253,7 +248,7 @@ function DiscoverPage() {
           onAction={clearFilters}
         />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
           {filteredWorks.map((work) => (
             <WorkCard key={work.id} work={work} layout="portrait" />
           ))}

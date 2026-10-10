@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useState, useMemo } from 'react'
+import { useUser } from '@clerk/react'
 import { useApp } from '../context/AppContext'
 import WorkCard from '../components/WorkCard'
 import EmptyState from '../components/EmptyState'
@@ -12,6 +13,7 @@ import {
   Quote,
   Eye,
   CheckCircle2,
+  Edit3,
 } from 'lucide-react'
 import { AUTHORS } from '../data/mockData'
 import { generateMeta } from '../lib/seo'
@@ -155,7 +157,15 @@ function AuthorProfilePage() {
     )
   }
 
-  const followed = isAuthorFollowed(author.id)
+  const { user } = useUser()
+  const followed = isAuthorFollowed(author.id) || isAuthorFollowed(author.handle)
+  const isSelf = Boolean(
+    user && (
+      author.id === user.id ||
+      (user.username && author.handle && author.handle.toLowerCase() === user.username.toLowerCase())
+    )
+  )
+  const currentFollowersCount = author.followersCount + (followed ? 1 : 0)
 
   return (
     <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
@@ -192,26 +202,36 @@ function AuthorProfilePage() {
             </div>
           </div>
 
-          <button
-            onClick={() => toggleFollowAuthor(author.id)}
-            className={`inline-flex items-center gap-2 rounded px-5 py-2.5 text-xs font-semibold transition-all ${
-              followed
-                ? 'border border-[var(--border-strong)] bg-[var(--bg-subtle)] text-[var(--ink-secondary)]'
-                : 'border border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] hover:opacity-90'
-            }`}
-          >
-            {followed ? (
-              <>
-                <UserCheck className="h-4 w-4" />
-                <span>Following</span>
-              </>
-            ) : (
-              <>
-                <UserPlus className="h-4 w-4" />
-                <span>Follow Author</span>
-              </>
-            )}
-          </button>
+          {isSelf ? (
+            <Link
+              to="/settings"
+              className="inline-flex items-center gap-2 rounded px-5 py-2.5 text-xs font-semibold border border-[var(--border-strong)] bg-[var(--bg-subtle)] text-[var(--ink-secondary)] hover:bg-[var(--bg-muted)] transition-all no-underline"
+            >
+              <Edit3 className="h-4 w-4" />
+              <span>Edit Profile</span>
+            </Link>
+          ) : (
+            <button
+              onClick={() => toggleFollowAuthor(author.id)}
+              className={`inline-flex items-center gap-2 rounded px-5 py-2.5 text-xs font-semibold transition-all ${
+                followed
+                  ? 'border border-[var(--border-strong)] bg-[var(--bg-subtle)] text-[var(--ink-secondary)]'
+                  : 'border border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] hover:opacity-90'
+              }`}
+            >
+              {followed ? (
+                <>
+                  <UserCheck className="h-4 w-4" />
+                  <span>Following</span>
+                </>
+              ) : (
+                <>
+                  <UserPlus className="h-4 w-4" />
+                  <span>Follow Author</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
 
         {/* Bio & Literary Quote */}
@@ -242,7 +262,7 @@ function AuthorProfilePage() {
             <p className="text-[10px] text-[var(--ink-muted)] uppercase tracking-wider">Works Cataloged</p>
           </div>
           <div>
-            <p className="text-xl font-semibold text-[var(--ink-primary)]">{author.followersCount.toLocaleString()}</p>
+            <p className="text-xl font-semibold text-[var(--ink-primary)]">{currentFollowersCount.toLocaleString()}</p>
             <p className="text-[10px] text-[var(--ink-muted)] uppercase tracking-wider">Followers</p>
           </div>
           <div title={`${formatViewCount(author.totalReads, false)} Lifetime Reads`}>

@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useState, useMemo, useEffect } from 'react'
+import { useUser } from '@clerk/react'
 import { useApp } from '../context/AppContext'
 import EmptyState from '../components/EmptyState'
 import { TellnestLoader } from '../components/TellnestLoader'
@@ -177,11 +178,18 @@ function WorkDetailPage() {
 
   const canonicalSlug = work ? getWorkSlug(work) : ''
   const saved = work ? isWorkSaved(work.id) : false
+  const { user } = useUser()
   const authorId = work?.author?.id || 'author-unknown'
   const authorName = work?.author?.name || 'Hatchpen Author'
   const authorHandle = work?.author?.handle || 'author'
   const authorAvatar = work?.author?.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80'
-  const followed = work ? isAuthorFollowed(authorId) : false
+  const followed = work ? (isAuthorFollowed(authorId) || isAuthorFollowed(authorHandle)) : false
+  const isSelf = Boolean(
+    user && work?.author && (
+      work.author.id === user.id ||
+      (user.username && work.author.handle && work.author.handle.toLowerCase() === user.username.toLowerCase())
+    )
+  )
   const progress = work ? readingProgress[work.id] : undefined
 
   const chaptersList = work?.chapters || []
@@ -385,26 +393,28 @@ function WorkDetailPage() {
               </div>
             </Link>
 
-            <button
-              onClick={() => toggleFollowAuthor(authorId)}
-              className={`inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-all ${
-                followed
-                  ? 'border border-[var(--border-strong)] bg-[var(--bg-subtle)] text-[var(--ink-secondary)]'
-                  : 'border border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] hover:opacity-90'
-              }`}
-            >
-              {followed ? (
-                <>
-                  <UserCheck className="h-3.5 w-3.5" />
-                  <span>Following Author</span>
-                </>
-              ) : (
-                <>
-                  <UserPlus className="h-3.5 w-3.5" />
-                  <span>Follow Author</span>
-                </>
-              )}
-            </button>
+            {!isSelf && (
+              <button
+                onClick={() => toggleFollowAuthor(authorId)}
+                className={`inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-all ${
+                  followed
+                    ? 'border border-[var(--border-strong)] bg-[var(--bg-subtle)] text-[var(--ink-secondary)]'
+                    : 'border border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] hover:opacity-90'
+                }`}
+              >
+                {followed ? (
+                  <>
+                    <UserCheck className="h-3.5 w-3.5" />
+                    <span>Following Author</span>
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="h-3.5 w-3.5" />
+                    <span>Follow Author</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
 
           {/* Full Synopsis */}

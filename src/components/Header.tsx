@@ -14,7 +14,9 @@ import {
   User,
   Settings,
   BookOpen,
-  LogOut
+  LogOut,
+  Plus,
+  Users,
 } from 'lucide-react'
 import { useUser, useClerk } from '@clerk/react'
 import { useApp } from '../context/AppContext'
@@ -34,6 +36,7 @@ export default function Header() {
     customAvatarUrl,
     genres,
     showToast,
+    savedWorkIds,
   } = useApp()
   const activeAvatar = customAvatarUrl || user?.imageUrl
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -125,11 +128,17 @@ export default function Header() {
                 <>
                   <Link
                     to="/library"
-                    className={`px-3 py-1.5 rounded transition-colors hover:text-[var(--ink-primary)] ${
+                    className={`px-3 py-1.5 rounded transition-colors hover:text-[var(--ink-primary)] inline-flex items-center gap-1.5 ${
                       currentPath.startsWith('/library') ? 'text-[var(--ink-primary)] font-semibold' : ''
                     }`}
                   >
-                    Library
+                    <Bookmark className="h-3.5 w-3.5" />
+                    <span>Library</span>
+                    {savedWorkIds.length > 0 && (
+                      <span className="rounded-full bg-[var(--bg-subtle)] border border-[var(--border-subtle)] px-1.5 py-0.5 text-[10px] font-mono leading-none">
+                        {savedWorkIds.length}
+                      </span>
+                    )}
                   </Link>
                   <Link
                     to="/following"
@@ -259,45 +268,92 @@ export default function Header() {
                       </p>
                     </div>
                   </div>
-                  <Link
-                    to="/profile"
-                    className="flex items-center gap-2 px-3 py-2 text-[var(--ink-secondary)] hover:bg-[var(--bg-subtle)] transition-colors"
-                  >
-                    <div className="h-3.5 w-3.5 rounded-full overflow-hidden shrink-0">
-                      <UnisexAvatarIcon />
-                    </div>
-                    Your Profile
-                  </Link>
-                  <Link
-                    to="/library"
-                    className="flex items-center gap-2 px-3 py-2 text-[var(--ink-secondary)] hover:bg-[var(--bg-subtle)] transition-colors"
-                  >
-                    <Bookmark className="h-3.5 w-3.5 text-[var(--ink-muted)]" />
-                    Reading Library
-                  </Link>
-                  <Link
-                    to="/write"
-                    className="flex items-center gap-2 px-3 py-2 text-[var(--ink-secondary)] hover:bg-[var(--bg-subtle)] transition-colors"
-                  >
-                    <PenLine className="h-3.5 w-3.5 text-[var(--ink-muted)]" />
-                    Writer Studio
-                  </Link>
-                  <Link
-                    to="/settings"
-                    className="flex items-center gap-2 px-3 py-2 text-[var(--ink-secondary)] hover:bg-[var(--bg-subtle)] transition-colors"
-                  >
-                    <Settings className="h-3.5 w-3.5 text-[var(--ink-muted)]" />
-                    Preferences & Settings
-                  </Link>
-                  <div className="my-1 border-t border-[var(--border-subtle)]" />
-                  <button
-                    type="button"
-                    onClick={() => signOut()}
-                    className="w-full text-left flex items-center gap-2 px-3 py-2 text-[11px] text-rose-600 dark:text-rose-400 hover:bg-[var(--bg-subtle)] transition-colors"
-                  >
-                    <LogOut className="h-3.5 w-3.5" />
-                    <span>Sign Out</span>
-                  </button>
+
+                  {/* Section 1: Creator Workspace */}
+                  <div className="py-1">
+                    <p className="px-3 pt-1.5 pb-0.5 text-[9.5px] font-mono uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
+                      Creator Workspace
+                    </p>
+                    <Link
+                      to="/write"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
+                    >
+                      <PenLine className="h-3.5 w-3.5 text-[var(--ink-muted)]" />
+                      <span>Studio Dashboard</span>
+                    </Link>
+                    <Link
+                      to="/write/new"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
+                    >
+                      <Plus className="h-3.5 w-3.5 text-[var(--ink-muted)]" />
+                      <span>Create New Work</span>
+                    </Link>
+                  </div>
+
+                  <div className="border-t border-[var(--border-subtle)]" />
+
+                  {/* Section 2: Reader Shelf */}
+                  <div className="py-1">
+                    <p className="px-3 pt-1.5 pb-0.5 text-[9.5px] font-mono uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
+                      Your Reading
+                    </p>
+                    <Link
+                      to="/library"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
+                    >
+                      <Bookmark className="h-3.5 w-3.5 text-[var(--ink-muted)]" />
+                      <span>My Library (Saved & History)</span>
+                    </Link>
+                    <Link
+                      to="/following"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
+                    >
+                      <Users className="h-3.5 w-3.5 text-[var(--ink-muted)]" />
+                      <span>Author Dispatches</span>
+                    </Link>
+                  </div>
+
+                  <div className="border-t border-[var(--border-subtle)]" />
+
+                  {/* Section 3: Profile & Settings */}
+                  <div className="py-1">
+                    <Link
+                      to="/profile"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
+                    >
+                      <div className="h-3.5 w-3.5 rounded-full overflow-hidden shrink-0">
+                        <UnisexAvatarIcon />
+                      </div>
+                      <span>Author Profile</span>
+                    </Link>
+                    <Link
+                      to="/settings"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
+                    >
+                      <Settings className="h-3.5 w-3.5 text-[var(--ink-muted)]" />
+                      <span>Preferences & Settings</span>
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (typeof window !== 'undefined') {
+                          localStorage.removeItem('relay_auth_hint')
+                        }
+                        setUserMenuOpen(false)
+                        signOut()
+                      }}
+                      className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-xs text-rose-600 dark:text-rose-400 hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+                    >
+                      <LogOut className="h-3.5 w-3.5" />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -438,6 +494,9 @@ export default function Header() {
               <button
                 type="button"
                 onClick={() => {
+                  if (typeof window !== 'undefined') {
+                    localStorage.removeItem('relay_auth_hint')
+                  }
                   setMobileMenuOpen(false)
                   signOut()
                 }}

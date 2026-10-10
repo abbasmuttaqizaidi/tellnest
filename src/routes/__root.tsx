@@ -1,5 +1,5 @@
 import { HeadContent, Scripts, createRootRoute, Link } from '@tanstack/react-router'
-import { ClerkProvider } from '@clerk/react'
+import { ClerkProvider } from '@clerk/tanstack-react-start'
 import Header from '../components/Header'
 import MobileNav from '../components/MobileNav'
 import Footer from '../components/Footer'

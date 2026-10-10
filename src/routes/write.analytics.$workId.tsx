@@ -13,8 +13,35 @@ import {
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { generateMeta } from '../lib/seo'
 import { formatViewCount } from '../lib/utils'
+import { getWriterWorkDetailsServerFn } from '../server/writer'
+import { getPublicWorkServerFn } from '../server/works'
+import { WORKS, getWorkSlug } from '../data/mockData'
 
 export const Route = createFileRoute('/write/analytics/$workId')({
+  loader: async ({ params }) => {
+    try {
+      const dbWork = await getWriterWorkDetailsServerFn({ data: { workId: params.workId } })
+      if (dbWork) return { work: dbWork }
+    } catch (e) {
+      console.warn('[Route /write/analytics] Loader DB lookup error:', e)
+    }
+
+    const rawParam = (params.workId || '').trim().toLowerCase()
+    const staticWork = WORKS.find(
+      (w) =>
+        w.id === params.workId ||
+        (w.slug && w.slug.toLowerCase() === rawParam) ||
+        getWorkSlug(w) === rawParam
+    )
+    if (staticWork) return { work: staticWork }
+
+    try {
+      const publicDbWork = await getPublicWorkServerFn({ data: params.workId })
+      if (publicDbWork) return { work: publicDbWork }
+    } catch (e) {}
+
+    return { work: null }
+  },
   head: () =>
     generateMeta({
       title: 'Manuscript Analytics',
@@ -33,9 +60,10 @@ export const Route = createFileRoute('/write/analytics/$workId')({
 
 function WorkAnalyticsPage() {
   const { workId } = Route.useParams()
+  const loaderData = Route.useLoaderData()
   const { getWorkById, allWorks } = useApp()
 
-  const work = getWorkById(workId) || allWorks[0]
+  const work = loaderData?.work || getWorkById(workId) || allWorks[0]
 
   // Chapter drop-off / completion statistics
   const chapterPerformance = [

@@ -440,20 +440,28 @@ function UserProfilePage() {
 
             {/* Metrics */}
             <div className="mt-3.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {[
-                [String(followersCount), 'Followers'],
-                [String(followingCount), 'Following'],
-                [String(authoredCount), 'Writings'],
-                [String(readsCount), 'Total reads'],
-              ].map(([n, l]) => (
-                <div
-                  key={l}
-                  className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-2.5 py-1.5 text-center sm:text-left"
-                >
-                  <p className="font-mono text-sm sm:text-base font-semibold text-[var(--ink-primary)]">{n}</p>
-                  <p className="text-[10px] text-[var(--ink-muted)] uppercase tracking-wider">{l}</p>
-                </div>
-              ))}
+              <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-2.5 py-1.5 text-center sm:text-left">
+                <p className="font-mono text-sm sm:text-base font-semibold text-[var(--ink-primary)]">{followersCount}</p>
+                <p className="text-[10px] text-[var(--ink-muted)] uppercase tracking-wider">Followers</p>
+              </div>
+              <Link
+                to="/following"
+                className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] hover:border-[var(--border-strong)] px-2.5 py-1.5 text-center sm:text-left transition-colors no-underline block"
+              >
+                <p className="font-mono text-sm sm:text-base font-semibold text-[var(--ink-primary)]">{followingCount}</p>
+                <p className="text-[10px] text-[var(--ink-muted)] uppercase tracking-wider">Following</p>
+              </Link>
+              <Link
+                to="/write"
+                className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] hover:border-[var(--border-strong)] px-2.5 py-1.5 text-center sm:text-left transition-colors no-underline block"
+              >
+                <p className="font-mono text-sm sm:text-base font-semibold text-[var(--ink-primary)]">{authoredCount}</p>
+                <p className="text-[10px] text-[var(--ink-muted)] uppercase tracking-wider">Writings</p>
+              </Link>
+              <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-2.5 py-1.5 text-center sm:text-left">
+                <p className="font-mono text-sm sm:text-base font-semibold text-[var(--ink-primary)]">{readsCount}</p>
+                <p className="text-[10px] text-[var(--ink-muted)] uppercase tracking-wider">Total reads</p>
+              </div>
             </div>
           </div>
         </section>
@@ -462,12 +470,20 @@ function UserProfilePage() {
         <section className="py-6 sm:py-7">
           <div className="flex items-baseline justify-between mb-3.5">
             <h2 className="text-base sm:text-lg font-semibold font-serif text-[var(--ink-primary)]">Your writings</h2>
-            <Link
-              to="/write/new"
-              className="text-xs font-medium text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] underline-offset-4 hover:underline no-underline"
-            >
-              + New story
-            </Link>
+            <div className="flex items-center gap-3">
+              <Link
+                to="/write"
+                className="text-xs font-mono text-[var(--ink-muted)] hover:text-[var(--ink-primary)] underline-offset-4 hover:underline no-underline"
+              >
+                Manage in Studio →
+              </Link>
+              <Link
+                to="/write/new"
+                className="text-xs font-medium text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] underline-offset-4 hover:underline no-underline"
+              >
+                + New story
+              </Link>
+            </div>
           </div>
 
           {myWorks.length === 0 ? (

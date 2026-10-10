@@ -19,11 +19,19 @@ import {
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { generateMeta } from '../lib/seo'
 import { getWorkSlug, WORKS } from '../data/mockData'
+import { getWriterWorkDetailsServerFn, saveWriterChapterServerFn, createWriterChapterServerFn } from '../server/writer'
 import { getPublicWorkServerFn } from '../server/works'
 import { formatViewCount } from '../lib/utils'
 
 export const Route = createFileRoute('/write/manage/$workId')({
   loader: async ({ params }) => {
+    try {
+      const dbWork = await getWriterWorkDetailsServerFn({ data: { workId: params.workId } })
+      if (dbWork) return { work: dbWork }
+    } catch (e) {
+      console.warn('[Route /write/manage/$workId] Loader DB writer lookup error:', e)
+    }
+
     const rawParam = (params.workId || '').trim().toLowerCase()
     const staticWork = WORKS.find(
       (w) =>
@@ -34,11 +42,9 @@ export const Route = createFileRoute('/write/manage/$workId')({
     if (staticWork) return { work: staticWork }
 
     try {
-      const dbWork = await getPublicWorkServerFn({ data: params.workId })
-      if (dbWork) return { work: dbWork }
-    } catch (e) {
-      console.warn('[Route /write/manage/$workId] Loader DB lookup error:', e)
-    }
+      const publicDbWork = await getPublicWorkServerFn({ data: params.workId })
+      if (publicDbWork) return { work: publicDbWork }
+    } catch (e) {}
 
     return { work: null }
   },
@@ -101,33 +107,71 @@ function WorkManagementPage() {
     })
   }, [chapters, chapterFilter, chapterSort, searchQuery])
 
-  const handleCreateChapter = (e: React.FormEvent) => {
+  const handleCreateChapter = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newChapterTitle.trim()) return
 
-    const created = addNewChapter(work.id, newChapterTitle.trim())
-    setChapters((prev) => [...prev, created])
+    const enteredTitle = newChapterTitle.trim()
     setNewChapterTitle('')
     setNewChapterModalOpen(false)
 
-    // Direct navigate to editor
-    navigate({
-      to: '/write/editor/$workId/$chapterId',
-      params: { workId: work.id, chapterId: created.id }
-    })
+    try {
+      const res = await createWriterChapterServerFn({
+        data: {
+          workId: work.id,
+          title: enteredTitle,
+        },
+      })
+      if (res?.chapter) {
+        setChapters((prev) => [...prev, res.chapter as any])
+        showToast(`Chapter "${enteredTitle}" created in database`)
+        navigate({
+          to: '/write/editor/$workId/$chapterId',
+          params: { workId: work.id, chapterId: res.chapter.id },
+        })
+      }
+    } catch (err: any) {
+      console.warn('[handleCreateChapter] DB creation failed, falling back to local:', err)
+      const created = addNewChapter(work.id, enteredTitle)
+      setChapters((prev) => [...prev, created as any])
+      navigate({
+        to: '/write/editor/$workId/$chapterId',
+        params: { workId: work.id, chapterId: (created as any).id },
+      })
+    }
   }
 
-  const handleToggleStatus = (chapterId: string) => {
+  const handleToggleStatus = async (chapterId: string) => {
+    const targetChapter = chapters.find((c) => c.id === chapterId)
+    if (!targetChapter) return
+
+    const nextStatus = targetChapter.status === 'published' ? 'draft' : 'published'
+
+    // Optimistic update
     setChapters((prev) =>
-      prev.map((c) => {
-        if (c.id === chapterId) {
-          const nextStatus = c.status === 'published' ? 'draft' : 'published'
-          showToast(`Chapter status changed to ${nextStatus}`)
-          return { ...c, status: nextStatus }
-        }
-        return c
-      })
+      prev.map((c) => (c.id === chapterId ? { ...c, status: nextStatus } : c))
     )
+    showToast(`Chapter status changed to ${nextStatus}`)
+
+    // Persist to DB
+    try {
+      await saveWriterChapterServerFn({
+        data: {
+          workId: work.id,
+          chapterId,
+          title: targetChapter.title,
+          content: targetChapter.content || '',
+          status: nextStatus,
+        },
+      })
+    } catch (err: any) {
+      console.error('[handleToggleStatus] Error updating status in DB:', err)
+      // Rollback
+      setChapters((prev) =>
+        prev.map((c) => (c.id === chapterId ? { ...c, status: targetChapter.status } : c))
+      )
+      showToast('Failed to update status in database')
+    }
   }
 
   const handleReorder = () => {

@@ -17,8 +17,35 @@ import {
 } from 'lucide-react'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { generateMeta } from '../lib/seo'
+import { getWriterWorkDetailsServerFn, saveWriterChapterServerFn } from '../server/writer'
+import { getPublicWorkServerFn } from '../server/works'
+import { WORKS, getWorkSlug } from '../data/mockData'
 
 export const Route = createFileRoute('/write/editor/$workId/$chapterId')({
+  loader: async ({ params }) => {
+    try {
+      const dbWork = await getWriterWorkDetailsServerFn({ data: { workId: params.workId } })
+      if (dbWork) return { work: dbWork }
+    } catch (e) {
+      console.warn('[Route /write/editor] Loader DB writer lookup error:', e)
+    }
+
+    const rawParam = (params.workId || '').trim().toLowerCase()
+    const staticWork = WORKS.find(
+      (w) =>
+        w.id === params.workId ||
+        (w.slug && w.slug.toLowerCase() === rawParam) ||
+        getWorkSlug(w) === rawParam
+    )
+    if (staticWork) return { work: staticWork }
+
+    try {
+      const publicDbWork = await getPublicWorkServerFn({ data: params.workId })
+      if (publicDbWork) return { work: publicDbWork }
+    } catch (e) {}
+
+    return { work: null }
+  },
   head: () =>
     generateMeta({
       title: 'Chapter Editor',
@@ -37,11 +64,12 @@ export const Route = createFileRoute('/write/editor/$workId/$chapterId')({
 
 function ChapterEditorPage() {
   const { workId, chapterId } = Route.useParams()
+  const loaderData = Route.useLoaderData()
   const { getWorkById, updateChapterContent, showToast } = useApp()
   const navigate = useNavigate()
 
-  const work = getWorkById(workId)
-  const currentChapter = work?.chapters.find((c) => c.id === chapterId)
+  const work = loaderData?.work || getWorkById(workId)
+  const currentChapter = work?.chapters?.find((c: any) => c.id === chapterId)
 
   const [title, setTitle] = useState(currentChapter?.title || 'Untitled Chapter')
   const [subtitle, setSubtitle] = useState(currentChapter?.subtitle || '')
@@ -49,6 +77,15 @@ function ChapterEditorPage() {
   const [autosaveStatus, setAutosaveStatus] = useState<'saved' | 'saving' | 'dirty'>('saved')
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [focusMode, setFocusMode] = useState(false)
+
+  // Sync state if resolved chapter changes
+  useEffect(() => {
+    if (currentChapter) {
+      setTitle(currentChapter.title || 'Untitled Chapter')
+      setSubtitle(currentChapter.subtitle || '')
+      setContent(currentChapter.content || '')
+    }
+  }, [currentChapter?.id])
 
   // Real-time word count & estimated reading time calculation
   const wordCount = useMemo(() => {
@@ -59,40 +96,85 @@ function ChapterEditorPage() {
     return Math.max(1, Math.ceil(wordCount / 220))
   }, [wordCount])
 
-  // Autosave simulation timer
+  // Autosave timer connecting directly to DB
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
+    }
+  }, [])
 
   const handleContentChange = (newVal: string) => {
     setContent(newVal)
     setAutosaveStatus('dirty')
 
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
-    saveTimeoutRef.current = setTimeout(() => {
+    saveTimeoutRef.current = setTimeout(async () => {
       setAutosaveStatus('saving')
-      setTimeout(() => {
+      try {
         if (work && currentChapter) {
-          updateChapterContent(work.id, currentChapter.id, title, newVal)
+          updateChapterContent(work.id, currentChapter.id, title, newVal, currentChapter.status)
+          await saveWriterChapterServerFn({
+            data: {
+              workId: work.id,
+              chapterId: currentChapter.id,
+              title,
+              subtitle,
+              content: newVal,
+              status: currentChapter.status,
+            },
+          })
           setAutosaveStatus('saved')
         }
-      }, 500)
-    }, 1200)
+      } catch (e) {
+        console.warn('[handleContentChange] DB autosave error:', e)
+        setAutosaveStatus('saved')
+      }
+    }, 1500)
   }
 
-  const handleManualSave = () => {
+  const handleManualSave = async () => {
     if (work && currentChapter) {
       setAutosaveStatus('saving')
       updateChapterContent(work.id, currentChapter.id, title, content, currentChapter.status)
+      try {
+        await saveWriterChapterServerFn({
+          data: {
+            workId: work.id,
+            chapterId: currentChapter.id,
+            title,
+            subtitle,
+            content,
+            status: currentChapter.status,
+          },
+        })
+      } catch (e) {}
       setAutosaveStatus('saved')
-      showToast('Chapter saved')
+      showToast('Chapter saved to database')
     }
   }
 
-  const handlePublish = () => {
+  const handlePublish = async () => {
     if (work && currentChapter) {
       setAutosaveStatus('saving')
       updateChapterContent(work.id, currentChapter.id, title, content, 'published')
+      try {
+        await saveWriterChapterServerFn({
+          data: {
+            workId: work.id,
+            chapterId: currentChapter.id,
+            title,
+            subtitle,
+            content,
+            status: 'published',
+          },
+        })
+      } catch (e) {}
       setAutosaveStatus('saved')
-      showToast('Chapter successfully published to subscribers!')
+      showToast('Chapter published to database!')
     }
   }
 

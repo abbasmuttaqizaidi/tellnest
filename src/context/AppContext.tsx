@@ -2,8 +2,6 @@ import React, { createContext, useContext, useState, useEffect } from 'react'
 import {
   WORKS,
   AUTHORS,
-  USER_WRITER_WORKS,
-  INITIAL_NOTIFICATIONS,
   CATEGORIES,
   GENRES,
   getWorkLatestActivityDate,
@@ -21,6 +19,24 @@ import type {
 } from '../data/mockData'
 import { getTaxonomyServerFn } from '../server/taxonomy'
 import { getPlatformWorksServerFn, getUserBookmarksServerFn, toggleBookmarkServerFn } from '../server/works'
+import {
+  getWriterWorksServerFn,
+  createWriterWorkServerFn,
+  getWriterWorkDetailsServerFn,
+  saveWriterChapterServerFn,
+  createWriterChapterServerFn,
+} from '../server/writer'
+import {
+  toggleFollowAuthorServerFn,
+  getUserFollowedAuthorIdsServerFn,
+  getUserNotificationsServerFn,
+  markNotificationReadServerFn,
+} from '../server/authors'
+import {
+  getAllUserReadingProgressServerFn,
+  updateReadingProgressServerFn,
+} from '../server/reader'
+import { supabase } from '../lib/supabase/client'
 import { useUser } from '@clerk/react'
 
 export interface ReaderSettings {
@@ -63,6 +79,11 @@ interface AppContextType {
 
   // Writer Dashboard
   writerWorks: WriterWorkSummary[]
+  isWriterWorksLoading: boolean
+  writerTotalReads: number
+  writerTotalSaves: number
+  writerDraftsCount: number
+  reloadWriterWorksFromDb: () => Promise<void>
   addWriterWork: (work: Omit<WriterWorkSummary, 'id' | 'lastUpdated' | 'totalReads' | 'totalSaves'>) => string
   allWorks: Work[]
   recentWorks: Work[]
@@ -70,7 +91,7 @@ interface AppContextType {
   getWorkById: (id: string) => Work | undefined
   getAuthorById: (id: string) => Author | undefined
   updateChapterContent: (workId: string, chapterId: string, title: string, content: string, status?: 'draft' | 'published', bannerImage?: string | null) => void
-  addNewChapter: (workId: string, title: string, actId?: string) => Chapter
+  addNewChapter: (workId: string, title: string, actId?: string) => Promise<Chapter> | Chapter
   addActToWork: (workId: string, title: string, description?: string) => void
   updateActInWork: (workId: string, actId: string, title: string, description?: string) => void
   updateWork: (workId: string, updates: Partial<Work>) => void
@@ -119,16 +140,7 @@ const defaultReaderSettings: ReaderSettings = {
   theme: 'light'
 }
 
-const initialProgress: Record<string, ReadingProgress> = {
-  'work-2': {
-    workId: 'work-2',
-    chapterId: 'ch-201',
-    chapterNumber: 1,
-    chapterTitle: 'The Hankyu Line at Midnight',
-    progressPercent: 100,
-    lastReadAt: '3 days ago'
-  }
-}
+const initialProgress: Record<string, ReadingProgress> = {}
 
 const AppContext = createContext<AppContextType | undefined>(undefined)
 
@@ -157,9 +169,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Bookmarks are connected strictly to DB for authenticated users (no localStorage)
   const [savedWorkIds, setSavedWorkIds] = useState<string[]>([])
-  const [followedAuthorIds, setFollowedAuthorIds] = useState<string[]>(['auth-1', 'auth-2'])
-  const [readingProgress, setReadingProgress] = useState<Record<string, ReadingProgress>>(initialProgress)
-  const [writerWorks, setWriterWorks] = useState<WriterWorkSummary[]>(USER_WRITER_WORKS)
+  const [followedAuthorIds, setFollowedAuthorIds] = useState<string[]>([])
+  const [userProfileId, setUserProfileId] = useState<string | null>(null)
+  const [readingProgress, setReadingProgress] = useState<Record<string, ReadingProgress>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('hatchpen_reading_progress')
+        if (stored) return JSON.parse(stored)
+      } catch (e) {}
+    }
+    return {}
+  })
+  const [writerWorks, setWriterWorks] = useState<WriterWorkSummary[]>([])
+  const [isWriterWorksLoading, setIsWriterWorksLoading] = useState(false)
+  const [writerTotalReads, setWriterTotalReads] = useState(0)
+  const [writerTotalSaves, setWriterTotalSaves] = useState(0)
+  const [writerDraftsCount, setWriterDraftsCount] = useState(0)
+
   const [allWorks, setAllWorks] = useState<Work[]>(() => {
     let base = [...WORKS]
     if (typeof window !== 'undefined') {
@@ -181,6 +207,47 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return base
   })
   const [isWorksLoading, setIsWorksLoading] = useState(false)
+
+  // Fetch user reading progress directly from Database for authenticated reader
+  const reloadUserReadingProgressFromDb = React.useCallback(async () => {
+    if (!isSignedIn || !user?.id) return
+    try {
+      const dbProgressList = await getAllUserReadingProgressServerFn({ data: { userId: user.id } })
+      if (Array.isArray(dbProgressList) && dbProgressList.length > 0) {
+        setReadingProgress((prev) => {
+          const merged = { ...prev }
+          for (const item of dbProgressList) {
+            // Find corresponding work to match chapter details if present
+            const matchedWork = allWorks.find((w) => w.id === item.work_id)
+            const matchedChapter = matchedWork?.chapters?.find((c) => c.id === item.chapter_id)
+
+            merged[item.work_id] = {
+              workId: item.work_id,
+              chapterId: item.chapter_id || matchedWork?.chapters?.[0]?.id || 'ch-1',
+              chapterNumber: matchedChapter?.number || 1,
+              chapterTitle: matchedChapter?.title || 'Chapter 1',
+              progressPercent: item.progress_percent || 0,
+              lastReadAt: item.last_read_at ? new Date(item.last_read_at).toLocaleDateString() : 'Just now',
+            }
+          }
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem('hatchpen_reading_progress', JSON.stringify(merged))
+            } catch (e) {}
+          }
+          return merged
+        })
+      }
+    } catch (err) {
+      console.warn('[AppContext] Failed to load reading progress from DB:', err)
+    }
+  }, [isSignedIn, user?.id, allWorks])
+
+  useEffect(() => {
+    if (isUserLoaded && isSignedIn && user?.id) {
+      reloadUserReadingProgressFromDb()
+    }
+  }, [isUserLoaded, isSignedIn, user?.id, reloadUserReadingProgressFromDb])
 
   // Fetch works from Database (works_with_collections view) and sync into allWorks
   const reloadWorksFromDb = React.useCallback(async () => {
@@ -212,34 +279,129 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     reloadWorksFromDb()
   }, [reloadWorksFromDb])
 
-  // Load user bookmarks strictly from DB when authenticated
+  // Fetch writer works directly from Database for authenticated writer
+  const reloadWriterWorksFromDb = React.useCallback(async () => {
+    if (!isSignedIn || !user?.id) {
+      setWriterWorks([])
+      return
+    }
+    try {
+      setIsWriterWorksLoading(true)
+      const res = await getWriterWorksServerFn({ data: { clerkUserId: user.id } })
+      if (res && Array.isArray(res.works)) {
+        setWriterWorks(res.works)
+        setWriterTotalReads(res.totalReads || 0)
+        setWriterTotalSaves(res.totalSaves || 0)
+        setWriterDraftsCount(res.activeDraftsCount || 0)
+      }
+    } catch (err) {
+      console.warn('[AppContext] Failed to load writer manuscripts from DB:', err)
+    } finally {
+      setIsWriterWorksLoading(false)
+    }
+  }, [isSignedIn, user?.id])
+
+  useEffect(() => {
+    if (isUserLoaded && isSignedIn && user?.id) {
+      reloadWriterWorksFromDb()
+    } else if (isUserLoaded && !isSignedIn) {
+      setWriterWorks([])
+    }
+  }, [isUserLoaded, isSignedIn, user?.id, reloadWriterWorksFromDb])
+
+  // Load user bookmarks and follows strictly from DB when authenticated
   useEffect(() => {
     if (!isUserLoaded) return
 
-    if (!isSignedIn || !user) {
+    if (!isSignedIn || !user?.id) {
       setSavedWorkIds([])
+      setFollowedAuthorIds([])
+      setNotifications([])
+      setUserProfileId(null)
       return
     }
 
     let isMounted = true
-    async function loadBookmarks() {
+    async function loadUserData() {
       try {
-        const res = await getUserBookmarksServerFn({ data: user.id })
-        if (isMounted && res && Array.isArray(res.bookmarkIds)) {
-          setSavedWorkIds(res.bookmarkIds)
+        const [bookmarksRes, followsRes, notifsRes] = await Promise.all([
+          getUserBookmarksServerFn({ data: user!.id }),
+          getUserFollowedAuthorIdsServerFn({ data: user!.id }),
+          getUserNotificationsServerFn({ data: user!.id }),
+        ])
+        if (isMounted) {
+          if (bookmarksRes && Array.isArray(bookmarksRes.bookmarkIds)) {
+            setSavedWorkIds(bookmarksRes.bookmarkIds)
+          }
+          if (followsRes && Array.isArray(followsRes.followedAuthorIds)) {
+            setFollowedAuthorIds(followsRes.followedAuthorIds)
+          }
+          if (notifsRes) {
+            if (notifsRes.profileId) {
+              setUserProfileId(notifsRes.profileId)
+            }
+            if (Array.isArray(notifsRes.notifications)) {
+              setNotifications(notifsRes.notifications)
+            }
+          }
         }
       } catch (err) {
-        console.warn('[AppContext] Failed to load bookmarks from DB:', err)
+        console.warn('[AppContext] Failed to load user data from DB:', err)
       }
     }
 
-    loadBookmarks()
+    loadUserData()
     return () => {
       isMounted = false
     }
-  }, [user, isSignedIn, isUserLoaded])
+  }, [user?.id, isSignedIn, isUserLoaded])
 
-  const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS)
+  const [notifications, setNotifications] = useState<NotificationItem[]>([])
+
+  // Listen to notifications via Supabase Realtime (WebSockets)
+  useEffect(() => {
+    if (!userProfileId) return
+
+    let isMounted = true
+
+    // Realtime WebSocket listener (Zero Polling) filtered to this user's profile UUID
+    const channel = supabase
+      .channel(`realtime:notifications:${userProfileId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${userProfileId}`,
+        },
+        (payload: any) => {
+          const row = payload.new
+          if (!row || row.user_id !== userProfileId) return
+          const meta = row.metadata || {}
+          const newNotif: NotificationItem = {
+            id: row.id,
+            type: row.type === 'new_chapter' ? 'publish' : 'update',
+            actorName: meta.actorName || 'A reader',
+            actorAvatar: meta.actorAvatar || '/unisex-avatar.svg',
+            title: meta.title || (row.type === 'new_follower' ? 'New Follower' : 'New Notification'),
+            description: meta.description || 'Activity on your profile',
+            targetUrl: meta.targetUrl || '/write',
+            timestamp: 'Just now',
+            isRead: false,
+          }
+
+          setNotifications((prev) => [newNotif, ...prev])
+          showToast(`🔔 ${newNotif.title}: ${newNotif.actorName}`)
+        }
+      )
+      .subscribe()
+
+    return () => {
+      isMounted = false
+      supabase.removeChannel(channel)
+    }
+  }, [userProfileId])
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const [customAvatarUrl, setCustomAvatarUrlState] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
@@ -422,38 +584,115 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const isWorkSaved = (workId: string) => savedWorkIds.includes(workId)
 
   const toggleFollowAuthor = (authorId: string) => {
-    setFollowedAuthorIds(prev => {
-      const exists = prev.includes(authorId)
-      const author = AUTHORS.find(a => a.id === authorId)
-      const name = author ? author.name : 'Author'
-      if (exists) {
+    // 1. If not authenticated, open login/signup modal immediately
+    if (!isSignedIn || !user) {
+      openAuthModal()
+      showToast('Please sign in to follow authors')
+      return
+    }
+
+    const currentlyFollowed = followedAuthorIds.includes(authorId)
+    const author = AUTHORS.find((a) => a.id === authorId)
+    const name = author ? author.name : 'Author'
+
+    // 2. Optimistic UI update
+    setFollowedAuthorIds((prev) => {
+      if (currentlyFollowed) {
         showToast(`Unfollowed ${name}`)
-        return prev.filter(id => id !== authorId)
+        return prev.filter((id) => id !== authorId)
       } else {
         showToast(`Now following ${name}`)
         return [...prev, authorId]
       }
     })
+
+    // 3. Persist directly to PostgreSQL database via server function
+    toggleFollowAuthorServerFn({
+      data: {
+        clerkUserId: user.id,
+        targetAuthorId: authorId,
+      },
+    })
+      .then((res) => {
+        if (!res.success) {
+          // Rollback and notify
+          setFollowedAuthorIds((prev) =>
+            currentlyFollowed ? [...prev, authorId] : prev.filter((id) => id !== authorId)
+          )
+          if (res.message) showToast(res.message)
+          return
+        }
+        if (res && Array.isArray(res.followedAuthorIds)) {
+          setFollowedAuthorIds(res.followedAuthorIds)
+        }
+      })
+      .catch((err) => {
+        console.error('[AppContext] Failed to update follow status in DB:', err)
+        showToast('Failed to update follow status. Please try again.')
+        // Rollback optimistic update
+        setFollowedAuthorIds((prev) =>
+          currentlyFollowed ? [...prev, authorId] : prev.filter((id) => id !== authorId)
+        )
+      })
   }
 
-  const isAuthorFollowed = (authorId: string) => followedAuthorIds.includes(authorId)
+  const isAuthorFollowed = (authorId: string) => {
+    if (!authorId) return false
+    const clean = authorId.toLowerCase().trim()
+    return followedAuthorIds.some((id) => id.toLowerCase().trim() === clean)
+  }
 
   const updateReadingProgress = (workId: string, progress: Partial<ReadingProgress>) => {
-    setReadingProgress(prev => ({
-      ...prev,
-      [workId]: {
-        ...(prev[workId] || {
-          workId,
-          chapterId: 'ch-1',
-          chapterNumber: 1,
-          chapterTitle: 'Chapter 1',
-          progressPercent: 0,
+    setReadingProgress(prev => {
+      const next = {
+        ...prev,
+        [workId]: {
+          ...(prev[workId] || {
+            workId,
+            chapterId: 'ch-1',
+            chapterNumber: 1,
+            chapterTitle: 'Chapter 1',
+            progressPercent: 0,
+            lastReadAt: 'Just now'
+          }),
+          ...progress,
           lastReadAt: 'Just now'
-        }),
-        ...progress,
-        lastReadAt: 'Just now'
+        }
       }
-    }))
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('hatchpen_reading_progress', JSON.stringify(next))
+        } catch (e) {}
+      }
+      return next
+    })
+
+    // If user is authenticated, also sync dynamically to Supabase Database with debounce (1.5s)
+    if (isSignedIn && user?.id && progress.chapterId && typeof progress.progressPercent === 'number') {
+      const syncKey = `${user.id}_${workId}`
+      if ((window as any).__progressSyncTimers?.[syncKey]) {
+        clearTimeout((window as any).__progressSyncTimers[syncKey])
+      }
+      if (!(window as any).__progressSyncTimers) {
+        ;(window as any).__progressSyncTimers = {}
+      }
+
+      const chapterIdToSync = progress.chapterId
+      const percentToSync = progress.progressPercent
+
+      ;(window as any).__progressSyncTimers[syncKey] = setTimeout(() => {
+        updateReadingProgressServerFn({
+          data: {
+            userId: user.id,
+            workId,
+            chapterId: chapterIdToSync,
+            progressPercent: percentToSync,
+          },
+        }).catch((err) => {
+          console.warn('[AppContext] Failed to sync reading progress to DB:', err)
+        })
+      }, 1500)
+    }
   }
 
   const addWriterWork = (workData: Omit<WriterWorkSummary, 'id' | 'lastUpdated' | 'totalReads' | 'totalSaves'>) => {
@@ -680,6 +919,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     }))
     showToast('Draft autosaved')
+
+    // Persist to PostgreSQL database asynchronously
+    saveWriterChapterServerFn({
+      data: {
+        workId,
+        chapterId,
+        title,
+        content,
+        status,
+        bannerImage,
+      },
+    }).catch((err) => {
+      console.warn('[AppContext] Failed to save chapter to DB:', err)
+    })
   }
 
   const addNewChapter = (workId: string, title: string, actId?: string): Chapter => {
@@ -749,6 +1002,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     }))
     showToast(`Added Chapter to ${workId}`)
+
+    // Create in PostgreSQL database and replace optimistic chapter ID
+    createWriterChapterServerFn({
+      data: {
+        workId,
+        title: title || 'New Chapter',
+        actId,
+      },
+    })
+      .then((res) => {
+        if (res?.chapter?.id) {
+          const dbCh = res.chapter
+          setAllWorks((prev) =>
+            prev.map((w) => {
+              if (w.id !== workId) return w
+              return {
+                ...w,
+                chapters: w.chapters.map((ch) =>
+                  ch.number === dbCh.number ? { ...ch, id: dbCh.id } : ch
+                ),
+              }
+            })
+          )
+        }
+      })
+      .catch((err) => {
+        console.warn('[AppContext] Failed to create chapter in DB:', err)
+      })
+
     return createdChapter!
   }
 
@@ -890,11 +1172,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const markNotificationRead = (id: string) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n))
+    if (user?.id) {
+      markNotificationReadServerFn({ data: { clerkUserId: user.id, notificationId: id } }).catch((err) => {
+        console.warn('[AppContext] Failed to mark notification read in DB:', err)
+      })
+    }
   }
 
   const markAllNotificationsRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
     showToast('All notifications marked as read')
+    if (user?.id) {
+      markNotificationReadServerFn({ data: { clerkUserId: user.id, markAll: true } }).catch((err) => {
+        console.warn('[AppContext] Failed to mark all notifications read in DB:', err)
+      })
+    }
   }
 
   const addNotification = (notif: Omit<NotificationItem, 'id' | 'isRead' | 'timestamp'>) => {
@@ -1008,6 +1300,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         toggleFollowAuthor,
         isAuthorFollowed,
         writerWorks,
+        isWriterWorksLoading,
+        writerTotalReads,
+        writerTotalSaves,
+        writerDraftsCount,
+        reloadWriterWorksFromDb,
         addWriterWork,
         allWorks,
         recentWorks,

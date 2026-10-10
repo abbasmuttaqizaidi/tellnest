@@ -6,6 +6,23 @@ import { nitro } from 'nitro/vite'
 
 const config = defineConfig({
   resolve: { tsconfigPaths: true },
+  optimizeDeps: {
+    exclude: ['@tanstack/react-start'],
+    include: [
+      '@clerk/tanstack-react-start',
+      '@clerk/react',
+      '@clerk/react/internal',
+      '@clerk/shared/error',
+      '@clerk/shared/getEnvVariable',
+      '@clerk/shared/getToken',
+      '@clerk/shared/htmlSafeJson',
+      '@clerk/shared/underscore',
+      'lucide-react',
+      'framer-motion',
+      'motion/react',
+      '@supabase/supabase-js',
+    ],
+  },
   plugins: [
     tailwindcss(),
     tanstackStart(),

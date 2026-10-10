@@ -27,22 +27,28 @@ export const Route = createFileRoute('/following')({
 })
 
 function FollowingPage() {
-  const { followedAuthorIds, toggleFollowAuthor, allWorks } = useApp()
+  const { followedAuthorIds, toggleFollowAuthor, allWorks, isAuthorFollowed } = useApp()
   const [selectedType, setSelectedType] = useState<string>('all')
   const [selectedAuthor, setSelectedAuthor] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState<string>('')
 
-  // Followed authors
+  // Followed authors: check both catalog AUTHORS and dynamic authors from allWorks
   const followedAuthors = useMemo(() => {
-    return AUTHORS.filter((a) => followedAuthorIds.includes(a.id))
-  }, [followedAuthorIds])
+    const pool = [...AUTHORS]
+    for (const w of allWorks) {
+      if (w.author && !pool.some((a) => a.id === w.author.id || a.handle.toLowerCase() === w.author.handle.toLowerCase())) {
+        pool.push(w.author)
+      }
+    }
+    return pool.filter((a) => isAuthorFollowed(a.id) || isAuthorFollowed(a.handle))
+  }, [allWorks, isAuthorFollowed, followedAuthorIds])
 
   // Filter feed items for authors we follow
   const feedItems = useMemo(() => {
     return FEED_EVENTS.filter((event) => {
-      if (!followedAuthorIds.includes(event.author.id)) return false
+      if (!isAuthorFollowed(event.author.id) && !isAuthorFollowed(event.author.handle)) return false
       if (selectedType !== 'all' && event.type !== selectedType) return false
-      if (selectedAuthor !== 'all' && event.author.id !== selectedAuthor) return false
+      if (selectedAuthor !== 'all' && event.author.id !== selectedAuthor && event.author.handle !== selectedAuthor) return false
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase()
         const matchesAuthor = event.author.name.toLowerCase().includes(q)
@@ -52,7 +58,7 @@ function FollowingPage() {
       }
       return true
     })
-  }, [followedAuthorIds, selectedType, selectedAuthor, searchQuery])
+  }, [isAuthorFollowed, followedAuthorIds, selectedType, selectedAuthor, searchQuery])
 
   return (
     <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">

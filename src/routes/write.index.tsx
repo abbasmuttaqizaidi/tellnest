@@ -13,7 +13,10 @@ import {
   Clock,
   MoreVertical,
   ExternalLink,
-  Settings
+  Settings,
+  Bell,
+  MessageSquare,
+  UserCheck,
 } from 'lucide-react'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { generateMeta } from '../lib/seo'
@@ -39,10 +42,72 @@ export const Route = createFileRoute('/write/')({
 
 function WriterDashboardPage() {
   const navigate = useNavigate()
-  const { writerWorks, allWorks } = useApp()
+  const {
+    writerWorks,
+    isWriterWorksLoading,
+    writerTotalReads,
+    writerTotalSaves,
+    writerDraftsCount,
+    allWorks,
+    notifications,
+  } = useApp()
   const [activeTab, setActiveTab] = useState<'all' | 'published' | 'drafts' | 'archived'>('all')
   const [sortBy, setSortBy] = useState<'updated' | 'reads' | 'saves' | 'chapters'>('updated')
   const [searchQuery, setSearchQuery] = useState<string>('')
+
+  // Map real author notifications & real manuscript events to Studio Activities
+  const studioActivities = useMemo(() => {
+    const list: Array<{
+      id: string | number
+      icon: React.ReactNode
+      title: string
+      desc: string
+      time: string
+      badge?: string
+    }> = []
+
+    // 1. Live in-app notifications (new followers, interactions on works)
+    if (Array.isArray(notifications) && notifications.length > 0) {
+      for (const n of notifications.slice(0, 5)) {
+        let icon = <Bell className="h-3.5 w-3.5" />
+        let badge = 'Alert'
+        if (n.type === 'publish') {
+          icon = <BookOpen className="h-3.5 w-3.5" />
+          badge = 'Chapter'
+        } else if (n.type === 'comment') {
+          icon = <MessageSquare className="h-3.5 w-3.5" />
+          badge = 'Discussion'
+        } else if (n.title?.toLowerCase().includes('follow')) {
+          icon = <UserCheck className="h-3.5 w-3.5" />
+          badge = 'Follower'
+        }
+        list.push({
+          id: n.id,
+          icon,
+          title: n.title,
+          desc: n.description,
+          time: n.timestamp,
+          badge,
+        })
+      }
+    }
+
+    // 2. Real dynamic manuscripts created by this author
+    if (Array.isArray(writerWorks) && writerWorks.length > 0) {
+      for (const w of writerWorks.slice(0, 3)) {
+        list.push({
+          id: `work-event-${w.id}`,
+          icon: <PenLine className="h-3.5 w-3.5" />,
+          title: w.title,
+          desc: `${w.status} manuscript • ${w.chaptersCount} chapters • ${w.totalReads} reads`,
+          time: w.lastUpdated || 'Recently',
+          badge: w.status,
+        })
+      }
+    }
+
+    return list
+  }, [notifications, writerWorks])
 
   const filteredWorks = useMemo(() => {
     let works = writerWorks
@@ -65,10 +130,11 @@ function WriterDashboardPage() {
     })
   }, [writerWorks, activeTab, sortBy, searchQuery])
 
-  // Total writer stats
-  const totalReads = '162.7K'
-  const totalSaves = 6110
-  const activeDraftsCount = writerWorks.filter((w) => w.status === 'Draft').length
+  // Dynamic real stats from Database
+  const totalReadsFormatted = writerTotalReads >= 1000 ? `${(writerTotalReads / 1000).toFixed(1)}K` : String(writerTotalReads)
+  const totalSavesFormatted = writerTotalSaves.toLocaleString()
+  const publishedWorksCount = writerWorks.filter((w) => w.status === 'Published').length
+  const activeDraftsCount = writerDraftsCount ?? writerWorks.filter((w) => w.status === 'Draft').length
 
   return (
     <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
@@ -90,12 +156,20 @@ function WriterDashboardPage() {
 
         {/* Header Action Cluster */}
         <div className="flex flex-wrap items-center gap-3 self-start sm:self-auto">
+          <Link
+            to="/library"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] px-3.5 py-2 text-xs font-medium text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] transition-colors no-underline shadow-2xs"
+          >
+            <Bookmark className="h-3.5 w-3.5 text-[var(--ink-muted)]" />
+            <span>Reading Shelf</span>
+          </Link>
           <ActivitiesCard
             size="sm"
             align="right"
             displayMode="popover"
             title="Studio Activity"
             subtitle="Recent milestones & alerts"
+            activities={studioActivities}
             className="w-56 sm:w-64"
             onAction={() => navigate({ to: '/notifications' })}
           />
@@ -116,9 +190,9 @@ function WriterDashboardPage() {
             Published Works
           </span>
           <p className="font-serif text-2xl font-semibold text-[var(--ink-primary)] mt-1">
-            {writerWorks.filter((w) => w.status === 'Published').length}
+            {publishedWorksCount}
           </p>
-          <p className="font-mono text-[11px] text-[var(--ink-faint)] mt-0.5">Across 3 categories</p>
+          <p className="font-mono text-[11px] text-[var(--ink-faint)] mt-0.5">Live serialized folios</p>
         </div>
 
         <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4">
@@ -126,9 +200,9 @@ function WriterDashboardPage() {
             Total Readership
           </span>
           <p className="font-serif text-2xl font-semibold text-[var(--ink-primary)] mt-1">
-            {totalReads}
+            {totalReadsFormatted}
           </p>
-          <p className="font-mono text-[11px] text-emerald-600 dark:text-emerald-400 mt-0.5">+14% this month</p>
+          <p className="font-mono text-[11px] text-emerald-600 dark:text-emerald-400 mt-0.5">Direct DB views</p>
         </div>
 
         <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4">
@@ -136,9 +210,9 @@ function WriterDashboardPage() {
             Library Saves
           </span>
           <p className="font-serif text-2xl font-semibold text-[var(--ink-primary)] mt-1">
-            {totalSaves.toLocaleString()}
+            {totalSavesFormatted}
           </p>
-          <p className="font-mono text-[11px] text-[var(--ink-faint)] mt-0.5">Active bookmarked readers</p>
+          <p className="font-mono text-[11px] text-[var(--ink-faint)] mt-0.5">Active bookmarks</p>
         </div>
 
         <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4">
@@ -146,9 +220,9 @@ function WriterDashboardPage() {
             Active Drafts
           </span>
           <p className="font-serif text-2xl font-semibold text-[var(--ink-primary)] mt-1">
-            {activeDraftsCount}
+            {writerDraftsCount}
           </p>
-          <p className="font-mono text-[11px] text-[var(--ink-faint)] mt-0.5">Unpublished chapters</p>
+          <p className="font-mono text-[11px] text-[var(--ink-faint)] mt-0.5">Draft manuscripts</p>
         </div>
       </div>
 

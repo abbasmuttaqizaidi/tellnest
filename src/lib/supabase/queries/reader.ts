@@ -102,6 +102,23 @@ export async function getReadingProgress(userId: string, workId: string) {
 }
 
 /**
+ * Retrieve all reading progress records for a user across all works.
+ */
+export async function getAllUserReadingProgress(userId: string) {
+  const { data, error } = await supabase
+    .from('reading_progress')
+    .select('id, user_id, work_id, chapter_id, progress_percent, position, last_read_at')
+    .eq('user_id', userId)
+    .order('last_read_at', { ascending: false })
+
+  if (error) {
+    console.error('[getAllUserReadingProgress] Error:', error.message)
+    return []
+  }
+  return data || []
+}
+
+/**
  * Upsert the reader's current progress in a Work.
  * Returns only updated coordinates.
  */
