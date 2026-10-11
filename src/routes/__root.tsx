@@ -16,7 +16,7 @@ const CLERK_PUBLISHABLE_KEY =
   (typeof process !== 'undefined' && process.env?.VITE_CLERK_PUBLISHABLE_KEY) ||
   'pk_test_aW52aXRpbmctYm9hLTg5NDIuY2xlcmsuYWNjb3VudHMuZGV2JA'
 
-const THEME_INIT_SCRIPT = `(function(){try{var root=document.documentElement;var saved=window.localStorage.getItem('theme')||'light';var prefersDark=window.matchMedia('(prefers-color-scheme: dark)').matches;var resolved=saved==='auto'?(prefersDark?'dark':'light'):saved;root.classList.remove('light','dark','theme-sepia');root.classList.add(resolved);root.setAttribute('data-theme',resolved);root.style.colorScheme=resolved;}catch(e){}})();`
+const THEME_INIT_SCRIPT = `(function(){try{var root=document.documentElement;var saved=window.localStorage.getItem('theme')||'light';var prefersDark=window.matchMedia('(prefers-color-scheme: dark)').matches;var resolved=saved==='auto'?(prefersDark?'dark':'light'):saved;root.classList.remove('light','dark','theme-sepia','theme-linen','theme-sage','theme-paper');root.classList.add(resolved);if(resolved==='linen'||resolved==='sepia')root.classList.add('theme-sepia','theme-linen');else if(resolved==='sage')root.classList.add('theme-sage');else if(resolved==='paper')root.classList.add('theme-paper');root.setAttribute('data-theme',resolved);root.style.colorScheme=resolved==='dark'?'dark':'light';}catch(e){}})();`
 
 const GLOBAL_JSON_LD = JSON.stringify({
   '@context': 'https://schema.org',

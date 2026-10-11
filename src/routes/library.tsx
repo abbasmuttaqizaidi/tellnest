@@ -26,17 +26,17 @@ export const Route = createFileRoute('/library')({
 })
 
 function LibraryPage() {
-  const { allWorks, savedWorkIds, toggleSaveWork, readingProgress, writerWorks } = useApp()
+  const { allWorks, savedWorkIds, toggleSaveWork, readingProgress, writerWorks, isOwnWork } = useApp()
 
   // In-progress reading items ("Currently Reading")
   const continueReadingItems = useMemo(() => {
     return Object.values(readingProgress)
       .map((prog) => {
         const work = allWorks.find((w) => w.id === prog.workId)
-        return work ? { work, progress: prog } : null
+        return work && !isOwnWork(work.id) ? { work, progress: prog } : null
       })
       .filter(Boolean) as { work: typeof allWorks[0]; progress: typeof readingProgress[string] }[]
-  }, [allWorks, readingProgress])
+  }, [allWorks, readingProgress, isOwnWork])
 
   // Featured focal read (the most recent or primary in-progress work)
   const activeFocusItem = continueReadingItems[0]

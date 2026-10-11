@@ -1,7 +1,7 @@
 import React from 'react'
 import { HatchpenEmblem } from './HatchpenLogo'
 
-interface TellnestLoaderProps {
+export interface HatchpenLoaderProps {
   /**
    * Layout presentation:
    * - 'fullscreen': Covers viewport with backdrop-blur (ideal for Clerk auth transitions)
@@ -20,12 +20,14 @@ interface TellnestLoaderProps {
   className?: string
 }
 
-export function TellnestLoader({
+export type TellnestLoaderProps = HatchpenLoaderProps
+
+export function HatchpenLoader({
   variant = 'page',
   message = 'Synchronizing literary folio...',
   submessage = 'Hatchpen Publishing Network',
   className = '',
-}: TellnestLoaderProps) {
+}: HatchpenLoaderProps) {
   if (variant === 'inline') {
     return (
       <div className={`inline-flex items-center gap-2.5 text-xs text-[var(--ink-muted)] font-mono ${className}`}>
@@ -92,7 +94,7 @@ export function TellnestLoader({
 
         {/* Sleek Literary Indeterminate Progress Indicator */}
         <div className="w-44 h-[2px] rounded-full bg-[var(--bg-subtle)] overflow-hidden relative border border-[var(--border-subtle)]">
-          <div className="tellnest-shimmer-bar absolute inset-0 bg-[var(--ink-primary)]" />
+          <div className="hatchpen-shimmer-bar tellnest-shimmer-bar absolute inset-0 bg-[var(--ink-primary)]" />
         </div>
 
       </div>
@@ -100,4 +102,5 @@ export function TellnestLoader({
   )
 }
 
-export default TellnestLoader
+export const TellnestLoader = HatchpenLoader
+export default HatchpenLoader

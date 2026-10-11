@@ -232,9 +232,11 @@ function ReaderPage() {
     allWorks,
     isWorksLoading,
     readerSettings,
+    siteTheme,
     isWorkSaved,
     toggleSaveWork,
     updateReadingProgress,
+    isOwnWork,
     showToast
   } = useApp()
 
@@ -284,7 +286,12 @@ function ReaderPage() {
   const [viewsModalOpen, setViewsModalOpen] = useState(false)
   const [adminToken, setAdminToken] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
-      return sessionStorage.getItem('tellnest_admin_session_token') || localStorage.getItem('tellnest_admin_session_token')
+      return (
+        sessionStorage.getItem('hatchpen_admin_session_token') ||
+        localStorage.getItem('hatchpen_admin_session_token') ||
+        sessionStorage.getItem('tellnest_admin_session_token') ||
+        localStorage.getItem('tellnest_admin_session_token')
+      )
     }
     return null
   })
@@ -324,9 +331,10 @@ function ReaderPage() {
     if (typeof window === 'undefined') return
 
     // Get or initialize persistent unique visitor key
-    let viewerKey = localStorage.getItem('tellnest_viewer_uuid')
+    let viewerKey = localStorage.getItem('hatchpen_viewer_uuid') || localStorage.getItem('tellnest_viewer_uuid')
     if (!viewerKey) {
       viewerKey = 'v-' + Math.random().toString(36).substring(2) + Date.now().toString(36)
+      localStorage.setItem('hatchpen_viewer_uuid', viewerKey)
       localStorage.setItem('tellnest_viewer_uuid', viewerKey)
     }
 
@@ -343,6 +351,7 @@ function ReaderPage() {
   // Update progress in context
   useEffect(() => {
     if (work && chapter) {
+      if (isOwnWork(work.id)) return
       updateReadingProgress(work.id, {
         chapterId: chapter.id,
         chapterNumber: chapter.number,
@@ -350,7 +359,7 @@ function ReaderPage() {
         progressPercent: Math.round(scrollProgress)
       })
     }
-  }, [work, chapter, Math.floor(scrollProgress / 10)])
+  }, [work, chapter, Math.floor(scrollProgress / 10), isOwnWork])
 
   // SEO Canonical URL Enforcement:
   // If user accesses reading route with raw UUID, auto-update URL bar to canonical slug
@@ -391,40 +400,123 @@ function ReaderPage() {
 
   const saved = isWorkSaved(work.id)
 
+  // Floating TOC, Inline Marginalia and Continuous Progression settings
+  const [floatingTocEnabled, setFloatingTocEnabled] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('relay_reader_floating_toc')
+      if (stored !== null) return stored === 'true'
+    }
+    return true
+  })
+
+  const [inlineMarginaliaEnabled, setInlineMarginaliaEnabled] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('relay_reader_inline_marginalia')
+      if (stored !== null) return stored === 'true'
+    }
+    return true
+  })
+
+  const [continuousScrollEnabled, setContinuousScrollEnabled] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('relay_reader_continuous_scroll')
+      if (stored !== null) return stored === 'true'
+    }
+    return true
+  })
+
+  // Synchronize with external changes or Profile Settings updates in real-time
+  useEffect(() => {
+    const handleStorageChange = () => {
+      if (typeof window !== 'undefined') {
+        const tocVal = localStorage.getItem('relay_reader_floating_toc')
+        if (tocVal !== null) setFloatingTocEnabled(tocVal === 'true')
+        const marVal = localStorage.getItem('relay_reader_inline_marginalia')
+        if (marVal !== null) setInlineMarginaliaEnabled(marVal === 'true')
+        const scrollVal = localStorage.getItem('relay_reader_continuous_scroll')
+        if (scrollVal !== null) setContinuousScrollEnabled(scrollVal === 'true')
+      }
+    }
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
+  }, [])
+
+  // Keyboard shortcut: Press 'T' to toggle Chapter Table of Contents drawer
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing in an input, textarea, or contentEditable
+      if (
+        ['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName) ||
+        (e.target as HTMLElement)?.isContentEditable
+      ) {
+        return
+      }
+      if (e.key === 't' || e.key === 'T') {
+        e.preventDefault()
+        setDrawerOpen((prev) => !prev)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
+  // 1. Atmosphere Theme Resolution
+  // Prioritize active reader theme or siteTheme: linen -> theme-sepia theme-linen, sage -> theme-sage, paper -> theme-paper, obsidian/dark -> dark
+  const activeReaderTheme = useMemo(() => {
+    if (readerSettings.theme === 'dark' || siteTheme === 'dark') return 'dark'
+    if (siteTheme === 'sage') return 'theme-sage'
+    if (siteTheme === 'paper') return 'theme-paper'
+    if (siteTheme === 'linen' || siteTheme === 'sepia' || readerSettings.theme === 'sepia') return 'theme-sepia theme-linen'
+    return ''
+  }, [readerSettings.theme, siteTheme])
+
   // Typography styling mappings based on Reader Settings
   const widthClasses = {
     narrow: 'max-w-xl',
     medium: 'max-w-2xl',
     wide: 'max-w-3xl'
-  }[readerSettings.readingWidth]
+  }[readerSettings.readingWidth] || 'max-w-2xl'
 
-  const sizeClasses = {
-    sm: 'text-sm sm:text-base',
-    base: 'text-base sm:text-lg',
-    lg: 'text-lg sm:text-xl',
-    xl: 'text-xl sm:text-2xl',
-  }[readerSettings.fontSize]
+  // 2. Reader Font Scaling Resolution (exact pixel calibration: 15px, 17px, 20px, 24px or arbitrary numbers)
+  const sizeClasses = useMemo(() => {
+    const s = String(readerSettings.fontSize || 'base')
+    if (s === '15' || s === 'sm') return 'text-[15px] sm:text-[15px]'
+    if (s === '17' || s === 'base') return 'text-[17px] sm:text-[17px]'
+    if (s === '20' || s === 'lg') return 'text-[20px] sm:text-[20px]'
+    if (s === '24' || s === 'xl') return 'text-[24px] sm:text-[24px]'
+    // Boundary fallback if numeric value like 16, 18, 22 is passed
+    const parsedNum = Number(s)
+    if (!isNaN(parsedNum) && parsedNum >= 12 && parsedNum <= 36) {
+      return `text-[${parsedNum}px] sm:text-[${parsedNum}px]`
+    }
+    return 'text-[17px] sm:text-[17px]'
+  }, [readerSettings.fontSize])
 
-  const activeLineHeight =
-    readerSettings.customLineHeight ||
-    (readerSettings.lineHeight === 'tight'
-      ? 1.35
-      : readerSettings.lineHeight === 'normal'
-      ? 1.5
-      : readerSettings.lineHeight === 'relaxed'
-      ? 1.75
-      : 2.0)
+  const activeLineHeight = useMemo(() => {
+    if (typeof readerSettings.customLineHeight === 'number' && readerSettings.customLineHeight > 0) {
+      return readerSettings.customLineHeight
+    }
+    const lh = readerSettings.lineHeight
+    if (typeof lh === 'number' && lh > 0) return lh
+    if (lh === 'tight') return 1.4
+    if (lh === 'normal') return 1.7
+    if (lh === 'relaxed') return 1.85
+    if (lh === 'loose') return 2.0
+    return 1.7
+  }, [readerSettings.customLineHeight, readerSettings.lineHeight])
 
   const activeParagraphGap =
     readerSettings.paragraphSpacing !== undefined
       ? `${readerSettings.paragraphSpacing}px`
-      : '16px'
+      : '18px'
 
-  const fontClass = {
-    serif: 'font-editorial',
-    sans: 'font-sans',
-    mono: 'font-mono',
-  }[readerSettings.fontFamily]
+  // 3. Typeface Resolution (Outfit Display / Editorial serif, Inter sans, JetBrains mono)
+  const fontClass = useMemo(() => {
+    const f = readerSettings.fontFamily as string
+    if (f === 'sans' || f === 'Inter') return 'font-sans'
+    if (f === 'mono' || f === 'JetBrains Mono') return 'font-mono'
+    return 'font-editorial font-serif'
+  }, [readerSettings.fontFamily])
 
   const paragraphs = chapter.content
     .split(/\r?\n\s*\r?\n/)
@@ -435,9 +527,7 @@ function ReaderPage() {
 
   return (
     <div
-      className={`min-h-screen transition-colors duration-200 ${
-        readerSettings.theme === 'sepia' ? 'theme-sepia' : ''
-      }`}
+      className={`min-h-screen bg-[var(--bg-canvas)] text-[var(--ink-primary)] transition-colors duration-200 ${activeReaderTheme}`}
     >
       {/* Sticky Subtle Reading Header */}
       <header className="sticky top-0 z-30 w-full border-b border-[var(--border-subtle)] bg-[var(--bg-canvas)]/95 backdrop-blur-md transition-colors">
@@ -613,22 +703,28 @@ function ReaderPage() {
           style={{ lineHeight: activeLineHeight }}
           className={`${fontClass} ${sizeClasses} text-[var(--ink-secondary)] select-text`}
         >
-          {paragraphs.map((p, idx) => (
-            <p
-              key={idx}
-              style={{
-                marginBottom: activeParagraphGap,
-                lineHeight: activeLineHeight,
-              }}
-              className={`whitespace-pre-line ${
-                idx === 0 && readerSettings.fontFamily === 'serif'
-                  ? 'first-letter:font-serif first-letter:text-4xl first-letter:float-left first-letter:pr-2.5 first-letter:leading-none first-letter:text-[var(--ink-primary)] first-letter:font-bold'
-                  : ''
-              }`}
-            >
-              {renderChapterParagraph(p)}
-            </p>
-          ))}
+          {paragraphs.length === 0 ? (
+            <div className="py-12 text-center text-[var(--ink-muted)] italic font-serif">
+              This chapter has no narrative prose content yet.
+            </div>
+          ) : (
+            paragraphs.map((p, idx) => (
+              <p
+                key={idx}
+                style={{
+                  marginBottom: activeParagraphGap,
+                  lineHeight: activeLineHeight,
+                }}
+                className={`whitespace-pre-line ${
+                  idx === 0 && readerSettings.fontFamily === 'serif'
+                    ? 'first-letter:font-serif first-letter:text-4xl first-letter:float-left first-letter:pr-2.5 first-letter:leading-none first-letter:text-[var(--ink-primary)] first-letter:font-bold'
+                    : ''
+                }`}
+              >
+                {renderChapterParagraph(p)}
+              </p>
+            ))
+          )}
         </article>
 
         {/* End of Chapter Ornament */}
@@ -683,20 +779,36 @@ function ReaderPage() {
           )}
         </div>
 
-        {/* Reader Comments Section Toggle / View */}
-        <div className="mt-8 flex justify-center">
-          <button
-            onClick={() => setCommentsVisible(!commentsVisible)}
-            className="inline-flex items-center gap-2 rounded-full border border-[var(--border-strong)] bg-[var(--bg-surface)] px-5 py-2 text-xs font-medium text-[var(--ink-secondary)] hover:border-[var(--ink-primary)] transition-all"
-          >
-            <MessageSquare className="h-3.5 w-3.5" />
-            <span>{commentsVisible ? 'Hide Reader Reflections' : 'View Reader Reflections & Discussion'}</span>
-          </button>
-        </div>
-
-        {commentsVisible && (
-          <CommentsSection workId={work.id} chapterId={chapter.id} />
+        {/* Continuous Chapter Progression Notice */}
+        {continuousScrollEnabled && nextChapter && (
+          <div className="mt-6 p-4 rounded-lg border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 text-center font-mono text-xs text-[var(--ink-muted)] flex items-center justify-between gap-4">
+            <span>Continuous Progression is Active</span>
+            <Link
+              to="/read/$workId/$chapterId"
+              params={{ workId: canonicalSlug, chapterId: nextChapter.id }}
+              className="text-[var(--ink-primary)] font-semibold hover:underline flex items-center gap-1"
+            >
+              Proceed to Ch. {nextChapter.number} →
+            </Link>
+          </div>
         )}
+        {/* Reader Comments / Marginalia Section Toggle */}
+        {inlineMarginaliaEnabled ? (
+          <div className="mt-8 flex flex-col items-center gap-3">
+            <button
+              onClick={() => setCommentsVisible(!commentsVisible)}
+              className="inline-flex items-center gap-2 rounded-full border border-[var(--border-strong)] bg-[var(--bg-surface)] px-5 py-2 text-xs font-medium text-[var(--ink-secondary)] hover:border-[var(--ink-primary)] transition-all cursor-pointer shadow-2xs hover:shadow-xs"
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              <span>{commentsVisible ? 'Hide Reader Reflections & Marginalia' : 'View Reader Reflections & Marginalia'}</span>
+            </button>
+            {commentsVisible && (
+              <div className="w-full">
+                <CommentsSection workId={work.id} chapterId={chapter.id} />
+              </div>
+            )}
+          </div>
+        ) : null}
 
       </main>
 
@@ -721,6 +833,24 @@ function ReaderPage() {
         work={work}
         allowAdminAdjust={false}
       />
+
+      {/* Floating Table of Contents (Quick Drawer) FAB Button */}
+      {floatingTocEnabled && (
+        <div className="fixed bottom-6 right-6 z-40">
+          <button
+            type="button"
+            onClick={() => setDrawerOpen(true)}
+            className="flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] border border-[var(--border-strong)] shadow-lg hover:shadow-xl transition-all duration-200 cursor-pointer group active:scale-95"
+            title="Chapter Index (Shortcut: 'T')"
+          >
+            <ListFilter className="h-4 w-4 text-[var(--ink-muted)] group-hover:text-[var(--ink-primary)] transition-colors" />
+            <span className="font-mono text-xs font-semibold hidden sm:inline">Index</span>
+            <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[9px] font-mono text-[var(--ink-faint)] bg-[var(--bg-subtle)] rounded border border-[var(--border-subtle)]">
+              T
+            </kbd>
+          </button>
+        </div>
+      )}
     </div>
   )
 }

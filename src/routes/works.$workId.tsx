@@ -135,6 +135,7 @@ function WorkDetailPage() {
     isAuthorFollowed,
     toggleFollowAuthor,
     readingProgress,
+    isOwnWork,
     showToast
   } = useApp()
 
@@ -190,7 +191,7 @@ function WorkDetailPage() {
       (user.username && work.author.handle && work.author.handle.toLowerCase() === user.username.toLowerCase())
     )
   )
-  const progress = work ? readingProgress[work.id] : undefined
+  const progress = work && !isOwnWork(work.id) ? readingProgress[work.id] : undefined
 
   const chaptersList = work?.chapters || []
   const firstChapterId = chaptersList[0]?.id || ''

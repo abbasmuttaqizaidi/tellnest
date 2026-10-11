@@ -701,7 +701,7 @@ export const toggleBookmarkServerFn = createServerFn({ method: 'POST' })
           {
             clerk_user_id: data.clerkUserId,
             username: minimalUsername,
-            display_name: 'Tellnest Reader',
+            display_name: 'HatchPen Reader',
             is_public: true,
           },
           { onConflict: 'clerk_user_id' }

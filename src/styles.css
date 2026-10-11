@@ -70,18 +70,74 @@
 }
 
 :root[data-theme="sepia"],
-.theme-sepia {
-  --bg-canvas: #F6F1EA;
-  --bg-surface: #FAF7F2;
-  --bg-subtle: #EDE5DA;
-  --border-subtle: #E0D5C5;
-  --border-strong: #CEC0AD;
+:root[data-theme="linen"],
+.theme-sepia,
+.theme-linen {
+  --bg-canvas: #f9faef;
+  --bg-surface: #ffffff;
+  --bg-subtle: #f2f3e8;
+  --border-subtle: #e5e6da;
+  --border-strong: #cfd0c2;
   --ink-primary: #2C2219;
   --ink-secondary: #4A3A2C;
   --ink-muted: #7A6553;
   --ink-faint: #A69280;
   --accent-ink: #2C2219;
-  --accent-contrast: #F6F1EA;
+  --accent-contrast: #ffffff;
+  --color-surface-container-low: #f4f5ea;
+  --color-surface-container: #edeedc;
+  --color-surface-container-high: #e4e5d2;
+  --color-surface-container-highest: #dcdcca;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface: #f9faef;
+  --color-on-surface: #2C2219;
+  --color-on-surface-variant: #594e43;
+}
+
+:root[data-theme="sage"],
+.theme-sage {
+  --bg-canvas: #f0f2eb;
+  --bg-surface: #ffffff;
+  --bg-subtle: #e6e9e0;
+  --border-subtle: #d6dbcf;
+  --border-strong: #bcc4b3;
+  --ink-primary: #1b231d;
+  --ink-secondary: #2f3831;
+  --ink-muted: #535f56;
+  --ink-faint: #79867c;
+  --accent-ink: #1b231d;
+  --accent-contrast: #ffffff;
+  --color-surface-container-low: #e9ece3;
+  --color-surface-container: #e0e5d9;
+  --color-surface-container-high: #d6dcce;
+  --color-surface-container-highest: #cbd2c1;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface: #f0f2eb;
+  --color-on-surface: #1b231d;
+  --color-on-surface-variant: #455248;
+}
+
+:root[data-theme="paper"],
+.theme-paper {
+  --bg-canvas: #ffffff;
+  --bg-surface: #ffffff;
+  --bg-subtle: #f8f9fa;
+  --border-subtle: #e9ecef;
+  --border-strong: #dee2e6;
+  --ink-primary: #111827;
+  --ink-secondary: #1f2937;
+  --ink-muted: #4b5563;
+  --ink-faint: #6b7280;
+  --accent-ink: #111827;
+  --accent-contrast: #ffffff;
+  --color-surface-container-low: #f8f9fa;
+  --color-surface-container: #f1f3f5;
+  --color-surface-container-high: #e9ecef;
+  --color-surface-container-highest: #dee2e6;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface: #ffffff;
+  --color-on-surface: #111827;
+  --color-on-surface-variant: #374151;
 }
 
 * {
@@ -250,8 +306,20 @@ a[href*="dashboard.clerk.com"],
 }
 
 /* =========================================================
-   CUSTOM TELLNEST SHIMMER LOADER & CLERK SPINNER OVERRIDES
+   CUSTOM HATCHPEN SHIMMER LOADER & CLERK SPINNER OVERRIDES
    ========================================================= */
+@keyframes hatchpenShimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(30%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
 @keyframes tellnestShimmer {
   0% {
     transform: translateX(-100%);
@@ -264,9 +332,10 @@ a[href*="dashboard.clerk.com"],
   }
 }
 
+.hatchpen-shimmer-bar,
 .tellnest-shimmer-bar {
   width: 50%;
-  animation: tellnestShimmer 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation: hatchpenShimmer 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
 /* Hide Clerk development mode badge & footer branding */

@@ -13,9 +13,9 @@ interface WorkCardProps {
 }
 
 export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
-  const { isWorkSaved, toggleSaveWork, readingProgress } = useApp()
+  const { isWorkSaved, toggleSaveWork, readingProgress, isOwnWork } = useApp()
   const saved = isWorkSaved(work.id)
-  const progress = readingProgress[work.id]
+  const progress = !isOwnWork(work.id) ? readingProgress[work.id] : undefined
   const activity = formatWorkActivitySummary(work)
   const workSlug = getWorkSlug(work)
 

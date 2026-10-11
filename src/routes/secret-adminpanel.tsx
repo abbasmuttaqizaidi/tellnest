@@ -58,7 +58,8 @@ export const Route = createFileRoute('/secret-adminpanel')({
   component: SecretAdminPanelPage,
 })
 
-const ADMIN_TOKEN_KEY = 'tellnest_admin_session_token'
+const ADMIN_TOKEN_KEY = 'hatchpen_admin_session_token'
+const LEGACY_ADMIN_TOKEN_KEY = 'tellnest_admin_session_token'
 
 import { CATEGORIES, GENRES, AUTHORS } from '../data/mockData'
 import type { Work, Author } from '../data/mockData'
@@ -86,7 +87,9 @@ function SecretAdminPanelPage() {
     if (typeof window !== 'undefined') {
       return (
         sessionStorage.getItem(ADMIN_TOKEN_KEY) ||
-        localStorage.getItem(ADMIN_TOKEN_KEY)
+        localStorage.getItem(ADMIN_TOKEN_KEY) ||
+        sessionStorage.getItem(LEGACY_ADMIN_TOKEN_KEY) ||
+        localStorage.getItem(LEGACY_ADMIN_TOKEN_KEY)
       )
     }
     return null
@@ -361,6 +364,8 @@ function SecretAdminPanelPage() {
       if (res.success && res.token) {
         sessionStorage.setItem(ADMIN_TOKEN_KEY, res.token)
         localStorage.setItem(ADMIN_TOKEN_KEY, res.token)
+        sessionStorage.setItem(LEGACY_ADMIN_TOKEN_KEY, res.token)
+        localStorage.setItem(LEGACY_ADMIN_TOKEN_KEY, res.token)
         setAdminToken(res.token)
         setIsAuthenticated(true)
         setPasskeyInput('')
@@ -378,6 +383,8 @@ function SecretAdminPanelPage() {
   const handleLogout = () => {
     sessionStorage.removeItem(ADMIN_TOKEN_KEY)
     localStorage.removeItem(ADMIN_TOKEN_KEY)
+    sessionStorage.removeItem(LEGACY_ADMIN_TOKEN_KEY)
+    localStorage.removeItem(LEGACY_ADMIN_TOKEN_KEY)
     setAdminToken(null)
     setIsAuthenticated(false)
     setDashboardData(null)

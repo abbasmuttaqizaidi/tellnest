@@ -30,7 +30,7 @@ export function ClerkSync() {
           user.fullName ||
           user.firstName ||
           user.username ||
-          'Tellnest Author'
+          'HatchPen Author'
 
         // 1. Sync User into Supabase `profiles` table via server function (Service Role Key runs strictly on server)
         await syncClerkUserServerFn({

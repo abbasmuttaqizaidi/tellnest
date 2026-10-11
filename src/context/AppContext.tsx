@@ -31,6 +31,7 @@ import {
   getUserFollowedAuthorIdsServerFn,
   getUserNotificationsServerFn,
   markNotificationReadServerFn,
+  getUserProfileServerFn,
 } from '../server/authors'
 import {
   getAllUserReadingProgressServerFn,
@@ -62,8 +63,8 @@ interface AppContextType {
   // Theme & Reading Settings
   readerSettings: ReaderSettings
   updateReaderSettings: (partial: Partial<ReaderSettings>) => void
-  siteTheme: 'light' | 'dark' | 'auto'
-  setSiteTheme: (theme: 'light' | 'dark' | 'auto') => void
+  siteTheme: 'light' | 'dark' | 'auto' | 'linen' | 'sage' | 'paper' | 'sepia'
+  setSiteTheme: (theme: 'light' | 'dark' | 'auto' | 'linen' | 'sage' | 'paper' | 'sepia') => void
 
   // Library & Reading
   savedWorkIds: string[]
@@ -71,6 +72,7 @@ interface AppContextType {
   isWorkSaved: (workId: string) => boolean
   readingProgress: Record<string, ReadingProgress>
   updateReadingProgress: (workId: string, progress: Partial<ReadingProgress>) => void
+  isOwnWork: (workId: string) => boolean
 
   // Authors
   followedAuthorIds: string[]
@@ -155,11 +157,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return defaultReaderSettings
   })
 
-  const [siteTheme, setSiteThemeState] = useState<'light' | 'dark' | 'auto'>(() => {
+  const [siteTheme, setSiteThemeState] = useState<'light' | 'dark' | 'auto' | 'linen' | 'sage' | 'paper' | 'sepia'>(() => {
     if (typeof window !== 'undefined') {
       try {
-        const saved = localStorage.getItem('theme') as 'light' | 'dark' | 'auto' | null
-        if (saved && (saved === 'light' || saved === 'dark' || saved === 'auto')) return saved
+        const saved = localStorage.getItem('theme') as any
+        if (saved && (['light', 'dark', 'auto', 'linen', 'sage', 'paper', 'sepia'].includes(saved))) return saved
       } catch (e) {}
     }
     return 'light'
@@ -208,6 +210,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   })
   const [isWorksLoading, setIsWorksLoading] = useState(false)
 
+  // Determine if a given work is authored by the currently authenticated user
+  const isOwnWork = React.useCallback(
+    (workId: string): boolean => {
+      if (!workId) return false
+      // 1. Direct check against writerWorks (manuscripts belonging to current user in Writer Studio)
+      if (writerWorks.some((w) => w.id === workId)) return true
+
+      // 2. Check allWorks author match against profile ID, Clerk ID, or username
+      const target = allWorks.find((w) => w.id === workId)
+      if (target) {
+        if (userProfileId && target.author?.id === userProfileId) return true
+        if (user?.id && (target.author?.id === user.id || (target as any).authorId === user.id)) return true
+        if (
+          user?.username &&
+          target.author?.handle &&
+          target.author.handle.toLowerCase() === user.username.toLowerCase()
+        ) {
+          return true
+        }
+      }
+      return false
+    },
+    [writerWorks, allWorks, userProfileId, user?.id, user?.username]
+  )
+
   // Fetch user reading progress directly from Database for authenticated reader
   const reloadUserReadingProgressFromDb = React.useCallback(async () => {
     if (!isSignedIn || !user?.id) return
@@ -217,6 +244,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setReadingProgress((prev) => {
           const merged = { ...prev }
           for (const item of dbProgressList) {
+            // Authors reading their own works should never appear in currently reading
+            if (!item.work_id || isOwnWork(item.work_id)) {
+              delete merged[item.work_id]
+              continue
+            }
+
             // Find corresponding work to match chapter details if present
             const matchedWork = allWorks.find((w) => w.id === item.work_id)
             const matchedChapter = matchedWork?.chapters?.find((c) => c.id === item.chapter_id)
@@ -241,7 +274,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.warn('[AppContext] Failed to load reading progress from DB:', err)
     }
-  }, [isSignedIn, user?.id, allWorks])
+  }, [isSignedIn, user?.id, allWorks, isOwnWork])
 
   useEffect(() => {
     if (isUserLoaded && isSignedIn && user?.id) {
@@ -324,10 +357,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     let isMounted = true
     async function loadUserData() {
       try {
-        const [bookmarksRes, followsRes, notifsRes] = await Promise.all([
+        const [bookmarksRes, followsRes, notifsRes, profileRes] = await Promise.all([
           getUserBookmarksServerFn({ data: user!.id }),
           getUserFollowedAuthorIdsServerFn({ data: user!.id }),
           getUserNotificationsServerFn({ data: user!.id }),
+          getUserProfileServerFn({ data: user!.id }),
         ])
         if (isMounted) {
           if (bookmarksRes && Array.isArray(bookmarksRes.bookmarkIds)) {
@@ -344,6 +378,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               setNotifications(notifsRes.notifications)
             }
           }
+          // Hydrate user reading preferences & atmosphere theme from DB
+          if (profileRes?.preferences?.reading) {
+            const r = profileRes.preferences.reading
+            const partial: Partial<ReaderSettings> = {}
+            if (r.fontSize) partial.fontSize = r.fontSize
+            if (r.fontFamily) partial.fontFamily = r.fontFamily
+            if (r.lineHeight) partial.lineHeight = r.lineHeight
+            if (typeof r.customLineHeight === 'number') partial.customLineHeight = r.customLineHeight
+            if (r.theme) partial.theme = r.theme
+            updateReaderSettings(partial)
+
+            if (r.atmosphereTone) {
+              setSiteTheme(r.atmosphereTone === 'obsidian' ? 'dark' : r.atmosphereTone)
+            } else if (r.theme) {
+              setSiteTheme(r.theme === 'dark' ? 'dark' : r.theme === 'sepia' ? 'linen' : 'sage')
+            }
+          }
+
+          if (profileRes?.preferences?.readerUx && typeof window !== 'undefined') {
+            const ux = profileRes.preferences.readerUx
+            if (typeof ux.inlineMarginalia === 'boolean') {
+              localStorage.setItem('relay_reader_inline_marginalia', String(ux.inlineMarginalia))
+            }
+            if (typeof ux.continuousScroll === 'boolean') {
+              localStorage.setItem('relay_reader_continuous_scroll', String(ux.continuousScroll))
+            }
+            if (typeof ux.floatingToc === 'boolean') {
+              localStorage.setItem('relay_reader_floating_toc', String(ux.floatingToc))
+            }
+          }
         }
       } catch (err) {
         console.warn('[AppContext] Failed to load user data from DB:', err)
@@ -355,6 +419,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       isMounted = false
     }
   }, [user?.id, isSignedIn, isUserLoaded])
+
+  // Automatically purge any own works from readingProgress whenever writerWorks or allWorks updates
+  useEffect(() => {
+    if (!isUserLoaded || !isSignedIn) return
+    setReadingProgress((prev) => {
+      let hasOwn = false
+      for (const wId of Object.keys(prev)) {
+        if (isOwnWork(wId)) {
+          hasOwn = true
+          break
+        }
+      }
+      if (!hasOwn) return prev
+      const next = { ...prev }
+      for (const wId of Object.keys(next)) {
+        if (isOwnWork(wId)) {
+          delete next[wId]
+        }
+      }
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('hatchpen_reading_progress', JSON.stringify(next))
+        } catch (e) {}
+      }
+      return next
+    })
+  }, [writerWorks, allWorks, userProfileId, isOwnWork, isUserLoaded, isSignedIn])
 
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
 
@@ -406,7 +497,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [customAvatarUrl, setCustomAvatarUrlState] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
       try {
-        return localStorage.getItem('tellnest_custom_avatar')
+        return localStorage.getItem('hatchpen_custom_avatar') || localStorage.getItem('tellnest_custom_avatar')
       } catch (e) {}
     }
     return null
@@ -471,8 +562,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (typeof window !== 'undefined') {
       try {
         if (url) {
+          localStorage.setItem('hatchpen_custom_avatar', url)
           localStorage.setItem('tellnest_custom_avatar', url)
         } else {
+          localStorage.removeItem('hatchpen_custom_avatar')
           localStorage.removeItem('tellnest_custom_avatar')
         }
       } catch (e) {}
@@ -499,16 +592,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [readerSettings])
 
-  const setSiteTheme = (mode: 'light' | 'dark' | 'auto') => {
+  const setSiteTheme = (mode: 'light' | 'dark' | 'auto' | 'linen' | 'sage' | 'paper' | 'sepia') => {
     setSiteThemeState(mode)
     if (typeof window !== 'undefined') {
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
       const resolved = mode === 'auto' ? (prefersDark ? 'dark' : 'light') : mode
       const root = document.documentElement
-      root.classList.remove('light', 'dark', 'theme-sepia')
+      root.classList.remove('light', 'dark', 'theme-sepia', 'theme-linen', 'theme-sage', 'theme-paper')
       root.classList.add(resolved)
+      if (resolved === 'linen' || resolved === 'sepia') {
+        root.classList.add('theme-sepia', 'theme-linen')
+      } else if (resolved === 'sage') {
+        root.classList.add('theme-sage')
+      } else if (resolved === 'paper') {
+        root.classList.add('theme-paper')
+      }
       root.setAttribute('data-theme', resolved)
-      root.style.colorScheme = resolved
+      root.style.colorScheme = resolved === 'dark' ? 'dark' : 'light'
       localStorage.setItem('theme', mode)
     }
   }
@@ -643,6 +743,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   const updateReadingProgress = (workId: string, progress: Partial<ReadingProgress>) => {
+    // If user is reading their own book, do not track reading progress!
+    if (isOwnWork(workId)) {
+      setReadingProgress((prev) => {
+        if (!prev[workId]) return prev
+        const next = { ...prev }
+        delete next[workId]
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('hatchpen_reading_progress', JSON.stringify(next))
+          } catch (e) {}
+        }
+        return next
+      })
+      return
+    }
+
     setReadingProgress(prev => {
       const next = {
         ...prev,
@@ -1296,6 +1412,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         isWorkSaved,
         readingProgress,
         updateReadingProgress,
+        isOwnWork,
         followedAuthorIds,
         toggleFollowAuthor,
         isAuthorFollowed,

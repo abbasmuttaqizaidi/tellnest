@@ -88,7 +88,7 @@ export function UnisexAvatarIcon({ className = 'h-full w-full' }: { className?: 
 /**
  * UnisexAvatar Component
  * Renders user avatar image if available, with graceful fallback to the
- * Tellnest unisex avatar icon when missing, loading, or on load failure.
+ * HatchPen unisex avatar icon when missing, loading, or on load failure.
  */
 export function UnisexAvatar({
   src,

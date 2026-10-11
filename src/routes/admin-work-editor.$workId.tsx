@@ -42,7 +42,8 @@ import { formatViewCount } from '../lib/utils'
 
 import { getPublicWorkServerFn } from '../server/works'
 
-const ADMIN_TOKEN_KEY = 'tellnest_admin_session_token'
+const ADMIN_TOKEN_KEY = 'hatchpen_admin_session_token'
+const LEGACY_ADMIN_TOKEN_KEY = 'tellnest_admin_session_token'
 
 export const Route = createFileRoute('/admin-work-editor/$workId')({
   loader: async ({ params }) => {
@@ -93,7 +94,9 @@ function AdminWorkEditorPage() {
     if (typeof window !== 'undefined') {
       return (
         sessionStorage.getItem(ADMIN_TOKEN_KEY) ||
-        localStorage.getItem(ADMIN_TOKEN_KEY)
+        localStorage.getItem(ADMIN_TOKEN_KEY) ||
+        sessionStorage.getItem(LEGACY_ADMIN_TOKEN_KEY) ||
+        localStorage.getItem(LEGACY_ADMIN_TOKEN_KEY)
       )
     }
     return null

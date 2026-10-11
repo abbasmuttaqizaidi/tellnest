@@ -82,6 +82,14 @@ export const getAllUserReadingProgressServerFn = createServerFn({ method: 'GET' 
 
       const targetUserId = profile?.id || data.userId
 
+      // Fetch all works authored by this user to exclude them from reader progress
+      const { data: authorWorks } = await admin
+        .from('works')
+        .select('id')
+        .or(`author_id.eq.${targetUserId}${profile?.id && profile.id !== targetUserId ? `,author_id.eq.${profile.id}` : ''}`)
+
+      const authorWorkIds = new Set((authorWorks || []).map((w: any) => w.id))
+
       const { data: records, error } = await admin
         .from('reading_progress')
         .select('id, user_id, work_id, chapter_id, progress_percent, position, last_read_at')
@@ -92,7 +100,7 @@ export const getAllUserReadingProgressServerFn = createServerFn({ method: 'GET' 
         console.warn('[getAllUserReadingProgressServerFn] DB warning:', error.message)
         return []
       }
-      return records || []
+      return (records || []).filter((r: any) => !authorWorkIds.has(r.work_id))
     } catch (e: any) {
       console.warn('[getAllUserReadingProgressServerFn] Error:', e?.message || e)
       return []
@@ -136,6 +144,26 @@ export const updateReadingProgressServerFn = createServerFn({ method: 'POST' })
       const isWorkUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.workId)
       if (!isWorkUuid) {
         // Mock data works (e.g. 'work-1') cannot be saved in PostgreSQL UUID columns - silently return
+        return null
+      }
+
+      // Check if user is the author of this work
+      const { data: workRecord } = await admin
+        .from('works')
+        .select('author_id')
+        .eq('id', data.workId)
+        .maybeSingle()
+
+      if (
+        workRecord &&
+        (workRecord.author_id === targetUserId || (profile?.id && workRecord.author_id === profile.id))
+      ) {
+        // Author reading their own work - remove any previous reading progress record and return null
+        await admin
+          .from('reading_progress')
+          .delete()
+          .eq('user_id', targetUserId)
+          .eq('work_id', data.workId)
         return null
       }
 

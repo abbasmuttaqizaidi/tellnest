@@ -1,5 +1,5 @@
 /**
- * Tellnest — Supabase PostgreSQL Database Type Definitions
+ * HatchPen — Supabase PostgreSQL Database Type Definitions
  * Auto-generated schema contract matching migrations 01-08.
  */
 

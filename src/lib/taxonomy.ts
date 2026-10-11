@@ -1,5 +1,5 @@
 // ==============================================================================
-// Tellnest Global Taxonomy (Single Source of Truth)
+// Hatchpen Global Taxonomy (Single Source of Truth)
 // Canonical Categories, Genres, and Suggested Tags strictly defined in live_instructions.md
 // ==============================================================================
 

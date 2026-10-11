@@ -81,7 +81,7 @@ export async function getAuthorPublishedWorks(
 }
 
 /**
- * Syncs a Clerk User into Tellnest's `profiles` table.
+ * Syncs a Clerk User into Hatchpen's `profiles` table.
  * Uses the Service Role client to ensure reliable synchronization during webhooks or login hooks.
  * Projects only safe identity fields.
  */

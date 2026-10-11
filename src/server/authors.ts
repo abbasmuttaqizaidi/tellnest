@@ -211,6 +211,24 @@ export const updateUserProfileServerFn = createServerFn({ method: 'POST' })
       updates.preferences = {
         ...currentPrefs,
         ...data.preferences,
+        ...(data.preferences.reading ? {
+          reading: {
+            ...((currentPrefs.reading && typeof currentPrefs.reading === 'object') ? currentPrefs.reading : {}),
+            ...data.preferences.reading,
+          },
+        } : {}),
+        ...(data.preferences.readerUx ? {
+          readerUx: {
+            ...((currentPrefs.readerUx && typeof currentPrefs.readerUx === 'object') ? currentPrefs.readerUx : {}),
+            ...data.preferences.readerUx,
+          },
+        } : {}),
+        ...(data.preferences.notifications ? {
+          notifications: {
+            ...((currentPrefs.notifications && typeof currentPrefs.notifications === 'object') ? currentPrefs.notifications : {}),
+            ...data.preferences.notifications,
+          },
+        } : {}),
       }
     }
 

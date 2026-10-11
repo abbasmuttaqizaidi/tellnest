@@ -15,7 +15,7 @@ interface ProtectedRouteProps {
 
 /**
  * ProtectedRoute Component
- * Guards private Tellnest / Relay routes (Library, Following, Notifications, Profile, Settings, Writer Studio).
+ * Guards private HatchPen routes (Library, Following, Notifications, Profile, Settings, Writer Studio).
  * If unauthenticated, displays an elegant Monochrome Executive access portal with Clerk authentication.
  */
 export function ProtectedRoute({
@@ -27,13 +27,13 @@ export function ProtectedRoute({
   const { isSignedIn, isLoaded } = useUser()
   const { openAuthModal } = useApp()
 
-  // 1. Tellnest Branded Loader while Clerk hydrates session
+  // 1. HatchPen Branded Loader while Clerk hydrates session
   if (!isLoaded) {
     return (
       <TellnestLoader
         variant="page"
         message="Verifying literary credentials..."
-        submessage="Tellnest Private Folio"
+        submessage="HatchPen Private Folio"
       />
     )
   }

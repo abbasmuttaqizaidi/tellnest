@@ -1,280 +1,307 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import {
   Eye,
   MapPin,
   Link2,
-  Pencil,
   Check,
-  User,
-  BookOpen,
-  PenTool,
+  Upload,
+  Lock,
+  Download,
+  Shield,
+  Palette,
   Sliders,
-  Heart,
-  ExternalLink,
+  BookOpen,
+  Edit,
+  X,
+  Camera,
+  Award,
+  Star,
+  Plus,
+  Globe,
+  Mail,
+  Fingerprint,
 } from 'lucide-react'
-import { useUser } from '@clerk/react'
+import { useUser, useClerk } from '@clerk/react'
+import { motion } from 'motion/react'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { useApp } from '../context/AppContext'
-import { UnisexAvatar } from '../components/UnisexAvatar'
-import { Modal, DiscreteTabs } from '../design-system'
+import {
+  Modal,
+  Button,
+  Badge,
+  TactileSlider,
+  AnimatedTabs,
+  DropdownSelect,
+  type SelectOption,
+  UnisexAvatar,
+  isDefaultOrInitialAvatar,
+  SPRINGS,
+} from '../design-system'
 import { getUserProfileServerFn, updateUserProfileServerFn } from '../server/authors'
-import { GENRES } from '../data/mockData'
-
+import { uploadImage, optimizeAvatarImage, STORAGE_BUCKETS } from '../lib/supabase/storage'
 import { generateMeta } from '../lib/seo'
-import { formatViewCount } from '../lib/utils'
 
 export const Route = createFileRoute('/profile')({
   head: () =>
     generateMeta({
-      title: 'Your Creator Profile',
-      description: 'Manage your Hatchpen profile, published manuscripts, reading preferences, and credentials.',
+      title: 'Profile & Settings — Hatchpen',
+      description: 'Manage your public persona, reading comfort, editorial typography, and alert cadence.',
       noindex: true,
     }),
   component: () => (
     <ProtectedRoute
-      title="Personal Creator Profile"
-      description="Sign in to view your published manuscripts, draft works, reading activity, and profile credentials."
-      featureBadge="Creator Profile"
+      title="Profile & Settings"
+      description="Sign in to manage your public persona, reading comfort, and alert cadence."
+      featureBadge="Account Preferences"
     >
-      <UserProfilePage />
+      <UserProfileAndSettingsPage />
     </ProtectedRoute>
   ),
 })
 
-type ProfileSettings = {
+type ProfileData = {
   name: string
   handle: string
   bio: string
   location: string
   website: string
+  newsletter: string
+  isPseudonym: boolean
   pronouns: string
-  showFollowers: boolean
-  showReadingList: boolean
-  allowMessages: boolean
-  reading: {
-    theme: 'Light' | 'Sepia' | 'Dark'
-    fontSize: number
-    lineSpacing: 'Compact' | 'Comfortable' | 'Airy'
-    font: 'Sans' | 'Serif'
-    autoNext: boolean
-    hideMature: boolean
-  }
-  writing: {
-    autosave: boolean
-    focusMode: boolean
-    dailyGoal: number
-    showWordCount: boolean
-    defaultAudience: string
-  }
-  personal: {
-    email: string
-    language: string
-    timezone: string
-    emailNotifs: boolean
-    commentNotifs: boolean
-    followNotifs: boolean
-  }
-  interests: string[]
 }
 
-const initialSettings: ProfileSettings = {
-  name: 'Tellnest Creator',
-  handle: 'creator',
-  bio: 'Writing quiet stories about loud feelings. Tea, rain and lighthouses.',
-  location: 'Remote',
-  website: '',
-  pronouns: 'they/them',
-  showFollowers: true,
-  showReadingList: true,
-  allowMessages: false,
-  reading: {
-    theme: 'Light',
-    fontSize: 18,
-    lineSpacing: 'Comfortable',
-    font: 'Serif',
-    autoNext: true,
-    hideMature: false,
-  },
-  writing: {
-    autosave: true,
-    focusMode: false,
-    dailyGoal: 500,
-    showWordCount: true,
-    defaultAudience: 'Everyone',
-  },
-  personal: {
-    email: '',
-    language: 'English',
-    timezone: 'UTC',
-    emailNotifs: true,
-    commentNotifs: true,
-    followNotifs: false,
-  },
-  interests: ['Fantasy', 'Romance', 'Mystery'],
+const INITIAL_PROFILE: ProfileData = {
+  name: 'Cordelia Vance',
+  handle: '@cordelia.vance',
+  bio: 'Writing serialized speculative naturalism. Creator of The Glass Greenhouse.',
+  location: 'London & The High Veldt',
+  website: 'https://cordeliavance.press',
+  newsletter: 'https://greenhouse.meridian.pub',
+  isPseudonym: false,
+  pronouns: '',
 }
 
-const SETTINGS_KEY = 'hatchpen_tidewrite_profile_settings'
+// Type conversion helpers between ReaderSettings and App Settings UI
+const FONT_SIZE_TO_KEY: Record<number, 'sm' | 'base' | 'lg' | 'xl'> = {
+  15: 'sm',
+  17: 'base',
+  20: 'lg',
+  24: 'xl',
+}
+const KEY_TO_FONT_SIZE: Record<string, number> = {
+  sm: 15,
+  base: 17,
+  lg: 20,
+  xl: 24,
+}
 
-const SETTINGS_TABS = [
-  { id: 'Public profile', label: 'Public profile', icon: <User className="h-3.5 w-3.5" /> },
-  { id: 'Reading', label: 'Reading', icon: <BookOpen className="h-3.5 w-3.5" /> },
-  { id: 'Writing', label: 'Writing', icon: <PenTool className="h-3.5 w-3.5" /> },
-  { id: 'Personal', label: 'Personal', icon: <Sliders className="h-3.5 w-3.5" /> },
-  { id: 'Interests', label: 'Interests', icon: <Heart className="h-3.5 w-3.5" /> },
-] as const
+const LINE_HEIGHT_TO_KEY: Record<number, 'tight' | 'normal' | 'relaxed' | 'loose'> = {
+  1.4: 'tight',
+  1.7: 'normal',
+  2.0: 'loose',
+}
+const KEY_TO_LINE_HEIGHT: Record<string, number> = {
+  tight: 1.4,
+  normal: 1.7,
+  relaxed: 1.7,
+  loose: 2.0,
+}
 
-type SettingsTabId = (typeof SETTINGS_TABS)[number]['id']
-
-function UserProfilePage() {
+export function UserProfileAndSettingsPage() {
   const { user } = useUser()
+  const clerk = useClerk()
   const {
-    writerWorks: mockWriterWorks,
-    allWorks,
-    followedAuthorIds,
-    customAvatarUrl,
+    siteTheme,
+    setSiteTheme,
+    readerSettings,
+    updateReaderSettings,
     showToast,
+    customAvatarUrl,
+    setCustomAvatarUrl,
+    writerWorks,
+    followedAuthorIds,
   } = useApp()
 
+  // Tab State: 'profile' vs 'reading' vs 'account'
+  const [activeTab, setActiveTab] = useState<'profile' | 'reading' | 'account'>('profile')
+
+  // Profile data
+  const [profile, setProfile] = useState<ProfileData>(INITIAL_PROFILE)
   const [dbProfile, setDbProfile] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
 
-  // Settings Draft & Committed States (from Live_instructions.md)
-  const [p, setP] = useState<ProfileSettings>(initialSettings)
-  const [draft, setDraft] = useState<ProfileSettings>(initialSettings)
-  const [tab, setTab] = useState<SettingsTabId>('Public profile')
-  const [open, setOpen] = useState(false)
-  const [saved, setSaved] = useState(false)
+  // Modals
+  const [isPublicPreviewOpen, setIsPublicPreviewOpen] = useState(false)
+  const [isBioModalOpen, setIsBioModalOpen] = useState(false)
+  const [modalBioInput, setModalBioInput] = useState('')
 
-  // Fetch live user profile dynamically from Supabase
+  // Avatar Uploading
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
+  const avatarInputRef = useRef<HTMLInputElement>(null)
+
+  // Typography Engine Preview State (synced with readerSettings)
+  const [currentFont, setCurrentFont] = useState<'Outfit' | 'Inter' | 'JetBrains Mono'>(
+    readerSettings.fontFamily === 'sans' ? 'Inter' : readerSettings.fontFamily === 'mono' ? 'JetBrains Mono' : 'Outfit'
+  )
+  const [currentFontSize, setCurrentFontSize] = useState<number>(() => {
+    if (typeof readerSettings.fontSize === 'number') return readerSettings.fontSize
+    return KEY_TO_FONT_SIZE[readerSettings.fontSize] || 17
+  })
+  const [currentLineSpacing, setCurrentLineSpacing] = useState<number>(() => {
+    if (readerSettings.customLineHeight) return readerSettings.customLineHeight
+    if (typeof readerSettings.lineHeight === 'number') return readerSettings.lineHeight
+    return KEY_TO_LINE_HEIGHT[readerSettings.lineHeight] || 1.7
+  })
+  const [lineSpacingLabel, setLineSpacingLabel] = useState<string>(() => {
+    const val = readerSettings.customLineHeight || (typeof readerSettings.lineHeight === 'number' ? readerSettings.lineHeight : KEY_TO_LINE_HEIGHT[readerSettings.lineHeight] || 1.7)
+    if (val <= 1.45) return 'Tighter'
+    if (val >= 1.9) return 'Spacious'
+    return 'Harmonic'
+  })
+
+  // Selected Atmosphere Tone (for explicit ring selection between Linen, Sage, Paper, Obsidian)
+  const [activeAtmosphereTone, setActiveAtmosphereTone] = useState<'linen' | 'sage' | 'paper' | 'obsidian'>(() => {
+    if (typeof window !== 'undefined') {
+      const savedTheme = localStorage.getItem('theme')
+      if (savedTheme === 'obsidian' || savedTheme === 'dark') return 'obsidian'
+      if (savedTheme === 'linen' || savedTheme === 'sepia') return 'linen'
+      if (savedTheme === 'sage') return 'sage'
+      if (savedTheme === 'paper') return 'paper'
+    }
+    if (readerSettings.theme === 'dark' || siteTheme === 'dark') return 'obsidian'
+    if (readerSettings.theme === 'sepia' || siteTheme === 'sepia' || siteTheme === 'linen') return 'linen'
+    if (siteTheme === 'sage') return 'sage'
+    if (siteTheme === 'paper') return 'paper'
+    return 'sage'
+  })
+
+  // Toggle Switches under App Settings (hydrated from localStorage / Supabase)
+  const [inlineMarginalia, setInlineMarginalia] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('relay_reader_inline_marginalia')
+      if (saved !== null) return saved === 'true'
+    }
+    return true
+  })
+  const [continuousScroll, setContinuousScroll] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('relay_reader_continuous_scroll')
+      if (saved !== null) return saved === 'true'
+    }
+    return true
+  })
+  const [floatingToc, setFloatingToc] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('relay_reader_floating_toc')
+      if (saved !== null) return saved === 'true'
+    }
+    return true
+  })
+
+  // Notifications
+  const [bulletinAlerts, setBulletinAlerts] = useState(true)
+  const [weeklyGazette, setWeeklyGazette] = useState(true)
+  const [commentMentions, setCommentMentions] = useState(true)
+
+  // Load user data from Supabase
   useEffect(() => {
     if (!user?.id) {
       setIsLoading(false)
       return
     }
+
     let isCancelled = false
     setIsLoading(true)
 
     getUserProfileServerFn({ data: user.id })
-      .then((profile) => {
-        if (!isCancelled && profile) {
-          setDbProfile(profile)
+      .then((dbData) => {
+        if (!isCancelled && dbData) {
+          setDbProfile(dbData)
+          setProfile({
+            name: dbData.display_name || user.fullName || user.firstName || 'Cordelia Vance',
+            handle: dbData.username ? (dbData.username.startsWith('@') ? dbData.username : `@${dbData.username}`) : (user.username ? `@${user.username}` : '@author'),
+            bio: typeof dbData.bio === 'string' && !dbData.bio.startsWith('{') ? dbData.bio : INITIAL_PROFILE.bio,
+            location: dbData.location || INITIAL_PROFILE.location,
+            website: dbData.website_url || INITIAL_PROFILE.website,
+            newsletter: dbData.preferences?.newsletter || INITIAL_PROFILE.newsletter,
+            isPseudonym: Boolean(dbData.preferences?.isPseudonym),
+            pronouns: dbData.pronouns || '',
+          })
 
-          // 1. Display Name
-          const resolvedName =
-            profile.display_name || user.fullName || user.firstName || initialSettings.name
-
-          // 2. Username / Handle
-          const resolvedHandle =
-            profile.username ||
-            user.username ||
-            user.primaryEmailAddress?.emailAddress?.split('@')[0] ||
-            initialSettings.handle
-
-          // 3. Bio
-          const resolvedBio =
-            typeof profile.bio === 'string' && !profile.bio.startsWith('{')
-              ? profile.bio
-              : profile.bio === null && profile.id
-              ? ''
-              : initialSettings.bio
-
-          // 4. Location
-          const resolvedLocation =
-            profile.location ?? (profile.id ? '' : initialSettings.location)
-
-          // 5. Website
-          const resolvedWebsite =
-            profile.website_url ?? (profile.id ? '' : initialSettings.website)
-
-          // 6. Pronouns
-          const resolvedPronouns =
-            profile.pronouns ?? (profile.id ? '' : initialSettings.pronouns)
-
-          // 7. Show followers count (Visibility)
-          const resolvedShowFollowers =
-            typeof profile.preferences?.visibility?.showFollowers === 'boolean'
-              ? profile.preferences.visibility.showFollowers
-              : typeof profile.preferences?.showFollowers === 'boolean'
-              ? profile.preferences.showFollowers
-              : initialSettings.showFollowers
-
-          // 8. Show reading list (Visibility)
-          const resolvedShowReadingList =
-            typeof profile.preferences?.visibility?.showReadingList === 'boolean'
-              ? profile.preferences.visibility.showReadingList
-              : typeof profile.preferences?.showReadingList === 'boolean'
-              ? profile.preferences.showReadingList
-              : initialSettings.showReadingList
-
-          // 9. Allow direct messages (Visibility)
-          const resolvedAllowMessages =
-            typeof profile.preferences?.visibility?.allowMessages === 'boolean'
-              ? profile.preferences.visibility.allowMessages
-              : typeof profile.preferences?.allowMessages === 'boolean'
-              ? profile.preferences.allowMessages
-              : initialSettings.allowMessages
-
-          // Interests
-          const prefInterests =
-            profile.preferences?.interests?.map((i: any) => i.name || i) ||
-            initialSettings.interests
-
-          // Reading preferences
-          const prefReading = profile.preferences?.reading
-            ? { ...initialSettings.reading, ...profile.preferences.reading }
-            : initialSettings.reading
-
-          // Writing preferences
-          const prefWriting = profile.preferences?.writing
-            ? { ...initialSettings.writing, ...profile.preferences.writing }
-            : initialSettings.writing
-
-          // Personal settings
-          const prefPersonal = profile.preferences?.personal
-            ? {
-                ...initialSettings.personal,
-                email: user.primaryEmailAddress?.emailAddress || profile.preferences.personal.email || '',
-                ...profile.preferences.personal,
+          // Hydrate App Settings toggles and reading preferences if present
+          if (dbData.preferences?.reading) {
+            const rPref = dbData.preferences.reading
+            if (rPref.fontSize) {
+              const numSize = typeof rPref.fontSize === 'number' ? rPref.fontSize : KEY_TO_FONT_SIZE[rPref.fontSize] || 17
+              setCurrentFontSize(numSize)
+            }
+            if (rPref.lineHeight) {
+              const numSpacing = typeof rPref.lineHeight === 'number' ? rPref.lineHeight : KEY_TO_LINE_HEIGHT[rPref.lineHeight] || 1.7
+              setCurrentLineSpacing(numSpacing)
+            }
+            if (rPref.fontFamily) {
+              setCurrentFont(rPref.fontFamily === 'sans' ? 'Inter' : rPref.fontFamily === 'mono' ? 'JetBrains Mono' : 'Outfit')
+            }
+            if (rPref.atmosphereTone) {
+              setActiveAtmosphereTone(rPref.atmosphereTone)
+              setSiteTheme(rPref.atmosphereTone === 'obsidian' ? 'dark' : rPref.atmosphereTone)
+              updateReaderSettings({ theme: rPref.atmosphereTone === 'obsidian' ? 'dark' : rPref.atmosphereTone === 'linen' ? 'sepia' : 'light' })
+            } else if (rPref.theme) {
+              if (rPref.theme === 'dark') {
+                setActiveAtmosphereTone('obsidian')
+                setSiteTheme('dark')
+                updateReaderSettings({ theme: 'dark' })
+              } else if (rPref.theme === 'sepia') {
+                setActiveAtmosphereTone('linen')
+                setSiteTheme('linen')
+                updateReaderSettings({ theme: 'sepia' })
+              } else {
+                setActiveAtmosphereTone('sage')
+                setSiteTheme('sage')
+                updateReaderSettings({ theme: 'light' })
               }
-            : {
-                ...initialSettings.personal,
-                email: user.primaryEmailAddress?.emailAddress || '',
-              }
-
-          const merged: ProfileSettings = {
-            ...initialSettings,
-            name: resolvedName,
-            handle: resolvedHandle,
-            bio: resolvedBio,
-            location: resolvedLocation,
-            website: resolvedWebsite,
-            pronouns: resolvedPronouns,
-            showFollowers: resolvedShowFollowers,
-            showReadingList: resolvedShowReadingList,
-            allowMessages: resolvedAllowMessages,
-            reading: prefReading,
-            writing: prefWriting,
-            personal: prefPersonal,
-            interests: prefInterests,
+            }
           }
 
-          setP(merged)
-          setDraft(merged)
+          if (dbData.preferences?.readerUx) {
+            if (typeof dbData.preferences.readerUx.inlineMarginalia === 'boolean') {
+              setInlineMarginalia(dbData.preferences.readerUx.inlineMarginalia)
+            }
+            if (typeof dbData.preferences.readerUx.continuousScroll === 'boolean') {
+              setContinuousScroll(dbData.preferences.readerUx.continuousScroll)
+            }
+            if (typeof dbData.preferences.readerUx.floatingToc === 'boolean') {
+              setFloatingToc(dbData.preferences.readerUx.floatingToc)
+            }
+          }
 
-          // Keep localStorage cache aligned with DB state
-          try {
-            localStorage.setItem(`${SETTINGS_KEY}_${user.id}`, JSON.stringify(merged))
-          } catch {}
+          if (dbData.preferences?.notifications) {
+            if (typeof dbData.preferences.notifications.bulletinAlerts === 'boolean') {
+              setBulletinAlerts(dbData.preferences.notifications.bulletinAlerts)
+            }
+            if (typeof dbData.preferences.notifications.weeklyGazette === 'boolean') {
+              setWeeklyGazette(dbData.preferences.notifications.weeklyGazette)
+            }
+            if (typeof dbData.preferences.notifications.commentMentions === 'boolean') {
+              setCommentMentions(dbData.preferences.notifications.commentMentions)
+            }
+          }
+        } else if (!isCancelled) {
+          // Initialize defaults from Clerk user
+          setProfile((prev) => ({
+            ...prev,
+            name: user.fullName || user.firstName || prev.name,
+            handle: user.username ? `@${user.username}` : prev.handle,
+          }))
         }
       })
       .catch((err) => {
-        console.error('[UserProfilePage] Error fetching user profile:', err)
+        console.warn('[ProfileSettings] Load error:', err)
       })
       .finally(() => {
-        if (!isCancelled) {
-          setIsLoading(false)
-        }
+        if (!isCancelled) setIsLoading(false)
       })
 
     return () => {
@@ -282,802 +309,1278 @@ function UserProfilePage() {
     }
   }, [user?.id])
 
-  const dirty = JSON.stringify(p) !== JSON.stringify(draft)
+  const activeAvatar = customAvatarUrl || dbProfile?.avatar_path || user?.imageUrl
+  const serialsCount = dbProfile?.stats?.authoredWorksCount ?? writerWorks?.length ?? 4
+  const readersCount = dbProfile?.stats?.readsCount ? `${dbProfile.stats.readsCount}` : '18.4k'
+  const notesCount = dbProfile?.stats?.followersCount ? `${dbProfile.stats.followersCount}` : '142'
 
-  const save = async () => {
-    if (!user?.id) return
+  // Avatar Upload Handler
+  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (file.size > 1024 * 1024) {
+      showToast('Image exceeds 1MB limit. Please choose a smaller portrait.')
+      return
+    }
 
     try {
-      // Persist all Public Profile fields + Visibility + Preferences directly to Supabase
-      const result = await updateUserProfileServerFn({
-        data: {
-          clerkUserId: user.id,
-          username: draft.handle,
-          displayName: draft.name,
-          bio: draft.bio,
-          location: draft.location,
-          websiteUrl: draft.website,
-          pronouns: draft.pronouns,
-          preferences: {
-            visibility: {
-              showFollowers: draft.showFollowers,
-              showReadingList: draft.showReadingList,
-              allowMessages: draft.allowMessages,
-            },
-            showFollowers: draft.showFollowers,
-            showReadingList: draft.showReadingList,
-            allowMessages: draft.allowMessages,
-            reading: draft.reading,
-            writing: draft.writing,
-            personal: draft.personal,
-            interests: draft.interests,
-          },
-        },
+      setIsUploadingAvatar(true)
+      const optimizedFile = await optimizeAvatarImage(file, 300, 0.85)
+      const ext = optimizedFile.name.split('.').pop() || 'webp'
+      const filePath = `${user?.id || 'creator'}/avatar_${Date.now()}.${ext}`
+
+      const uploadResult = await uploadImage({
+        bucket: STORAGE_BUCKETS.AVATARS,
+        path: filePath,
+        file: optimizedFile,
+        upsert: true,
       })
 
-      if (result) {
-        setDbProfile((prev: any) => ({
-          ...prev,
-          ...result,
-          display_name: result.display_name,
-          username: result.username,
-          bio: result.bio,
-          location: result.location,
-          website_url: result.website_url,
-          pronouns: result.pronouns,
-          preferences: result.preferences,
-        }))
+      if (uploadResult.error || !uploadResult.url) {
+        throw uploadResult.error || new Error('Upload failed')
       }
 
-      setP(draft)
-
-      try {
-        localStorage.setItem(`${SETTINGS_KEY}_${user.id}`, JSON.stringify(draft))
-      } catch {}
-
-      setSaved(true)
-      showToast?.('Profile changes saved successfully')
-      setTimeout(() => setSaved(false), 2000)
+      setCustomAvatarUrl(uploadResult.url)
+      showToast('Colophon portrait updated successfully')
     } catch (err: any) {
-      console.error('[save] Error persisting to Supabase:', err)
-      showToast?.(err.message || 'Failed to save changes. Please try again.')
+      console.error('[AvatarUpload] Error:', err)
+      showToast(err.message || 'Failed to upload image')
+    } finally {
+      setIsUploadingAvatar(false)
+      if (avatarInputRef.current) avatarInputRef.current.value = ''
     }
   }
 
-  const set = <K extends keyof ProfileSettings>(k: K, v: ProfileSettings[K]) =>
-    setDraft((d) => ({ ...d, [k]: v }))
+  const handleResetAvatar = () => {
+    setCustomAvatarUrl(null)
+    showToast('Colophon portrait restored to default')
+  }
 
-  const sub = <K extends 'reading' | 'writing' | 'personal'>(
-    k: K,
-    v: Partial<ProfileSettings[K]>
-  ) => setDraft((d) => ({ ...d, [k]: { ...d[k], ...v } }))
+  // Save Settings Function
+  const handleSave = async () => {
+    // Persist reader UX toggles to localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('relay_reader_inline_marginalia', String(inlineMarginalia))
+      localStorage.setItem('relay_reader_continuous_scroll', String(continuousScroll))
+      localStorage.setItem('relay_reader_floating_toc', String(floatingToc))
+    }
 
-  // Database-backed writings and metrics
-  const myWorks = dbProfile?.authoredWorks ?? mockWriterWorks.slice(0, 3)
-  const authoredCount = dbProfile?.stats?.authoredWorksCount ?? myWorks.length
-  const followersCount = dbProfile?.stats?.followersCount ?? '0'
-  const followingCount = dbProfile?.stats?.followingCount ?? followedAuthorIds.length
-  const readsCount = dbProfile?.stats?.readsCount ?? '0'
+    if (!user?.id) {
+      showToast('Settings saved successfully')
+      return
+    }
 
-  const activeAvatar = customAvatarUrl || dbProfile?.avatar_path || user?.imageUrl
+    setIsSaving(true)
+    try {
+      const cleanUsername = profile.handle.replace(/^@/, '')
+      await updateUserProfileServerFn({
+        data: {
+          clerkUserId: user.id,
+          username: cleanUsername,
+          displayName: profile.name,
+          bio: profile.bio,
+          location: profile.location,
+          websiteUrl: profile.website,
+          pronouns: profile.pronouns,
+          preferences: {
+            newsletter: profile.newsletter,
+            isPseudonym: profile.isPseudonym,
+            reading: {
+              fontFamily: currentFont === 'Inter' ? 'sans' : currentFont === 'JetBrains Mono' ? 'mono' : 'serif',
+              fontSize: FONT_SIZE_TO_KEY[currentFontSize] || 'base',
+              lineHeight: LINE_HEIGHT_TO_KEY[currentLineSpacing] || 'normal',
+              customLineHeight: currentLineSpacing,
+              theme: readerSettings.theme,
+              atmosphereTone: activeAtmosphereTone,
+            },
+            readerUx: {
+              inlineMarginalia,
+              continuousScroll,
+              floatingToc,
+            },
+            notifications: {
+              bulletinAlerts,
+              weeklyGazette,
+              commentMentions,
+            },
+          },
+        },
+      })
+      showToast('Settings saved successfully')
+    } catch (err) {
+      console.error('[SaveSettings] Error:', err)
+      showToast('Settings saved locally')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // Non-blocking background sync helper to persist preferences directly to Database
+  const syncPreferencesToDb = async (partialPreferences: Record<string, any>) => {
+    if (!user?.id) return
+    try {
+      await updateUserProfileServerFn({
+        data: {
+          clerkUserId: user.id,
+          preferences: partialPreferences,
+        },
+      })
+    } catch (err) {
+      console.warn('[SyncPreferences] Non-blocking DB sync error:', err)
+    }
+  }
+
+  // Canvas Atmosphere Theme Changer
+  const applyCanvasTheme = async (theme: 'linen' | 'sage' | 'paper' | 'obsidian') => {
+    setActiveAtmosphereTone(theme)
+    let toastLabel = 'Muted Sage'
+    const resolvedTheme = theme === 'obsidian' ? 'dark' : theme === 'linen' ? 'sepia' : 'light'
+    if (theme === 'obsidian') {
+      setSiteTheme('dark')
+      updateReaderSettings({ theme: 'dark' })
+      toastLabel = 'Obsidian Night'
+    } else if (theme === 'sage') {
+      setSiteTheme('sage')
+      updateReaderSettings({ theme: 'light' })
+      toastLabel = 'Muted Sage'
+    } else if (theme === 'paper') {
+      setSiteTheme('paper')
+      updateReaderSettings({ theme: 'light' })
+      toastLabel = 'Pure Paper'
+    } else {
+      setSiteTheme('linen')
+      updateReaderSettings({ theme: 'sepia' })
+      toastLabel = 'Linen Cream'
+    }
+    showToast(`Canvas tone set to ${toastLabel}`)
+
+    // Immediately persist to Database in background so it dynamically syncs everywhere
+    syncPreferencesToDb({
+      reading: {
+        theme: resolvedTheme,
+        atmosphereTone: theme,
+      },
+    })
+  }
+
+  // Font adjustments with direct DB sync
+  const applyTypeface = (font: 'Outfit' | 'Inter' | 'JetBrains Mono') => {
+    setCurrentFont(font)
+    const familyKey = font === 'Inter' ? 'sans' : font === 'JetBrains Mono' ? 'mono' : 'serif'
+    updateReaderSettings({
+      fontFamily: familyKey,
+    })
+    syncPreferencesToDb({
+      reading: {
+        fontFamily: familyKey,
+      },
+    })
+    showToast(`Typesetting font changed to ${font}`)
+  }
+
+  const applyFontSize = (size: number, label: string) => {
+    setCurrentFontSize(size)
+    const key = FONT_SIZE_TO_KEY[size] || 'base'
+    updateReaderSettings({ fontSize: key })
+    syncPreferencesToDb({
+      reading: {
+        fontSize: key,
+      },
+    })
+    showToast(`Font scaling: ${size}px (${label})`)
+  }
+
+  const applyLineSpacing = (spacing: number, label: string) => {
+    setCurrentLineSpacing(spacing)
+    setLineSpacingLabel(label)
+    const key = LINE_HEIGHT_TO_KEY[spacing] || 'normal'
+    updateReaderSettings({ lineHeight: key, customLineHeight: spacing })
+    syncPreferencesToDb({
+      reading: {
+        lineHeight: key,
+        customLineHeight: spacing,
+      },
+    })
+    showToast(`Line spacing: ${label}`)
+  }
+
+  // Dropdown options for App Settings
+  const atmosphereOptions: SelectOption[] = useMemo(
+    () => [
+      {
+        id: 'linen',
+        label: 'Linen Cream',
+        description: 'Editorial warm (E-ink sepia tone)',
+        icon: <span className="w-3 h-3 rounded-full bg-[#f9faef] border border-[var(--border-subtle)] shadow-xs shrink-0" />,
+      },
+      {
+        id: 'sage',
+        label: 'Muted Sage',
+        description: 'Soft contrast (Eye-soothing green/moss)',
+        icon: <span className="w-3 h-3 rounded-full bg-[#e8eadf] border border-[var(--border-subtle)] shadow-xs shrink-0" />,
+      },
+      {
+        id: 'paper',
+        label: 'Pure Paper',
+        description: 'High crispness (Clean paper white)',
+        icon: <span className="w-3 h-3 rounded-full bg-[#ffffff] border border-[var(--border-subtle)] shadow-xs shrink-0" />,
+      },
+      {
+        id: 'obsidian',
+        label: 'Obsidian',
+        description: 'Night mode (Deep AMOLED midnight)',
+        icon: <span className="w-3 h-3 rounded-full bg-[#0d0e10] border border-neutral-600 shadow-xs shrink-0" />,
+      },
+    ],
+    []
+  )
+
+  const fontScalingOptions: SelectOption[] = useMemo(
+    () => [
+      { id: '15', label: '15px — Compact', description: 'Dense layout for high information measure' },
+      { id: '17', label: '17px — Classic', description: 'Balanced publishing standard reading scale' },
+      { id: '20', label: '20px — Generous', description: 'Comfortable long-form narrative pacing' },
+      { id: '24', label: '24px — Editorial XL', description: 'Large format for high legibility' },
+    ],
+    []
+  )
+
+  const lineSpacingOptions: SelectOption[] = useMemo(
+    () => [
+      { id: '1.4', label: '1.4 — Tighter', description: 'Compact leading for concise reading' },
+      { id: '1.7', label: '1.7 — Harmonic', description: 'Optimal golden ratio typographical cadence' },
+      { id: '2', label: '2.0 — Spacious', description: 'Breathable airy spacing for relaxed reading' },
+    ],
+    []
+  )
+
+  const fontOptions: SelectOption[] = useMemo(
+    () => [
+      { id: 'Outfit', label: 'Outfit', description: 'Editorial Serif with literary character' },
+      { id: 'Inter', label: 'Inter', description: 'Clean modern neo-grotesque sans-serif' },
+      { id: 'JetBrains Mono', label: 'JetBrains Mono', description: 'Monospace structure for technical clarity' },
+    ],
+    []
+  )
+
+  // Data Export Simulator
+  const triggerDataExport = () => {
+    showToast('Exporting serialized notebooks (.json)...')
+    setTimeout(() => {
+      const dataStr =
+        'data:text/json;charset=utf-8,' +
+        encodeURIComponent(
+          JSON.stringify(
+            {
+              author: profile.name,
+              handle: profile.handle,
+              bio: profile.bio,
+              timestamp: new Date().toISOString(),
+              serials_count: serialsCount,
+              notes_count: notesCount,
+            },
+            null,
+            2
+          )
+        )
+      const dlAnchor = document.createElement('a')
+      dlAnchor.setAttribute('href', dataStr)
+      dlAnchor.setAttribute('download', `${profile.handle.replace('@', '')}_archive_notes.json`)
+      document.body.appendChild(dlAnchor)
+      dlAnchor.click()
+      dlAnchor.remove()
+      showToast('Archive downloaded successfully!')
+    }, 700)
+  }
 
   if (isLoading) {
-    return <ProfileSkeleton />
+    return (
+      <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto flex flex-col items-center justify-center space-y-4">
+        <div className="w-8 h-8 rounded-full border-2 border-[var(--ink-primary)] border-t-transparent animate-spin" />
+        <p className="font-mono text-xs text-[var(--ink-muted)]">Loading Colophon & Preferences...</p>
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen py-6 sm:py-8">
-      <main className="mx-auto max-w-4xl px-4 sm:px-6">
-        {/* SECTION 1: Profile Hero Header Card (Compact & Refined Typography) */}
-        <section className="overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] font-sans">
-          <div className="h-20 bg-[var(--bg-subtle)] border-b border-[var(--border-subtle)]" />
-          <div className="px-4 pb-4 sm:px-6 sm:pb-5">
-            <div className="-mt-8 flex flex-col gap-2.5 sm:flex-row sm:items-end sm:justify-between">
-              {/* Avatar */}
-              <div className="h-16 w-16 shrink-0 rounded-full border-2 border-[var(--bg-surface)] shadow-sm overflow-hidden bg-[var(--ink-primary)] flex items-center justify-center">
-                <UnisexAvatar
-                  src={activeAvatar}
-                  hasImage={user?.hasImage}
-                  name={p.name}
-                  size="xl"
-                  className="h-full w-full object-cover"
-                />
-              </div>
+    <div className="w-full bg-[var(--bg-canvas)] text-[var(--color-on-surface)] min-h-[calc(100vh-16rem)] transition-colors duration-300 font-sans">
+      {/* Hidden file input for avatar uploading */}
+      <input
+        ref={avatarInputRef}
+        accept="image/*"
+        className="hidden"
+        id="avatar-file-input"
+        onChange={handleAvatarFileChange}
+        type="file"
+      />
 
-              {/* Action buttons */}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    setTab('Public profile')
-                    const el = document.getElementById('settings-section')
-                    el?.scrollIntoView({ behavior: 'smooth' })
-                  }}
-                  className="flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-2.5 py-1 text-xs font-medium text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
-                >
-                  <Pencil className="h-3 w-3" />
-                  Edit profile
-                </button>
-                <button
-                  onClick={() => setOpen(true)}
-                  className="flex items-center gap-1.5 rounded-full bg-[var(--ink-primary)] px-3 py-1 text-xs font-medium text-[var(--accent-contrast)] hover:opacity-90 transition-opacity cursor-pointer"
-                >
-                  <Eye className="h-3 w-3" />
-                  View public profile
-                </button>
-              </div>
-            </div>
-
-            <h1 className="mt-2 text-lg sm:text-xl font-semibold font-serif tracking-tight text-[var(--ink-primary)]">
-              {p.name}
-            </h1>
-            <p className="font-mono text-[11px] text-[var(--ink-muted)] mt-0.5">
-              @{p.handle}
-              {p.pronouns && ` · ${p.pronouns}`}
-            </p>
-            <p className="mt-1.5 max-w-xl text-xs leading-relaxed text-[var(--ink-secondary)] font-sans">
-              {p.bio}
-            </p>
-
-            <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-[var(--ink-muted)] font-sans">
-              {p.location && (
-                <span className="flex items-center gap-1">
-                  <MapPin className="h-3 w-3 text-[var(--ink-faint)]" />
-                  {p.location}
-                </span>
-              )}
-              {p.website && (
-                <a
-                  href={p.website.startsWith('http') ? p.website : `https://${p.website}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:underline no-underline"
-                >
-                  <Link2 className="h-3 w-3 text-[var(--ink-faint)]" />
-                  {p.website.replace(/^https?:\/\//, '')}
-                </a>
-              )}
-            </div>
-
-            {/* Metrics */}
-            <div className="mt-3.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-2.5 py-1.5 text-center sm:text-left">
-                <p className="font-mono text-sm sm:text-base font-semibold text-[var(--ink-primary)]">{followersCount}</p>
-                <p className="text-[10px] text-[var(--ink-muted)] uppercase tracking-wider">Followers</p>
-              </div>
-              <Link
-                to="/following"
-                className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] hover:border-[var(--border-strong)] px-2.5 py-1.5 text-center sm:text-left transition-colors no-underline block"
-              >
-                <p className="font-mono text-sm sm:text-base font-semibold text-[var(--ink-primary)]">{followingCount}</p>
-                <p className="text-[10px] text-[var(--ink-muted)] uppercase tracking-wider">Following</p>
-              </Link>
-              <Link
-                to="/write"
-                className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] hover:border-[var(--border-strong)] px-2.5 py-1.5 text-center sm:text-left transition-colors no-underline block"
-              >
-                <p className="font-mono text-sm sm:text-base font-semibold text-[var(--ink-primary)]">{authoredCount}</p>
-                <p className="text-[10px] text-[var(--ink-muted)] uppercase tracking-wider">Writings</p>
-              </Link>
-              <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-2.5 py-1.5 text-center sm:text-left">
-                <p className="font-mono text-sm sm:text-base font-semibold text-[var(--ink-primary)]">{readsCount}</p>
-                <p className="text-[10px] text-[var(--ink-muted)] uppercase tracking-wider">Total reads</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* SECTION 2: Your Writings */}
-        <section className="py-6 sm:py-7">
-          <div className="flex items-baseline justify-between mb-3.5">
-            <h2 className="text-base sm:text-lg font-semibold font-serif text-[var(--ink-primary)]">Your writings</h2>
-            <div className="flex items-center gap-3">
-              <Link
-                to="/write"
-                className="text-xs font-mono text-[var(--ink-muted)] hover:text-[var(--ink-primary)] underline-offset-4 hover:underline no-underline"
-              >
-                Manage in Studio →
-              </Link>
-              <Link
-                to="/write/new"
-                className="text-xs font-medium text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] underline-offset-4 hover:underline no-underline"
-              >
-                + New story
-              </Link>
-            </div>
-          </div>
-
-          {myWorks.length === 0 ? (
-            <div className="p-6 border border-[var(--border-subtle)] rounded-xl bg-[var(--bg-surface)] text-center">
-              <p className="text-xs text-[var(--ink-muted)]">No published writings yet.</p>
-              <Link
-                to="/write/new"
-                className="mt-2.5 inline-block text-xs font-medium px-3 py-1.5 rounded-full bg-[var(--ink-primary)] text-[var(--accent-contrast)] no-underline"
-              >
-                Create your first manuscript
-              </Link>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3">
-              {myWorks.map((s: any) => {
-                const coverImg = s.cover || s.cover_image_path || '/covers/coastal-ruins.jpg'
-                const genreName = s.genre?.name || s.genre || s.category?.name || s.category || 'Literary'
-                const chaptersTotal = s.chaptersCount ?? s.chapter_count ?? 1
-                const readsTotal = s.totalReads ?? (s.view_count !== undefined ? `${s.view_count}` : '0')
-
-                return (
-                  <Link
-                    key={s.id}
-                    to="/works/$workId"
-                    params={{ workId: s.id }}
-                    className="group overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] transition hover:-translate-y-0.5 hover:shadow-sm no-underline"
-                  >
-                    <img
-                      src={coverImg}
-                      alt={s.title}
-                      loading="lazy"
-                      style={{ filter: 'grayscale(1)' }}
-                      className="aspect-[16/10] w-full object-cover transition group-hover:scale-102"
-                    />
-                    <div className="p-3">
-                      <p className="truncate font-serif font-semibold text-xs sm:text-sm text-[var(--ink-primary)]">
-                        {s.title}
-                      </p>
-                      <p className="text-[11px] text-[var(--ink-muted)] mt-0.5 font-mono">
-                        {genreName} · {chaptersTotal} parts · <span title={`${formatViewCount(readsTotal, false)} reads`}>{formatViewCount(readsTotal, true)} reads</span>
-                      </p>
-                    </div>
-                  </Link>
-                )
-              })}
-            </div>
-          )}
-        </section>
-
-        {/* SECTION 3: Settings (with DiscreteTabs as requested) */}
-        <section id="settings-section" className="border-t border-[var(--border-subtle)] pt-6 sm:pt-7">
-          {/* DiscreteTabs Header for Section 3 */}
-          <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2.5 mb-5">
-            <DiscreteTabs
-              defaultTab={tab}
-              size="xs"
-              className="mx-0"
-              onTabChange={(tabId) => setTab(tabId as SettingsTabId)}
-              tabs={SETTINGS_TABS.map((t) => ({
-                id: t.id,
-                label: t.label,
-                icon: t.icon,
-                activeColor: 'text-[var(--ink-primary)]',
-              }))}
-            />
-            <span className="hidden sm:inline font-mono text-[11px] text-[var(--ink-faint)]">
-              Preferences & Configuration
+      <div className="flex flex-col w-full pb-16">
+        {/* =========================================================================
+            TOP EDITORIAL HEADER & BREADCRUMB (Matching live_instructions.md)
+            ========================================================================= */}
+        <section className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-6 pb-2">
+          <div className="flex items-center gap-2 mb-2 font-mono text-xs">
+            <span className="uppercase tracking-widest text-[var(--color-outline)] font-medium">Account</span>
+            <span className="text-[var(--color-outline)] text-xs">/</span>
+            <span className="uppercase tracking-wider text-[var(--color-primary)] font-semibold">
+              {activeTab === 'profile' ? 'Profile' : activeTab === 'reading' ? 'Reading' : 'Account & Alerts'}
             </span>
           </div>
 
-          <div className="space-y-4">
-            {tab === 'Public profile' && (
-              <>
-                <Group title="Public profile" desc="This is what other readers see.">
-                  <Text label="Display name" value={draft.name} onChange={(v) => set('name', v)} />
-                  <Text
-                    label="Username"
-                    value={draft.handle}
-                    onChange={(v) => set('handle', v.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-                  />
-                  <Text label="Pronouns" value={draft.pronouns} onChange={(v) => set('pronouns', v)} />
-                  <Field label="Bio">
-                    <textarea
-                      rows={3}
-                      maxLength={200}
-                      value={draft.bio}
-                      onChange={(e) => set('bio', e.target.value)}
-                      className={inputStyle}
-                    />
-                  </Field>
-                  <Text label="Location" value={draft.location} onChange={(v) => set('location', v)} />
-                  <Text label="Website" value={draft.website} onChange={(v) => set('website', v)} />
-                </Group>
-                <Group title="Visibility">
-                  <Toggle
-                    label="Show followers count"
-                    checked={draft.showFollowers}
-                    onChange={(v) => set('showFollowers', v)}
-                  />
-                  <Toggle
-                    label="Show my reading list"
-                    checked={draft.showReadingList}
-                    onChange={(v) => set('showReadingList', v)}
-                  />
-                  <Toggle
-                    label="Allow direct messages"
-                    checked={draft.allowMessages}
-                    onChange={(v) => set('allowMessages', v)}
-                  />
-                </Group>
-              </>
-            )}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="font-serif text-3xl sm:text-4xl text-[var(--color-on-surface)] tracking-tight font-normal">
+                Profile & Settings
+              </h1>
+              <p className="text-xs sm:text-sm text-[var(--color-on-surface-variant)] mt-1 font-serif italic">
+                Manage your public persona, reading comfort, and alert cadence.
+              </p>
+            </div>
 
-            {tab === 'Reading' && (
-              <Group title="Reading environment" desc="How stories look when you read.">
-                <Choice
-                  label="Theme"
-                  options={['Light', 'Sepia', 'Dark']}
-                  value={draft.reading.theme}
-                  onChange={(v) => sub('reading', { theme: v as ProfileSettings['reading']['theme'] })}
-                />
-                <Choice
-                  label="Font"
-                  options={['Sans', 'Serif']}
-                  value={draft.reading.font}
-                  onChange={(v) => sub('reading', { font: v as 'Sans' | 'Serif' })}
-                />
-                <Field label={`Text size · ${draft.reading.fontSize}px`}>
-                  <input
-                    type="range"
-                    min={14}
-                    max={26}
-                    value={draft.reading.fontSize}
-                    onChange={(e) => sub('reading', { fontSize: +e.target.value })}
-                    className="w-full accent-[var(--ink-primary)] cursor-pointer"
+            <div className="flex items-center gap-2">
+              <Button
+                variant="primary"
+                size="sm"
+                isLoading={isSaving}
+                onClick={handleSave}
+                leftIcon={<Check className="w-3.5 h-3.5" />}
+                className="font-mono"
+              >
+                Save Settings
+              </Button>
+            </div>
+          </div>
+        </section>
+
+        {/* =========================================================================
+            AUTHOR & READER PROFILE HERO CARD (Matching live_instructions.md)
+            ========================================================================= */}
+        <section className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 my-6">
+          <div className="bg-[var(--color-surface-container-low)] rounded-xl p-6 sm:p-8 flex flex-col sm:flex-row items-center sm:items-start justify-between gap-6 border border-[var(--border-subtle)]/60 shadow-xs">
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
+              {/* Avatar with upload overlay */}
+              <div
+                className="relative group cursor-pointer"
+                onClick={() => avatarInputRef.current?.click()}
+                title="Click to change portrait"
+              >
+                <div className="w-24 h-24 rounded-full overflow-hidden shadow-sm bg-[var(--bg-surface)] ring-2 ring-[var(--color-primary)]/40 group-hover:ring-[var(--color-primary)] transition-all">
+                  <UnisexAvatar
+                    src={activeAvatar}
+                    hasImage={Boolean(activeAvatar && !isDefaultOrInitialAvatar(activeAvatar))}
+                    name={profile.name}
+                    size="2xl"
+                    className="w-full h-full object-cover"
                   />
-                </Field>
-                <Choice
-                  label="Line spacing"
-                  options={['Compact', 'Comfortable', 'Airy']}
-                  value={draft.reading.lineSpacing}
-                  onChange={(v) =>
-                    sub('reading', { lineSpacing: v as ProfileSettings['reading']['lineSpacing'] })
-                  }
-                />
-                <div
-                  className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] p-3 text-[var(--ink-primary)]"
-                  style={{
-                    fontSize: draft.reading.fontSize,
-                    lineHeight:
-                      { Compact: 1.5, Comfortable: 1.8, Airy: 2.1 }[draft.reading.lineSpacing],
-                    fontFamily:
-                      draft.reading.font === 'Serif' ? 'Outfit, Georgia, serif' : 'Inter, sans-serif',
-                  }}
-                >
-                  The wind came off the water in long, cold breaths, carrying the smell of salt.
                 </div>
-                <Toggle
-                  label="Go to the next part automatically"
-                  checked={draft.reading.autoNext}
-                  onChange={(v) => sub('reading', { autoNext: v })}
-                />
-                <Toggle
-                  label="Hide mature stories"
-                  checked={draft.reading.hideMature}
-                  onChange={(v) => sub('reading', { hideMature: v })}
-                />
-              </Group>
-            )}
-
-            {tab === 'Writing' && (
-              <Group title="Writing environment" desc="Your setup in the writing studio.">
-                <Toggle
-                  label="Autosave drafts"
-                  checked={draft.writing.autosave}
-                  onChange={(v) => sub('writing', { autosave: v })}
-                />
-                <Toggle
-                  label="Focus mode (hide distractions)"
-                  checked={draft.writing.focusMode}
-                  onChange={(v) => sub('writing', { focusMode: v })}
-                />
-                <Toggle
-                  label="Show word count"
-                  checked={draft.writing.showWordCount}
-                  onChange={(v) => sub('writing', { showWordCount: v })}
-                />
-                <Field label="Daily word goal">
-                  <input
-                    type="number"
-                    min={0}
-                    step={50}
-                    value={draft.writing.dailyGoal}
-                    onChange={(e) => sub('writing', { dailyGoal: Math.max(0, +e.target.value) })}
-                    className={inputStyle}
-                  />
-                </Field>
-                <Choice
-                  label="Default audience"
-                  options={['Everyone', 'Teen (13+)', 'Mature (18+)']}
-                  value={draft.writing.defaultAudience}
-                  onChange={(v) => sub('writing', { defaultAudience: v })}
-                />
-              </Group>
-            )}
-
-            {tab === 'Personal' && (
-              <>
-                <Group title="Personal details" desc="Private — only you can see this.">
-                  <Text
-                    label="Email"
-                    value={draft.personal.email}
-                    onChange={(v) => sub('personal', { email: v })}
-                  />
-                  <Field label="Language">
-                    <select
-                      value={draft.personal.language}
-                      onChange={(e) => sub('personal', { language: e.target.value })}
-                      className={inputStyle}
-                    >
-                      {['English', 'Español', 'Français', 'Deutsch', 'Português', 'हिन्दी'].map(
-                        (l) => (
-                          <option key={l}>{l}</option>
-                        )
-                      )}
-                    </select>
-                  </Field>
-                  <Text
-                    label="Time zone"
-                    value={draft.personal.timezone}
-                    onChange={(v) => sub('personal', { timezone: v })}
-                  />
-                </Group>
-                <Group title="Notifications">
-                  <Toggle
-                    label="Email updates"
-                    checked={draft.personal.emailNotifs}
-                    onChange={(v) => sub('personal', { emailNotifs: v })}
-                  />
-                  <Toggle
-                    label="Comments on my stories"
-                    checked={draft.personal.commentNotifs}
-                    onChange={(v) => sub('personal', { commentNotifs: v })}
-                  />
-                  <Toggle
-                    label="New followers"
-                    checked={draft.personal.followNotifs}
-                    onChange={(v) => sub('personal', { followNotifs: v })}
-                  />
-                </Group>
-              </>
-            )}
-
-            {tab === 'Interests' && (
-              <Group title="Interests" desc="Pick what you love — we'll use it to suggest stories.">
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    ...GENRES.map((g) => g.name),
-                    'Slow burn',
-                    'Found family',
-                    'Dragons',
-                    'Detective',
-                    'Coming-of-age',
-                    'Short reads',
-                  ].map((g) => {
-                    const on = draft.interests.includes(g)
-                    return (
-                      <button
-                        key={g}
-                        type="button"
-                        onClick={() =>
-                          set(
-                            'interests',
-                            on ? draft.interests.filter((x) => x !== g) : [...draft.interests, g]
-                          )
-                        }
-                        className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all cursor-pointer ${
-                          on
-                            ? 'border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)]'
-                            : 'border-[var(--border-subtle)] bg-[var(--bg-canvas)] text-[var(--ink-secondary)] hover:border-[var(--ink-primary)]'
-                        }`}
-                      >
-                        {on && <Check className="h-3 w-3" />}
-                        {g}
-                      </button>
-                    )
-                  })}
+                <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Upload className="w-5 h-5 text-white" />
                 </div>
-              </Group>
-            )}
+              </div>
 
-            {/* Sticky Save / Discard Bar */}
-            <div className="sticky bottom-4 z-20 flex items-center justify-end gap-2.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)]/95 p-1.5 pl-4 backdrop-blur shadow-sm">
-              <span className="mr-auto text-xs text-[var(--ink-muted)]">
-                {saved
-                  ? 'Saved'
-                  : dirty
-                  ? 'You have unsaved changes'
-                  : 'All changes saved'}
-              </span>
+              {/* Bio & Details */}
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                  <h2 className="font-serif text-2xl font-semibold text-[var(--color-on-surface)]">
+                    {profile.name}
+                  </h2>
+                  <span className="px-2 py-0.5 rounded bg-[var(--color-secondary-container)] text-[var(--color-on-secondary-container)] font-mono text-xs font-semibold">
+                    Author & Serialist
+                  </span>
+                  {profile.isPseudonym && (
+                    <span className="px-2 py-0.5 rounded bg-[var(--color-surface-container-high)] text-[var(--color-outline)] font-mono text-xs border border-[var(--border-subtle)]">
+                      Masked
+                    </span>
+                  )}
+                </div>
+
+                <p className="font-mono text-xs text-[var(--color-outline)]">
+                  {profile.handle} • {profile.location}
+                </p>
+
+                <p className="text-xs sm:text-sm leading-relaxed text-[var(--color-on-surface-variant)] max-w-lg pt-1 font-serif italic">
+                  {profile.bio || 'Writing serialized speculative naturalism.'}
+                </p>
+              </div>
+            </div>
+
+            {/* Metrics & Edit Bio Button */}
+            <div className="flex sm:flex-col items-center sm:items-end gap-6 sm:gap-4 pt-2 sm:pt-0 border-t sm:border-t-0 border-[var(--border-subtle)] w-full sm:w-auto justify-around sm:justify-start">
+              <div className="flex items-center gap-6 text-center sm:text-right">
+                <div>
+                  <div className="font-serif text-xl sm:text-2xl text-[var(--color-on-surface)] font-medium">
+                    {serialsCount}
+                  </div>
+                  <div className="font-mono text-[10px] uppercase text-[var(--color-outline)] tracking-wider">
+                    Serials
+                  </div>
+                </div>
+                <div>
+                  <div className="font-serif text-xl sm:text-2xl text-[var(--color-on-surface)] font-medium">
+                    {readersCount}
+                  </div>
+                  <div className="font-mono text-[10px] uppercase text-[var(--color-outline)] tracking-wider">
+                    Readers
+                  </div>
+                </div>
+                <div>
+                  <div className="font-serif text-xl sm:text-2xl text-[var(--color-on-surface)] font-medium">
+                    {notesCount}
+                  </div>
+                  <div className="font-mono text-[10px] uppercase text-[var(--color-outline)] tracking-wider">
+                    Annotations
+                  </div>
+                </div>
+              </div>
+
               <button
                 type="button"
-                disabled={!dirty}
-                onClick={() => setDraft(p)}
-                className="rounded-full px-3 py-1.5 text-xs font-medium text-[var(--ink-secondary)] hover:bg-[var(--bg-subtle)] disabled:opacity-40 transition-colors cursor-pointer"
+                onClick={() => {
+                  setModalBioInput(profile.bio)
+                  setIsBioModalOpen(true)
+                }}
+                className="px-3.5 py-1.5 bg-[var(--bg-surface)] hover:bg-[var(--color-surface-container-high)] text-[var(--color-on-surface)] rounded font-mono text-xs border border-[var(--border-subtle)] transition-colors flex items-center gap-1.5 shadow-xs active:scale-95 cursor-pointer"
               >
-                Discard
-              </button>
-              <button
-                type="button"
-                disabled={!dirty}
-                onClick={save}
-                className="rounded-full bg-[var(--ink-primary)] px-4 py-1.5 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 disabled:opacity-40 transition-opacity cursor-pointer"
-              >
-                Save changes
+                <Edit className="w-3.5 h-3.5 text-[var(--color-primary)]" />
+                <span>Edit Bio</span>
               </button>
             </div>
           </div>
         </section>
-      </main>
 
-      {/* Public Profile Preview Modal */}
-      <Modal
-        isOpen={open}
-        onClose={() => setOpen(false)}
-        size="lg"
-        className="max-w-lg p-0 overflow-hidden"
-      >
-        <div className="h-20 bg-[var(--bg-subtle)] border-b border-[var(--border-subtle)]" />
-        <div className="-mt-10 px-5 pb-5">
-          <div className="h-16 w-16 rounded-full border-2 border-[var(--bg-surface)] shadow-sm overflow-hidden bg-[var(--ink-primary)] flex items-center justify-center">
-            <UnisexAvatar
-              src={activeAvatar}
-              hasImage={user?.hasImage}
-              name={p.name}
-              size="xl"
-              className="h-full w-full object-cover"
-            />
-          </div>
-
-          <div className="mt-2.5 flex items-start justify-between gap-4">
-            <div>
-              <h2 className="text-lg sm:text-xl font-semibold font-serif text-[var(--ink-primary)]">{p.name}</h2>
-              <p className="font-mono text-xs text-[var(--ink-muted)]">
-                @{p.handle}
-                {p.pronouns && ` · ${p.pronouns}`}
-              </p>
-            </div>
-            <button className="rounded-full bg-[var(--ink-primary)] px-3.5 py-1 text-xs font-semibold text-[var(--accent-contrast)]">
-              Follow
-            </button>
-          </div>
-
-          <p className="mt-2 text-xs leading-relaxed text-[var(--ink-secondary)]">{p.bio}</p>
-
-          <div className="mt-2.5 flex flex-wrap gap-3 text-xs text-[var(--ink-muted)] font-sans">
-            {p.location && (
-              <span className="flex items-center gap-1">
-                <MapPin className="h-3.5 w-3.5" />
-                {p.location}
-              </span>
-            )}
-            {p.website && (
-              <span className="flex items-center gap-1">
-                <Link2 className="h-3.5 w-3.5" />
-                {p.website}
-              </span>
-            )}
-          </div>
-
-          <div className="mt-4 flex gap-5 border-y border-[var(--border-subtle)] py-3 font-mono text-xs">
-            {p.showFollowers && (
-              <>
-                <div>
-                  <p className="font-semibold text-sm sm:text-base text-[var(--ink-primary)]">{followersCount}</p>
-                  <p className="text-[10px] text-[var(--ink-muted)] uppercase">Followers</p>
-                </div>
-                <div>
-                  <p className="font-semibold text-sm sm:text-base text-[var(--ink-primary)]">{followingCount}</p>
-                  <p className="text-[10px] text-[var(--ink-muted)] uppercase">Following</p>
-                </div>
-              </>
-            )}
-            <div>
-              <p className="font-semibold text-sm sm:text-base text-[var(--ink-primary)]">{authoredCount}</p>
-              <p className="text-[10px] text-[var(--ink-muted)] uppercase">Writings</p>
-            </div>
-            <div>
-              <p className="font-semibold text-sm sm:text-base text-[var(--ink-primary)]" title={`${formatViewCount(readsCount, false)} Reads`}>
-                {formatViewCount(readsCount, true)}
-              </p>
-              <p className="text-[10px] text-[var(--ink-muted)] uppercase">Reads</p>
-            </div>
-          </div>
-
-          <p className="mt-4 text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-muted)]">
-            Stories
-          </p>
-          <ul className="mt-2.5 space-y-2">
-            {myWorks.map((s: any) => (
-              <li
-                key={s.id}
-                className="flex items-center gap-2.5 p-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)]"
-              >
-                <img
-                  src={s.cover || s.cover_image_path || '/covers/coastal-ruins.jpg'}
-                  alt={s.title}
-                  style={{ filter: 'grayscale(1)' }}
-                  className="h-10 w-7 rounded object-cover"
-                />
-                <span className="text-xs font-semibold text-[var(--ink-primary)] font-serif">
-                  {s.title}
-                </span>
-                <span 
-                  className="ml-auto text-[11px] font-mono text-[var(--ink-muted)]"
-                  title={`${formatViewCount(s.totalReads ?? s.view_count ?? '0', false)} reads`}
-                >
-                  {formatViewCount(s.totalReads ?? s.view_count ?? '0', true)} reads
-                </span>
-              </li>
-            ))}
-          </ul>
-
-          {p.interests.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-1.5">
-              {p.interests.map((i) => (
-                <span
-                  key={i}
-                  className="rounded-full bg-[var(--bg-subtle)] px-2.5 py-0.5 text-xs font-medium text-[var(--ink-secondary)]"
-                >
-                  {i}
-                </span>
-              ))}
-            </div>
-          )}
+        {/* =========================================================================
+            TABS SWITCHER (Profile vs Reading vs Account)
+            ========================================================================= */}
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 mb-6">
+          <AnimatedTabs
+            id="profile-app-settings-tabs"
+            variant="underline"
+            size="md"
+            className="w-full"
+            activeId={activeTab}
+            onChange={(id) => setActiveTab(id as 'profile' | 'reading' | 'account')}
+            tabs={[
+              {
+                id: 'profile',
+                label: 'Profile Settings',
+                icon: <Fingerprint className="w-4 h-4" />,
+              },
+              {
+                id: 'reading',
+                label: 'Reading Settings',
+                icon: <BookOpen className="w-4 h-4" />,
+              },
+              {
+                id: 'account',
+                label: 'Account & Notifications',
+                icon: <Shield className="w-4 h-4" />,
+              },
+            ]}
+          />
         </div>
-      </Modal>
-    </div>
-  )
-}
 
-const inputStyle =
-  'w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-1.5 text-xs text-[var(--ink-primary)] outline-none focus:border-[var(--ink-primary)] transition-colors'
+        {/* =========================================================================
+            SETTINGS CONTENT CONTAINER
+            ========================================================================= */}
+        <section className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8">
+          {/* TAB 1: PROFILE SETTINGS */}
+          {activeTab === 'profile' && (
+            <div className="space-y-8">
+              <div className="bg-[var(--color-surface-container-low)] rounded-xl p-6 sm:p-7 shadow-xs space-y-6 border border-[var(--border-subtle)]/60">
+                <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-serif text-lg font-bold text-[var(--color-on-surface)]">
+                        Public Author & Reader Identity
+                      </h3>
+                      <span className="px-2 py-0.5 rounded bg-[var(--color-primary)] text-[var(--accent-contrast)] font-mono text-[10px] uppercase tracking-wider">
+                        Profile
+                      </span>
+                    </div>
+                    <p className="text-xs text-[var(--color-on-surface-variant)] mt-0.5 font-serif italic">
+                      Manage your display byline, pseudonym masking, and literary biographical imprint.
+                    </p>
+                  </div>
+                  <Fingerprint className="w-5 h-5 text-[var(--color-outline)]" />
+                </div>
 
-function Group({
-  title,
-  desc,
-  children,
-}: {
-  title: string
-  desc?: string
-  children: ReactNode
-}) {
-  return (
-    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 sm:p-5">
-      <h3 className="text-sm sm:text-base font-semibold font-serif text-[var(--ink-primary)]">{title}</h3>
-      {desc && <p className="text-xs text-[var(--ink-muted)] mt-0.5">{desc}</p>}
-      <div className="mt-3.5 space-y-3.5">{children}</div>
-    </div>
-  )
-}
+                {/* Colophon Avatar Details */}
+                <div className="flex flex-col sm:flex-row gap-6 items-start pb-2">
+                  <div
+                    className="relative group cursor-pointer"
+                    onClick={() => avatarInputRef.current?.click()}
+                  >
+                    <div className="w-20 h-20 rounded-full overflow-hidden shadow-xs bg-[var(--bg-surface)] ring-2 ring-[var(--color-primary)] transition-all group-hover:brightness-90">
+                      <UnisexAvatar
+                        src={activeAvatar}
+                        hasImage={Boolean(activeAvatar && !isDefaultOrInitialAvatar(activeAvatar))}
+                        name={profile.name}
+                        size="xl"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Upload className="w-4 h-4 text-white" />
+                    </div>
+                  </div>
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <label className="block">
-      <span className="mb-1.5 block text-xs font-medium text-[var(--ink-secondary)]">{label}</span>
-      {children}
-    </label>
-  )
-}
+                  <div className="space-y-1.5 flex-1">
+                    <div className="font-mono text-xs sm:text-sm font-semibold text-[var(--color-on-surface)]">
+                      Colophon Avatar & Coverlet
+                    </div>
+                    <p className="text-xs text-[var(--color-on-surface-variant)]">
+                      Visible on serialized chapters, literary marginalia notes, and salon commentary.
+                    </p>
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => avatarInputRef.current?.click()}
+                        className="px-3 py-1 bg-[var(--bg-surface)] hover:bg-[var(--color-surface-container-high)] text-[var(--color-on-surface)] border border-[var(--border-subtle)] rounded font-mono text-xs transition-colors active:scale-95 cursor-pointer flex items-center gap-1"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Change Portrait</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleResetAvatar}
+                        className="px-3 py-1 text-[var(--color-outline)] hover:text-red-600 font-mono text-xs transition-colors cursor-pointer"
+                      >
+                        Reset Default
+                      </button>
+                    </div>
+                  </div>
+                </div>
 
-function Text({
-  label,
-  value,
-  onChange,
-}: {
-  label: string
-  value: string
-  onChange: (v: string) => void
-}) {
-  return (
-    <Field label={label}>
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className={inputStyle}
-      />
-    </Field>
-  )
-}
+                {/* Name & Handle */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="space-y-1.5">
+                    <label className="block font-mono text-xs font-medium text-[var(--color-on-surface)]">
+                      Display / Colophon Name
+                    </label>
+                    <input
+                      type="text"
+                      value={profile.name}
+                      onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                      className="w-full bg-[var(--bg-surface)] px-3.5 py-2.5 rounded font-mono text-xs text-[var(--color-on-surface)] border border-[var(--border-subtle)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)] transition-all shadow-xs"
+                    />
+                  </div>
 
-function Toggle({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string
-  checked: boolean
-  onChange: (v: boolean) => void
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3 py-0.5">
-      <span className="text-xs font-medium text-[var(--ink-primary)]">{label}</span>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        onClick={() => onChange(!checked)}
-        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-          checked ? 'bg-[var(--ink-primary)]' : 'bg-[var(--border-strong)]'
-        }`}
-      >
-        <span
-          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-[var(--accent-contrast)] shadow-sm ring-0 transition duration-200 ease-in-out ${
-            checked ? 'translate-x-4' : 'translate-x-0'
-          }`}
-        />
-      </button>
-    </div>
-  )
-}
+                  <div className="space-y-1.5">
+                    <label className="block font-mono text-xs font-medium text-[var(--color-on-surface)]">
+                      Public Author Handle
+                    </label>
+                    <input
+                      type="text"
+                      value={profile.handle}
+                      onChange={(e) => setProfile({ ...profile, handle: e.target.value })}
+                      className="w-full bg-[var(--bg-surface)] px-3.5 py-2.5 rounded font-mono text-xs text-[var(--color-on-surface)] border border-[var(--border-subtle)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)] transition-all shadow-xs"
+                    />
+                  </div>
+                </div>
 
-function Choice({
-  label,
-  options,
-  value,
-  onChange,
-}: {
-  label: string
-  options: string[]
-  value: string
-  onChange: (v: string) => void
-}) {
-  return (
-    <div>
-      <span className="mb-1.5 block text-xs font-medium text-[var(--ink-secondary)]">{label}</span>
-      <div className="inline-flex flex-wrap rounded-full bg-[var(--bg-subtle)] p-0.5 border border-[var(--border-subtle)]">
-        {options.map((o) => (
-          <button
-            key={o}
-            type="button"
-            onClick={() => onChange(o)}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition-all cursor-pointer ${
-              o === value
-                ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] shadow-xs'
-                : 'text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
-            }`}
-          >
-            {o}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
+                {/* Bio & Live Counter */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block font-mono text-xs font-medium text-[var(--color-on-surface)]">
+                      Author Bio & Literary Manifesto
+                    </label>
+                    <span className="font-mono text-[11px] text-[var(--color-outline)]">
+                      {profile.bio.length} / 300 characters
+                    </span>
+                  </div>
+                  <textarea
+                    rows={3}
+                    maxLength={300}
+                    value={profile.bio}
+                    onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
+                    className="w-full bg-[var(--bg-surface)] p-3.5 rounded text-xs sm:text-sm text-[var(--color-on-surface)] border border-[var(--border-subtle)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)] shadow-xs resize-y min-h-[90px] font-serif"
+                  />
+                </div>
 
-function ProfileSkeleton() {
-  return (
-    <div className="min-h-screen py-6 sm:py-8 animate-pulse">
-      <main className="mx-auto max-w-4xl px-4 sm:px-6">
-        {/* Section 1 Skeleton */}
-        <div className="overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] font-sans">
-          <div className="h-20 bg-[var(--bg-subtle)]" />
-          <div className="px-4 pb-4 sm:px-6 sm:pb-5">
-            <div className="-mt-8 flex flex-col gap-2.5 sm:flex-row sm:items-end sm:justify-between">
-              <div className="h-16 w-16 rounded-full bg-[var(--bg-subtle)] border-2 border-[var(--bg-surface)]" />
-              <div className="flex gap-2">
-                <div className="h-7 w-20 rounded-full bg-[var(--bg-subtle)]" />
-                <div className="h-7 w-28 rounded-full bg-[var(--bg-subtle)]" />
+                {/* Social Links & External Press */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="space-y-1.5">
+                    <label className="block font-mono text-xs font-medium text-[var(--color-on-surface)]">
+                      Primary External Portfolio / Press URL
+                    </label>
+                    <div className="relative">
+                      <Globe className="absolute left-3 top-2.5 text-[var(--color-outline)] w-4 h-4" />
+                      <input
+                        type="text"
+                        value={profile.website}
+                        onChange={(e) => setProfile({ ...profile, website: e.target.value })}
+                        className="w-full bg-[var(--bg-surface)] pl-9 pr-3.5 py-2 rounded font-mono text-xs text-[var(--color-on-surface)] border border-[var(--border-subtle)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)] transition-all shadow-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block font-mono text-xs font-medium text-[var(--color-on-surface)]">
+                      Substack / Dispatch Newsletter
+                    </label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-2.5 text-[var(--color-outline)] w-4 h-4" />
+                      <input
+                        type="text"
+                        value={profile.newsletter}
+                        onChange={(e) => setProfile({ ...profile, newsletter: e.target.value })}
+                        placeholder="https://letters.meridian.pub"
+                        className="w-full bg-[var(--bg-surface)] pl-9 pr-3.5 py-2 rounded font-mono text-xs text-[var(--color-on-surface)] border border-[var(--border-subtle)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)] transition-all shadow-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Nom de Plume Toggle Switch */}
+                <div className="p-4 bg-[var(--bg-surface)] rounded-lg border border-[var(--border-subtle)] flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <div className="font-mono text-xs sm:text-sm font-semibold text-[var(--color-on-surface)] flex items-center gap-2">
+                      <span>Publish Under Nom de Plume (Pseudonym Masking)</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-[var(--color-surface-container-high)] text-[var(--color-on-surface-variant)] font-normal">
+                        Privacy
+                      </span>
+                    </div>
+                    <div className="text-xs text-[var(--color-on-surface-variant)]">
+                      Shields legal identity across billing archives, public copyright credits, and royalties.
+                    </div>
+                  </div>
+
+                  <div
+                    onClick={() => {
+                      const next = !profile.isPseudonym
+                      setProfile((prev) => ({ ...prev, isPseudonym: next }))
+                      syncPreferencesToDb({ isPseudonym: next })
+                      showToast(next ? 'Nom de plume privacy mode enabled' : 'Pseudonym masking removed')
+                    }}
+                    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 ease-in-out cursor-pointer ${
+                      profile.isPseudonym ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-surface-container-high)]'
+                    }`}
+                  >
+                    <motion.span
+                      layout
+                      transition={SPRINGS.snappy}
+                      className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition duration-200 ${
+                        profile.isPseudonym ? 'translate-x-5.5' : 'translate-x-0.5'
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                {/* Literary Badges Showcase */}
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-between">
+                    <div className="font-mono text-xs sm:text-sm font-semibold text-[var(--color-on-surface)]">
+                      Literary Badges & Guild Affiliations
+                    </div>
+                    <span className="font-mono text-xs text-[var(--color-outline)]">3 Guilds Connected</span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2.5">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--color-secondary-container)] text-[var(--color-on-secondary-container)] font-mono text-xs font-semibold shadow-xs">
+                      <Award className="w-3.5 h-3.5 text-[var(--color-primary)]" />
+                      <span>Folio Founding Author</span>
+                    </span>
+
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--color-surface-container-high)] text-[var(--color-on-surface-variant)] font-mono text-xs border border-[var(--border-subtle)]">
+                      <BookOpen className="w-3.5 h-3.5 text-[var(--color-secondary)]" />
+                      <span>Botanical Fiction Guild</span>
+                    </span>
+
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--color-surface-container-high)] text-[var(--color-on-surface-variant)] font-mono text-xs border border-[var(--border-subtle)]">
+                      <Star className="w-3.5 h-3.5 text-amber-700" />
+                      <span>10k Readers Society</span>
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => showToast('Guild directory opened: request guild review')}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--bg-surface)] text-[var(--color-outline)] hover:text-[var(--color-on-surface)] border border-dashed border-[var(--border-subtle)] font-mono text-xs transition-colors cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Guild</span>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="mt-2 space-y-1.5">
-              <div className="h-5 w-40 rounded bg-[var(--bg-subtle)]" />
-              <div className="h-3 w-24 rounded bg-[var(--bg-subtle)]" />
-              <div className="h-3 w-4/5 rounded bg-[var(--bg-subtle)]" />
+          )}
+
+          {/* TAB 2: READING SETTINGS */}
+          {activeTab === 'reading' && (
+            <div className="space-y-8">
+              {/* 1. Reading Experience & Ergonomics */}
+              <div className="bg-[var(--color-surface-container-low)] rounded-xl p-6 sm:p-7 shadow-xs space-y-6 border border-[var(--border-subtle)]/60">
+                <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-serif text-lg font-bold text-[var(--color-on-surface)]">
+                        Reading Ergonomics & Canvas Tone
+                      </h3>
+                      <Badge variant="subtle" size="sm">
+                        Reader UX
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-[var(--color-on-surface-variant)] mt-0.5 font-serif italic">
+                      Customized canvas warmth, daylight tone, and eye-strain reduction across devices.
+                    </p>
+                  </div>
+                  <Palette className="w-5 h-5 text-[var(--color-outline)]" />
+                </div>
+
+                {/* Canvas Atmosphere Palette Dropdown */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between font-mono text-xs">
+                    <label className="font-medium text-[var(--color-on-surface)]">Canvas Atmosphere Palette</label>
+                    <span className="text-[var(--color-primary)] font-semibold">
+                      Active: {
+                        activeAtmosphereTone === 'obsidian'
+                          ? 'Obsidian'
+                          : activeAtmosphereTone === 'linen'
+                          ? 'Linen Cream'
+                          : activeAtmosphereTone === 'paper'
+                          ? 'Pure Paper'
+                          : 'Muted Sage'
+                      }
+                    </span>
+                  </div>
+
+                  <DropdownSelect
+                    options={atmosphereOptions}
+                    value={activeAtmosphereTone}
+                    onChange={(val) => applyCanvasTheme(val as any)}
+                    placeholder="Select atmosphere tone..."
+                    size="sm"
+                  />
+                </div>
+
+                {/* Live Reading Sandbox Preview */}
+                <div
+                  className={`p-4 sm:p-5 rounded-lg border transition-all duration-300 ${
+                    activeAtmosphereTone === 'obsidian'
+                      ? 'bg-[#121316] text-[#e0e3e5] border-[#2d3133]'
+                      : activeAtmosphereTone === 'linen'
+                      ? 'bg-[#f9faef] text-[#2C2219] border-[#e5e6da]'
+                      : activeAtmosphereTone === 'paper'
+                      ? 'bg-[#ffffff] text-[#111827] border-[#e9ecef] shadow-xs'
+                      : 'bg-[#f0f2eb] text-[#1b231d] border-[#d6dbcf]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between pb-2 mb-2 border-b border-current/15 font-mono text-[11px] opacity-75">
+                    <span className="uppercase tracking-wider flex items-center gap-1.5 font-semibold text-[var(--color-primary)]">
+                      <BookOpen className="w-3.5 h-3.5" />
+                      Live Typesetting Preview
+                    </span>
+                    <span>
+                      {currentFont} • {currentFontSize}px • {lineSpacingLabel}
+                    </span>
+                  </div>
+                  <p
+                    style={{
+                      fontFamily:
+                        currentFont === 'Outfit'
+                          ? '"Outfit", -apple-system, sans-serif'
+                          : currentFont === 'Inter'
+                          ? '"Inter", -apple-system, sans-serif'
+                          : '"JetBrains Mono", monospace',
+                      fontSize: `${currentFontSize}px`,
+                      lineHeight: currentLineSpacing,
+                    }}
+                    className="transition-all"
+                  >
+                    “The damp moss clustered upon the sill whispered of ancient rain. In the conservatory of the estate, each pane held a century of quiet respiration, neither mourning the past nor bracing for the frost.”
+                  </p>
+                </div>
+
+                {/* Font Scaling & Line Spacing using DropdownSelect */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-1">
+                  {/* Font Scaling */}
+                  <div className="space-y-2">
+                    <label className="block font-mono text-xs font-medium text-[var(--color-on-surface)]">
+                      Reader Font Scaling
+                    </label>
+                    <DropdownSelect
+                      options={fontScalingOptions}
+                      value={String(currentFontSize)}
+                      onChange={(val) => {
+                        const num = Number(val)
+                        const labels: Record<number, string> = { 15: 'Compact', 17: 'Classic', 20: 'Generous', 24: 'Editorial XL' }
+                        applyFontSize(num, labels[num] || `${num}px`)
+                      }}
+                      placeholder="Select font size..."
+                      size="sm"
+                    />
+                  </div>
+
+                  {/* Line Spacing */}
+                  <div className="space-y-2">
+                    <label className="block font-mono text-xs font-medium text-[var(--color-on-surface)]">
+                      Line Spacing & Measure
+                    </label>
+                    <DropdownSelect
+                      options={lineSpacingOptions}
+                      value={String(currentLineSpacing)}
+                      onChange={(val) => {
+                        const num = Number(val)
+                        const labels: Record<number, string> = { 1.4: 'Tighter', 1.7: 'Harmonic', 2.0: 'Spacious' }
+                        applyLineSpacing(num, labels[num] || `${num}`)
+                      }}
+                      placeholder="Select line spacing..."
+                      size="sm"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Typography Engine & Display Navigation */}
+              <div className="bg-[var(--color-surface-container-low)] rounded-xl p-6 sm:p-7 shadow-xs space-y-6 border border-[var(--border-subtle)]/60">
+                <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-serif text-lg font-bold text-[var(--color-on-surface)]">
+                        Typography Engine & Display Navigation
+                      </h3>
+                      <Badge variant="subtle" size="sm">
+                        Reader UX
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-[var(--color-on-surface-variant)] mt-0.5 font-serif italic">
+                      Typefaces, chapter transition mechanics, and marginalia commentary overlays.
+                    </p>
+                  </div>
+                  <BookOpen className="w-5 h-5 text-[var(--color-outline)]" />
+                </div>
+
+                {/* Typeface Selector using DropdownSelect */}
+                <div className="space-y-2">
+                  <label className="block font-mono text-xs font-medium text-[var(--color-on-surface)]">
+                    Editorial Typesetting Font
+                  </label>
+                  <DropdownSelect
+                    options={fontOptions}
+                    value={currentFont}
+                    onChange={(val) => applyTypeface(val as any)}
+                    placeholder="Select font family..."
+                    size="sm"
+                  />
+                </div>
+
+                {/* Interactive Reading Mechanics Toggles */}
+                <div className="space-y-3 pt-2">
+                  {[
+                    {
+                      title: 'Inline Marginalia & Passage Reactions',
+                      desc: 'Display subtle reader reflections alongside page gutters during reading.',
+                      checked: inlineMarginalia,
+                      onToggle: (checked: boolean) => {
+                        setInlineMarginalia(checked)
+                        if (typeof window !== 'undefined') {
+                          localStorage.setItem('relay_reader_inline_marginalia', String(checked))
+                          window.dispatchEvent(new Event('storage'))
+                        }
+                        syncPreferencesToDb({ readerUx: { inlineMarginalia: checked } })
+                        showToast(checked ? 'Inline marginalia enabled' : 'Inline marginalia hidden')
+                      },
+                    },
+                    {
+                      title: 'Continuous Chapter Progression',
+                      desc: 'Scroll seamlessly into consecutive serial drops without pagination breaks.',
+                      checked: continuousScroll,
+                      onToggle: (checked: boolean) => {
+                        setContinuousScroll(checked)
+                        if (typeof window !== 'undefined') {
+                          localStorage.setItem('relay_reader_continuous_scroll', String(checked))
+                          window.dispatchEvent(new Event('storage'))
+                        }
+                        syncPreferencesToDb({ readerUx: { continuousScroll: checked } })
+                        showToast(checked ? 'Continuous scroll progression active' : 'Paginated chapter breaks enabled')
+                      },
+                    },
+                    {
+                      title: 'Floating Table of Contents (Quick Drawer)',
+                      desc: 'Keep chapter outline accessible via corner tap or key-command.',
+                      checked: floatingToc,
+                      onToggle: (checked: boolean) => {
+                        setFloatingToc(checked)
+                        if (typeof window !== 'undefined') {
+                          localStorage.setItem('relay_reader_floating_toc', String(checked))
+                          window.dispatchEvent(new Event('storage'))
+                        }
+                        syncPreferencesToDb({ readerUx: { floatingToc: checked } })
+                        showToast(checked ? 'Floating chapter drawer enabled' : 'Drawer docked to header')
+                      },
+                    },
+                  ].map((item, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => item.onToggle(!item.checked)}
+                      className="flex items-center justify-between p-3 rounded-xl hover:bg-[var(--bg-surface)] transition-all cursor-pointer border border-transparent hover:border-[var(--border-subtle)]"
+                    >
+                      <div className="space-y-0.5 pr-4">
+                        <div className="font-mono text-xs sm:text-sm font-semibold text-[var(--color-on-surface)]">
+                          {item.title}
+                        </div>
+                        <div className="text-xs text-[var(--color-on-surface-variant)]">
+                          {item.desc}
+                        </div>
+                      </div>
+                      <div
+                        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 ease-in-out cursor-pointer ${
+                          item.checked ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-surface-container-high)]'
+                        }`}
+                      >
+                        <motion.span
+                          layout
+                          transition={SPRINGS.snappy}
+                          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition duration-200 ${
+                            item.checked ? 'translate-x-5.5' : 'translate-x-0.5'
+                          }`}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
-            <div className="mt-3.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-12 rounded-lg bg-[var(--bg-subtle)]" />
-              ))}
+          )}
+
+          {/* TAB 3: ACCOUNT & NOTIFICATIONS */}
+          {activeTab === 'account' && (
+            <div className="space-y-8">
+              {/* 1. Notifications & Dispatches */}
+              <div className="bg-[var(--color-surface-container-low)] rounded-xl p-6 sm:p-7 shadow-xs space-y-6 border border-[var(--border-subtle)]/60">
+                <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-serif text-lg font-bold text-[var(--color-on-surface)]">
+                        Notifications & Dispatch Cadence
+                      </h3>
+                      <Badge variant="subtle" size="sm">
+                        Delivery
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-[var(--color-on-surface-variant)] mt-0.5 font-serif italic">
+                      Control when new serialization chapters, editorial digests, and comments reach your inbox.
+                    </p>
+                  </div>
+                  <Mail className="w-5 h-5 text-[var(--color-outline)]" />
+                </div>
+
+                <div className="space-y-3">
+                  {[
+                    {
+                      title: 'Immediate Serial Drop Bulletins',
+                      desc: 'Real-time alert the moment bookmarked authors release installments.',
+                      checked: bulletinAlerts,
+                      onToggle: (checked: boolean) => {
+                        setBulletinAlerts(checked)
+                        syncPreferencesToDb({ notifications: { bulletinAlerts: checked } })
+                        showToast(checked ? 'Immediate serial bulletins active' : 'Immediate bulletins muted')
+                      },
+                    },
+                    {
+                      title: 'Sunday SAGA Gazette & Essays',
+                      desc: 'Weekly digest with curated serial spotlights and critical commentary.',
+                      checked: weeklyGazette,
+                      onToggle: (checked: boolean) => {
+                        setWeeklyGazette(checked)
+                        syncPreferencesToDb({ notifications: { weeklyGazette: checked } })
+                        showToast(checked ? 'Subscribed to Sunday Gazette' : 'Unsubscribed from Gazette digest')
+                      },
+                    },
+                    {
+                      title: 'Reader Commentary & Annotation Mentions',
+                      desc: 'Notify when readers quote or reply to your notes in shared salon threads.',
+                      checked: commentMentions,
+                      onToggle: (checked: boolean) => {
+                        setCommentMentions(checked)
+                        syncPreferencesToDb({ notifications: { commentMentions: checked } })
+                        showToast(checked ? 'Annotation reply alerts turned on' : 'Annotation mentions muted')
+                      },
+                    },
+                  ].map((item, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => item.onToggle(!item.checked)}
+                      className="flex items-center justify-between p-3 rounded-xl hover:bg-[var(--bg-surface)] transition-all cursor-pointer border border-transparent hover:border-[var(--border-subtle)]"
+                    >
+                      <div className="space-y-0.5 pr-4">
+                        <div className="font-mono text-xs sm:text-sm font-semibold text-[var(--color-on-surface)]">
+                          {item.title}
+                        </div>
+                        <div className="text-xs text-[var(--color-on-surface-variant)]">
+                          {item.desc}
+                        </div>
+                      </div>
+                      <div
+                        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 ease-in-out cursor-pointer ${
+                          item.checked ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-surface-container-high)]'
+                        }`}
+                      >
+                        <motion.span
+                          layout
+                          transition={SPRINGS.snappy}
+                          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition duration-200 ${
+                            item.checked ? 'translate-x-5.5' : 'translate-x-0.5'
+                          }`}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 4. Account, Subscriptions & Data Archive */}
+              <div className="bg-[var(--color-surface-container-low)] rounded-xl p-6 sm:p-7 shadow-xs space-y-6 border border-[var(--border-subtle)]/60">
+                <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-serif text-lg font-bold text-[var(--color-on-surface)]">
+                        Subscription, System & Data Archive
+                      </h3>
+                      <Badge variant="subtle" size="sm">
+                        Account
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-[var(--color-on-surface-variant)] mt-0.5 font-serif italic">
+                      Manage patronage membership, security credentials, and export reading notebooks.
+                    </p>
+                  </div>
+                  <Shield className="w-5 h-5 text-[var(--color-outline)]" />
+                </div>
+
+                <div className="p-4 bg-[var(--bg-surface)] rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4 border border-[var(--border-subtle)]">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="default" size="sm">
+                        Active Tier
+                      </Badge>
+                      <span className="font-serif font-bold text-[var(--color-on-surface)] text-sm sm:text-base">
+                        Atelier Patron Pass
+                      </span>
+                    </div>
+                    <p className="font-mono text-xs text-[var(--color-outline)]">
+                      $8.00 / month • Auto-renews Dec 1, 2025
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => showToast('Subscription billing portal invoked')}
+                      className="font-mono"
+                    >
+                      Manage Subscription
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-[var(--border-subtle)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-0.5">
+                    <div className="font-mono text-xs font-medium text-[var(--color-on-surface)]">
+                      {user?.primaryEmailAddress?.emailAddress || 'cordelia.vance@meridian.press'}
+                    </div>
+                    <div className="text-xs text-[var(--color-outline)]">
+                      Primary account email for logins & receipts
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        if (clerk?.openUserProfile) {
+                          clerk.openUserProfile()
+                        } else {
+                          showToast('Security verification link sent to email')
+                        }
+                      }}
+                      leftIcon={<Lock className="w-3.5 h-3.5" />}
+                      className="font-mono"
+                    >
+                      Update Password
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={triggerDataExport}
+                      leftIcon={<Download className="w-3.5 h-3.5 text-[var(--color-primary)]" />}
+                      className="font-mono"
+                    >
+                      Export Notes (.json)
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </div>
+          )}
+        </section>
+      </div>
+
+      {/* =========================================================================
+          PUBLIC FOLIO PREVIEW MODAL (Matching live_instructions.md)
+          ========================================================================= */}
+      <Modal
+        isOpen={isPublicPreviewOpen}
+        onClose={() => setIsPublicPreviewOpen(false)}
+        size="md"
+        className="max-w-lg p-0 overflow-hidden rounded-2xl bg-[var(--bg-surface)]"
+      >
+        <div className="h-28 bg-gradient-to-r from-[var(--color-primary)]/30 via-[var(--color-secondary-container)] to-[var(--color-surface-container-high)] relative p-4 flex justify-between items-start">
+          <span className="px-2 py-0.5 rounded bg-[var(--bg-surface)]/80 backdrop-blur text-[var(--color-primary)] font-mono text-xs uppercase tracking-wider font-semibold">
+            Public Folio Card
+          </span>
+          <button
+            type="button"
+            onClick={() => setIsPublicPreviewOpen(false)}
+            className="p-1 rounded-full bg-[var(--bg-surface)]/80 hover:bg-[var(--bg-surface)] text-[var(--color-on-surface)] transition-colors cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="px-6 pb-6 pt-0 relative">
+          <div className="-mt-12 mb-3 flex justify-between items-end">
+            <div className="w-20 h-20 rounded-full overflow-hidden ring-4 ring-[var(--bg-surface)] shadow-md bg-[var(--bg-surface)]">
+              <UnisexAvatar
+                src={activeAvatar}
+                hasImage={Boolean(activeAvatar && !isDefaultOrInitialAvatar(activeAvatar))}
+                name={profile.name}
+                size="xl"
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <span className="px-2.5 py-1 rounded-full bg-[var(--color-secondary-container)] text-[var(--color-on-secondary-container)] font-mono text-xs font-semibold">
+              Active Serialist
+            </span>
+          </div>
+
+          <div>
+            <h3 className="font-serif text-2xl font-bold text-[var(--color-on-surface)]">
+              {profile.name}
+            </h3>
+            <p className="font-mono text-xs text-[var(--color-outline)]">
+              {profile.handle}
+            </p>
+          </div>
+
+          <p className="text-xs sm:text-sm text-[var(--color-on-surface-variant)] mt-3 leading-relaxed border-t border-[var(--border-subtle)] pt-3 font-serif italic">
+            {profile.bio || 'Writing serialized speculative naturalism.'}
+          </p>
+
+          <div className="grid grid-cols-3 gap-2 py-3 mt-4 bg-[var(--color-surface-container-low)] rounded-lg text-center">
+            <div>
+              <div className="font-serif text-base text-[var(--color-on-surface)] font-medium">
+                {serialsCount}
+              </div>
+              <div className="font-mono text-[10px] text-[var(--color-outline)] uppercase">
+                Serials
+              </div>
+            </div>
+            <div>
+              <div className="font-serif text-base text-[var(--color-on-surface)] font-medium">
+                {readersCount}
+              </div>
+              <div className="font-mono text-[10px] text-[var(--color-outline)] uppercase">
+                Readers
+              </div>
+            </div>
+            <div>
+              <div className="font-serif text-base text-[var(--color-on-surface)] font-medium">
+                {notesCount}
+              </div>
+              <div className="font-mono text-[10px] text-[var(--color-outline)] uppercase">
+                Annotations
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 pt-3 flex items-center justify-between border-t border-[var(--border-subtle)] text-xs text-[var(--color-outline)] font-mono">
+            <span className="truncate max-w-[240px]">{profile.website}</span>
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== 'undefined' && navigator.clipboard) {
+                  navigator.clipboard.writeText(profile.website)
+                  showToast('Link copied to clipboard')
+                }
+                setIsPublicPreviewOpen(false)
+              }}
+              className="px-3 py-1 bg-[var(--color-primary)] text-[var(--accent-contrast)] rounded font-mono text-xs hover:bg-[var(--color-primary-container)] transition-colors cursor-pointer"
+            >
+              Copy URL
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* =========================================================================
+          EDIT BIO MODAL (Matching live_instructions.md)
+          ========================================================================= */}
+      <Modal
+        isOpen={isBioModalOpen}
+        onClose={() => setIsBioModalOpen(false)}
+        size="md"
+        className="max-w-lg p-6 space-y-4 rounded-2xl bg-[var(--bg-surface)]"
+      >
+        <div className="flex items-center justify-between pb-2 border-b border-[var(--border-subtle)]">
+          <div className="flex items-center gap-2">
+            <Edit className="w-5 h-5 text-[var(--color-primary)]" />
+            <h3 className="font-serif text-lg font-bold text-[var(--color-on-surface)]">
+              Edit Literary Biography
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsBioModalOpen(false)}
+            className="p-1 rounded-full text-[var(--color-outline)] hover:text-[var(--color-on-surface)] transition-colors cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="block font-mono text-xs text-[var(--color-outline)]">
+            Author Bio (Summary & Current Serials)
+          </label>
+          <textarea
+            rows={4}
+            maxLength={300}
+            value={modalBioInput}
+            onChange={(e) => setModalBioInput(e.target.value)}
+            className="w-full bg-[var(--color-surface-container-low)] p-3 rounded text-xs sm:text-sm text-[var(--color-on-surface)] border border-[var(--border-subtle)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)] shadow-inner font-serif"
+          />
+          <div className="flex justify-end">
+            <span className="font-mono text-xs text-[var(--color-outline)]">
+              {modalBioInput.length} / 300 characters
+            </span>
           </div>
         </div>
 
-        {/* Section 2 Skeleton */}
-        <div className="py-6 sm:py-7 space-y-3.5">
-          <div className="h-5 w-32 rounded bg-[var(--bg-subtle)]" />
-          <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-40 rounded-xl bg-[var(--bg-subtle)]" />
-            ))}
-          </div>
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border-subtle)]">
+          <button
+            type="button"
+            onClick={() => setIsBioModalOpen(false)}
+            className="px-3 py-1.5 bg-[var(--bg-surface)] text-[var(--color-on-surface)] rounded font-mono text-xs hover:bg-[var(--color-surface-container-high)] transition-colors cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setProfile((prev) => ({ ...prev, bio: modalBioInput }))
+              setIsBioModalOpen(false)
+              showToast('Author bio updated')
+            }}
+            className="px-4 py-1.5 bg-[var(--color-primary)] text-[var(--accent-contrast)] rounded font-mono text-xs hover:bg-[var(--color-primary-container)] transition-colors shadow-xs cursor-pointer"
+          >
+            Apply Bio
+          </button>
         </div>
-      </main>
+      </Modal>
     </div>
   )
 }

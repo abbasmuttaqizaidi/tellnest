@@ -412,7 +412,7 @@ export default function Header() {
                 />
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-xs text-[var(--ink-primary)] truncate">
-                    {user?.fullName || user?.firstName || 'Tellnest User'}
+                    {user?.fullName || user?.firstName || 'HatchPen Reader'}
                   </p>
                   <p className="text-[10px] text-[var(--ink-muted)] font-mono truncate">
                     @{user?.username || user?.primaryEmailAddress?.emailAddress?.split('@')[0] || 'reader'}

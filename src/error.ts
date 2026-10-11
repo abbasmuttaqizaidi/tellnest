@@ -1,7 +1,7 @@
 import { defineErrorHandler } from 'nitro'
 
 export default defineErrorHandler((error: any, event: any) => {
-  console.error('[Tellnest Server Error Handler]:', error)
+  console.error('[HatchPen Server Error Handler]:', error)
   const message = error?.message || (typeof error === 'string' ? error : 'Internal Server Error')
   const stack = error?.stack ? String(error.stack).split('\n').slice(0, 8) : []
 

@@ -33,8 +33,8 @@ export const AnimatedTabs: React.FC<AnimatedTabsProps> = ({
   const groupId = customId || `tabs-${generatedId.replace(/:/g, '')}`
 
   const sizeClasses = {
-    sm: variant === 'pill' ? 'px-3 py-1.5 text-xs' : 'px-3 py-2 text-xs',
-    md: variant === 'pill' ? 'px-4 py-2 text-xs sm:text-sm' : 'px-4 py-2.5 text-sm',
+    sm: variant === 'pill' ? 'px-3 py-1.5 text-xs' : 'px-3 text-xs',
+    md: variant === 'pill' ? 'px-4 py-2 text-xs sm:text-sm' : 'px-4 text-sm',
   }[size]
 
   return (
@@ -59,8 +59,9 @@ export const AnimatedTabs: React.FC<AnimatedTabsProps> = ({
               onClick={() => onChange(tab.id)}
               className={cn(
                 'group relative inline-flex items-center gap-2 whitespace-nowrap outline-none cursor-pointer transition-colors duration-150',
-                variant === 'pill' ? 'rounded-full' : 'pb-2.5 pt-1.5',
-                variant === 'pill' && 'focus-visible:ring-1 focus-visible:ring-[var(--ink-primary)]',
+                variant === 'pill'
+                  ? 'rounded-full focus-visible:ring-1 focus-visible:ring-[var(--ink-primary)]'
+                  : '-mb-px pb-3 pt-2 font-medium',
                 sizeClasses
               )}
             >
@@ -70,7 +71,7 @@ export const AnimatedTabs: React.FC<AnimatedTabsProps> = ({
                   layoutId={`active-tab-${groupId}`}
                   transition={SPRINGS.snappy}
                   className={cn(
-                    'absolute',
+                    'absolute z-10',
                     variant === 'pill'
                       ? 'inset-0 rounded-full bg-[var(--ink-primary)] shadow-xs'
                       : 'bottom-0 left-0 right-0 h-0.5 bg-[var(--ink-primary)]'

@@ -380,7 +380,7 @@ export const getAdminUsersServerFn = createServerFn({ method: 'POST' })
         usersMap.set(p.clerk_user_id, {
           clerkId: p.clerk_user_id,
           profileId: p.id,
-          email: `${p.username}@tellnest.folio`,
+          email: `${p.username}@hatchpen.folio`,
           firstName: p.display_name?.split(' ')[0] || null,
           lastName: p.display_name?.split(' ').slice(1).join(' ') || null,
           displayName: p.display_name,
