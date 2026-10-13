@@ -109,7 +109,7 @@ function SecretAdminPanelPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [dashboardData, setDashboardData] = useState<AdminDashboardData | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [activeFilter, setActiveFilter] = useState<'all' | 'authors' | 'readers' | 'saved'>('all')
+  const [activeFilter, setActiveFilter] = useState<'all' | 'real' | 'mock' | 'authors' | 'readers' | 'saved'>('all')
   const [activeTabByUser, setActiveTabByUser] = useState<Record<string, 'works' | 'reading' | 'interests'>>({})
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
@@ -120,6 +120,7 @@ function SecretAdminPanelPage() {
   const [worksTotalPages, setWorksTotalPages] = useState<number>(1)
   const [loadingWorks, setLoadingWorks] = useState(false)
   const [worksSearchQuery, setWorksSearchQuery] = useState('')
+  const [worksFilter, setWorksFilter] = useState<'all' | 'real' | 'mock'>('all')
 
   // Acts Views Analytics Popup State
   const [selectedWorkForActs, setSelectedWorkForActs] = useState<AdminWorkRow | null>(null)
@@ -486,6 +487,12 @@ function SecretAdminPanelPage() {
 
       if (!matchesSearch) return false
 
+      if (activeFilter === 'real') {
+        return !u.isMock
+      }
+      if (activeFilter === 'mock') {
+        return Boolean(u.isMock)
+      }
       if (activeFilter === 'authors') {
         return u.works.length > 0
       }
@@ -526,6 +533,7 @@ function SecretAdminPanelPage() {
           name: w.author.name,
           handle: w.author.handle,
           avatar: w.author.avatar,
+          isMock: true,
         },
         postedAt: w.createdAt,
         viewCount: parsedViews,
@@ -546,16 +554,26 @@ function SecretAdminPanelPage() {
 
   // Filtered and searched works (for Works Directory table)
   const filteredAdminWorks = useMemo(() => {
-    const q = worksSearchQuery.toLowerCase().trim()
-    if (!q) return combinedAdminWorks
-    return combinedAdminWorks.filter(
-      (w) =>
+    return combinedAdminWorks.filter((w) => {
+      const q = worksSearchQuery.toLowerCase().trim()
+      const matchesSearch =
+        !q ||
         w.title.toLowerCase().includes(q) ||
         w.author.name.toLowerCase().includes(q) ||
         w.author.handle.toLowerCase().includes(q) ||
         w.status.toLowerCase().includes(q)
-    )
-  }, [combinedAdminWorks, worksSearchQuery])
+
+      if (!matchesSearch) return false
+
+      if (worksFilter === 'real') {
+        return !w.author.isMock
+      }
+      if (worksFilter === 'mock') {
+        return Boolean(w.author.isMock)
+      }
+      return true
+    })
+  }, [combinedAdminWorks, worksSearchQuery, worksFilter])
 
   // Copy ID to clipboard
   const handleCopyId = (id: string) => {
@@ -1361,17 +1379,56 @@ function SecretAdminPanelPage() {
       {/* SECTION CONTENT: WORKS DIRECTORY TABLE vs USERS LIST */}
       {activeAdminSection === 'works' ? (
         <section className="space-y-4">
-          {/* Controls: Search & Refresh */}
+          {/* Controls: Search, Story Origin Filter, & Refresh */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--ink-muted)]" />
-              <input
-                type="text"
-                value={worksSearchQuery}
-                onChange={(e) => setWorksSearchQuery(e.target.value)}
-                placeholder="Search works by title, author name or handle..."
-                className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] pl-10 pr-4 py-2 text-xs text-[var(--ink-primary)] placeholder-[var(--ink-muted)] focus:outline-none focus:border-[var(--ink-primary)] transition-colors shadow-2xs"
-              />
+            <div className="flex flex-wrap items-center gap-3 flex-1">
+              <div className="relative flex-1 min-w-[240px] max-w-md">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--ink-muted)]" />
+                <input
+                  type="text"
+                  value={worksSearchQuery}
+                  onChange={(e) => setWorksSearchQuery(e.target.value)}
+                  placeholder="Search works by title, author name or handle..."
+                  className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] pl-10 pr-4 py-2 text-xs text-[var(--ink-primary)] placeholder-[var(--ink-muted)] focus:outline-none focus:border-[var(--ink-primary)] transition-colors shadow-2xs"
+                />
+              </div>
+
+              {/* Works Filter Buttons */}
+              <div className="flex items-center gap-1 bg-[var(--bg-subtle)] p-0.5 rounded-lg border border-[var(--border-subtle)]">
+                <button
+                  type="button"
+                  onClick={() => setWorksFilter('all')}
+                  className={`px-2.5 py-1 rounded text-[11px] font-mono transition-all cursor-pointer ${
+                    worksFilter === 'all'
+                      ? 'bg-[var(--bg-surface)] text-[var(--ink-primary)] font-semibold shadow-2xs'
+                      : 'text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
+                  }`}
+                >
+                  All Stories ({combinedAdminWorks.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWorksFilter('real')}
+                  className={`px-2.5 py-1 rounded text-[11px] font-mono transition-all cursor-pointer ${
+                    worksFilter === 'real'
+                      ? 'bg-[var(--bg-surface)] text-[var(--ink-primary)] font-semibold shadow-2xs'
+                      : 'text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
+                  }`}
+                >
+                  Real-User ({combinedAdminWorks.filter((w) => !w.author.isMock).length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWorksFilter('mock')}
+                  className={`px-2.5 py-1 rounded text-[11px] font-mono transition-all cursor-pointer ${
+                    worksFilter === 'mock'
+                      ? 'bg-[var(--bg-surface)] text-[var(--ink-primary)] font-semibold shadow-2xs'
+                      : 'text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
+                  }`}
+                >
+                  Mock-Author ({combinedAdminWorks.filter((w) => w.author.isMock).length})
+                </button>
+              </div>
             </div>
 
             <div className="flex items-center gap-2">
@@ -1445,8 +1502,13 @@ function SecretAdminPanelPage() {
                             size="sm"
                           />
                           <div>
-                            <div className="font-medium text-[var(--ink-primary)] leading-tight">
-                              {work.author.name}
+                            <div className="font-medium text-[var(--ink-primary)] leading-tight flex items-center gap-1.5">
+                              <span>{work.author.name}</span>
+                              {work.author.isMock && (
+                                <span className="inline-block px-1 rounded text-[9px] font-mono font-semibold bg-purple-100 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300">
+                                  Mock
+                                </span>
+                              )}
                             </div>
                             <div className="text-[10px] text-[var(--ink-muted)] font-mono">
                               @{work.author.handle}
@@ -1587,7 +1649,27 @@ function SecretAdminPanelPage() {
                 : 'bg-[var(--bg-surface)] text-[var(--ink-muted)] border border-[var(--border-subtle)] hover:text-[var(--ink-primary)]'
             }`}
           >
-            All Users ({unifiedUsers.length})
+            All ({unifiedUsers.length})
+          </button>
+          <button
+            onClick={() => setActiveFilter('real')}
+            className={`px-3 py-1.5 rounded-full text-xs font-mono transition-all cursor-pointer ${
+              activeFilter === 'real'
+                ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-semibold shadow-xs'
+                : 'bg-[var(--bg-surface)] text-[var(--ink-muted)] border border-[var(--border-subtle)] hover:text-[var(--ink-primary)]'
+            }`}
+          >
+            Real Users ({unifiedUsers.filter((u) => !u.isMock).length})
+          </button>
+          <button
+            onClick={() => setActiveFilter('mock')}
+            className={`px-3 py-1.5 rounded-full text-xs font-mono transition-all cursor-pointer ${
+              activeFilter === 'mock'
+                ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-semibold shadow-xs'
+                : 'bg-[var(--bg-surface)] text-[var(--ink-muted)] border border-[var(--border-subtle)] hover:text-[var(--ink-primary)]'
+            }`}
+          >
+            Mock Personas ({unifiedUsers.filter((u) => u.isMock).length})
           </button>
           <button
             onClick={() => setActiveFilter('authors')}
@@ -1674,6 +1756,15 @@ function SecretAdminPanelPage() {
                         <Badge variant="subtle" size="sm" className="font-mono text-[10px]">
                           {user.status}
                         </Badge>
+                        {user.isMock ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                            Mock Persona
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono text-[var(--ink-muted)] bg-[var(--bg-subtle)] border border-[var(--border-subtle)]">
+                            Real User
+                          </span>
+                        )}
                         {user.clerkId === currentClerkUser?.id && (
                           <Badge variant="default" size="sm" className="font-mono text-[10px]">
                             You (Current Session)

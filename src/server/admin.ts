@@ -99,6 +99,7 @@ export interface AdminUser {
   savedWorks: AdminUserSavedWork[]
   followedAuthors: AdminUserFollowedAuthor[]
   interests: string[]
+  isMock: boolean
   preferences?: {
     theme?: string
     readingMode?: string
@@ -333,6 +334,7 @@ export const getAdminUsersServerFn = createServerFn({ method: 'POST' })
         savedWorks: userSaved,
         followedAuthors: userFollows,
         interests: Array.from(interestSet),
+        isMock: Boolean(matchingProfile?.is_mock),
         preferences: prefs
           ? {
               theme: prefs.theme,
@@ -394,18 +396,20 @@ export const getAdminUsersServerFn = createServerFn({ method: 'POST' })
           savedWorks: [],
           followedAuthors: [],
           interests: ['Serialized Fiction'],
+          isMock: Boolean(p.is_mock),
           preferences: null,
         })
       }
     }
 
     const users = Array.from(usersMap.values())
+    const realUsersCount = users.filter((u) => !u.isMock).length
 
     return {
       users,
       totalCount: users.length,
       stats: {
-        totalUsers: users.length,
+        totalUsers: realUsersCount,
         totalWorks: works.length,
         activeReadingSessions: readingProgress.length,
         totalLibrarySaves: libraryItems.length,
@@ -868,6 +872,7 @@ export const adminPostWorkServerFn = createServerFn({ method: 'POST' })
               avatar_path: mockAvatar,
               bio: mockBio,
               location: mockLocation,
+              is_mock: true,
             })
             .select('id, display_name, username')
             .single()
@@ -1322,6 +1327,7 @@ export interface AdminWorkRow {
     name: string
     handle: string
     avatar?: string | null
+    isMock: boolean
   }
   postedAt: string
   viewCount: number
@@ -1374,7 +1380,8 @@ export const getAdminWorksServerFn = createServerFn({ method: 'GET' })
             id,
             display_name,
             username,
-            avatar_path
+            avatar_path,
+            is_mock
           )
         `, { count: 'exact' })
         .order('created_at', { ascending: false })
@@ -1395,6 +1402,7 @@ export const getAdminWorksServerFn = createServerFn({ method: 'GET' })
             name: authorProfile?.display_name || authorProfile?.username || 'Unknown Author',
             handle: authorProfile?.username || 'unknown',
             avatar: authorProfile?.avatar_path || null,
+            isMock: Boolean(authorProfile?.is_mock),
           },
           postedAt: w.published_at || w.created_at || new Date().toISOString(),
           viewCount: w.view_count || 0,
@@ -1888,6 +1896,89 @@ export const adminBatchSaveViewsServerFn = createServerFn({ method: 'POST' })
     }
 
     return { success: true, message: 'All view counts updated successfully in database' }
+  })
+
+/**
+ * Server Function: Dedicated endpoint for creating an admin mock author persona.
+ * Explicitly sets is_mock: true and synthetic clerk_user_id.
+ * Protected: Requires valid adminToken.
+ */
+export const adminCreateMockAuthorServerFn = createServerFn({ method: 'POST' })
+  .validator((params: {
+    adminToken: string
+    name: string
+    handle: string
+    avatar?: string
+    bio?: string
+    location?: string
+  }) => {
+    if (!params.adminToken) throw new Error('Admin authorization token is required')
+    if (!params.name || !params.name.trim()) throw new Error('Author display name is required')
+    if (!params.handle || !params.handle.trim()) throw new Error('Author handle is required')
+    return {
+      adminToken: params.adminToken,
+      name: params.name.trim(),
+      handle: params.handle.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 30),
+      avatar: params.avatar?.trim() || null,
+      bio: params.bio?.trim() || null,
+      location: params.location?.trim() || null,
+    }
+  })
+  .handler(async ({ data }) => {
+    if (!isValidAdminToken(data.adminToken)) {
+      throw new Error('Unauthorized: Invalid administration key')
+    }
+
+    const admin = createAdminClient()
+
+    // 1. Check if username handle already taken
+    const { data: existing } = await admin
+      .from('profiles')
+      .select('id, username, is_mock')
+      .eq('username', data.handle)
+      .maybeSingle()
+
+    if (existing) {
+      return {
+        success: true,
+        profileId: existing.id,
+        username: existing.username,
+        isMock: existing.is_mock,
+        created: false,
+      }
+    }
+
+    // 2. Generate unique synthetic clerk_user_id
+    const syntheticClerkId = `admin-mock-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+
+    // 3. Insert mock author profile
+    const { data: newProfile, error } = await admin
+      .from('profiles')
+      .insert({
+        clerk_user_id: syntheticClerkId,
+        username: data.handle,
+        display_name: data.name,
+        avatar_path: data.avatar,
+        bio: data.bio,
+        location: data.location,
+        is_mock: true,
+        is_public: true,
+        account_status: 'active',
+      })
+      .select('id, username, display_name, is_mock')
+      .single()
+
+    if (error || !newProfile) {
+      throw new Error(`Failed to create mock author: ${error?.message || 'Database insert error'}`)
+    }
+
+    return {
+      success: true,
+      profileId: newProfile.id,
+      username: newProfile.username,
+      isMock: newProfile.is_mock,
+      created: true,
+    }
   })
 
 

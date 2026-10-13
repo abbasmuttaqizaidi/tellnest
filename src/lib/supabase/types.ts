@@ -69,6 +69,7 @@ export interface Database {
           gender: string | null
           onboarding_completed: boolean
           preferences: Json
+          is_mock: boolean
           created_at: string
           updated_at: string
         }
@@ -89,6 +90,7 @@ export interface Database {
           gender?: string | null
           onboarding_completed?: boolean
           preferences?: Json
+          is_mock?: boolean
           created_at?: string
           updated_at?: string
         }
@@ -109,6 +111,7 @@ export interface Database {
           gender?: string | null
           onboarding_completed?: boolean
           preferences?: Json
+          is_mock?: boolean
           created_at?: string
           updated_at?: string
         }
