@@ -7,13 +7,18 @@ import { useApp } from '../context/AppContext'
 
 export default function MobileNav() {
   const routerState = useRouterState()
-  const { isSignedIn, user } = useUser()
+  const { isSignedIn, isLoaded, user } = useUser()
   const { openAuthModal, customAvatarUrl } = useApp()
   const activeAvatar = customAvatarUrl || user?.imageUrl
   const currentPath = routerState.location.pathname
 
   // Hide bottom nav in reader mode or editor mode so reading and writing are 100% distraction-free
   if (currentPath.startsWith('/read/') || currentPath.startsWith('/write/editor')) {
+    return null
+  }
+
+  // Hide bottom nav on mobile if user is not logged in
+  if (!isLoaded || !isSignedIn) {
     return null
   }
 

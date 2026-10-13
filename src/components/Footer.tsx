@@ -1,11 +1,13 @@
 import React from 'react'
 import { Link, useRouterState } from '@tanstack/react-router'
+import { useUser } from '@clerk/react'
 import { useApp } from '../context/AppContext'
 
 import { HatchpenLogo } from './HatchpenLogo'
 
 export default function Footer() {
   const routerState = useRouterState()
+  const { isSignedIn } = useUser()
   const { categories } = useApp()
   const isReaderMode = routerState.location.pathname.startsWith('/read/')
   const isEditorMode = routerState.location.pathname.startsWith('/write/editor')
@@ -15,7 +17,7 @@ export default function Footer() {
   }
 
   return (
-    <footer className="w-full border-t border-[var(--border-subtle)] bg-[var(--bg-canvas)] pt-12 pb-16 text-xs text-[var(--ink-muted)] mb-14 md:mb-0 transition-colors">
+    <footer className={`w-full border-t border-[var(--border-subtle)] bg-[var(--bg-canvas)] pt-12 pb-16 text-xs text-[var(--ink-muted)] ${isSignedIn ? 'mb-14 md:mb-0' : 'mb-0'} transition-colors`}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         
         {/* Top Grid */}

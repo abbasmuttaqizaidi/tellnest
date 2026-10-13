@@ -202,39 +202,19 @@ function PublicHome() {
               {/* Call to Action Cluster */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full sm:w-auto mb-8 sm:mb-10">
                 <Link
-                  to="/read//"
-                  params={{
-                    workId: activeHeroWork?.id || 'work-2',
-                    chapterId: activeHeroWork?.chapters?.[0]?.id || 'ch-201',
-                  }}
-                  className="inline-flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-full bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-medium text-[14px] hover:opacity-90 shadow-md hover:shadow-lg transition-all duration-200 group no-underline"
+                  to="/discover"
+                  className="inline-flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-full bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-medium text-[14px] hover:opacity-90 shadow-md hover:shadow-lg transition-all duration-200 group no-underline cursor-pointer"
                   data-path="discover"
                 >
-                  <span>Begin Reading Unhurried</span>
+                  <span className="material-symbols-outlined text-[18px] text-[var(--accent-contrast)]">auto_stories</span>
+                  <span>Explore The Library</span>
                   <span className="transition-transform duration-200 group-hover:translate-x-1">→</span>
                 </Link>
-
-                <a
-                  href="#catalog-stacks"
-                  className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-[var(--color-surface-container-lowest)]/90 hover:bg-[var(--color-surface-container-lowest)] text-[var(--color-on-surface)] font-medium text-[14px] shadow-sm hover:shadow transition-all duration-200 border border-[var(--color-surface-container-high)]/60 no-underline cursor-pointer"
-                  data-path="serialization"
-                >
-                  <span className="material-symbols-outlined text-[18px] text-[var(--color-secondary)]">auto_stories</span>
-                  <span>Explore The Library</span>
-                </a>
               </div>
 
-              {/* Trust Points / Manifesto Signals */}
-              <div className="flex flex-wrap items-center gap-y-2 gap-x-3 text-[var(--color-secondary)] text-[13px] tracking-wide mb-8">
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-outline-variant)]"></span>
-                <span>Zero algorithmic rush</span>
-                <span className="text-[var(--color-outline-variant)]">•</span>
-                <span>90% direct author patronage</span>
-                <span className="text-[var(--color-outline-variant)]">•</span>
-                <span>Pure longform</span>
-              </div>
 
-              {/* Polished Installment Spotlight Card using Design System */}
+              {/* Polished Installment Spotlight Card using Design System (commented out) */}
+              {/*
               <Link
                 to="/works/$workId"
                 params={{ workId: activeHeroWork?.id || 'work-2' }}
@@ -249,6 +229,7 @@ function PublicHome() {
                   className="!border-[var(--border-subtle)]/40 hover:!border-[var(--border-strong)]/60 !shadow-[0_8px_30px_rgba(0,0,0,0.06)] hover:!shadow-[0_12px_36px_rgba(0,0,0,0.09)]"
                 />
               </Link>
+              */}
             </div>
 
             {/* Right Column: Visual Anchor & Folio Showcase */}
@@ -258,13 +239,7 @@ function PublicHome() {
                 <div className="pointer-events-none absolute -top-12 -right-8 w-64 h-64 rounded-full bg-[var(--color-surface-container-high)]/30 blur-3xl -z-10"></div>
                 
                 {/* Curated Compact Header Ribbon */}
-                <div className="flex items-center justify-between pb-0 px-1">
-                  <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--ink-primary)]"></span>
-                    <span className="text-[11px] font-semibold tracking-[0.14em] uppercase text-[var(--color-secondary)] font-mono">
-                      Marginalia & Dispatches
-                    </span>
-                  </div>
+                <div className="flex items-center justify-end pb-0 px-1">
                   <div className="flex items-center gap-1.5 text-[10px] font-medium text-[var(--color-secondary)] bg-[var(--color-surface-container)] px-2 py-0.5 rounded-full border border-[var(--color-surface-container-high)]/60">
                     <span className="material-symbols-outlined text-[12px] text-[var(--ink-primary)]">verified</span>
                     <span>Human-curated</span>
