@@ -1,5 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
-import { createAdminClient } from '../lib/supabase/server'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { createAdminClient } from '../lib/supabase/server.ts'
+import type { Database } from '../lib/supabase/types.ts'
 
 /**
  * Helper to resolve or auto-provision a profile row for the authenticated Clerk user.
@@ -170,6 +172,350 @@ export interface CreateWriterWorkPayload {
   visibility?: 'Public' | 'Unlisted' | 'Draft'
 }
 
+export interface ExecuteCreateWriterWorkOptions {
+  admin?: SupabaseClient<Database>
+  /**
+   * Optional server authentication state resolver for unit tests.
+   * If omitted, resolves Clerk session via `@clerk/tanstack-react-start/server`.
+   */
+  getAuthState?: () => Promise<{ userId: string | null } | null>
+}
+
+export interface CreateWriterWorkResult {
+  success: true
+  workId: string
+  slug: string
+  chapterId?: string
+  genreAssigned: boolean
+}
+
+/**
+ * Validates the caller identity against the server-verified Clerk session.
+ * Fail-Closed: If auth resolution fails, throws an error, or produces no active userId,
+ * or if the client-provided clerkUserId does not match, request is rejected.
+ */
+export async function authenticateWriterRequest(
+  clientUserId: string,
+  authResolver?: () => Promise<{ userId: string | null } | null>
+): Promise<string> {
+  let authState: { userId: string | null } | null = null
+
+  if (authResolver) {
+    try {
+      authState = await authResolver()
+    } catch (err: any) {
+      throw new Error(`Authentication failure: ${err?.message || err}`)
+    }
+  } else {
+    try {
+      const { auth } = await import('@clerk/tanstack-react-start/server')
+      authState = await auth()
+    } catch (err: any) {
+      throw new Error(`Authentication failure: Unable to verify server session (${err?.message || err})`)
+    }
+  }
+
+  const serverUserId = authState?.userId
+  if (!serverUserId) {
+    throw new Error('Unauthorized: No active authenticated session found.')
+  }
+
+  if (serverUserId !== clientUserId) {
+    throw new Error('Unauthorized: Client user ID does not match authenticated server session.')
+  }
+
+  return serverUserId
+}
+
+/**
+ * Handles partial manuscript failure safely.
+ * In accordance with strict data preservation rules:
+ * - A partially created manuscript record is PRESERVED and its workId reported in the error.
+ * - Automatic background deletion is NOT performed because network timeouts or partial database
+ *   states cannot reliably prove the record is untouched and has no associated user content.
+ * - Preserving the record prevents catastrophic data loss of existing works, chapters, acts, or user edits.
+ */
+function handleManuscriptCreationFailure(
+  workId: string,
+  stepDescription: string,
+  primaryError: Error
+): never {
+  throw new Error(
+    `Failed to ${stepDescription}: ${primaryError.message}. The partial manuscript shell has been safely preserved at ID: ${workId} to prevent accidental content loss.`
+  )
+}
+
+/**
+ * Core business logic for creating a new manuscript with genre persistence and failure guards.
+ * Callable directly by tests or by createWriterWorkServerFn.
+ */
+export async function executeCreateWriterWork(
+  data: CreateWriterWorkPayload,
+  options?: ExecuteCreateWriterWorkOptions
+): Promise<CreateWriterWorkResult> {
+  const authResolver = options?.getAuthState || (options?.admin as any)?.getAuthState
+  // Fail-closed authentication boundary verification
+  const verifiedUserId = await authenticateWriterRequest(data.clerkUserId, authResolver)
+
+  const admin = options?.admin || createAdminClient()
+  const profile = await resolveUserProfile(admin, verifiedUserId)
+  const nowIso = new Date().toISOString()
+
+  // 1. Resolve & Validate Genre against active genres (is_active = true)
+  let resolvedGenreId: string | null = null
+  const rawGenre = data.genreName?.trim()
+
+  if (rawGenre) {
+    // Reject inputs containing SQL LIKE wildcard characters to ensure deterministic matching
+    if (rawGenre.includes('%') || rawGenre.includes('_')) {
+      throw new Error(
+        `Invalid genre name "${rawGenre}". Wildcard characters like "%" and "_" are not permitted.`
+      )
+    }
+
+    // 1a. Attempt lookup by exact name (case-insensitive) where is_active = true
+    const { data: genreByName, error: nameErr } = await admin
+      .from('genres')
+      .select('id, name, slug, is_active')
+      .ilike('name', rawGenre)
+      .eq('is_active', true)
+      .maybeSingle()
+
+    if (nameErr) {
+      throw new Error(`Database error while validating genre "${rawGenre}": ${nameErr.message}`)
+    }
+
+    // Double-check exact case-insensitive equality to eliminate accidental pattern matches
+    if (genreByName?.id && genreByName.name.trim().toLowerCase() === rawGenre.toLowerCase()) {
+      resolvedGenreId = genreByName.id
+    } else {
+      // 1b. Fallback lookup by slug
+      const slugCandidate = rawGenre
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+
+      if (slugCandidate) {
+        const { data: genreBySlug, error: slugErr } = await admin
+          .from('genres')
+          .select('id, name, slug, is_active')
+          .eq('slug', slugCandidate)
+          .eq('is_active', true)
+          .maybeSingle()
+
+        if (slugErr) {
+          throw new Error(`Database error while validating genre slug "${rawGenre}": ${slugErr.message}`)
+        }
+
+        if (genreBySlug?.id && genreBySlug.slug === slugCandidate) {
+          resolvedGenreId = genreBySlug.id
+        }
+      }
+    }
+
+    // Fail-fast before any database writes if genre was supplied but is inactive or unrecognized
+    if (!resolvedGenreId) {
+      throw new Error(
+        `Unrecognized or inactive genre: "${rawGenre}". Please select an active genre from the taxonomy.`
+      )
+    }
+  }
+
+  // 2. Resolve Category ID
+  let categoryId: string | null = null
+  const rawCategory = data.categoryName?.trim()
+
+  if (rawCategory) {
+    // Reject wildcard characters in category name to avoid unintended pattern matches
+    if (rawCategory.includes('%') || rawCategory.includes('_')) {
+      throw new Error(
+        `Invalid category name "${rawCategory}". Wildcard characters like "%" and "_" are not permitted.`
+      )
+    }
+
+    const { data: catData, error: catErr } = await admin
+      .from('categories')
+      .select('id, name')
+      .ilike('name', rawCategory)
+      .maybeSingle()
+
+    if (catErr) {
+      throw new Error(`Database error while resolving category "${rawCategory}": ${catErr.message}`)
+    }
+
+    if (catData?.id && catData.name.trim().toLowerCase() === rawCategory.toLowerCase()) {
+      categoryId = catData.id
+    }
+  }
+
+  // Fallback to first available category if no specific category was requested or matched
+  if (!categoryId) {
+    const { data: firstCat, error: firstCatErr } = await admin
+      .from('categories')
+      .select('id')
+      .limit(1)
+      .maybeSingle()
+
+    if (firstCatErr) {
+      throw new Error(`Database error while fetching fallback category: ${firstCatErr.message}`)
+    }
+
+    if (firstCat?.id) {
+      categoryId = firstCat.id
+    }
+  }
+
+  // 3. Generate slug
+  const baseSlug = data.title
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80) || 'manuscript'
+  const uniqueSuffix = Math.random().toString(36).substring(2, 7)
+  const slug = `${baseSlug}-${uniqueSuffix}`
+
+  // 4. Map status & visibility
+  // New manuscripts always start as private Drafts until the author explicitly publishes chapters.
+  const mappedStatus = data.status?.toLowerCase() === 'completed' ? 'completed' : 'ongoing'
+  const mappedVisibility: 'draft' | 'private' | 'unlisted' | 'public' = 'draft'
+  const mappedPublicationStatus: 'draft' | 'published' | 'archived' = 'draft'
+
+  // 5. Insert Work into works table
+  const { data: newWork, error: workErr } = await admin
+    .from('works')
+    .insert({
+      author_id: profile.id,
+      title: data.title.trim(),
+      slug,
+      description: data.description?.trim() || null,
+      cover_image_path: data.cover?.trim() || null,
+      language: data.language || 'English',
+      category_id: categoryId,
+      status: mappedStatus,
+      visibility: mappedVisibility,
+      publication_status: mappedPublicationStatus,
+      is_indexable: false,
+      content_rating: 'general',
+      content_warning_required: false,
+      reading_time_minutes: 5,
+      word_count: 1250,
+      chapter_count: 1,
+      view_count: 0,
+      like_count: 0,
+      save_count: 0,
+      comment_count: 0,
+      published_at: null,
+      last_published_at: null,
+      created_at: nowIso,
+      updated_at: nowIso,
+      last_activity_at: nowIso,
+      last_activity_type: 'work_created',
+      last_activity_detail: {
+        title: data.title.trim(),
+        createdAt: nowIso,
+        summaryText: 'Draft manuscript registered',
+      },
+    })
+    .select('id, slug, title')
+    .single()
+
+  if (workErr || !newWork?.id) {
+    console.error('[executeCreateWriterWork] Work insert failed:', workErr?.message)
+    throw new Error(`Failed to create manuscript: ${workErr?.message || 'Unknown work insert error'}`)
+  }
+
+  // 6. Insert Genre junction into work_genres if genre was resolved
+  if (resolvedGenreId) {
+    const { error: genreErr } = await admin
+      .from('work_genres')
+      .insert({
+        work_id: newWork.id,
+        genre_id: resolvedGenreId,
+      })
+
+    if (genreErr) {
+      console.error('[executeCreateWriterWork] work_genres insert failed:', genreErr.message)
+      handleManuscriptCreationFailure(
+        newWork.id,
+        'assign genre to manuscript',
+        new Error(genreErr.message)
+      )
+    }
+  }
+
+  // 7. Insert Act 1 into acts table
+  const { data: actRow, error: actErr } = await admin
+    .from('acts')
+    .insert({
+      work_id: newWork.id,
+      act_number: 1,
+      title: 'Act I',
+      slug: `act-1-${uniqueSuffix}`,
+      description: 'First Movement',
+      status: 'published',
+      display_order: 1,
+      created_at: nowIso,
+      updated_at: nowIso,
+    })
+    .select('id')
+    .single()
+
+  if (actErr || !actRow?.id) {
+    console.error('[executeCreateWriterWork] Act insert failed:', actErr?.message)
+    handleManuscriptCreationFailure(
+      newWork.id,
+      'create initial Act I',
+      new Error(actErr?.message || 'Unknown act creation error')
+    )
+  }
+
+  // 8. Insert initial Chapter 1
+  const initialChapterContent =
+    'The morning arrived without sound, wrapping the city in a cold silver fog that swallowed the tops of the towers...'
+  const initialWordCount = initialChapterContent.trim().split(/\s+/).filter(Boolean).length
+  const initialReadingTime = Math.max(1, Math.ceil(initialWordCount / 220))
+
+  const { data: newCh, error: chErr } = await admin
+    .from('chapters')
+    .insert({
+      work_id: newWork.id,
+      act_id: actRow.id,
+      chapter_number: 1,
+      title: 'Chapter One',
+      slug: `chapter-1-${uniqueSuffix}`,
+      subtitle: data.subtitle?.trim() || 'The Beginning',
+      content: initialChapterContent,
+      word_count: initialWordCount,
+      reading_time_minutes: initialReadingTime,
+      status: 'draft',
+      is_indexable: false,
+      view_count: 0,
+      published_at: null,
+      created_at: nowIso,
+      updated_at: nowIso,
+    })
+    .select('id, title, chapter_number')
+    .single()
+
+  if (chErr || !newCh?.id) {
+    console.error('[executeCreateWriterWork] Initial chapter insert failed:', chErr?.message)
+    handleManuscriptCreationFailure(
+      newWork.id,
+      'create initial chapter',
+      new Error(chErr?.message || 'Unknown chapter creation error')
+    )
+  }
+
+  return {
+    success: true,
+    workId: newWork.id,
+    slug: newWork.slug,
+    chapterId: newCh.id,
+    genreAssigned: !!resolvedGenreId,
+  }
+}
+
 /**
  * 2. Create a new manuscript directly in PostgreSQL with an initial Chapter 1
  */
@@ -180,147 +526,7 @@ export const createWriterWorkServerFn = createServerFn({ method: 'POST' })
     return params
   })
   .handler(async ({ data }) => {
-    const admin = createAdminClient()
-    const profile = await resolveUserProfile(admin, data.clerkUserId)
-    const nowIso = new Date().toISOString()
-
-    // 1. Resolve Category ID
-    let categoryId: string | null = null
-    if (data.categoryName) {
-      const { data: catData } = await admin
-        .from('categories')
-        .select('id')
-        .ilike('name', data.categoryName.trim())
-        .maybeSingle()
-      if (catData?.id) categoryId = catData.id
-    }
-    if (!categoryId) {
-      const { data: firstCat } = await admin.from('categories').select('id').limit(1).maybeSingle()
-      if (firstCat?.id) categoryId = firstCat.id
-    }
-
-    // 2. Generate slug
-    const baseSlug = data.title
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 80) || 'manuscript'
-    const uniqueSuffix = Math.random().toString(36).substring(2, 7)
-    const slug = `${baseSlug}-${uniqueSuffix}`
-
-    // 3. Map status & visibility to postgres enums
-    const mappedStatus = data.status?.toLowerCase() === 'completed' ? 'completed' : 'ongoing'
-    let mappedVisibility: 'draft' | 'private' | 'unlisted' | 'public' = 'public'
-    let mappedPublicationStatus: 'draft' | 'published' | 'archived' = 'published'
-
-    if (data.visibility === 'Draft') {
-      mappedVisibility = 'draft'
-      mappedPublicationStatus = 'draft'
-    } else if (data.visibility === 'Unlisted') {
-      mappedVisibility = 'unlisted'
-      mappedPublicationStatus = 'published'
-    }
-
-    // 4. Insert Work into works table
-    const { data: newWork, error: workErr } = await admin
-      .from('works')
-      .insert({
-        author_id: profile.id,
-        title: data.title.trim(),
-        slug,
-        description: data.description?.trim() || null,
-        cover_image_path: data.cover?.trim() || null,
-        language: data.language || 'English',
-        category_id: categoryId,
-        status: mappedStatus,
-        visibility: mappedVisibility,
-        publication_status: mappedPublicationStatus,
-        is_indexable: mappedVisibility === 'public',
-        content_rating: 'general',
-        content_warning_required: false,
-        reading_time_minutes: 5,
-        word_count: 1250,
-        chapter_count: 1,
-        view_count: 0,
-        like_count: 0,
-        save_count: 0,
-        comment_count: 0,
-        published_at: mappedPublicationStatus === 'published' ? nowIso : null,
-        last_published_at: mappedPublicationStatus === 'published' ? nowIso : null,
-        created_at: nowIso,
-        updated_at: nowIso,
-        last_activity_at: nowIso,
-        last_activity_type: 'work_created',
-        last_activity_detail: {
-          title: data.title.trim(),
-          createdAt: nowIso,
-          summaryText: 'Manuscript registered',
-        },
-      })
-      .select('id, slug, title')
-      .single()
-
-    if (workErr || !newWork) {
-      console.error('[createWriterWorkServerFn] Work insert failed:', workErr?.message)
-      throw new Error(`Failed to create manuscript: ${workErr?.message}`)
-    }
-
-    // 5. Insert Act 1 into acts table
-    const { data: actRow } = await admin
-      .from('acts')
-      .insert({
-        work_id: newWork.id,
-        act_number: 1,
-        title: 'Act I',
-        slug: `act-1-${uniqueSuffix}`,
-        description: 'First Movement',
-        status: 'published',
-        display_order: 1,
-        created_at: nowIso,
-        updated_at: nowIso,
-      })
-      .select('id')
-      .single()
-
-    // 6. Insert initial Chapter 1
-    const initialChapterContent =
-      'The morning arrived without sound, wrapping the city in a cold silver fog that swallowed the tops of the towers...'
-    const initialWordCount = initialChapterContent.trim().split(/\s+/).filter(Boolean).length
-    const initialReadingTime = Math.max(1, Math.ceil(initialWordCount / 220))
-
-    const { data: newCh, error: chErr } = await admin
-      .from('chapters')
-      .insert({
-        work_id: newWork.id,
-        act_id: actRow?.id || null,
-        chapter_number: 1,
-        title: 'Chapter One',
-        slug: `chapter-1-${uniqueSuffix}`,
-        subtitle: data.subtitle?.trim() || 'The Beginning',
-        content: initialChapterContent,
-        word_count: initialWordCount,
-        reading_time_minutes: initialReadingTime,
-        status: mappedPublicationStatus === 'published' ? 'published' : 'draft',
-        is_indexable: mappedVisibility === 'public',
-        view_count: 0,
-        published_at: mappedPublicationStatus === 'published' ? nowIso : null,
-        created_at: nowIso,
-        updated_at: nowIso,
-      })
-      .select('id, title, chapter_number')
-      .single()
-
-    if (chErr) {
-      console.warn('[createWriterWorkServerFn] Initial chapter creation warning:', chErr.message)
-    }
-
-    return {
-      success: true,
-      workId: newWork.id,
-      slug: newWork.slug,
-      chapterId: newCh?.id,
-    }
+    return executeCreateWriterWork(data)
   })
 
 /**

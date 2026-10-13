@@ -10,14 +10,23 @@ async function runMigrations() {
 
   console.log(`Found ${files.length} migration files in ${migrationsDir}`);
 
-  const client = new Client({
-    host: 'db.amplbczsaqtleoshttsb.supabase.co',
-    port: 5432,
-    database: 'postgres',
-    user: 'postgres',
-    password: 'cvp1EbYv4LR4fkiV',
-    ssl: { rejectUnauthorized: false }
-  });
+  const dbUrl = process.env.DATABASE_URL;
+  const clientConfig = dbUrl
+    ? { connectionString: dbUrl, ssl: { rejectUnauthorized: false } }
+    : {
+        host: process.env.PGHOST,
+        port: process.env.PGPORT ? parseInt(process.env.PGPORT, 10) : 5432,
+        database: process.env.PGDATABASE,
+        user: process.env.PGUSER,
+        password: process.env.PGPASSWORD,
+        ssl: { rejectUnauthorized: false }
+      };
+
+  if (!dbUrl && (!clientConfig.host || !clientConfig.password)) {
+    throw new Error('Database credentials missing: Please configure DATABASE_URL or PGHOST/PGPASSWORD in environment variables.');
+  }
+
+  const client = new Client(clientConfig);
 
   try {
     await client.connect();

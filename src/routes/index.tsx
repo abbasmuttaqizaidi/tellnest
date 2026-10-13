@@ -51,6 +51,8 @@ import {
 import { generateMeta } from '../lib/seo'
 import { formatViewCount } from '../lib/utils'
 import { getAuthUserServerFn } from '../server/auth'
+import { getUserRecommendationSignalsServerFn, type UserRecommendationSignals } from '../server/recommendations'
+import { calculateForYouRecommendations } from '../lib/recommendations/engine'
 
 export const Route = createFileRoute('/')({
   loader: async () => {
@@ -1358,6 +1360,46 @@ function LoggedInHome() {
 
   const [selectedHeroWorkId, setSelectedHeroWorkId] = useState<string | null>(null)
   const [isSwitchMenuOpen, setIsSwitchMenuOpen] = useState(false)
+  const [recommendationSignals, setRecommendationSignals] = useState<UserRecommendationSignals | null>(null)
+  const [isLoadingSignals, setIsLoadingSignals] = useState(true)
+
+  useEffect(() => {
+    let isMounted = true
+    getUserRecommendationSignalsServerFn()
+      .then((signals) => {
+        if (isMounted) {
+          setRecommendationSignals(signals)
+          setIsLoadingSignals(false)
+        }
+      })
+      .catch((err) => {
+        console.warn('[ForYou] Failed to load recommendation signals:', err)
+        if (isMounted) {
+          setIsLoadingSignals(false)
+        }
+      })
+    return () => {
+      isMounted = false
+    }
+  }, [user?.id])
+
+  const mergedBookmarkedWorkIds = useMemo(() => {
+    const set = new Set<string>()
+    for (const id of savedWorkIds) set.add(id)
+    for (const id of (recommendationSignals?.bookmarkedWorkIds || [])) set.add(id)
+    return Array.from(set)
+  }, [savedWorkIds, recommendationSignals?.bookmarkedWorkIds])
+
+  const forYouRecommendations = useMemo(() => {
+    return calculateForYouRecommendations({
+      candidateWorks: allWorks.filter((w) => !isOwnWork(w.id)),
+      readingHistory: recommendationSignals?.readingHistory || [],
+      userPreferences: recommendationSignals?.preferences || null,
+      bookmarkedWorkIds: mergedBookmarkedWorkIds,
+      currentUserId: user?.id,
+      currentUserProfileId: recommendationSignals?.profileId,
+    })
+  }, [allWorks, recommendationSignals, mergedBookmarkedWorkIds, user?.id, isOwnWork])
 
   // Books currently in-progress
   const inProgressList = useMemo(() => {
@@ -1447,6 +1489,14 @@ function LoggedInHome() {
           
           {/* Quick Navigation Anchors */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+            <a
+              href="#for-you"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] rounded-full border border-[var(--border-subtle)] text-xs font-mono font-medium shadow-2xs transition-all no-underline shrink-0"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+              <span>For You ({forYouRecommendations.length})</span>
+            </a>
+
             <a
               href="#trending-serials"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] rounded-full border border-[var(--border-subtle)] text-xs font-mono font-medium shadow-2xs transition-all no-underline shrink-0"
@@ -1749,7 +1799,151 @@ function LoggedInHome() {
         </section>
       )}
 
+      {/* =========================================================================
+          SECTION: FOR YOU RECOMMENDATIONS (PERSONALIZED ADAPTIVE DISCOVERY)
+          ========================================================================= */}
+      <section id="for-you" className="w-full space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-3 border-b border-[var(--border-subtle)]">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-amber-500 shadow-2xs">
+                <Sparkles className="h-4 w-4" />
+              </span>
+              <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] tracking-tight">
+                Recommended For You
+              </h3>
+              <Badge variant="subtle" size="sm">
+                {forYouRecommendations.length} Curated
+              </Badge>
+            </div>
+            <p className="font-serif text-xs sm:text-sm text-[var(--ink-secondary)]">
+              Personalized based on your reading sessions and literary interests.
+            </p>
+          </div>
 
+          <Link
+            to="/discover"
+            className="font-mono text-xs font-semibold text-[var(--ink-primary)] hover:underline flex items-center gap-1 no-underline"
+          >
+            <span>Explore All Serials</span>
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+
+        {isLoadingSignals ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {Array.from({ length: 5 }).map((_, idx) => (
+              <div
+                key={`foryou-skeleton-${idx}`}
+                className="aspect-[2/3] rounded-xl bg-[var(--bg-subtle)] animate-pulse border border-[var(--border-subtle)]"
+              />
+            ))}
+          </div>
+        ) : forYouRecommendations.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
+            {forYouRecommendations.map(({ work, explanationLabel }) => {
+              const wSlug = getWorkSlug(work)
+              const saved = isWorkSaved(work.id)
+              return (
+                <div
+                  key={work.id}
+                  className="rounded-2xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-xs hover:shadow-md transition-all duration-300 flex flex-col overflow-hidden group"
+                >
+                  {/* Cover with badge */}
+                  <div className="relative aspect-[2/3] overflow-hidden bg-[var(--bg-subtle)]">
+                    <Link
+                      to="/works/$workId"
+                      params={{ workId: wSlug }}
+                      className="block w-full h-full no-underline"
+                    >
+                      <OptimizedImage
+                        src={work.cover}
+                        alt={work.title}
+                        width={260}
+                        height={390}
+                        containerClassName="w-full h-full"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    </Link>
+
+                    {/* Bookmark Pill Button */}
+                    <button
+                      type="button"
+                      onClick={() => toggleSaveWork(work.id)}
+                      className="absolute top-2.5 right-2.5 w-8 h-8 rounded-full bg-black/60 backdrop-blur-md text-white flex items-center justify-center hover:bg-black transition-colors cursor-pointer z-10"
+                      title={saved ? 'Remove Bookmark' : 'Save to Shelf'}
+                    >
+                      <Bookmark className={`h-3.5 w-3.5 ${saved ? 'fill-amber-400 text-amber-400' : ''}`} />
+                    </button>
+
+                    {/* Chapter count */}
+                    <div className="absolute bottom-2 left-2 bg-black/75 text-white font-mono text-[9px] px-1.5 py-0.5 rounded backdrop-blur-2xs">
+                      {work.chaptersCount} Ch
+                    </div>
+                  </div>
+
+                  {/* Card Content */}
+                  <div className="p-3.5 flex-1 flex flex-col justify-between space-y-2.5">
+                    <div className="space-y-1.5">
+                      {/* Reason / Explanation Tag */}
+                      <div className="flex items-center gap-1 font-mono text-[10px] text-amber-600 dark:text-amber-400 truncate">
+                        <Sparkles className="h-2.5 w-2.5 shrink-0" />
+                        <span className="truncate">{explanationLabel}</span>
+                      </div>
+
+                      <Link
+                        to="/works/$workId"
+                        params={{ workId: wSlug }}
+                        className="block no-underline text-inherit group-hover:underline"
+                      >
+                        <h4 className="font-serif text-sm font-bold text-[var(--ink-primary)] leading-snug line-clamp-1">
+                          {work.title}
+                        </h4>
+                      </Link>
+
+                      <div className="flex items-center justify-between font-mono text-[11px] text-[var(--ink-muted)]">
+                        <span className="truncate">{work.author.name}</span>
+                        <span className="shrink-0 text-[10px] text-[var(--ink-faint)]">
+                          {work.genre}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-[var(--border-subtle)] flex items-center justify-between">
+                      <span className="font-mono text-[10px] text-[var(--ink-faint)]">
+                        {formatViewCount(work.totalReads, true)} reads
+                      </span>
+
+                      <Link
+                        to="/read/$workId/$chapterId"
+                        params={{
+                          workId: wSlug,
+                          chapterId: work.chapters?.[0]?.id || 'ch-1',
+                        }}
+                        className="inline-flex items-center gap-1 font-mono text-[10px] uppercase font-semibold text-[var(--ink-primary)] hover:underline no-underline"
+                      >
+                        Read Ch 1 →
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-6 text-center space-y-2">
+            <p className="font-serif text-sm text-[var(--ink-secondary)]">
+              No new recommendations available at the moment. All eligible candidates have either been saved or completed.
+            </p>
+            <Link
+              to="/discover"
+              className="inline-flex items-center gap-1.5 font-mono text-xs font-semibold text-[var(--ink-primary)] hover:underline no-underline"
+            >
+              Browse Full Catalog →
+            </Link>
+          </div>
+        )}
+      </section>
 
       {/* =========================================================================
           SECTION 3: TRENDING & COMMUNITY RANKINGS (LEADERBOARDS BENTO GRID)
@@ -1914,9 +2108,9 @@ function LoggedInHome() {
           </Link>
         </div>
 
-        {/* Horizontal Serial Shelf Grid */}
+        {/* Dynamic & Aesthetic Reading Shelf Grid */}
         {savedWorks.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-4">
             {savedWorks.map((work) => {
               const wSlug = getWorkSlug(work)
               return (
@@ -1930,8 +2124,8 @@ function LoggedInHome() {
                     <OptimizedImage
                       src={work.cover}
                       alt={work.title}
-                      width={180}
-                      height={270}
+                      width={200}
+                      height={300}
                       containerClassName="w-full h-full"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
@@ -1949,7 +2143,24 @@ function LoggedInHome() {
               )
             })}
 
-            {/* Action Card to Discover More */}
+            {/* Aesthetic Empty Shelf Slots to complete exact 7 cards row */}
+            {savedWorks.length < 6 &&
+              Array.from({ length: Math.max(0, 6 - savedWorks.length) }).map((_, idx) => (
+                <Link
+                  key={`empty-slot-${idx}`}
+                  to="/discover"
+                  className="hidden xl:flex aspect-[2/3] rounded-xl border border-dashed border-[var(--border-subtle)]/70 bg-[var(--bg-surface)]/30 hover:bg-[var(--bg-surface)]/70 hover:border-[var(--border-subtle)] transition-all flex-col items-center justify-center text-center p-3 cursor-pointer group no-underline text-inherit"
+                >
+                  <div className="w-8 h-8 rounded-full border border-dashed border-[var(--border-subtle)] flex items-center justify-center text-[var(--ink-faint)] group-hover:text-[var(--ink-muted)] mb-1.5 transition-colors">
+                    <span className="text-base font-light">+</span>
+                  </div>
+                  <span className="font-mono text-[11px] text-[var(--ink-faint)] group-hover:text-[var(--ink-muted)] transition-colors">
+                    Add Book
+                  </span>
+                </Link>
+              ))}
+
+            {/* Action Card to Discover More - Positioned at right side */}
             <Link
               to="/discover"
               className="aspect-[2/3] rounded-xl bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] border border-dashed border-[var(--border-strong)] flex flex-col items-center justify-center text-center p-3 transition-colors cursor-pointer group no-underline text-inherit"

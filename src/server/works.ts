@@ -461,11 +461,15 @@ export const getPlatformWorksServerFn = createServerFn({ method: 'GET' })
       `
 
       // Use pg client via service connection for complex lateral aggregates
+      const dbUrl = process.env.DATABASE_URL
+      if (!dbUrl) {
+        console.warn('[getPlatformWorksServerFn] DATABASE_URL is not configured; skipping direct pg query.')
+        return []
+      }
+
       const { Client } = await import('pg')
       const client = new Client({
-        connectionString:
-          process.env.DATABASE_URL ||
-          'postgresql://postgres:cvp1EbYv4LR4fkiV@db.amplbczsaqtleoshttsb.supabase.co:5432/postgres',
+        connectionString: dbUrl,
       })
       await client.connect()
       const res = await client.query(q)

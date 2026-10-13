@@ -20,6 +20,7 @@ import {
 import { WORKS, getWorkSlug } from '../data/mockData'
 import { generateMeta } from '../lib/seo'
 import { getPublicWorkServerFn, trackStrictViewServerFn } from '../server/works'
+import { recordReadingHeartbeatServerFn } from '../server/reader'
 import { getOptimizedImageUrl } from '../lib/cloudinary'
 import { ViewsBreakdownModal } from '../components/ViewsBreakdownModal'
 import { formatViewCount } from '../lib/utils'
@@ -312,18 +313,141 @@ function ReaderPage() {
     setBannerImageFailed(false)
   }, [chapter?.id])
 
-  // Track scroll progress for reading bar
+  // =========================================================================
+  // RELIABLE ACTIVE READING BEHAVIOR TRACKING (Visibility, Heartbeat & Sentinel)
+  // =========================================================================
+  const maxProgressRef = React.useRef(0)
+  const currentScrollRef = React.useRef(0)
+  const accumulatedActiveSecondsRef = React.useRef(0)
+  const lastActiveTimestampRef = React.useRef<number | null>(null)
+  const isDocumentVisibleRef = React.useRef(typeof document !== 'undefined' ? document.visibilityState === 'visible' : true)
+  const endMarkerReachedRef = React.useRef(false)
+  const isCompletedRef = React.useRef(false)
+  const chapterEndSentinelRef = React.useRef<HTMLDivElement | null>(null)
+
+  // Track scroll progress for reading bar and track maximum scroll reached
   useEffect(() => {
     const handleScroll = () => {
       const totalHeight = document.documentElement.scrollHeight - window.innerHeight
       if (totalHeight > 0) {
         const current = (window.scrollY / totalHeight) * 100
-        setScrollProgress(Math.min(100, Math.max(0, current)))
+        const bounded = Math.min(100, Math.max(0, current))
+        setScrollProgress(bounded)
+        currentScrollRef.current = Math.round(bounded)
+        maxProgressRef.current = Math.max(maxProgressRef.current, Math.round(bounded))
       }
     }
     window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
+
+  // 1. Observe stable Chapter-End Sentinel
+  useEffect(() => {
+    if (!chapterEndSentinelRef.current) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            endMarkerReachedRef.current = true
+            // Documented completion rule: Sentinel reached AND minimum active reading duration (>= 20 seconds)
+            if (accumulatedActiveSecondsRef.current >= 20 || (chapter?.readTimeMinutes && accumulatedActiveSecondsRef.current >= chapter.readTimeMinutes * 15)) {
+              isCompletedRef.current = true
+            }
+          }
+        }
+      },
+      { threshold: 0.1 }
+    )
+
+    observer.observe(chapterEndSentinelRef.current)
+    return () => observer.disconnect()
+  }, [chapter?.id])
+
+  // 2. Active Reading Seconds Accumulator (Paused when tab hidden or blurred)
+  useEffect(() => {
+    if (!work || !chapter || isOwnWork(work.id)) return
+
+    // Reset session trackers on chapter change
+    accumulatedActiveSecondsRef.current = 0
+    maxProgressRef.current = 0
+    currentScrollRef.current = 0
+    endMarkerReachedRef.current = false
+    isCompletedRef.current = false
+    lastActiveTimestampRef.current = Date.now()
+    isDocumentVisibleRef.current = typeof document !== 'undefined' ? document.visibilityState === 'visible' : true
+
+    const handleVisibilityChange = () => {
+      const isVisible = document.visibilityState === 'visible'
+      isDocumentVisibleRef.current = isVisible
+
+      if (isVisible) {
+        lastActiveTimestampRef.current = Date.now()
+      } else {
+        // Tab backgrounded: commit accumulated slice up to now, pause, and immediately flush to server
+        if (lastActiveTimestampRef.current) {
+          const deltaSeconds = Math.min(60, Math.max(0, Math.floor((Date.now() - lastActiveTimestampRef.current) / 1000)))
+          accumulatedActiveSecondsRef.current += deltaSeconds
+          lastActiveTimestampRef.current = null
+        }
+        flushHeartbeat()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    // Flush heartbeat helper (sends active seconds delta since last flush)
+    let lastFlushedActiveSeconds = 0
+
+    const flushHeartbeat = () => {
+      // Calculate current slice if visible
+      if (isDocumentVisibleRef.current && lastActiveTimestampRef.current) {
+        const deltaNow = Math.min(30, Math.max(0, Math.floor((Date.now() - lastActiveTimestampRef.current) / 1000)))
+        accumulatedActiveSecondsRef.current += deltaNow
+        lastActiveTimestampRef.current = Date.now()
+      }
+
+      const totalActive = accumulatedActiveSecondsRef.current
+      const deltaToSend = Math.max(0, totalActive - lastFlushedActiveSeconds)
+
+      if (deltaToSend > 0 || endMarkerReachedRef.current) {
+        lastFlushedActiveSeconds = totalActive
+
+        // Verify completion rule before sending
+        const meetsCompletion = endMarkerReachedRef.current && (totalActive >= 25 || (chapter.readTimeMinutes ? totalActive >= chapter.readTimeMinutes * 15 : false))
+        if (meetsCompletion) {
+          isCompletedRef.current = true
+        }
+
+        recordReadingHeartbeatServerFn({
+          data: {
+            workId: work.id,
+            chapterId: chapter.id,
+            activeSecondsDelta: deltaToSend,
+            progressPercent: currentScrollRef.current,
+            maxProgressPercent: Math.max(currentScrollRef.current, maxProgressRef.current),
+            endMarkerReached: endMarkerReachedRef.current,
+            isCompleted: isCompletedRef.current,
+          },
+        }).catch(() => {})
+      }
+    }
+
+    // Incremental heartbeat timer: fires every 15 seconds
+    const heartbeatTimer = setInterval(flushHeartbeat, 15000)
+
+    // Best-effort flush on tab close / navigation
+    const handleBeforeUnload = () => {
+      flushHeartbeat()
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+
+    return () => {
+      clearInterval(heartbeatTimer)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      flushHeartbeat()
+    }
+  }, [work?.id, chapter?.id, isOwnWork])
 
   // Strict Zero-Duplicate View Tracking (Book, Chapter, and implicit Act)
   useEffect(() => {
@@ -726,6 +850,9 @@ function ReaderPage() {
             ))
           )}
         </article>
+
+        {/* Stable Chapter-End Observer Sentinel */}
+        <div ref={chapterEndSentinelRef} className="h-1 w-full pointer-events-none opacity-0" aria-hidden="true" />
 
         {/* End of Chapter Ornament */}
         <div className="py-16 text-center">

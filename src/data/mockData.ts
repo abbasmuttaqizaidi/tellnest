@@ -77,6 +77,7 @@ export interface Work {
   categorySlug: string
   genre: string
   genreSlug: string
+  genres?: Array<{ id?: string; name: string; slug: string }>
   tags: string[]
   language: string
   status: 'Ongoing' | 'Completed' | 'On Hiatus' | 'Cancelled'

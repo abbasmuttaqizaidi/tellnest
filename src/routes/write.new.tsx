@@ -51,7 +51,7 @@ function CreateWorkPage() {
   const [tags, setTags] = useState('Isolation, Memory')
   const [language, setLanguage] = useState('English')
   const [status, setStatus] = useState<'Ongoing' | 'Completed'>('Ongoing')
-  const [visibility, setVisibility] = useState<'Public' | 'Unlisted' | 'Draft'>('Public')
+  const [visibility, setVisibility] = useState<'Public' | 'Unlisted' | 'Draft'>('Draft')
   const [isMature, setIsMature] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
