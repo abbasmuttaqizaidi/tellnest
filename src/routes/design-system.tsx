@@ -2059,7 +2059,7 @@ function DesignSystemShowcasePage() {
           <span className="font-mono text-xs text-[var(--ink-muted)]">Official Brand Asset • Vector Silhouette</span>
         </div>
         <p className="text-xs text-[var(--ink-muted)] max-w-2xl leading-relaxed">
-          The official Hatchpen brand identity: architectural 3D open-book silhouette with detailed quill feather pen and ink flourish, paired with high-contrast <strong>HATCH pen</strong> typography and the literary manifesto <em>&ldquo;Writings. Beyond the Hype.&rdquo;</em>
+          The official Hatchpen brand identity: geometric pen-nib icon with crisp hatch detailing, paired with contemporary <strong>hatchpen</strong> wordmark typography.
         </p>
 
         {/* Brand Display Grid */}
@@ -2068,15 +2068,15 @@ function DesignSystemShowcasePage() {
           <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 space-y-4 shadow-xs">
             <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2">
               <h3 className="font-serif text-sm font-semibold text-[var(--ink-primary)]">
-                Book & Quill Emblem
+                Pen Nib Emblem
               </h3>
               <span className="font-mono text-[10px] text-[var(--ink-faint)]">&lt;HatchpenEmblem /&gt;</span>
             </div>
             <div className="flex items-center gap-6 pt-2">
               <HatchpenEmblem className="h-16 w-16 shadow-md" />
               <div className="space-y-1 text-xs text-[var(--ink-muted)]">
-                <p className="font-semibold text-[var(--ink-primary)]">Architectural Book + Quill Feather</p>
-                <p>Primary app icon and favicon mark. 3D folded pages silhouette with detailed feather quill and flowing ink flourish.</p>
+                <p className="font-semibold text-[var(--ink-primary)]">Hatchpen Pen Nib Mark</p>
+                <p>Primary app icon and favicon mark. Crisp geometric pen nib with fine hatch detailing.</p>
               </div>
             </div>
           </div>
@@ -2142,15 +2142,21 @@ function DesignSystemShowcasePage() {
         <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 space-y-3 shadow-xs">
           <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2">
             <h3 className="font-serif text-sm font-semibold text-[var(--ink-primary)]">
-              Monochrome Brand Identity Board
+              Official Brand Identity Assets
             </h3>
-            <span className="font-mono text-[10px] text-[var(--ink-faint)]">src/assets/logo</span>
+            <span className="font-mono text-[10px] text-[var(--ink-faint)]">public/hatchpen-logo-kit</span>
           </div>
-          <div className="overflow-hidden rounded-lg border border-[var(--border-subtle)]">
+          <div className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] p-8 flex items-center justify-center">
             <img
-              src="/hatchpen-brand-board.png"
-              alt="Hatchpen Monochrome Brand Identity Board"
-              className="w-full h-auto object-cover"
+              src="/hatchpen-logo-kit/png/logo-black-1200w.png"
+              alt="Hatchpen Official Logo"
+              className="max-h-24 w-auto object-contain dark:hidden"
+              loading="lazy"
+            />
+            <img
+              src="/hatchpen-logo-kit/png/logo-white-1200w.png"
+              alt="Hatchpen Official Logo"
+              className="max-h-24 w-auto object-contain hidden dark:block"
               loading="lazy"
             />
           </div>

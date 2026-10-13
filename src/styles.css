@@ -379,22 +379,13 @@ div[class*="development-badge"] {
 
 /* Hatchpen Brand Logo Theme Inversion */
 .hatchpen-brand-logo {
-  transition: filter 0.2s ease-in-out;
-}
-
-:root[data-theme="dark"] .hatchpen-brand-logo:not(.hatchpen-brand-logo--inverted),
-.dark .hatchpen-brand-logo:not(.hatchpen-brand-logo--inverted),
-[data-theme="dark"] img[src*="hatchpen-logo"],
-.dark img[src*="hatchpen-logo"],
-[data-theme="dark"] img[src*="hatchpen-app-icon"],
-.dark img[src*="hatchpen-app-icon"],
-[data-theme="dark"] img[src*="hatchpen-icon"]:not([src*="inverted"]),
-.dark img[src*="hatchpen-icon"]:not([src*="inverted"]) {
-  filter: invert(1) brightness(1.15);
+  transition: opacity 0.2s ease-in-out;
 }
 
 .hatchpen-brand-logo--inverted,
-img[src*="inverted"] {
+img[src*="inverted"],
+img[src*="white"] {
   filter: none !important;
 }
+
 

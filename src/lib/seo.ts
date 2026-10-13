@@ -9,7 +9,7 @@ export const DEFAULT_SITE_URL = 'https://hatchpen.com'
 export const DEFAULT_TITLE = 'Hatchpen — Writings. Beyond the Hype.'
 export const DEFAULT_DESCRIPTION =
   'Hatchpen is a digital literary publishing and reader platform for serialized fiction, long-form literature, essays, and poetry.'
-export const DEFAULT_OG_IMAGE = '/hatchpen-brand-board.png'
+export const DEFAULT_OG_IMAGE = '/og-image.png'
 
 export interface SeoOptions {
   title?: string

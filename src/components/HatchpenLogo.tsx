@@ -55,8 +55,8 @@ const sizeConfig = {
 }
 
 /**
- * Official Book + Quill Emblem
- * Features the architectural 3D open-book silhouette with detailed quill feather and flowing ink flourish.
+ * Official Hatchpen Insignia Emblem
+ * Features the official Hatchpen Pen Nib Insignia from the logo kit.
  */
 export function HatchpenEmblem({
   className = 'h-8 w-8',
@@ -72,8 +72,8 @@ export function HatchpenEmblem({
       } ${className}`}
     >
       <img
-        src="/hatchpen-app-icon.png"
-        alt="Hatchpen Book & Quill Insignia"
+        src="/favicon.svg"
+        alt="Hatchpen Insignia"
         className="h-full w-full object-contain hatchpen-brand-logo transition-all"
         loading="eager"
         decoding="async"
@@ -104,8 +104,8 @@ export function HatchpenLogo({
     return (
       <div className={`inline-flex items-center select-none ${className}`}>
         <img
-          src="/hatchpen-logo-inverted.png"
-          alt="Hatchpen — Writings. Beyond the Hype."
+          src="/hatchpen-logo-kit/svg/hatchpen-logo-white.svg"
+          alt="Hatchpen"
           className={`hatchpen-brand-logo hatchpen-brand-logo--inverted ${conf.fullHeight} w-auto object-contain transition-all`}
           loading="eager"
           decoding="async"
@@ -117,10 +117,18 @@ export function HatchpenLogo({
   if (variant === 'compact') {
     return (
       <div className={`inline-flex items-center select-none ${className}`}>
+        {/* Responsive theme switcher using dark: hidden and dark: inline */}
         <img
-          src="/hatchpen-logo-compact.png"
+          src="/hatchpen-logo-kit/svg/hatchpen-logo-black.svg"
           alt="Hatchpen"
-          className={`hatchpen-brand-logo ${conf.fullHeight} w-auto object-contain transition-all`}
+          className={`hatchpen-brand-logo dark:hidden ${conf.fullHeight} w-auto object-contain transition-all`}
+          loading="eager"
+          decoding="async"
+        />
+        <img
+          src="/hatchpen-logo-kit/svg/hatchpen-logo-white.svg"
+          alt="Hatchpen"
+          className={`hatchpen-brand-logo hatchpen-brand-logo--inverted hidden dark:inline ${conf.fullHeight} w-auto object-contain transition-all`}
           loading="eager"
           decoding="async"
         />
@@ -132,9 +140,16 @@ export function HatchpenLogo({
     return (
       <div className={`inline-flex items-center select-none ${className}`}>
         <img
-          src="/hatchpen-logo-transparent.png"
-          alt="Hatchpen — Writings. Beyond the Hype."
-          className={`hatchpen-brand-logo ${conf.fullHeight} w-auto object-contain transition-all`}
+          src="/hatchpen-logo-kit/svg/hatchpen-logo-black.svg"
+          alt="Hatchpen"
+          className={`hatchpen-brand-logo dark:hidden ${conf.fullHeight} w-auto object-contain transition-all`}
+          loading="eager"
+          decoding="async"
+        />
+        <img
+          src="/hatchpen-logo-kit/svg/hatchpen-logo-white.svg"
+          alt="Hatchpen"
+          className={`hatchpen-brand-logo hatchpen-brand-logo--inverted hidden dark:inline ${conf.fullHeight} w-auto object-contain transition-all`}
           loading="eager"
           decoding="async"
         />
@@ -142,7 +157,7 @@ export function HatchpenLogo({
     )
   }
 
-  // Lockup variant: Book & Quill Emblem + Styled Typography Lockup
+  // Lockup variant: Official Emblem + Styled Typography Lockup
   return (
     <div className={`inline-flex items-center gap-2.5 select-none ${className}`}>
       <HatchpenEmblem className={conf.icon} />

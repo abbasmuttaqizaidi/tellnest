@@ -26,7 +26,7 @@ const GLOBAL_JSON_LD = JSON.stringify({
       '@id': 'https://hatchpen.com/#organization',
       name: 'Hatchpen',
       url: 'https://hatchpen.com',
-      logo: 'https://hatchpen.com/hatchpen-app-icon.png',
+      logo: 'https://hatchpen.com/icon-512.png',
       sameAs: [],
       description: 'Digital literary publishing and reader platform for serialized fiction, long-form literature, essays, and poetry.',
     },
@@ -102,7 +102,7 @@ export const Route = createRootRoute({
       },
       {
         property: 'og:image',
-        content: '/hatchpen-brand-board.png',
+        content: '/og-image.png',
       },
       {
         property: 'og:image:alt',
@@ -124,7 +124,7 @@ export const Route = createRootRoute({
       },
       {
         name: 'twitter:image',
-        content: '/hatchpen-brand-board.png',
+        content: '/og-image.png',
       },
     ],
     links: [
@@ -132,6 +132,18 @@ export const Route = createRootRoute({
         rel: 'icon',
         type: 'image/svg+xml',
         href: '/favicon.svg',
+      },
+      {
+        rel: 'icon',
+        type: 'image/png',
+        sizes: '32x32',
+        href: '/favicon-32x32.png',
+      },
+      {
+        rel: 'icon',
+        type: 'image/png',
+        sizes: '16x16',
+        href: '/favicon-16x16.png',
       },
       {
         rel: 'apple-touch-icon',
