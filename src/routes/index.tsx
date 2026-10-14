@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useApp } from '../context/AppContext'
 import { CATEGORIES, GENRES, AUTHORS, getWorkSlug } from '../data/mockData'
 import WorkCard from '../components/WorkCard'
@@ -15,6 +15,7 @@ import {
   FilterDisclosure,
   BottomSheet,
   SpotlightCard,
+  SPRINGS,
 } from '../design-system'
 import { UnisexAvatar } from '../components/UnisexAvatar'
 import { TellnestLoader } from '../components/TellnestLoader'
@@ -47,6 +48,7 @@ import {
   X,
   Star,
   Eye,
+  Heart,
 } from 'lucide-react'
 import { generateMeta } from '../lib/seo'
 import { formatViewCount } from '../lib/utils'
@@ -124,11 +126,333 @@ function HomePage() {
 /* ==========================================================================
    PUBLIC HOME PAGE — Curated Atmospheric Literary Salon & Bookstore
    ========================================================================== */
+const HERO_ROTATING_KEYWORDS = ['novels', 'romance', 'dark romance', 'fantasy', 'sci-fi', 'thrillers', 'essays']
+
+function DispatchCardContent1({ isHighlighted = false }: { isHighlighted?: boolean }) {
+  return (
+    <>
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <div className="flex items-center gap-2.5">
+          <div
+            className={`w-6 h-6 rounded-full bg-[var(--color-surface-container-low)] flex items-center justify-center text-[var(--color-on-surface)] font-semibold text-[10px] border border-[var(--color-surface-container-high)]/60 shrink-0 transition-transform duration-200 ${
+              isHighlighted ? 'scale-105' : 'group-hover:scale-105'
+            }`}
+          >
+            ER
+          </div>
+          <div className="min-w-0">
+            <h4 className="text-[12.5px] font-medium text-[var(--color-on-surface)] leading-tight truncate">
+              Elena Rostova
+            </h4>
+            <p className="text-[10.5px] text-[var(--color-secondary)] truncate">
+              Literary Essayist & Reader
+            </p>
+          </div>
+        </div>
+        <span className="text-[9.5px] font-medium tracking-wider uppercase text-[var(--color-secondary)] px-2 py-0.5 rounded bg-[var(--color-surface-container-low)] border border-[var(--color-surface-container-high)]/40 whitespace-nowrap shrink-0">
+          Dispatch 14
+        </span>
+      </div>
+      
+      <p className="text-[12.5px] leading-[1.55] text-[var(--color-on-surface)]/90 font-normal">
+        “I stopped chasing algorithmic bestsellers. On HatchPen,{' '}
+        <mark
+          className={`px-1 py-0.5 rounded text-inherit transition-colors duration-200 ${
+            isHighlighted
+              ? 'bg-amber-300/90 dark:bg-amber-400/40 ring-1 ring-amber-400/30'
+              : 'bg-amber-200/80 dark:bg-amber-500/30 group-hover:bg-amber-300/90 dark:group-hover:bg-amber-400/40'
+          }`}
+        >
+          I found stories no one’s talking about
+        </mark>
+        —but they’re as good as the classics. Great writing, zero noise.”
+      </p>
+    </>
+  )
+}
+
+function DispatchCardContent2({ isHighlighted = false }: { isHighlighted?: boolean }) {
+  return (
+    <>
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <div className="flex items-center gap-2.5">
+          <div
+            className={`w-6 h-6 rounded-full bg-[var(--ink-primary)] text-[var(--accent-contrast)] flex items-center justify-center font-semibold text-[10px] shrink-0 transition-transform duration-200 ${
+              isHighlighted ? 'scale-105' : 'group-hover:scale-105'
+            }`}
+          >
+            MC
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <h4 className="text-[12.5px] font-medium text-[var(--color-on-surface)] leading-tight truncate">
+                Marcus Chen
+              </h4>
+              <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-[var(--color-surface-container)] text-[var(--color-secondary)] uppercase tracking-wider">
+                Author
+              </span>
+            </div>
+            <p className="text-[10.5px] text-[var(--color-secondary)] truncate">
+              Serial: <em className="text-[var(--color-on-surface)] not-italic">The Salt Garden</em>
+            </p>
+          </div>
+        </div>
+        <span className="text-[9.5px] font-medium tracking-wider uppercase text-[var(--color-secondary)] px-2 py-0.5 rounded bg-[var(--color-surface-container-low)] border border-[var(--color-surface-container-high)]/40 whitespace-nowrap shrink-0">
+          Dispatch
+        </span>
+      </div>
+
+      <p className="text-[12.5px] leading-[1.55] text-[var(--color-on-surface)]/90 font-normal">
+        “
+        <mark
+          className={`px-1 py-0.5 rounded text-inherit transition-colors duration-200 ${
+            isHighlighted
+              ? 'bg-amber-300/90 dark:bg-amber-400/40 ring-1 ring-amber-400/30'
+              : 'bg-amber-200/80 dark:bg-amber-500/30 group-hover:bg-amber-300/90 dark:group-hover:bg-amber-400/40'
+          }`}
+        >
+          I’m a new writer
+        </mark>
+        . On HatchPen, my work didn’t disappear into the feed—it was pushed to readers who actually stayed. For the first time,{' '}
+        <mark
+          className={`px-1 py-0.5 rounded text-inherit transition-colors duration-200 ${
+            isHighlighted
+              ? 'bg-amber-300/90 dark:bg-amber-400/40 ring-1 ring-amber-400/30'
+              : 'bg-amber-200/80 dark:bg-amber-500/30 group-hover:bg-amber-300/90 dark:group-hover:bg-amber-400/40'
+          }`}
+        >
+          my writing found an audience
+        </mark>
+        .”
+      </p>
+    </>
+  )
+}
+
+const DISPATCH_ITEMS = [
+  {
+    id: 'elena',
+    label: 'Reader Voice',
+    Component: DispatchCardContent1,
+  },
+  {
+    id: 'marcus',
+    label: 'Author Voice',
+    Component: DispatchCardContent2,
+  },
+]
+
+function AutoRevealingDispatches() {
+  // deck holds cards from bottom to top: deck[deck.length - 1] is top card
+  const [deck, setDeck] = useState(() => [DISPATCH_ITEMS[1], DISPATCH_ITEMS[0]])
+  const [isDismissing, setIsDismissing] = useState(false)
+  const [dismissDirection, setDismissDirection] = useState<1 | -1>(1)
+  const [isPressed, setIsPressed] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
+
+  const cycleCard = useCallback((direction: 1 | -1 = 1) => {
+    setDismissDirection(direction)
+    setIsDismissing(true)
+    setTimeout(() => {
+      setDeck((prev) => {
+        const copy = [...prev]
+        const topItem = copy.pop()
+        if (topItem) copy.unshift(topItem)
+        return copy
+      })
+      setIsDismissing(false)
+    }, 320)
+  }, [])
+
+  useEffect(() => {
+    if (isPressed || isDragging) return
+
+    const timer = setInterval(() => {
+      cycleCard(1)
+    }, 4500)
+    return () => clearInterval(timer)
+  }, [cycleCard, isPressed, isDragging])
+
+  const topCard = deck[deck.length - 1]
+
+  const handlePressStart = () => {
+    if (!isDismissing) {
+      setIsPressed(true)
+    }
+  }
+
+  const handlePressEnd = () => {
+    if (!isDragging) {
+      setIsPressed(false)
+    }
+  }
+
+  return (
+    <div className="relative w-full pt-0 pb-1">
+      {/* Cards Deck with Swipe Support */}
+      <div
+        className="relative w-full h-[148px] select-none touch-pan-y"
+        role="region"
+        aria-label="Stacked revealing dispatch cards. Swipe to switch or hold to pause."
+      >
+        {deck.map((card, index) => {
+          const isTop = index === deck.length - 1
+          const depth = deck.length - index - 1
+          const CardContent = card.Component
+
+          let animateProps
+          if (isDismissing && isTop) {
+            animateProps = {
+              x: dismissDirection * 150,
+              y: -8,
+              rotateZ: dismissDirection * 10,
+              opacity: 0,
+            }
+          } else if (isTop && isPressed && !isDragging) {
+            // Desktop-hover effect when held: straighten tilt, lift up, prominent depth
+            animateProps = {
+              rotateZ: 0,
+              scale: 1.025,
+              y: -5,
+              x: 0,
+              opacity: 1,
+            }
+          } else if (isTop) {
+            animateProps = {
+              rotateZ: 0,
+              scale: 1,
+              y: 0,
+              x: 0,
+              opacity: 1,
+            }
+          } else {
+            animateProps = {
+              rotateZ: -depth * 4.5,
+              scale: 1 - depth * 0.04,
+              y: depth * 6,
+              x: 0,
+              opacity: 0.72,
+            }
+          }
+
+          return (
+            <motion.div
+              key={card.id}
+              style={{
+                borderRadius: '16px',
+                transformOrigin: '5% 95%',
+              }}
+              drag={isTop && !isDismissing ? 'x' : false}
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={0.65}
+              onDragStart={() => {
+                setIsDragging(true)
+                setIsPressed(true)
+              }}
+              onDragEnd={(_, info) => {
+                setIsDragging(false)
+                setIsPressed(false)
+                const swipeThreshold = 40
+                const velocityThreshold = 250
+                if (Math.abs(info.offset.x) > swipeThreshold || Math.abs(info.velocity.x) > velocityThreshold) {
+                  cycleCard(info.offset.x >= 0 ? 1 : -1)
+                }
+              }}
+              onPointerDown={isTop ? handlePressStart : undefined}
+              onPointerUp={isTop ? handlePressEnd : undefined}
+              onPointerCancel={isTop ? handlePressEnd : undefined}
+              onTouchStart={isTop ? handlePressStart : undefined}
+              onTouchEnd={isTop ? handlePressEnd : undefined}
+              onTouchCancel={isTop ? handlePressEnd : undefined}
+              animate={animateProps}
+              initial={false}
+              transition={isDismissing ? { duration: 0.28, ease: 'easeOut' } : SPRINGS.smooth}
+              className={`absolute inset-0 rounded-2xl border px-4 pt-3.5 pb-4 flex flex-col justify-start select-none transition-all duration-300 ease-out cursor-grab active:cursor-grabbing ${
+                isTop
+                  ? isPressed
+                    ? 'border-[var(--ink-primary)]/50 bg-[var(--color-surface-container-lowest)] shadow-[0_26px_50px_rgba(0,0,0,0.20),0_10px_20px_rgba(0,0,0,0.10)] dark:shadow-[0_26px_50px_rgba(0,0,0,0.65)] ring-2 ring-[var(--ink-primary)]/20 z-20'
+                    : 'border-[var(--ink-primary)]/25 bg-[var(--color-surface-container-lowest)] shadow-[0_12px_28px_rgba(0,0,0,0.08)] z-10'
+                  : 'border-[var(--border-subtle)]/60 bg-[var(--color-surface-container-low)] shadow-[0_4px_14px_rgba(0,0,0,0.04)] z-0'
+              }`}
+            >
+              <CardContent isHighlighted={isTop && isPressed} />
+            </motion.div>
+          )
+        })}
+      </div>
+
+      {/* Slideshow Pill Indicators (below cards, above "Where quiet..." banner) */}
+      <div className="flex items-center justify-center gap-1.5 pt-3 pb-0.5">
+        {DISPATCH_ITEMS.map((item) => {
+          const isActive = topCard?.id === item.id
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => {
+                if (!isActive && !isDismissing) {
+                  cycleCard(1)
+                }
+              }}
+              className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer p-0 border-0 focus:outline-hidden ${
+                isActive
+                  ? 'w-5 bg-[var(--ink-primary)] shadow-xs'
+                  : 'w-1.5 bg-[var(--border-strong)]/40 hover:bg-[var(--border-strong)]/70'
+              }`}
+              aria-label={`Show ${item.label}`}
+            />
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function HeroFootnotePill() {
+  return (
+    <div className="relative mx-1.5 sm:mx-4 bg-[var(--color-surface-container-lowest)]/80 backdrop-blur-sm rounded-xl py-1.5 px-3 border border-[var(--border-subtle)]/40 hover:border-[var(--border-strong)]/60 shadow-[0_8px_30px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_36px_rgba(0,0,0,0.09)] hover:-translate-y-0.5 flex items-center justify-between gap-2.5 transition-all duration-200">
+      <div className="flex items-center gap-2 min-w-0">
+        <LibraryIcon className="w-3 h-3 text-[var(--ink-primary)] shrink-0" />
+        <span className="text-[10.5px] text-[var(--color-secondary)] truncate">
+          Where quiet stories find their true, deliberate readers.
+        </span>
+      </div>
+      <span className="text-[9.5px] font-medium text-[var(--color-secondary)] whitespace-nowrap shrink-0 font-mono">
+        • Member Archive
+      </span>
+    </div>
+  )
+}
+
+function HeroCtaButton() {
+  return (
+    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full sm:w-auto">
+      <Link
+        to="/discover"
+        className="inline-flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-full bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-medium text-[14px] hover:opacity-90 shadow-md hover:shadow-lg transition-all duration-200 group no-underline cursor-pointer"
+        data-path="discover"
+      >
+        <BookOpen className="w-4 h-4 shrink-0 text-[var(--accent-contrast)]" />
+        <span className="whitespace-nowrap">Explore The Library</span>
+        <ArrowRight className="w-4 h-4 shrink-0 transition-transform duration-200 group-hover:translate-x-1 text-[var(--accent-contrast)]" />
+      </Link>
+    </div>
+  )
+}
+
 function PublicHome() {
   const { allWorks, recentWorks, openAuthModal, isWorkSaved, toggleSaveWork, genres } = useApp()
   const { isSignedIn } = useUser()
   const navigate = useNavigate()
   const [homeQuery, setHomeQuery] = useState('')
+  const [rotatingWordIndex, setRotatingWordIndex] = useState(0)
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setRotatingWordIndex((prev) => (prev + 1) % HERO_ROTATING_KEYWORDS.length)
+    }, 1200)
+    return () => clearInterval(timer)
+  }, [])
 
   // Multi-story Hero Carousel state (5 manuscripts)
   const heroWorks = useMemo(() => {
@@ -194,164 +518,65 @@ function PublicHome() {
                 <span className="italic font-light text-[var(--color-on-surface)]/90">Beyond the hype</span>
               </h1>
 
-              {/* Subtitle Paragraph (SEO Optimized & Italicized) */}
-              <p className="text-[16px] sm:text-[17px] leading-[1.7] text-[var(--color-on-surface-variant)] max-w-2xl mb-6 sm:mb-8 italic font-normal">
-                Discover independent serialized novels, long-form fiction, and reflective essays. A digital literary publication where readers follow chapter-by-chapter releases and authors publish original manuscripts with dedicated readership.
+              {/* Subtitle with Subtle Rotating Keyword Animation (placed at end to prevent layout jitter) */}
+              <p className="text-[16px] sm:text-[18px] leading-[1.6] text-[var(--color-on-surface-variant)] max-w-xl mb-3 sm:mb-8 font-normal flex flex-wrap items-center gap-x-1.5">
+                <span>Stories published chapter by chapter:</span>
+                <span className="inline-flex items-center overflow-hidden h-[1.6em] relative min-w-[85px] sm:min-w-[125px]">
+                  <AnimatePresence mode="wait">
+                    <motion.span
+                      key={HERO_ROTATING_KEYWORDS[rotatingWordIndex]}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.18, ease: 'easeInOut' }}
+                      className="font-serif italic font-medium text-[var(--ink-primary)] border-b border-[var(--ink-primary)]/30 pb-0.5"
+                    >
+                      {HERO_ROTATING_KEYWORDS[rotatingWordIndex]}.
+                    </motion.span>
+                  </AnimatePresence>
+                </span>
               </p>
 
-              {/* Call to Action Cluster */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full sm:w-auto mb-8 sm:mb-10">
-                <Link
-                  to="/discover"
-                  className="inline-flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-full bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-medium text-[14px] hover:opacity-90 shadow-md hover:shadow-lg transition-all duration-200 group no-underline cursor-pointer"
-                  data-path="discover"
-                >
-                  <span className="material-symbols-outlined text-[18px] text-[var(--accent-contrast)]">auto_stories</span>
-                  <span>Explore The Library</span>
-                  <span className="transition-transform duration-200 group-hover:translate-x-1">→</span>
-                </Link>
+              {/* MOBILE ONLY: Cards -> Footnote Pill -> CTA Button */}
+              <div className="block lg:hidden w-full mb-3 -mt-1">
+                <AutoRevealingDispatches />
               </div>
 
+              <div className="block lg:hidden w-full mb-4">
+                <HeroFootnotePill />
+              </div>
 
-              {/* Polished Installment Spotlight Card using Design System (commented out) */}
-              {/*
-              <Link
-                to="/works/$workId"
-                params={{ workId: activeHeroWork?.id || 'work-2' }}
-                className="w-full max-w-xl no-underline text-inherit block"
-              >
-                <SpotlightCard
-                  eyebrow="Featured this week"
-                  title={activeHeroWork?.title || 'The Glass Archipelago'}
-                  subtitle={`— ${activeHeroWork?.author?.name || 'Alistair Vance'}`}
-                  badgeLabel={`Installment ${activeHeroWork?.chaptersCount || 28}`}
-                  icon="local_library"
-                  className="!border-[var(--border-subtle)]/40 hover:!border-[var(--border-strong)]/60 !shadow-[0_8px_30px_rgba(0,0,0,0.06)] hover:!shadow-[0_12px_36px_rgba(0,0,0,0.09)]"
-                />
-              </Link>
-              */}
+              <div className="block lg:hidden w-full mb-1">
+                <HeroCtaButton />
+              </div>
+
+              {/* DESKTOP ONLY: CTA Button */}
+              <div className="hidden lg:block mb-8 lg:mb-10">
+                <HeroCtaButton />
+              </div>
             </div>
 
-            {/* Right Column: Visual Anchor & Folio Showcase */}
-            <div className="lg:col-span-5 relative flex items-center justify-center">
+            {/* Right Column: Visual Anchor & Folio Showcase (Desktop only) */}
+            <div className="hidden lg:flex lg:col-span-5 relative items-center justify-center">
               <div className="relative w-full max-w-lg lg:max-w-none flex flex-col py-1 gap-2.5">
                 {/* Subtle ambient glow background element */}
                 <div className="pointer-events-none absolute -top-12 -right-8 w-64 h-64 rounded-full bg-[var(--color-surface-container-high)]/30 blur-3xl -z-10"></div>
-                
-                {/* Curated Compact Header Ribbon */}
-                <div className="flex items-center justify-end pb-0 px-1">
-                  <div className="flex items-center gap-1.5 text-[10px] font-medium text-[var(--color-secondary)] bg-[var(--color-surface-container)] px-2 py-0.5 rounded-full border border-[var(--color-surface-container-high)]/60">
-                    <span className="material-symbols-outlined text-[12px] text-[var(--ink-primary)]">verified</span>
-                    <span>Human-curated</span>
-                  </div>
-                </div>
 
-                {/* Card 1: Reader Discovery Dispatch (Compact) */}
-                <div className="relative bg-[var(--color-surface-container-lowest)] rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 border border-[var(--border-subtle)]/40 hover:border-[var(--border-strong)]/60 shadow-[0_8px_30px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_36px_rgba(0,0,0,0.09)] transition-all duration-200 group">
-                  <div className="flex items-center justify-between gap-3 mb-1.5">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-6 h-6 rounded-full bg-[var(--color-surface-container-low)] flex items-center justify-center text-[var(--color-on-surface)] font-semibold text-[10px] border border-[var(--color-surface-container-high)]/60 shrink-0">
-                        ER
-                      </div>
-                      <div className="min-w-0">
-                        <h4 className="text-[12.5px] font-medium text-[var(--color-on-surface)] leading-tight truncate">
-                          Elena Rostova
-                        </h4>
-                        <p className="text-[10.5px] text-[var(--color-secondary)] truncate">
-                          Literary Essayist & Reader
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-[9.5px] font-medium tracking-wider uppercase text-[var(--color-secondary)] px-2 py-0.5 rounded bg-[var(--color-surface-container-low)] border border-[var(--color-surface-container-high)]/40 whitespace-nowrap">
-                      Dispatch 14
-                    </span>
-                  </div>
-                  
-                  <p className="text-[12.5px] leading-snug text-[var(--color-on-surface)] font-normal mb-2 text-[var(--color-on-surface)]/90">
-                    “I stopped chasing algorithmic bestsellers. On HatchPen,{' '}
-                    <mark className="bg-amber-200/80 dark:bg-amber-500/30 px-1 py-0.5 rounded text-inherit">
-                      I found stories no one’s talking about
-                    </mark>
-                    —but they’re as good as the classics. Great writing, zero noise.”
-                  </p>
-                  
-                  <div className="flex items-center justify-between pt-1.5 border-t border-[var(--border-subtle)]/40 text-[10.5px]">
-                    <div className="flex items-center gap-1.5 text-[var(--color-secondary)] truncate">
-                      <span className="material-symbols-outlined text-[13px] text-[var(--ink-primary)] shrink-0">auto_stories</span>
-                      <span className="text-[var(--color-on-surface-variant)] truncate">
-                        Reading: <em className="font-medium text-[var(--color-on-surface)] not-italic">The Unmaking of Winter</em>
-                      </span>
-                    </div>
-                    <span className="text-[var(--color-outline-variant)] whitespace-nowrap shrink-0 text-[10px]">
-                      2d ago
-                    </span>
-                  </div>
-                </div>
-
-                {/* Card 2: Debut Writer Journey Dispatch (Compact) */}
-                <div className="relative sm:ml-4 bg-[#fcfbf9] dark:bg-[var(--color-surface-container-lowest)] rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 border border-[var(--border-subtle)]/40 hover:border-[var(--border-strong)]/60 shadow-[0_8px_30px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_36px_rgba(0,0,0,0.09)] transition-all duration-200">
-                  <div className="flex items-center justify-between gap-3 mb-1.5">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-6 h-6 rounded-full bg-[var(--ink-primary)] text-[var(--accent-contrast)] flex items-center justify-center font-semibold text-[10px] shrink-0">
-                        MC
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <h4 className="text-[12.5px] font-medium text-[var(--color-on-surface)] leading-tight truncate">
-                            Marcus Chen
-                          </h4>
-                          <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-[var(--color-surface-container)] text-[var(--color-secondary)] uppercase tracking-wider">
-                            Author
-                          </span>
-                        </div>
-                        <p className="text-[10.5px] text-[var(--color-secondary)] truncate">
-                          Serial: <em className="text-[var(--color-on-surface)] not-italic">The Salt Garden</em>
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-[9.5px] font-medium tracking-wider uppercase text-[var(--color-secondary)] px-2 py-0.5 rounded bg-[var(--color-surface-container-low)] border border-[var(--color-surface-container-high)]/40 whitespace-nowrap">
-                      Author Dispatch
-                    </span>
+                {/* Desktop: Staggered side-by-side cards */}
+                <div className="flex flex-col gap-2.5">
+                  {/* Card 1: Reader Discovery Dispatch (Compact) */}
+                  <div className="relative mr-3 sm:mr-8 bg-[var(--color-surface-container-lowest)] rounded-xl px-4 pt-3.5 pb-4 sm:px-5 sm:pt-4 sm:pb-4.5 border border-[var(--border-subtle)]/50 hover:border-[var(--ink-primary)]/30 shadow-[0_8px_30px_rgba(0,0,0,0.06)] hover:shadow-[0_16px_36px_rgba(0,0,0,0.09)] -rotate-[0.6deg] hover:rotate-0 hover:-translate-y-1 transition-all duration-300 ease-out group cursor-default">
+                    <DispatchCardContent1 />
                   </div>
 
-                  <p className="text-[12.5px] leading-snug text-[var(--color-on-surface)] font-normal mb-2 text-[var(--color-on-surface)]/90">
-                    “
-                    <mark className="bg-amber-200/80 dark:bg-amber-500/30 px-1 py-0.5 rounded text-inherit">
-                      I’m a new writer
-                    </mark>
-                    . On HatchPen, my work didn’t disappear into the feed—it was pushed to readers who actually stayed. For the first time,{' '}
-                    <mark className="bg-amber-200/80 dark:bg-amber-500/30 px-1 py-0.5 rounded text-inherit">
-                      my writing found an audience
-                    </mark>
-                    .”
-                  </p>
-
-                  <div className="flex items-center justify-between pt-1.5 border-t border-[var(--border-subtle)]/40 text-[10.5px]">
-                    <div className="flex items-center gap-1.5 text-[var(--color-secondary)] truncate">
-                      <span className="material-symbols-outlined text-[13px] text-[var(--ink-primary)] shrink-0">favorite</span>
-                      <span className="text-[var(--color-on-surface-variant)] font-medium truncate">
-                        1,400 readers • 0 algorithmic push
-                      </span>
-                    </div>
-                    <span className="text-[var(--color-outline-variant)] whitespace-nowrap shrink-0 text-[10px]">
-                      Verified
-                    </span>
+                  {/* Card 2: Debut Writer Journey Dispatch (Compact) */}
+                  <div className="relative ml-3 sm:ml-8 bg-[#fcfbf9] dark:bg-[var(--color-surface-container-lowest)] rounded-xl px-4 pt-3.5 pb-4 sm:px-5 sm:pt-4 sm:pb-4.5 border border-[var(--border-subtle)]/50 hover:border-[var(--ink-primary)]/30 shadow-[0_8px_30px_rgba(0,0,0,0.06)] hover:shadow-[0_16px_36px_rgba(0,0,0,0.09)] rotate-[0.6deg] hover:rotate-0 hover:-translate-y-1 transition-all duration-300 ease-out group cursor-default">
+                    <DispatchCardContent2 />
                   </div>
                 </div>
 
                 {/* Tactile Footnote / Seal Pill (Compact) */}
-                <div className="relative bg-[var(--color-surface-container-lowest)]/80 backdrop-blur-sm rounded-xl py-1.5 px-3 border border-[var(--border-subtle)]/40 hover:border-[var(--border-strong)]/60 shadow-[0_8px_30px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_36px_rgba(0,0,0,0.09)] flex items-center justify-between gap-2.5 transition-all">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="material-symbols-outlined text-[13px] text-[var(--ink-primary)] shrink-0">local_library</span>
-                    <span className="text-[10.5px] text-[var(--color-secondary)] truncate">
-                      Where quiet stories find their true, deliberate readers.
-                    </span>
-                  </div>
-                  <span className="text-[9.5px] font-medium text-[var(--color-secondary)] whitespace-nowrap shrink-0 font-mono">
-                    • Member Archive
-                  </span>
-                </div>
-
+                <HeroFootnotePill />
               </div>
             </div>
 
@@ -460,14 +685,6 @@ function PublicHome() {
         {/* Catalog Header with Search and Stats */}
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5 pb-5 border-b border-[var(--border-subtle)]">
           <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="p-1 rounded bg-[var(--ink-primary)] text-[var(--accent-contrast)]">
-                <BookText className="h-3.5 w-3.5" />
-              </span>
-              <span className="font-mono text-xs uppercase tracking-widest text-[var(--ink-muted)] font-medium">
-                The Hatchpen Stacks • {allWorks.length} Cataloged Manuscripts
-              </span>
-            </div>
             <h2 className="font-serif text-2xl sm:text-3xl font-semibold text-[var(--ink-primary)] tracking-tight">
               Browse The Catalog
             </h2>
