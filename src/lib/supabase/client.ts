@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { Database } from './types'
+import type { Database } from './types.ts'
 
 const DEFAULT_SUPABASE_URL = 'https://amplbczsaqtleoshttsb.supabase.co'
 const DEFAULT_ANON_KEY =

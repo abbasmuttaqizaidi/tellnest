@@ -1,13 +1,14 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useState, useMemo } from 'react'
-import { Compass, TrendingUp, Sparkles, Clock, CheckCircle2, SlidersHorizontal, CheckCircle, BookOpen } from 'lucide-react'
+import { useState, useMemo, useEffect } from 'react'
+import { useUser } from '@clerk/react'
+import { Compass, TrendingUp, Sparkles, Clock, CheckCircle2, SlidersHorizontal, CheckCircle, BookOpen, Search, X } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import type { Work } from '../data/mockData'
-import { getWorkLatestActivityDate } from '../data/mockData'
 import WorkCard from '../components/WorkCard'
 import EmptyState from '../components/EmptyState'
 import { AnimatedTabs, Button, FilterDisclosure, DiscreteDisclosureTabs } from '../design-system'
 import { generateMeta } from '../lib/seo'
+import { filterAndSortWorks } from '../lib/discover/filters'
 
 export const Route = createFileRoute('/discover')({
   head: () =>
@@ -38,62 +39,39 @@ export const Route = createFileRoute('/discover')({
 })
 
 function DiscoverPage() {
-  const { allWorks, recentWorks, categories, genres } = useApp()
+  const { isSignedIn, isLoaded } = useUser()
+  const { allWorks, categories, genres } = useApp()
 
-  // Discovery Filter State (Defaulting to 'new_this_week')
-  const [activeTab, setActiveTab] = useState<'new_chapters' | 'new_this_week' | 'trending' | 'rising' | 'recent' | 'completed'>('new_this_week')
+  // Discovery Filter State (Defaulting to 'all')
+  const [activeTab, setActiveTab] = useState<'all' | 'new_chapters' | 'new_this_week' | 'trending' | 'rising' | 'recent' | 'completed'>('all')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [selectedGenre, setSelectedGenre] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
   const [sortBy, setSortBy] = useState<'popularity' | 'updated' | 'rating'>('popularity')
   const [searchTerm, setSearchTerm] = useState<string>('')
-  const [filtersOpen, setFiltersOpen] = useState(false)
 
-  // Filter and sort works
+  // Fallback to public default if unauthenticated user arrives with rising tab selected
+  useEffect(() => {
+    if (isLoaded && !isSignedIn && activeTab === 'rising') {
+      setActiveTab('all')
+    }
+  }, [isLoaded, isSignedIn, activeTab])
+
+  // Filter and sort works using unified discovery engine
   const filteredWorks = useMemo(() => {
-    const sourceList = activeTab === 'recent' ? recentWorks : allWorks
-
-    return sourceList.filter((work) => {
-      // Tab filter per live_instructions.md collections
-      if (activeTab === 'new_chapters' && !work.new_chapters_this_week && !(work.collection || []).includes('new_chapters_this_week')) return false
-      if (activeTab === 'new_this_week' && !work.new_this_week && !(work.collection || []).includes('new_this_week')) return false
-      if (activeTab === 'trending' && !work.trending && !work.featured && !(work.collection || []).includes('trending_now')) return false
-      if (activeTab === 'rising' && !work.rising && !(work.collection || []).includes('rising_stories')) return false
-      if (activeTab === 'completed' && work.status !== 'Completed') return false
-
-      // Category filter
-      if (selectedCategory !== 'all' && work.categorySlug !== selectedCategory) return false
-
-      // Genre filter
-      if (selectedGenre !== 'all' && work.genreSlug !== selectedGenre) return false
-
-      // Status filter
-      if (selectedStatus !== 'all' && work.status !== selectedStatus) return false
-
-      // Search term
-      if (searchTerm.trim()) {
-        const query = searchTerm.toLowerCase()
-        const matchesTitle = work.title.toLowerCase().includes(query)
-        const matchesAuthor = work.author.name.toLowerCase().includes(query)
-        const matchesTags = work.tags.some(t => t.toLowerCase().includes(query))
-        if (!matchesTitle && !matchesAuthor && !matchesTags) return false
-      }
-
-      return true
-    }).sort((a, b) => {
-      if (sortBy === 'rating') return b.ratingScore - a.ratingScore
-      if (sortBy === 'updated' || activeTab === 'recent') {
-        const timeA = getWorkLatestActivityDate(a).getTime()
-        const timeB = getWorkLatestActivityDate(b).getTime()
-        return timeB - timeA
-      }
-      // default popularity by reads
-      return parseInt(b.totalReads) - parseInt(a.totalReads)
+    return filterAndSortWorks(allWorks, {
+      activeTab,
+      selectedCategory,
+      selectedGenre,
+      selectedStatus,
+      searchTerm,
+      sortBy,
+      isSignedIn: Boolean(isSignedIn),
     })
-  }, [allWorks, recentWorks, activeTab, selectedCategory, selectedGenre, selectedStatus, sortBy, searchTerm])
+  }, [allWorks, activeTab, selectedCategory, selectedGenre, selectedStatus, sortBy, searchTerm, isSignedIn])
 
   const clearFilters = () => {
-    setActiveTab('new_this_week')
+    setActiveTab('all')
     setSelectedCategory('all')
     setSelectedGenre('all')
     setSelectedStatus('all')
@@ -102,17 +80,35 @@ function DiscoverPage() {
   }
 
   const hasActiveFilters =
+    activeTab !== 'all' ||
     selectedCategory !== 'all' ||
     selectedGenre !== 'all' ||
     selectedStatus !== 'all' ||
     searchTerm.trim() !== '' ||
-    activeTab !== 'new_this_week'
+    sortBy !== 'popularity'
+
+  const discoveryTabs = useMemo(() => {
+    const tabs: Array<{ id: string; label: string }> = [
+      { id: 'all', label: 'All Stories' },
+      { id: 'new_this_week', label: 'New This Week' },
+      { id: 'new_chapters', label: 'New Chapters This Week' },
+      { id: 'trending', label: 'Trending' },
+    ]
+    if (isSignedIn) {
+      tabs.push({ id: 'rising', label: 'Rising Stories' })
+    }
+    tabs.push(
+      { id: 'recent', label: 'Recently Updated' },
+      { id: 'completed', label: 'Completed Works' }
+    )
+    return tabs
+  }, [isSignedIn])
 
   return (
     <div className="min-h-screen py-5 sm:py-7 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-4 sm:space-y-5">
       
-      {/* Header */}
-      <div className="pb-4 border-b border-[var(--border-subtle)]">
+      {/* Header with Search */}
+      <div className="pb-4 border-b border-[var(--border-subtle)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="font-serif text-2xl sm:text-3xl font-semibold text-[var(--ink-primary)]">
             Discover Manuscripts
@@ -120,6 +116,28 @@ function DiscoverPage() {
           <p className="mt-0.5 text-xs text-[var(--ink-muted)]">
             Explore original fiction, serials, essays, poetry, and memoirs curated by readers and editors.
           </p>
+        </div>
+
+        {/* Search Input connected to searchTerm */}
+        <div className="relative w-full sm:w-72 shrink-0">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--ink-muted)] pointer-events-none" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search titles, authors, synopsis, tags..."
+            className="w-full pl-8.5 pr-7 py-1.5 text-xs rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--ink-primary)] placeholder:text-[var(--ink-muted)] focus:outline-none focus:border-[var(--ink-primary)] transition-colors"
+          />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm('')}
+              aria-label="Clear search"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--ink-muted)] hover:text-[var(--ink-primary)] cursor-pointer"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -133,14 +151,7 @@ function DiscoverPage() {
               size="sm"
               activeId={activeTab}
               onChange={(id) => setActiveTab(id as any)}
-              tabs={[
-                { id: 'new_this_week', label: 'New This Week' },
-                { id: 'new_chapters', label: 'New Chapters This Week' },
-                { id: 'trending', label: 'Trending' },
-                { id: 'rising', label: 'Rising Stories' },
-                { id: 'recent', label: 'Recently Updated' },
-                { id: 'completed', label: 'Completed Works' }
-              ]}
+              tabs={discoveryTabs}
             />
           </div>
 
@@ -248,7 +259,10 @@ function DiscoverPage() {
           onAction={clearFilters}
         />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
+        <div
+          data-testid="discover-works-grid"
+          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5"
+        >
           {filteredWorks.map((work) => (
             <WorkCard key={work.id} work={work} layout="portrait" />
           ))}

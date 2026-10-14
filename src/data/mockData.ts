@@ -42,6 +42,7 @@ export interface Author {
   totalReads: string
   featuredQuote?: string
   verified?: boolean
+  createdAt?: string
 }
 
 export type WorkActivityType =
@@ -101,6 +102,7 @@ export interface Work {
   ratingCount: number
   createdAt: string
   updatedAt: string
+  publishedAt?: string
   lastActivityAt?: string
   lastActivityType?: WorkActivityType
   lastActivityDetail?: WorkActivityDetail
@@ -161,7 +163,7 @@ export interface CommentItem {
   replies?: CommentItem[]
 }
 
-import { GLOBAL_CATEGORIES, GLOBAL_GENRES } from '../lib/taxonomy'
+import { GLOBAL_CATEGORIES, GLOBAL_GENRES } from '../lib/taxonomy.ts'
 
 export const CATEGORIES: CategoryInfo[] = GLOBAL_CATEGORIES.map((c) => ({
   id: c.id,
@@ -260,6 +262,7 @@ export const WORKS: Work[] = [
     categorySlug: 'essays',
     genre: 'Literary Fiction',
     genreSlug: 'literary-fiction',
+    genres: [{ id: 'genre-lit-1', name: 'Literary Fiction', slug: 'literary-fiction' }],
     tags: ['Isolation', 'Architecture', 'Meditation', 'Urban'],
     language: 'English',
     status: 'Completed',
@@ -277,6 +280,7 @@ export const WORKS: Work[] = [
     ratingScore: 4.95,
     ratingCount: 1890,
     createdAt: '2025-01-10',
+    publishedAt: '2025-01-10',
     updatedAt: '3 weeks ago',
     chapters: [
       {
@@ -321,6 +325,10 @@ There is no lesson to be drawn from this, except that quietness is not the absen
     categorySlug: 'novels',
     genre: 'Philosophical Fiction',
     genreSlug: 'philosophical-fiction',
+    genres: [
+      { id: 'genre-phil-1', name: 'Philosophical Fiction', slug: 'philosophical-fiction' },
+      { id: 'genre-lit-1', name: 'Literary Fiction', slug: 'literary-fiction' }
+    ],
     tags: ['Magical Realism', 'Power & Corruption', 'Unreliable Narrator', 'Slow‑Burn'],
     language: 'English',
     status: 'Ongoing',
@@ -338,6 +346,7 @@ There is no lesson to be drawn from this, except that quietness is not the absen
     ratingScore: 4.85,
     ratingCount: 1420,
     createdAt: '2025-06-04',
+    publishedAt: '2025-06-05',
     updatedAt: '4 days ago',
     chapters: [
       {
@@ -367,6 +376,7 @@ Klein arrived with his brass calipers and three reams of manifold carbon paper.`
     categorySlug: 'non-fiction',
     genre: 'Historical Fiction',
     genreSlug: 'historical-fiction',
+    genres: [{ id: 'genre-his-1', name: 'Historical Fiction', slug: 'historical-fiction' }],
     tags: ['Historical Setting', 'Coastal', 'Isolation', 'Survival'],
     language: 'English',
     status: 'Completed',
@@ -384,6 +394,7 @@ Klein arrived with his brass calipers and three reams of manifold carbon paper.`
     ratingScore: 4.92,
     ratingCount: 2910,
     createdAt: '2024-11-20',
+    publishedAt: '2024-11-20',
     updatedAt: '2 months ago',
     chapters: [
       {
@@ -415,6 +426,7 @@ There had only been Robert MacIntyre, a brass ruling pen, and an unbreakable vow
     categorySlug: 'poetry',
     genre: 'Literary Fiction',
     genreSlug: 'literary-fiction',
+    genres: [{ id: 'genre-lit-1', name: 'Literary Fiction', slug: 'literary-fiction' }],
     tags: ['Arctic / High Latitude', 'Isolation', 'Melancholic', 'Dreamlike'],
     language: 'English',
     status: 'Completed',
@@ -432,6 +444,7 @@ There had only been Robert MacIntyre, a brass ruling pen, and an unbreakable vow
     ratingScore: 4.96,
     ratingCount: 840,
     createdAt: '2025-02-14',
+    publishedAt: '2025-02-14',
     updatedAt: '1 month ago',
     chapters: [
       {
@@ -467,6 +480,10 @@ between noon and death.`
     categorySlug: 'scripts-screenplays',
     genre: 'Mystery',
     genreSlug: 'mystery',
+    genres: [
+      { id: 'genre-mys-1', name: 'Mystery', slug: 'mystery' },
+      { id: 'genre-thr-1', name: 'Thriller', slug: 'thriller' }
+    ],
     tags: ['Historical Setting', 'Dark', 'Gritty', 'Paranoid Atmosphere', 'Anti‑Hero'],
     language: 'English',
     status: 'Ongoing',
@@ -484,6 +501,7 @@ between noon and death.`
     ratingScore: 4.88,
     ratingCount: 1110,
     createdAt: '2025-07-02',
+    publishedAt: '2025-07-02',
     updatedAt: '1 week ago',
     chapters: [
       {
@@ -530,6 +548,7 @@ She was alive on Tuesday.`
     categorySlug: 'memoir-autobiography',
     genre: 'Literary Fiction',
     genreSlug: 'literary-fiction',
+    genres: [{ id: 'genre-lit-1', name: 'Literary Fiction', slug: 'literary-fiction' }],
     tags: ['Workplace', 'Memory', 'Slow‑Burn', 'Coming‑of‑Age'],
     language: 'English',
     status: 'Completed',
@@ -547,6 +566,7 @@ She was alive on Tuesday.`
     ratingScore: 4.91,
     ratingCount: 1530,
     createdAt: '2024-09-15',
+    publishedAt: '2024-09-15',
     updatedAt: '3 months ago',
     chapters: [
       {
@@ -578,6 +598,10 @@ Donald MacLean would stand behind me with a folded rule in his fist. If my hand 
     categorySlug: 'childrens-fiction',
     genre: 'Fantasy',
     genreSlug: 'fantasy',
+    genres: [
+      { id: 'genre-fan-1', name: 'Fantasy', slug: 'fantasy' },
+      { id: 'genre-bed-1', name: 'Bedtime Stories', slug: 'bedtime-stories' }
+    ],
     tags: ['Child Protagonist', 'Hopeful', 'Dreamlike', 'Standalone'],
     language: 'English',
     status: 'Completed',
@@ -595,6 +619,7 @@ Donald MacLean would stand behind me with a folded rule in his fist. If my hand 
     ratingScore: 4.97,
     ratingCount: 720,
     createdAt: '2024-12-01',
+    publishedAt: '2024-12-01',
     updatedAt: '4 months ago',
     chapters: [
       {

@@ -282,11 +282,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isUserLoaded, isSignedIn, user?.id, reloadUserReadingProgressFromDb])
 
+  const worksRequestSeqRef = React.useRef(0)
+
   // Fetch works from Database (works_with_collections view) and sync into allWorks
   const reloadWorksFromDb = React.useCallback(async () => {
+    const seq = ++worksRequestSeqRef.current
     try {
       setIsWorksLoading(true)
       const dbWorks = await getPlatformWorksServerFn()
+      if (seq !== worksRequestSeqRef.current) {
+        return
+      }
       if (Array.isArray(dbWorks) && dbWorks.length > 0) {
         setAllWorks((prev) => {
           let updated = [...prev]
@@ -298,19 +304,53 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               updated.unshift(dbW as any)
             }
           }
+          if (!isSignedIn) {
+            // Strip any protected discovery collections and flags when logged out
+            updated = updated.map((w) => ({
+              ...w,
+              rising: false,
+              collection: (w.collection || []).filter(
+                (c: string) => c !== 'rising_stories' && c !== 'new_voices' && c !== 'fresh_voices'
+              ),
+            }))
+          }
           return updated
         })
+      } else if (!isSignedIn) {
+        setAllWorks((prev) =>
+          prev.map((w) => ({
+            ...w,
+            rising: false,
+            collection: (w.collection || []).filter(
+              (c: string) => c !== 'rising_stories' && c !== 'new_voices' && c !== 'fresh_voices'
+            ),
+          }))
+        )
       }
     } catch (err) {
+      if (seq !== worksRequestSeqRef.current) return
       console.warn('[AppContext] Failed to load DB works:', err)
+      if (!isSignedIn) {
+        setAllWorks((prev) =>
+          prev.map((w) => ({
+            ...w,
+            rising: false,
+            collection: (w.collection || []).filter(
+              (c: string) => c !== 'rising_stories' && c !== 'new_voices' && c !== 'fresh_voices'
+            ),
+          }))
+        )
+      }
     } finally {
-      setIsWorksLoading(false)
+      if (seq === worksRequestSeqRef.current) {
+        setIsWorksLoading(false)
+      }
     }
-  }, [])
+  }, [isSignedIn])
 
   useEffect(() => {
     reloadWorksFromDb()
-  }, [reloadWorksFromDb])
+  }, [reloadWorksFromDb, isSignedIn])
 
   // Fetch writer works directly from Database for authenticated writer
   const reloadWriterWorksFromDb = React.useCallback(async () => {

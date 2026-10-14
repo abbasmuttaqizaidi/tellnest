@@ -6,8 +6,9 @@ import {
   createWork,
   updateWork,
   publishWork,
-} from '../lib/supabase/queries/works'
-import type { WorkStatus } from '../lib/supabase/types'
+} from '../lib/supabase/queries/works.ts'
+import type { WorkStatus } from '../lib/supabase/types.ts'
+import { getUtcWeekBoundaries } from '../lib/discover/filters.ts'
 
 /**
  * Server Function: Get a full public work (with acts and chapters) by id or slug.
@@ -347,22 +348,53 @@ export const publishWorkServerFn = createServerFn({ method: 'POST' })
     return published
   })
 
-/**
- * Server Function: Get all published works with dynamic collection attributes.
- * Backed directly by PostgreSQL works_with_collections view.
- * Exposes new_this_week, new_chapters_this_week, and collection string array.
- */
-export const getPlatformWorksServerFn = createServerFn({ method: 'GET' })
-  .handler(async () => {
-    const { createAdminClient } = await import('../lib/supabase/server')
-    const admin = createAdminClient()
+export interface PlatformWorksDependencies {
+  getAuthState?: () => Promise<{ userId?: string | null } | null>
+  createAdminClient?: () => any
+  queryRows?: () => Promise<any[]>
+}
 
+/**
+ * Execute fetching platform works with server-side authorization check.
+ * Strips protected discovery collections ('rising_stories', 'new_voices', 'fresh_voices')
+ * and sets rising: false for unauthenticated requests while preserving public story reading.
+ */
+export async function executeGetPlatformWorks(
+  dependencies: PlatformWorksDependencies = {}
+) {
+  const authFn = dependencies.getAuthState || (async () => {
     try {
-      const q = `
-        SELECT
-          w.id,
-          w.title,
-          w.slug,
+      const { auth } = await import('@clerk/tanstack-react-start/server')
+      return await auth()
+    } catch {
+      return null
+    }
+  })
+
+  let authState: { userId?: string | null } | null = null
+  try {
+    authState = await authFn()
+  } catch {
+    authState = null
+  }
+
+  const isAuthenticated = Boolean(authState?.userId)
+
+  let admin: any = null
+  if (!dependencies.queryRows) {
+    const adminClientFactory = dependencies.createAdminClient || (async () => {
+      const { createAdminClient } = await import('../lib/supabase/server.ts')
+      return createAdminClient()
+    })
+    admin = await adminClientFactory()
+  }
+
+  try {
+    const q = `
+      SELECT
+        w.id,
+        w.title,
+        w.slug,
           w.description,
           w.cover_image_path,
           w.status,
@@ -376,6 +408,7 @@ export const getPlatformWorksServerFn = createServerFn({ method: 'GET' })
           w.save_count,
           w.created_at,
           w.updated_at,
+          w.published_at,
           w.last_activity_at,
           w.last_activity_type,
           w.last_activity_detail,
@@ -387,8 +420,24 @@ export const getPlatformWorksServerFn = createServerFn({ method: 'GET' })
           p.username AS author_handle,
           p.avatar_path AS author_avatar,
           p.bio AS author_bio,
+          p.created_at AS author_created_at,
           c.name AS category_name,
           c.slug AS category_slug,
+          COALESCE(
+            (
+              SELECT json_agg(
+                json_build_object(
+                  'id', g.id,
+                  'name', g.name,
+                  'slug', g.slug
+                ) ORDER BY g.display_order ASC
+              )
+              FROM work_genres wg
+              JOIN genres g ON g.id = wg.genre_id
+              WHERE wg.work_id = w.id
+            ),
+            '[]'
+          ) AS genres,
           COALESCE(
             (
               SELECT json_agg(
@@ -460,26 +509,68 @@ export const getPlatformWorksServerFn = createServerFn({ method: 'GET' })
         ORDER BY w.last_activity_at DESC NULLS LAST;
       `
 
-      // Use pg client via service connection for complex lateral aggregates
-      const dbUrl = process.env.DATABASE_URL
-      if (!dbUrl) {
-        console.warn('[getPlatformWorksServerFn] DATABASE_URL is not configured; skipping direct pg query.')
-        return []
+      // Use pg client via service connection for complex lateral aggregates (or injected queryRows in tests)
+      let rawRows: any[] = []
+      if (dependencies.queryRows) {
+        rawRows = await dependencies.queryRows()
+      } else {
+        const dbUrl = process.env.DATABASE_URL
+        if (!dbUrl) {
+          console.warn('[getPlatformWorksServerFn] DATABASE_URL is not configured; skipping direct pg query.')
+          return []
+        }
+
+        const { Client } = await import('pg')
+        const client = new Client({
+          connectionString: dbUrl,
+        })
+        await client.connect()
+        const res = await client.query(q)
+        await client.end()
+        rawRows = res.rows || []
       }
 
-      const { Client } = await import('pg')
-      const client = new Client({
-        connectionString: dbUrl,
-      })
-      await client.connect()
-      const res = await client.query(q)
-      await client.end()
-
-      return (res.rows || []).map((row: any) => {
+      return rawRows.map((row: any) => {
         let mappedStatus: 'Ongoing' | 'Completed' | 'On Hiatus' | 'Cancelled' = 'Ongoing'
         if (row.status === 'completed') mappedStatus = 'Completed'
         else if (row.status === 'on_hiatus') mappedStatus = 'On Hiatus'
         else if (row.status === 'cancelled') mappedStatus = 'Cancelled'
+
+        const mappedGenres: Array<{ id?: string; name: string; slug: string }> = Array.isArray(row.genres)
+          ? row.genres
+          : []
+        const primaryGenre = mappedGenres[0] || { name: 'Literary Fiction', slug: 'literary-fiction' }
+
+        // Calculate weekly publication flags from actual published_at timestamps (overriding view created_at logic)
+        const { startUtc, endUtc } = getUtcWeekBoundaries()
+        const pubDateMs = row.published_at ? new Date(row.published_at).getTime() : 0
+        const isNewThisWeek = pubDateMs >= startUtc.getTime() && pubDateMs < endUtc.getTime()
+
+        let hasNewChaptersThisWeek = false
+        if (!isNewThisWeek && Array.isArray(row.chapters)) {
+          for (const ch of row.chapters) {
+            if (ch.status === 'published' && ch.publishedAt) {
+              const chDateMs = new Date(ch.publishedAt).getTime()
+              if (chDateMs >= startUtc.getTime() && chDateMs < endUtc.getTime()) {
+                hasNewChaptersThisWeek = true
+                break
+              }
+            }
+          }
+        }
+
+        let rawCollections: string[] = Array.isArray(row.collections) ? [...row.collections] : []
+        if (isNewThisWeek) {
+          if (!rawCollections.includes('new_this_week')) rawCollections.push('new_this_week')
+          rawCollections = rawCollections.filter((c) => c !== 'new_chapters_this_week')
+        } else {
+          rawCollections = rawCollections.filter((c) => c !== 'new_this_week')
+          if (hasNewChaptersThisWeek) {
+            if (!rawCollections.includes('new_chapters_this_week')) rawCollections.push('new_chapters_this_week')
+          } else {
+            rawCollections = rawCollections.filter((c) => c !== 'new_chapters_this_week')
+          }
+        }
 
         return {
           id: row.id,
@@ -489,20 +580,28 @@ export const getPlatformWorksServerFn = createServerFn({ method: 'GET' })
           cover: row.cover_image_path || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80',
           category: row.category_name || 'Novels',
           categorySlug: row.category_slug || 'novels',
-          genre: 'Literary Fiction',
-          genreSlug: 'literary-fiction',
+          genre: primaryGenre.name,
+          genreSlug: primaryGenre.slug,
+          genres: mappedGenres,
           tags: ['Serialized', 'Archival'],
           language: row.language || 'English',
           status: mappedStatus,
           visibility: (row.visibility === 'public' ? 'Public' : 'Unlisted') as any,
           isMature: false,
-          featured: true,
-          trending: (row.collections || []).includes('trending_now'),
-          rising: (row.collections || []).includes('rising_stories'),
-          editorPick: (row.collections || []).includes('editor_picks'),
-          new_this_week: Boolean(row.new_this_week),
-          new_chapters_this_week: Boolean(row.new_chapters_this_week),
-          collection: row.collections || [],
+          featured:
+            rawCollections.includes('editor_picks') ||
+            rawCollections.includes('spotlight') ||
+            rawCollections.includes('staff_favorites'),
+          trending: rawCollections.includes('trending_now'),
+          rising: isAuthenticated && rawCollections.includes('rising_stories'),
+          editorPick: rawCollections.includes('editor_picks'),
+          new_this_week: isNewThisWeek,
+          new_chapters_this_week: hasNewChaptersThisWeek,
+          collection: isAuthenticated
+            ? rawCollections
+            : rawCollections.filter(
+                (c: string) => c !== 'rising_stories' && c !== 'new_voices' && c !== 'fresh_voices'
+              ),
           synopsis: row.description || '',
           fullDescription: row.description || '',
           chaptersCount: row.chapters?.length || row.chapter_count || 1,
@@ -513,6 +612,9 @@ export const getPlatformWorksServerFn = createServerFn({ method: 'GET' })
           ratingCount: 0,
           createdAt: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
           updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : new Date().toISOString(),
+          publishedAt: row.published_at
+            ? new Date(row.published_at).toISOString()
+            : undefined,
           lastActivityAt: row.last_activity_at ? new Date(row.last_activity_at).toISOString() : row.created_at,
           lastActivityType: row.last_activity_type,
           lastActivityDetail: row.last_activity_detail,
@@ -525,15 +627,82 @@ export const getPlatformWorksServerFn = createServerFn({ method: 'GET' })
             location: '',
             worksCount: 1,
             followersCount: '0',
+            createdAt: row.author_created_at ? new Date(row.author_created_at).toISOString() : undefined,
           },
           acts: row.acts || [],
           chapters: row.chapters || [],
         }
       })
     } catch (err: any) {
-      console.warn('[getPlatformWorksServerFn] Fallback / error fetching DB works:', err?.message)
+      console.warn('[executeGetPlatformWorks] Fallback / error fetching DB works:', err?.message)
       return []
     }
+}
+
+/**
+ * Server Function: Get all published works with dynamic collection attributes.
+ * Backed directly by PostgreSQL works_with_collections view.
+ * Exposes new_this_week, new_chapters_this_week, and collection string array.
+ * Protected discovery collections (rising_stories, new_voices) require authentication.
+ */
+export const getPlatformWorksServerFn = createServerFn({ method: 'GET' })
+  .handler(async () => {
+    return await executeGetPlatformWorks()
+  })
+
+export interface NewVoicesDependencies {
+  getAuthState?: () => Promise<{ userId?: string | null } | null>
+  getPlatformWorks?: () => Promise<any[]>
+  setResponseStatus?: (status: number) => void
+}
+
+/**
+ * Core business logic: Fetches published, public stories from eligible New Voices writers
+ * (accounts within their 5 calendar month eligibility window).
+ * Rejects unauthenticated requests with HTTP 401 fail-closed.
+ */
+export async function executeGetNewVoices(
+  dependencies: NewVoicesDependencies = {}
+) {
+  const authFn = dependencies.getAuthState || (async () => {
+    try {
+      const { auth } = await import('@clerk/tanstack-react-start/server')
+      return await auth()
+    } catch {
+      return null
+    }
+  })
+
+  const authState = await authFn()
+  const clerkUserId = authState?.userId
+
+  if (!clerkUserId) {
+    if (dependencies.setResponseStatus) {
+      dependencies.setResponseStatus(401)
+    } else {
+      try {
+        const { setResponseStatus } = await import('@tanstack/react-start/server')
+        setResponseStatus(401)
+      } catch {}
+    }
+    const { UnauthorizedError } = await import('./recommendations.ts')
+    throw new UnauthorizedError('Unauthorized: Authentication required to access New Voices')
+  }
+
+  const platformWorksFactory = dependencies.getPlatformWorks || (() => executeGetPlatformWorks())
+  const works = await platformWorksFactory()
+
+  const { filterAndOrderNewVoicesStories } = await import('../lib/recommendations/newVoices.ts')
+  return filterAndOrderNewVoicesStories(works, clerkUserId)
+}
+
+/**
+ * Server Function: Fetches qualifying published debut stories by eligible New Voices writers.
+ * Authenticated members only.
+ */
+export const getNewVoicesServerFn = createServerFn({ method: 'GET' })
+  .handler(async () => {
+    return await executeGetNewVoices()
   })
 
 /**

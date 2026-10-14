@@ -1,5 +1,5 @@
-import { supabase } from '../client'
-import type { Database, WorkStatus, WorkVisibility, PublicationStatus, ContentRating } from '../types'
+import { supabase } from '../client.ts'
+import type { Database, WorkStatus, WorkVisibility, PublicationStatus, ContentRating } from '../types.ts'
 
 export type WorkRow = Database['public']['Tables']['works']['Row']
 export type WorkInsert = Database['public']['Tables']['works']['Insert']
@@ -227,14 +227,15 @@ export async function createWork(
 export async function updateWork(
   workId: string,
   authorProfileId: string,
-  updates: Partial<WorkUpdate>
+  updates: Partial<WorkUpdate>,
+  client = supabase
 ) {
-  const { data, error } = await supabase
+  const { data, error } = await client
     .from('works')
     .update(updates)
     .eq('id', workId)
     .eq('author_id', authorProfileId)
-    .select('id, title, slug, description, cover_image_path, status, visibility, publication_status, updated_at')
+    .select('id, title, slug, description, cover_image_path, status, visibility, publication_status, updated_at, published_at, last_published_at')
     .single()
 
   if (error) {
@@ -246,17 +247,71 @@ export async function updateWork(
 
 /**
  * Publish a Work to the public or unlisted catalog.
+ * - Preserves existing published_at if work was already published.
+ * - Sets published_at only on initial publication.
+ * - Always updates last_published_at and visibility.
+ * - Handles concurrent first-time publish requests safely without clobbering.
  */
 export async function publishWork(
   workId: string,
   authorProfileId: string,
-  visibility: 'public' | 'unlisted' = 'public'
+  visibility: 'public' | 'unlisted' = 'public',
+  client = supabase
 ) {
   const now = new Date().toISOString()
-  return updateWork(workId, authorProfileId, {
-    visibility,
-    publication_status: 'published',
-    published_at: now,
-    last_published_at: now,
-  })
+
+  // 1. Check if work has already been published in the past
+  const { data: existing, error: fetchErr } = await client
+    .from('works')
+    .select('id, published_at')
+    .eq('id', workId)
+    .eq('author_id', authorProfileId)
+    .maybeSingle()
+
+  if (fetchErr) {
+    console.error('[publishWork] Error fetching existing work status:', fetchErr.message)
+    throw new Error(fetchErr.message)
+  }
+
+  // 2. If already published, preserve original published_at and update last_published_at + visibility
+  if (existing?.published_at) {
+    return updateWork(workId, authorProfileId, {
+      visibility,
+      publication_status: 'published',
+      last_published_at: now,
+    }, client)
+  }
+
+  // 3. First-time publication: atomically set published_at only if it is still null
+  // (guards against concurrent publish requests overwriting the initial timestamp)
+  const { data, error } = await client
+    .from('works')
+    .update({
+      visibility,
+      publication_status: 'published',
+      published_at: now,
+      last_published_at: now,
+    })
+    .eq('id', workId)
+    .eq('author_id', authorProfileId)
+    .is('published_at', null)
+    .select('id, title, slug, description, cover_image_path, status, visibility, publication_status, updated_at, published_at, last_published_at')
+    .maybeSingle()
+
+  if (error) {
+    console.error('[publishWork] Error on initial publish:', error.message)
+    throw new Error(error.message)
+  }
+
+  // 4. If a concurrent request won the race and set published_at, data is null;
+  // fall back to updating last_published_at and visibility without touching published_at
+  if (!data) {
+    return updateWork(workId, authorProfileId, {
+      visibility,
+      publication_status: 'published',
+      last_published_at: now,
+    }, client)
+  }
+
+  return data
 }

@@ -21,7 +21,11 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
 
   if (layout === 'horizontal') {
     return (
-      <div className="group relative flex flex-row gap-3.5 sm:gap-6 rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] p-3 sm:p-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all">
+      <div
+        data-testid="work-card"
+        data-work-id={work.id}
+        className="group relative flex flex-row gap-3.5 sm:gap-6 rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] p-3 sm:p-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all"
+      >
         {/* Cover */}
         <Link
           to="/works/$workId"
@@ -133,9 +137,12 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
     )
   }
 
-  // Portrait Layout (Default)
   return (
-    <div className="group relative flex flex-col justify-between rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] p-3.5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all">
+    <div
+      data-testid="work-card"
+      data-work-id={work.id}
+      className="group relative flex flex-col justify-between rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] p-3.5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all"
+    >
       <div>
         {/* Cover Presentation */}
         <div className="relative aspect-[3/4] w-full overflow-hidden rounded bg-[var(--bg-subtle)]">
