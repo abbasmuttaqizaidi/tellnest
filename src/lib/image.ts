@@ -11,7 +11,7 @@
 export interface ImageOptimizationOptions {
   width?: number
   height?: number
-  quality?: number
+  quality?: number | 'auto'
   format?: 'webp' | 'avif' | 'auto'
   fit?: 'cover' | 'crop' | 'contain' | 'inside'
 }
@@ -55,12 +55,13 @@ export function getOptimizedImageUrl(
     if (parsed.hostname.includes('cloudinary.com')) {
       const parts = url.split('/upload/')
       if (parts.length === 2) {
+        const cldCrop = fit === 'cover' ? 'fill' : fit === 'contain' ? 'fit' : fit
         const transforms = [
           `f_${format}`,
           `q_${quality}`,
           width ? `w_${width}` : null,
           height ? `h_${height}` : null,
-          `c_${fit}`,
+          width && height ? `c_${cldCrop}` : null,
         ]
           .filter(Boolean)
           .join(',')

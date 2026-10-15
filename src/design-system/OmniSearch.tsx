@@ -53,7 +53,9 @@ export interface OmniSearchProps {
   /** Typewriter ghost phrases */
   placeholders?: string[]
   /** Keyboard shortcut key (e.g. '/' or 'k') */
-  shortcut?: string
+  shortcut?: string | false | null
+  /** Whether to render the keyboard shortcut indicator (default: true) */
+  showShortcut?: boolean
   /** Live results count badge */
   resultsCount?: number
   /** Loading spinner */
@@ -95,6 +97,7 @@ export const OmniSearch: FC<OmniSearchProps> = ({
     "Search by title, author, motif...",
   ],
   shortcut = '/',
+  showShortcut = true,
   resultsCount,
   isLoading = false,
   className,
@@ -517,7 +520,7 @@ export const OmniSearch: FC<OmniSearchProps> = ({
               )}
 
               {/* Shortcut Kbd Badge (visible when empty and unfocused) */}
-              {shortcut && !query && !isFocused && (
+              {showShortcut && Boolean(shortcut) && !query && !isFocused && (
                 <kbd className="hidden sm:inline-flex items-center rounded border border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-1.5 py-0.5 text-[9px] font-mono text-[var(--ink-faint)]">
                   {shortcut}
                 </kbd>

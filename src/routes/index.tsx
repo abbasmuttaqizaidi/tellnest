@@ -47,7 +47,9 @@ import {
   X,
   Star,
   Eye,
-  Heart,
+  Shield,
+  Send,
+  Sprout,
 } from 'lucide-react'
 import { generateMeta } from '../lib/seo'
 import { formatViewCount } from '../lib/utils'
@@ -56,16 +58,37 @@ import { getUserRecommendationSignalsServerFn, type UserRecommendationSignals } 
 import { calculateForYouRecommendations } from '../lib/recommendations/engine'
 import { filterAndOrderNewVoicesStories } from '../lib/recommendations/newVoices'
 import { NewVoicesOpportunityModal } from '../components/NewVoicesOpportunityModal'
+import {
+  HERO_IMAGE_URL,
+  getHeroImageSources,
+  HERO_LOCAL_FALLBACK,
+} from '../config/hero'
+
+import principle1Img from '../assets/principles/card1_photo.png'
+import principle2Img from '../assets/principles/card2_photo.png'
+import principle3Img from '../assets/principles/card3_photo.png'
+
+import calmMoodImg from '../assets/moods/Calm.webp'
+import thoughtfulMoodImg from '../assets/moods/thoughtful.webp'
+import intenseMoodImg from '../assets/moods/intense.webp'
+import romanticMoodImg from '../assets/moods/romantic.webp'
+import adventurousMoodImg from '../assets/moods/adventurous.webp'
+import mysteriousMoodImg from '../assets/moods/Mysterious.webp'
+import melancholicMoodImg from '../assets/moods/melancholic.webp'
+import upliftingMoodImg from '../assets/moods/Uplifting.webp'
+import whimsicalMoodImg from '../assets/moods/whimsical.webp'
+import eerieMoodImg from '../assets/moods/Eerie.webp'
+import wittyMoodImg from '../assets/moods/witty.webp'
 
 export const Route = createFileRoute('/')({
-  loader: async () => {
-    return await getAuthUserServerFn()
-  },
+  loader: async () => ({
+    authUser: await getAuthUserServerFn(),
+  }),
   head: () =>
     generateMeta({
-      title: 'Writings. Beyond the Hype.',
+      title: 'HatchPen — A Quieter Place for Bolder Stories',
       description:
-        'Discover curated serialized fiction, long-form literature, indie novelists, and immersive storytelling on Hatchpen.',
+        'Discover fresh voices, unexpected worlds, and stories that stay with you on HatchPen.',
       canonicalUrl: 'https://hatchpen.com/',
       keywords: [
         'serialized fiction',
@@ -75,835 +98,1124 @@ export const Route = createFileRoute('/')({
         'stories by chapter',
         'free reading',
         'fiction community',
+        'hatchpen',
       ],
       ogType: 'website',
       jsonLd: {
         '@context': 'https://schema.org',
         '@type': 'WebPage',
-        name: 'Hatchpen — Writings. Beyond the Hype.',
+        name: 'HatchPen — A Quieter Place for Bolder Stories',
         url: 'https://hatchpen.com/',
         description:
-          'Discover curated serialized fiction, long-form literature, indie novelists, and immersive storytelling on Hatchpen.',
+          'Discover fresh voices, unexpected worlds, and stories that stay with you on HatchPen.',
       },
     }),
   component: HomePage,
 })
 
 function HomePage() {
-  const loaderData = Route.useLoaderData()
-  const { isSignedIn, isLoaded } = useUser()
-  const [explicitlyLoggedOut, setExplicitlyLoggedOut] = useState(false)
-  const hadSignedInRef = useRef(false)
-
-  useEffect(() => {
-    if (isSignedIn) {
-      hadSignedInRef.current = true
-    } else if (hadSignedInRef.current && isLoaded && !isSignedIn) {
-      // User was signed in during this client session, but just signed out
-      setExplicitlyLoggedOut(true)
-    }
-  }, [isSignedIn, isLoaded])
-
-  // 1. If user explicitly signed out in this session, render PublicHome
-  if (explicitlyLoggedOut) {
-    return <PublicHome />
-  }
-
-  // 2. If server determined authenticated session, render LoggedInHome immediately.
-  // Never downgrade to PublicHome during the initial client-side Clerk handshake!
-  if (loaderData?.isAuthenticated) {
-    return <LoggedInHome />
-  }
-
-  // 3. If server was unauthenticated, but user signed in dynamically on client (e.g. via modal)
-  if (isLoaded && isSignedIn) {
-    return <LoggedInHome />
-  }
-
-  // 4. Default for unauthenticated visitors
   return <PublicHome />
 }
 
 /* ==========================================================================
-   PUBLIC HOME PAGE — Curated Atmospheric Literary Salon & Bookstore
+   NEW HATCHPEN EDITORIAL DESIGN — "A Quieter Place for Bolder Stories"
    ========================================================================== */
-const HERO_ROTATING_KEYWORDS = ['novels', 'romance', 'dark romance', 'fantasy', 'sci-fi', 'thrillers', 'essays']
 
-function DispatchCardContent1({ isHighlighted = false }: { isHighlighted?: boolean }) {
+function ArrowCurvedDownLeft() {
   return (
-    <>
-      <div className="flex items-center justify-between gap-3 mb-2">
-        <div className="flex items-center gap-2.5">
-          <div
-            className={`w-6 h-6 rounded-full bg-[var(--color-surface-container-low)] flex items-center justify-center text-[var(--color-on-surface)] font-semibold text-[10px] border border-[var(--color-surface-container-high)]/60 shrink-0 transition-transform duration-200 ${
-              isHighlighted ? 'scale-105' : 'group-hover:scale-105'
-            }`}
-          >
-            ER
-          </div>
-          <div className="min-w-0">
-            <h4 className="text-[12.5px] font-medium text-[var(--color-on-surface)] leading-tight truncate">
-              Elena Rostova
-            </h4>
-            <p className="text-[10.5px] text-[var(--color-secondary)] truncate">
-              Literary Essayist & Reader
-            </p>
-          </div>
-        </div>
-        <span className="text-[9.5px] font-medium tracking-wider uppercase text-[var(--color-secondary)] px-2 py-0.5 rounded bg-[var(--color-surface-container-low)] border border-[var(--color-surface-container-high)]/40 whitespace-nowrap shrink-0">
-          Dispatch 14
-        </span>
-      </div>
-      
-      <p className="text-[12.5px] leading-[1.55] text-[var(--color-on-surface)]/90 font-normal">
-        “I stopped chasing algorithmic bestsellers. On HatchPen,{' '}
-        <mark
-          className={`px-1 py-0.5 rounded text-inherit transition-colors duration-200 ${
-            isHighlighted
-              ? 'bg-amber-300/90 dark:bg-amber-400/40 ring-1 ring-amber-400/30'
-              : 'bg-amber-200/80 dark:bg-amber-500/30 group-hover:bg-amber-300/90 dark:group-hover:bg-amber-400/40'
-          }`}
-        >
-          I found stories no one’s talking about
-        </mark>
-        —but they’re as good as the classics. Great writing, zero noise.”
-      </p>
-    </>
+    <svg width="38" height="32" viewBox="0 0 38 32" fill="none" className="text-[#6B6B70] dark:text-[#A1A1AA] stroke-current shrink-0">
+      <path
+        d="M34 3 C 24 2, 8 7, 4 25"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        fill="none"
+      />
+      <path
+        d="M2 18 L 4 25 L 11 22"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </svg>
   )
 }
 
-function DispatchCardContent2({ isHighlighted = false }: { isHighlighted?: boolean }) {
+function ArrowCurvedUpLeft() {
   return (
-    <>
-      <div className="flex items-center justify-between gap-3 mb-2">
-        <div className="flex items-center gap-2.5">
-          <div
-            className={`w-6 h-6 rounded-full bg-[var(--ink-primary)] text-[var(--accent-contrast)] flex items-center justify-center font-semibold text-[10px] shrink-0 transition-transform duration-200 ${
-              isHighlighted ? 'scale-105' : 'group-hover:scale-105'
-            }`}
-          >
-            MC
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <h4 className="text-[12.5px] font-medium text-[var(--color-on-surface)] leading-tight truncate">
-                Marcus Chen
-              </h4>
-              <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-[var(--color-surface-container)] text-[var(--color-secondary)] uppercase tracking-wider">
-                Author
-              </span>
-            </div>
-            <p className="text-[10.5px] text-[var(--color-secondary)] truncate">
-              Serial: <em className="text-[var(--color-on-surface)] not-italic">The Salt Garden</em>
-            </p>
-          </div>
-        </div>
-        <span className="text-[9.5px] font-medium tracking-wider uppercase text-[var(--color-secondary)] px-2 py-0.5 rounded bg-[var(--color-surface-container-low)] border border-[var(--color-surface-container-high)]/40 whitespace-nowrap shrink-0">
-          Dispatch
-        </span>
-      </div>
-
-      <p className="text-[12.5px] leading-[1.55] text-[var(--color-on-surface)]/90 font-normal">
-        “
-        <mark
-          className={`px-1 py-0.5 rounded text-inherit transition-colors duration-200 ${
-            isHighlighted
-              ? 'bg-amber-300/90 dark:bg-amber-400/40 ring-1 ring-amber-400/30'
-              : 'bg-amber-200/80 dark:bg-amber-500/30 group-hover:bg-amber-300/90 dark:group-hover:bg-amber-400/40'
-          }`}
-        >
-          I’m a new writer
-        </mark>
-        . On HatchPen, my work didn’t disappear into the feed—it was pushed to readers who actually stayed. For the first time,{' '}
-        <mark
-          className={`px-1 py-0.5 rounded text-inherit transition-colors duration-200 ${
-            isHighlighted
-              ? 'bg-amber-300/90 dark:bg-amber-400/40 ring-1 ring-amber-400/30'
-              : 'bg-amber-200/80 dark:bg-amber-500/30 group-hover:bg-amber-300/90 dark:group-hover:bg-amber-400/40'
-          }`}
-        >
-          my writing found an audience
-        </mark>
-        .”
-      </p>
-    </>
+    <svg width="38" height="32" viewBox="0 0 38 32" fill="none" className="text-[#6B6B70] dark:text-[#A1A1AA] stroke-current shrink-0">
+      <path
+        d="M34 29 C 24 28, 8 23, 4 7"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        fill="none"
+      />
+      <path
+        d="M11 10 L 4 7 L 2 14"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </svg>
   )
 }
 
-const DISPATCH_ITEMS = [
+const MOOD_DATA = [
   {
-    id: 'elena',
-    label: 'Reader Voice',
-    Component: DispatchCardContent1,
+    id: 'calm',
+    title: 'Calm',
+    description: 'Quiet prose for unhurried minds.',
+    tags: ['Comforting', 'Slice of life', 'Healing'],
+    image: calmMoodImg,
+    link: '/discover?genre=slice-of-life',
   },
   {
-    id: 'marcus',
-    label: 'Author Voice',
-    Component: DispatchCardContent2,
+    id: 'thoughtful',
+    title: 'Thoughtful',
+    description: 'Deep, philosophical reflections.',
+    tags: ['Literary', 'Philosophical', 'Character-driven'],
+    image: thoughtfulMoodImg,
+    link: '/discover?category=essays',
+  },
+  {
+    id: 'intense',
+    title: 'Intense',
+    description: 'High stakes and psychological grit.',
+    tags: ['Psychological', 'Dark fiction', 'High tension'],
+    image: intenseMoodImg,
+    link: '/discover?genre=thriller',
+  },
+  {
+    id: 'romantic',
+    title: 'Romantic',
+    description: 'Tender, bittersweet connections.',
+    tags: ['Emotional', 'Slow burn', 'Heartfelt'],
+    image: romanticMoodImg,
+    link: '/discover?genre=romance',
+  },
+  {
+    id: 'adventurous',
+    title: 'Adventurous',
+    description: 'Expansive journeys and uncharted worlds.',
+    tags: ['Discovery', 'Wild frontiers', 'New worlds'],
+    image: adventurousMoodImg,
+    link: '/discover?genre=fantasy',
+  },
+  {
+    id: 'mysterious',
+    title: 'Mysterious',
+    description: 'Nocturnal tension, secrets, and urban shadows.',
+    tags: ['Noir', 'Suspense', 'Secrets'],
+    image: mysteriousMoodImg,
+    link: '/discover?genre=crime',
+  },
+  {
+    id: 'nostalgic',
+    title: 'Nostalgic',
+    description: 'Poetic longing, quiet rain, and bittersweet memories.',
+    tags: ['Bittersweet', 'Nostalgia', 'Quiet grief'],
+    image: melancholicMoodImg,
+    link: '/discover?genre=literary-fiction',
+  },
+  {
+    id: 'uplifting',
+    title: 'Uplifting',
+    description: 'Luminous tales of quiet resilience and hope.',
+    tags: ['Uplifting', 'New beginnings', 'Comfort'],
+    image: upliftingMoodImg,
+    link: '/discover?genre=contemporary',
+  },
+  {
+    id: 'whimsical',
+    title: 'Whimsical',
+    description: 'Surreal edges, playful wonder, and magical realism.',
+    tags: ['Surreal', 'Magical realism', 'Wonder'],
+    image: whimsicalMoodImg,
+    link: '/discover?genre=magical-realism',
+  },
+  {
+    id: 'eerie',
+    title: 'Eerie',
+    description: 'Chilling atmosphere and creeping secrets.',
+    tags: ['Suspense', 'Paranoid', 'Unsettling'],
+    image: eerieMoodImg,
+    link: '/discover?genre=mystery',
+  },
+  {
+    id: 'witty',
+    title: 'Witty',
+    description: 'Sharp humor and acute human observation.',
+    tags: ['Humor', 'Sharp dialogue', 'Social satire'],
+    image: wittyMoodImg,
+    link: '/discover?genre=satire',
   },
 ]
 
-function AutoRevealingDispatches() {
-  // deck holds cards from bottom to top: deck[deck.length - 1] is top card
-  const [deck, setDeck] = useState(() => [DISPATCH_ITEMS[1], DISPATCH_ITEMS[0]])
-  const [isDismissing, setIsDismissing] = useState(false)
-  const [dismissDirection, setDismissDirection] = useState<1 | -1>(1)
-  const [isPressed, setIsPressed] = useState(false)
-  const [isDragging, setIsDragging] = useState(false)
+const CARD_ROTATIONS = [
+  'rotate-[0deg]',
+  'rotate-[1.2deg] translate-y-1',
+  '-rotate-[1deg] -translate-y-1',
+  'rotate-[1.4deg] translate-y-0.5',
+  '-rotate-[1.2deg] -translate-y-0.5',
+  'rotate-[0.8deg] translate-y-1',
+  '-rotate-[1.5deg] -translate-y-1',
+  'rotate-[1.1deg] translate-y-0.5',
+  '-rotate-[0.9deg] -translate-y-0.5',
+  'rotate-[1.3deg] translate-y-1',
+]
 
-  const cycleCard = useCallback((direction: 1 | -1 = 1) => {
-    setDismissDirection(direction)
-    setIsDismissing(true)
-    setTimeout(() => {
-      setDeck((prev) => {
-        const copy = [...prev]
-        const topItem = copy.pop()
-        if (topItem) copy.unshift(topItem)
-        return copy
-      })
-      setIsDismissing(false)
-    }, 320)
-  }, [])
-
-  useEffect(() => {
-    if (isPressed || isDragging) return
-
-    const timer = setInterval(() => {
-      cycleCard(1)
-    }, 4500)
-    return () => clearInterval(timer)
-  }, [cycleCard, isPressed, isDragging])
-
-  const topCard = deck[deck.length - 1]
-
-  const handlePressStart = () => {
-    if (!isDismissing) {
-      setIsPressed(true)
-    }
-  }
-
-  const handlePressEnd = () => {
-    if (!isDragging) {
-      setIsPressed(false)
-    }
-  }
-
-  return (
-    <div className="relative w-full pt-0 pb-1">
-      {/* Cards Deck with Swipe Support */}
-      <div
-        className="relative w-full h-[148px] select-none touch-pan-y"
-        role="region"
-        aria-label="Stacked revealing dispatch cards. Swipe to switch or hold to pause."
-      >
-        {deck.map((card, index) => {
-          const isTop = index === deck.length - 1
-          const depth = deck.length - index - 1
-          const CardContent = card.Component
-
-          let animateProps
-          if (isDismissing && isTop) {
-            animateProps = {
-              x: dismissDirection * 150,
-              y: -8,
-              rotateZ: dismissDirection * 10,
-              opacity: 0,
-            }
-          } else if (isTop && isPressed && !isDragging) {
-            // Desktop-hover effect when held: straighten tilt, lift up, prominent depth
-            animateProps = {
-              rotateZ: 0,
-              scale: 1.025,
-              y: -5,
-              x: 0,
-              opacity: 1,
-            }
-          } else if (isTop) {
-            animateProps = {
-              rotateZ: 0,
-              scale: 1,
-              y: 0,
-              x: 0,
-              opacity: 1,
-            }
-          } else {
-            animateProps = {
-              rotateZ: -depth * 4.5,
-              scale: 1 - depth * 0.04,
-              y: depth * 6,
-              x: 0,
-              opacity: 0.72,
-            }
-          }
-
-          return (
-            <motion.div
-              key={card.id}
-              style={{
-                borderRadius: '16px',
-                transformOrigin: '5% 95%',
-              }}
-              drag={isTop && !isDismissing ? 'x' : false}
-              dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={0.65}
-              onDragStart={() => {
-                setIsDragging(true)
-                setIsPressed(true)
-              }}
-              onDragEnd={(_, info) => {
-                setIsDragging(false)
-                setIsPressed(false)
-                const swipeThreshold = 40
-                const velocityThreshold = 250
-                if (Math.abs(info.offset.x) > swipeThreshold || Math.abs(info.velocity.x) > velocityThreshold) {
-                  cycleCard(info.offset.x >= 0 ? 1 : -1)
-                }
-              }}
-              onPointerDown={isTop ? handlePressStart : undefined}
-              onPointerUp={isTop ? handlePressEnd : undefined}
-              onPointerCancel={isTop ? handlePressEnd : undefined}
-              onTouchStart={isTop ? handlePressStart : undefined}
-              onTouchEnd={isTop ? handlePressEnd : undefined}
-              onTouchCancel={isTop ? handlePressEnd : undefined}
-              animate={animateProps}
-              initial={false}
-              transition={isDismissing ? { duration: 0.28, ease: 'easeOut' } : SPRINGS.smooth}
-              className={`absolute inset-0 rounded-2xl border px-4 pt-3.5 pb-4 flex flex-col justify-start select-none transition-all duration-300 ease-out cursor-grab active:cursor-grabbing ${
-                isTop
-                  ? isPressed
-                    ? 'border-[var(--ink-primary)]/50 bg-[var(--color-surface-container-lowest)] shadow-[0_26px_50px_rgba(0,0,0,0.20),0_10px_20px_rgba(0,0,0,0.10)] dark:shadow-[0_26px_50px_rgba(0,0,0,0.65)] ring-2 ring-[var(--ink-primary)]/20 z-20'
-                    : 'border-[var(--ink-primary)]/25 bg-[var(--color-surface-container-lowest)] shadow-[0_12px_28px_rgba(0,0,0,0.08)] z-10'
-                  : 'border-[var(--border-subtle)]/60 bg-[var(--color-surface-container-low)] shadow-[0_4px_14px_rgba(0,0,0,0.04)] z-0'
-              }`}
-            >
-              <CardContent isHighlighted={isTop && isPressed} />
-            </motion.div>
-          )
-        })}
-      </div>
-
-      {/* Slideshow Pill Indicators (below cards, above "Where quiet..." banner) */}
-      <div className="flex items-center justify-center gap-1.5 pt-3 pb-0.5">
-        {DISPATCH_ITEMS.map((item) => {
-          const isActive = topCard?.id === item.id
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => {
-                if (!isActive && !isDismissing) {
-                  cycleCard(1)
-                }
-              }}
-              className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer p-0 border-0 focus:outline-hidden ${
-                isActive
-                  ? 'w-5 bg-[var(--ink-primary)] shadow-xs'
-                  : 'w-1.5 bg-[var(--border-strong)]/40 hover:bg-[var(--border-strong)]/70'
-              }`}
-              aria-label={`Show ${item.label}`}
-            />
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-function HeroFootnotePill() {
-  return (
-    <div className="relative mx-1.5 sm:mx-4 bg-[var(--color-surface-container-lowest)]/80 backdrop-blur-sm rounded-xl py-1.5 px-3 border border-[var(--border-subtle)]/40 hover:border-[var(--border-strong)]/60 shadow-[0_8px_30px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_36px_rgba(0,0,0,0.09)] hover:-translate-y-0.5 flex items-center justify-between gap-2.5 transition-all duration-200">
-      <div className="flex items-center gap-2 min-w-0">
-        <LibraryIcon className="w-3 h-3 text-[var(--ink-primary)] shrink-0" />
-        <span className="text-[10.5px] text-[var(--color-secondary)] truncate">
-          Where quiet stories find their true, deliberate readers.
-        </span>
-      </div>
-      <span className="text-[9.5px] font-medium text-[var(--color-secondary)] whitespace-nowrap shrink-0 font-mono">
-        • Member Archive
-      </span>
-    </div>
-  )
-}
-
-function HeroCtaButton() {
-  return (
-    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full sm:w-auto">
-      <Link
-        to="/discover"
-        className="inline-flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-full bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-medium text-[14px] hover:opacity-90 shadow-md hover:shadow-lg transition-all duration-200 group no-underline cursor-pointer"
-        data-path="discover"
-      >
-        <BookOpen className="w-4 h-4 shrink-0 text-[var(--accent-contrast)]" />
-        <span className="whitespace-nowrap">Explore The Library</span>
-        <ArrowRight className="w-4 h-4 shrink-0 transition-transform duration-200 group-hover:translate-x-1 text-[var(--accent-contrast)]" />
-      </Link>
-    </div>
-  )
-}
+const TESTIMONIALS_DATA = [
+  {
+    id: 'writer',
+    badge: "A WRITER'S STORY",
+    quote:
+      "I'm a new writer. On HatchPen, my work didn't disappear into the feed—it was pushed to readers who actually stayed. For the first time, my writing found an audience.",
+    authorName: 'A new writer',
+    authorSub: 'on HatchPen',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+  },
+  {
+    id: 'reader',
+    badge: "A READER'S STORY",
+    quote:
+      "I stopped chasing algorithmic bestsellers. On HatchPen, I found stories no one's talking about—but they're as good as the classics. Great writing, zero noise.",
+    authorName: 'A reader',
+    authorSub: 'on HatchPen',
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80',
+  },
+]
 
 function PublicHome() {
-  const { allWorks, recentWorks, openAuthModal, isWorkSaved, toggleSaveWork, genres } = useApp()
+  const { openAuthModal } = useApp()
   const { isSignedIn } = useUser()
-  const [rotatingWordIndex, setRotatingWordIndex] = useState(0)
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setRotatingWordIndex((prev) => (prev + 1) % HERO_ROTATING_KEYWORDS.length)
-    }, 1200)
-    return () => clearInterval(timer)
+  // Single-source hero photograph configuration (src/config/hero.ts)
+  const [heroImageFailed, setHeroImageFailed] = useState(false)
+  const { src: heroSrc, srcSet: heroSrcSet, fallback: heroFallback } = useMemo(() => {
+    return getHeroImageSources()
   }, [])
 
-  // Multi-story Hero Carousel state (5 manuscripts)
-  const heroWorks = useMemo(() => {
-    return allWorks.slice(0, 5)
-  }, [allWorks])
+  // Carousel refs & state for Mood discovery
+  const [activeMoodIndex, setActiveMoodIndex] = useState(0)
+  const moodScrollRef = useRef<HTMLDivElement>(null)
 
-  const [activeHeroIndex, setActiveHeroIndex] = useState(0)
-  const activeHeroWork = heroWorks[activeHeroIndex] || allWorks[0]
-
-  const [heroViewMode, setHeroViewMode] = useState<'overview' | 'taste'>('overview')
-  const [mobileSheetTasteOpen, setMobileSheetTasteOpen] = useState(false)
-  const [mobileSheetHeight, setMobileSheetHeight] = useState<'default' | 'expanded'>('default')
-
-  const handleOpenSample = () => {
-    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
-      setMobileSheetHeight('default')
-      setMobileSheetTasteOpen(true)
-    } else {
-      setHeroViewMode('taste')
+  const scrollToMoodIndex = useCallback((index: number) => {
+    if (!moodScrollRef.current) return
+    const container = moodScrollRef.current
+    const cardElement = container.children[index] as HTMLElement
+    if (cardElement) {
+      const cardLeft = cardElement.offsetLeft
+      container.scrollTo({
+        left: Math.max(0, cardLeft - 12),
+        behavior: 'smooth',
+      })
     }
-  }
+  }, [])
 
-  const activeHeroChapter = activeHeroWork?.chapters?.[0]
-  const activeTasteParagraphs = useMemo(() => {
-    if (!activeHeroChapter?.content) return []
-    return activeHeroChapter.content
-      .split('\n\n')
-      .map((p) => p.trim())
-      .filter(Boolean)
-      .slice(0, 3)
-  }, [activeHeroChapter])
+  const handleMoodStep = useCallback((step: number) => {
+    setActiveMoodIndex((prev) => {
+      const total = MOOD_DATA.length
+      const nextIndex = (prev + step + total) % total
+      scrollToMoodIndex(nextIndex)
+      return nextIndex
+    })
+  }, [scrollToMoodIndex])
 
-  // Catalog stacks display sorted by real-time recent activity
-  const catalogDisplayWorks = useMemo(() => {
-    return recentWorks.slice(0, 6)
-  }, [recentWorks])
+  const handleMoodScroll = useCallback(() => {
+    if (!moodScrollRef.current) return
+    const container = moodScrollRef.current
+    const scrollLeft = container.scrollLeft
+    const firstChild = container.children[0] as HTMLElement
+    if (!firstChild) return
+    const cardStep = firstChild.offsetWidth + 14
+    const newIndex = Math.min(
+      MOOD_DATA.length - 1,
+      Math.max(0, Math.round(scrollLeft / cardStep))
+    )
+    setActiveMoodIndex(newIndex)
+  }, [])
 
-  const trendingWorks = allWorks.filter((w) => w.trending || w.featured).slice(0, 4)
-  const completedWorks = allWorks.filter((w) => w.status === 'Completed').slice(0, 3)
+  // Testimonials carousel
+  const [activeTestimonialIndex, setActiveTestimonialIndex] = useState(0)
 
   return (
-    <div className="public-home-container min-h-screen py-6 sm:py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-10 sm:space-y-14">
+    <div className="w-full min-h-screen bg-[#FAF7F2] dark:bg-[#0E0F12] text-[#18181B] dark:text-[#F4F4F5] selection:bg-[#C85A32]/20 selection:text-[#C85A32]">
       
-
-
       {/* =========================================================================
-          HERO SECTION — EXACT DESIGN SPECIFICATION (Live_instructions.md)
+          1. HERO SECTION — Premium Editorial Composition (Full-Bleed Asymmetric)
           ========================================================================= */}
-      <section className="relative w-full overflow-hidden bg-[#fbfaf7] dark:bg-[var(--bg-surface)] text-[var(--color-on-surface)] rounded-2xl border border-[var(--border-subtle)]/40 shadow-[0_12px_44px_rgba(0,0,0,0.06)] hover:shadow-[0_16px_56px_rgba(0,0,0,0.08)] transition-all">
-        {/* Ambient subtle background depth elements */}
-        <div className="pointer-events-none absolute -top-40 right-[-10%] w-[55vw] h-[55vw] rounded-full bg-[var(--color-surface-container-low)]/60 blur-3xl opacity-70"></div>
-        <div className="pointer-events-none absolute bottom-0 left-[-5%] w-[40vw] h-[40vw] rounded-full bg-[var(--color-surface-container)]/50 blur-3xl opacity-60"></div>
+      <section className="relative w-full overflow-hidden bg-[#F2EDE3] dark:bg-[#121316] text-[#201F1D] dark:text-[#F4F4F5] min-h-[580px] lg:min-h-[620px] xl:min-h-[660px] flex flex-col justify-between">
         
-        <div className="relative max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 py-8 sm:py-10 lg:py-12 flex flex-col justify-center">
-          {/* Two-Column Editorial Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 xl:gap-16 items-center">
+        {/* DESKTOP FULL-BLEED RIGHT VISUAL SCENE — CLEAN SINGLE ALPHA MASK */}
+        <div className="hidden lg:block absolute inset-y-0 right-0 w-[58%] xl:w-[60%] h-full z-0 overflow-hidden pointer-events-none select-none">
+          <img
+            src={heroImageFailed ? heroFallback : heroSrc}
+            srcSet={heroImageFailed ? undefined : heroSrcSet}
+            sizes="(min-width: 1280px) 60vw, (min-width: 1024px) 58vw, 100vw"
+            alt="Atmospheric literary writing desk with notebook, brass lamp and warm afternoon sunlight"
+            width={1672}
+            height={941}
+            loading="eager"
+            fetchPriority="high"
+            decoding="async"
+            onError={() => {
+              if (!heroImageFailed) setHeroImageFailed(true)
+            }}
+            style={{
+              maskImage:
+                'linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.05) 4%, rgba(0, 0, 0, 0.25) 10%, rgba(0, 0, 0, 0.70) 18%, #000 25%)',
+              WebkitMaskImage:
+                'linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.05) 4%, rgba(0, 0, 0, 0.25) 10%, rgba(0, 0, 0, 0.70) 18%, #000 25%)',
+            }}
+            className="w-full h-full object-cover object-[center_35%]"
+          />
+        </div>
+
+        {/* MAIN CONTENT CONTAINER */}
+        <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 sm:pt-24 lg:pt-28 pb-10 lg:pb-14 flex-1 flex flex-col justify-center">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 items-center">
             
-            {/* Left Column: Typographic Sanctuary */}
-            <div className="lg:col-span-7 flex flex-col items-start pr-0 lg:pr-4">
-              {/* Primary Display Headline */}
-              <h1 className="text-[42px] sm:text-[50px] lg:text-[58px] xl:text-[64px] leading-[1.06] tracking-tight font-normal text-[var(--color-on-surface)] font-serif mb-5 sm:mb-6">
-                Writings. <br className="hidden sm:inline" />
-                <span className="italic font-light text-[var(--color-on-surface)]/90">Beyond the hype</span>
+            {/* Left Content Region (38-42% desktop width) */}
+            <div className="lg:col-span-5 flex flex-col items-start pr-0 xl:pr-4">
+              {/* Eyebrow with burnt-orange accent rule */}
+              <div className="flex items-center gap-2.5 mb-4 sm:mb-5">
+                <span className="text-[11px] font-bold tracking-[0.22em] uppercase text-[#201F1D] dark:text-[#E4E4E7]">
+                  REAL PEOPLE. ORIGINAL STORIES.
+                </span>
+                <div className="w-7 h-[2px] bg-[#B94F37] rounded-full" />
+              </div>
+
+              {/* Main Display Headline */}
+              <h1 className="text-[46px] sm:text-[62px] lg:text-[68px] xl:text-[78px] font-black uppercase tracking-[-0.035em] leading-[0.92] text-[#201F1D] dark:text-[#F4F4F5] mb-5 sm:mb-6">
+                A QUIETER<br />
+                PLACE FOR<br />
+                <span className="text-[#B94F37]">BOLDER</span><br />
+                STORIES.
               </h1>
 
-              {/* Subtitle with Subtle Rotating Keyword Animation (placed at end to prevent layout jitter) */}
-              <p className="text-[16px] sm:text-[18px] leading-[1.6] text-[var(--color-on-surface-variant)] max-w-xl mb-3 sm:mb-8 font-normal flex flex-wrap items-center gap-x-1.5">
-                <span>Stories published chapter by chapter:</span>
-                <span className="inline-flex items-center overflow-hidden h-[1.6em] relative min-w-[85px] sm:min-w-[125px]">
-                  <AnimatePresence mode="wait">
-                    <motion.span
-                      key={HERO_ROTATING_KEYWORDS[rotatingWordIndex]}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.18, ease: 'easeInOut' }}
-                      className="font-serif italic font-medium text-[var(--ink-primary)] border-b border-[var(--ink-primary)]/30 pb-0.5"
-                    >
-                      {HERO_ROTATING_KEYWORDS[rotatingWordIndex]}.
-                    </motion.span>
-                  </AnimatePresence>
-                </span>
+              {/* Supporting Copy */}
+              <p className="text-[16px] sm:text-[17.5px] leading-[1.58] text-[#5A544C] dark:text-[#A1A1AA] max-w-[350px] mb-8 font-normal">
+                Discover fresh voices, unexpected worlds, and stories that stay with you.
               </p>
 
-              {/* MOBILE ONLY: Cards -> Footnote Pill -> CTA Button */}
-              <div className="block lg:hidden w-full mb-3 -mt-1">
-                <AutoRevealingDispatches />
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center gap-3.5">
+                <Link
+                  to="/discover"
+                  className="inline-flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-full bg-[#201F1D] text-[#F2EDE3] text-[14px] font-medium hover:bg-[#151513] transition-all duration-200 shadow-sm group no-underline focus:outline-none focus:ring-2 focus:ring-[#B94F37] focus:ring-offset-2"
+                >
+                  <span>Explore stories</span>
+                  <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
+                </Link>
+
+                <Link
+                  to={isSignedIn ? '/write' : '#'}
+                  onClick={(e) => {
+                    if (!isSignedIn) {
+                      e.preventDefault()
+                      openAuthModal('sign-in')
+                    }
+                  }}
+                  className="inline-flex items-center justify-center px-7 py-3.5 rounded-full border border-[#201F1D]/30 hover:border-[#201F1D] bg-transparent hover:bg-[#EAE4D8]/60 dark:hover:bg-neutral-800 text-[#201F1D] dark:text-[#F4F4F5] text-[14px] font-medium transition-all duration-200 no-underline focus:outline-none focus:ring-2 focus:ring-[#B94F37] focus:ring-offset-2"
+                >
+                  Start writing
+                </Link>
               </div>
 
-              <div className="block lg:hidden w-full mb-4">
-                <HeroFootnotePill />
-              </div>
-
-              <div className="block lg:hidden w-full mb-1">
-                <HeroCtaButton />
-              </div>
-
-              {/* DESKTOP ONLY: CTA Button */}
-              <div className="hidden lg:block mb-8 lg:mb-10">
-                <HeroCtaButton />
+              {/* Community Metrics from Editorial Reference */}
+              <div className="flex items-center gap-7 mt-8 pt-1">
+                <div>
+                  <div className="text-[20px] font-black tracking-tight text-[#201F1D] dark:text-[#F4F4F5]">50K+</div>
+                  <div className="text-[12px] text-[#71695F] dark:text-[#A1A1AA] font-normal">Stories</div>
+                </div>
+                <div>
+                  <div className="text-[20px] font-black tracking-tight text-[#201F1D] dark:text-[#F4F4F5]">12K+</div>
+                  <div className="text-[12px] text-[#71695F] dark:text-[#A1A1AA] font-normal">Writers</div>
+                </div>
+                <div>
+                  <div className="text-[20px] font-black tracking-tight text-[#201F1D] dark:text-[#F4F4F5]">1M+</div>
+                  <div className="text-[12px] text-[#71695F] dark:text-[#A1A1AA] font-normal">Reads</div>
+                </div>
               </div>
             </div>
 
-            {/* Right Column: Visual Anchor & Folio Showcase (Desktop only) */}
-            <div className="hidden lg:flex lg:col-span-5 relative items-center justify-center">
-              <div className="relative w-full max-w-lg lg:max-w-none flex flex-col py-1 gap-2.5">
-                {/* Subtle ambient glow background element */}
-                <div className="pointer-events-none absolute -top-12 -right-8 w-64 h-64 rounded-full bg-[var(--color-surface-container-high)]/30 blur-3xl -z-10"></div>
+            {/* Right Visual & Testimonial Cards Region (58-62% desktop width) */}
+            <div className="lg:col-span-7 relative flex flex-col items-center lg:items-end justify-center">
+              
+              {/* MOBILE & TABLET INLINE VISUAL SCENE */}
+              <div className="block lg:hidden w-full mb-8 relative rounded-3xl overflow-hidden shadow-xl border border-[#D7CFC3] dark:border-neutral-800 aspect-[16/10] sm:aspect-[2/1]">
+                <img
+                  src={heroImageFailed ? heroFallback : heroSrc}
+                  srcSet={heroImageFailed ? undefined : heroSrcSet}
+                  sizes="(min-width: 640px) 90vw, 100vw"
+                  alt="Atmospheric literary writing desk with notebook, brass lamp and warm afternoon sunlight"
+                  width={1672}
+                  height={941}
+                  loading="eager"
+                  fetchPriority="high"
+                  decoding="async"
+                  onError={() => {
+                    if (!heroImageFailed) setHeroImageFailed(true)
+                  }}
+                  className="w-full h-full object-cover object-center"
+                />
+                {/* Clean vignette for contrast and depth */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent pointer-events-none" />
+              </div>
 
-                {/* Desktop: Staggered side-by-side cards */}
-                <div className="flex flex-col gap-2.5">
-                  {/* Card 1: Reader Discovery Dispatch (Compact) */}
-                  <div className="relative mr-3 sm:mr-8 bg-[var(--color-surface-container-lowest)] rounded-xl px-4 pt-3.5 pb-4 sm:px-5 sm:pt-4 sm:pb-4.5 border border-[var(--border-subtle)]/50 hover:border-[var(--ink-primary)]/30 shadow-[0_8px_30px_rgba(0,0,0,0.06)] hover:shadow-[0_16px_36px_rgba(0,0,0,0.09)] -rotate-[0.6deg] hover:rotate-0 hover:-translate-y-1 transition-all duration-300 ease-out group cursor-default">
-                    <DispatchCardContent1 />
+              {/* SIGNATURE ELEMENT: TWO OVERLAPPING TESTIMONIAL CARDS */}
+              <div className="w-full max-w-md sm:max-w-lg lg:max-w-[420px] xl:max-w-[450px] flex flex-col relative space-y-4 lg:space-y-3">
+                
+                {/* Card A — New Writer Testimonial */}
+                <div
+                  className="relative lg:mr-6 xl:mr-10 bg-[#FDFBF7] text-[#201F1D] rounded-2xl p-5 sm:p-5.5 shadow-[0_18px_40px_rgba(0,0,0,0.12)] border border-[#D7CFC3] lg:-rotate-[1.5deg] hover:rotate-0 hover:-translate-y-1 transition-all duration-300 group select-none"
+                >
+                  <div className="flex items-center justify-between mb-2.5">
+                    <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#F8ECE8] text-[#B94F37] text-[10px] font-bold uppercase tracking-wider">
+                      A WRITER&apos;S STORY
+                    </span>
+                    <Send className="w-3.5 h-3.5 text-[#B94F37] rotate-12 opacity-80" />
                   </div>
 
-                  {/* Card 2: Debut Writer Journey Dispatch (Compact) */}
-                  <div className="relative ml-3 sm:ml-8 bg-[#fcfbf9] dark:bg-[var(--color-surface-container-lowest)] rounded-xl px-4 pt-3.5 pb-4 sm:px-5 sm:pt-4 sm:pb-4.5 border border-[var(--border-subtle)]/50 hover:border-[var(--ink-primary)]/30 shadow-[0_8px_30px_rgba(0,0,0,0.06)] hover:shadow-[0_16px_36px_rgba(0,0,0,0.09)] rotate-[0.6deg] hover:rotate-0 hover:-translate-y-1 transition-all duration-300 ease-out group cursor-default">
-                    <DispatchCardContent2 />
+                  <p className="text-[12.5px] sm:text-[13px] leading-relaxed text-[#201F1D]/90 font-normal mb-3.5">
+                    &ldquo;I&apos;m a new writer. On HatchPen, my work didn&apos;t disappear into the feed—it was pushed to readers who actually stayed. For the first time, my writing found an audience.&rdquo;
+                  </p>
+
+                  <div className="flex items-center justify-between pt-2.5 border-t border-[#EAE3D6] text-[11px] text-[#71695F]">
+                    <span className="font-medium text-[#201F1D]">A new writer · on HatchPen</span>
+                  </div>
+
+                  {/* Handwritten callout (Editorial annotation) */}
+                  <div className="hidden sm:flex absolute -top-7 -right-6 lg:-right-10 items-center gap-1.5 pointer-events-none select-none">
+                    <span className="font-['Caveat',cursive] text-[18px] text-[#5A544C] dark:text-[#D4D4D8] -rotate-6 whitespace-nowrap">
+                      New writers<br />get discovered.
+                    </span>
+                    <ArrowCurvedDownLeft />
                   </div>
                 </div>
 
-                {/* Tactile Footnote / Seal Pill (Compact) */}
-                <HeroFootnotePill />
+                {/* Card B — Underrated Stories Testimonial */}
+                <div
+                  className="relative lg:ml-6 xl:ml-8 bg-[#18191C] text-[#F2EDE3] rounded-2xl p-5 sm:p-5.5 shadow-[0_22px_45px_rgba(0,0,0,0.32)] border border-[#333230] lg:rotate-[1.5deg] hover:rotate-0 hover:-translate-y-1 transition-all duration-300 group select-none"
+                >
+                  <div className="flex items-center justify-between mb-2.5">
+                    <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#27272A] text-[#E4E4E7] text-[10px] font-bold uppercase tracking-wider">
+                      A READER&apos;S STORY
+                    </span>
+                    <Send className="w-3.5 h-3.5 text-[#B94F37] rotate-12 opacity-80" />
+                  </div>
+
+                  <p className="text-[12.5px] sm:text-[13px] leading-relaxed text-[#F2EDE3]/90 font-normal mb-3.5">
+                    &ldquo;I stopped chasing algorithmic bestsellers. On HatchPen, I found stories no one&apos;s talking about—but they&apos;re as good as the classics. Great writing, zero noise.&rdquo;
+                  </p>
+
+                  <div className="flex items-center justify-between pt-2.5 border-t border-neutral-800 text-[11px] text-neutral-400">
+                    <span className="font-medium text-[#F2EDE3]">A reader · on HatchPen</span>
+                  </div>
+
+                  {/* Handwritten callout (Editorial annotation) */}
+                  <div className="hidden sm:flex absolute -bottom-7 -right-4 lg:-right-8 items-center gap-1.5 pointer-events-none select-none">
+                    <ArrowCurvedUpLeft />
+                    <span className="font-['Caveat',cursive] text-[17px] text-[#5A544C] dark:text-[#D4D4D8] rotate-3 whitespace-nowrap">
+                      Underrated<br />stories deserve<br />readers too.
+                    </span>
+                  </div>
+                </div>
+
               </div>
+
             </div>
 
           </div>
         </div>
 
-        {/* Quiet Bottom Architectural Accent Rule */}
-        <div className="w-full h-[1px] bg-[var(--color-surface-container-high)]/60"></div>
       </section>
 
       {/* =========================================================================
-          MOBILE-ONLY SAMPLE TASTE BOTTOM SHEET (Using Design System BottomSheet)
+          2. MOOD DISCOVERY CAROUSEL — Cinematic Near-Black Editorial Canvas
           ========================================================================= */}
-      <div className="lg:hidden">
-        <BottomSheet
-          isOpen={mobileSheetTasteOpen}
-          onClose={() => setMobileSheetTasteOpen(false)}
-          defaultHeightPercent={80}
-          expandedHeightPercent={96}
-          icon={<Feather className="h-3.5 w-3.5 text-[var(--ink-primary)]" />}
-          title={activeHeroWork.title}
-          subtitle={`Sample • ${activeHeroChapter?.title || 'Chapter 1'} (${activeHeroChapter?.readTimeMinutes || 12}m read)`}
-          footer={
-            <div className="flex items-center gap-2.5">
-              <Link
-                to="/read/$workId/$chapterId"
-                params={{
-                  workId: activeHeroWork.id,
-                  chapterId: activeHeroWork.chapters[0]?.id || 'ch-1',
-                }}
-                onClick={() => setMobileSheetTasteOpen(false)}
-                className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-5 py-3 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 active:scale-[0.99] transition no-underline shadow-xs"
+      <section className="relative w-full bg-[#0B0C0E] text-white py-10 sm:py-12 lg:py-14 overflow-hidden border-t border-neutral-900 select-none">
+        {/* Subtle cinematic atmosphere grain & ground spotlight */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(200,90,50,0.06),rgba(0,0,0,0))] pointer-events-none" />
+        <div className="absolute inset-x-0 bottom-0 h-48 bg-[radial-gradient(ellipse_80%_60%_at_50%_100%,rgba(200,90,50,0.08),rgba(0,0,0,0))] pointer-events-none" />
+
+        <div className="w-full pl-5 sm:pl-8 lg:pl-10 xl:pl-14 pr-0">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-6 xl:gap-8">
+            
+            {/* Left Editorial Text Column (approx 24–28% desktop width) */}
+            <div className="w-full lg:w-[275px] xl:w-[305px] shrink-0 flex flex-col justify-between z-10 pr-4 lg:pr-0">
+              <div>
+                <span className="text-[11px] sm:text-[12px] font-bold tracking-[0.22em] uppercase text-[#C85A32] mb-2 sm:mb-3 block">
+                  DISCOVER BY FEELING
+                </span>
+
+                <h2 className="text-[32px] sm:text-[36px] lg:text-[40px] xl:text-[44px] font-extrabold tracking-[-0.035em] leading-[1.04] text-white mb-3 sm:mb-4">
+                  Stories for<br className="hidden sm:inline" />
+                  {' '}every <span className="text-[#C85A32]">mood.</span>
+                </h2>
+
+                <p className="text-[13.5px] sm:text-[14px] leading-relaxed text-[#A1A1AA] max-w-xs font-normal mb-6 sm:mb-7">
+                  Not just genres. Explore stories that match how you feel right now.
+                </p>
+
+                <Link
+                  to="/discover"
+                  className="inline-flex items-center justify-between w-full max-w-[220px] sm:max-w-[240px] px-6 py-2.5 sm:py-3 rounded-full bg-[#F5F2EB] hover:bg-white text-[#0B0C0E] text-[13px] sm:text-[14px] font-semibold transition-all duration-200 shadow-md group no-underline focus:outline-none focus:ring-2 focus:ring-[#C85A32]"
+                >
+                  <span>Explore by mood</span>
+                  <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
+                </Link>
+              </div>
+
+              {/* Counter and Progress Track below CTA */}
+              <div className="flex items-center gap-3.5 mt-6 sm:mt-8 pt-0.5">
+                <div className="flex items-baseline gap-1 font-mono">
+                  <span className="text-white text-[14px] sm:text-[15px] font-bold tracking-tight">
+                    {String(activeMoodIndex + 1).padStart(2, '0')}
+                  </span>
+                  <span className="text-neutral-500 text-xs font-light">/</span>
+                  <span className="text-neutral-500 text-xs font-light">
+                    {String(MOOD_DATA.length).padStart(2, '0')}
+                  </span>
+                </div>
+
+                <div className="w-24 sm:w-32 h-[2px] bg-neutral-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-[#C85A32] transition-all duration-300 ease-out"
+                    style={{
+                      width: `${((activeMoodIndex + 1) / MOOD_DATA.length) * 100}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Right Mood Carousel Viewport (extends toward right edge, shows 6+ cards) */}
+            <div className="relative w-full lg:flex-1 min-w-0 overflow-hidden">
+              
+              {/* Circular Outlined Prev Arrow */}
+              <button
+                type="button"
+                onClick={() => handleMoodStep(-1)}
+                className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-11 sm:h-11 rounded-full border border-white/20 bg-[#0B0C0E]/80 hover:bg-[#0B0C0E]/95 hover:border-white/60 text-white flex items-center justify-center transition-all cursor-pointer shadow-2xl active:scale-95 z-30 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-[#C85A32]"
+                aria-label="Previous mood"
               >
-                <BookOpen className="h-4 w-4" />
-                <span>Continue Full Chapter 1</span>
+                <ChevronLeft className="w-4.5 h-4.5 sm:w-5 sm:h-5 stroke-[1.75]" />
+              </button>
+
+              {/* Circular Outlined Next Arrow */}
+              <button
+                type="button"
+                onClick={() => handleMoodStep(1)}
+                className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-11 sm:h-11 rounded-full border border-white/20 bg-[#0B0C0E]/80 hover:bg-[#0B0C0E]/95 hover:border-white/60 text-white flex items-center justify-center transition-all cursor-pointer shadow-2xl active:scale-95 z-30 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-[#C85A32]"
+                aria-label="Next mood"
+              >
+                <ChevronRight className="w-4.5 h-4.5 sm:w-5 sm:h-5 stroke-[1.75]" />
+              </button>
+
+              {/* Horizontal Scroll Track without scrollbar */}
+              <div
+                ref={moodScrollRef}
+                onScroll={handleMoodScroll}
+                className="flex items-center gap-2.5 sm:gap-3 overflow-x-auto scroll-smooth py-4 sm:py-5 pr-10 sm:pr-16 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                style={{ scrollSnapType: 'x mandatory' }}
+              >
+                {MOOD_DATA.map((mood, idx) => {
+                  const isActive = idx === activeMoodIndex
+                  const rotationClass = CARD_ROTATIONS[idx % CARD_ROTATIONS.length]
+
+                  return (
+                    <div
+                      key={mood.id}
+                      onClick={() => {
+                        if (!isActive) {
+                          setActiveMoodIndex(idx)
+                          scrollToMoodIndex(idx)
+                        }
+                      }}
+                      style={{ scrollSnapAlign: 'start' }}
+                      className={`relative shrink-0 w-[145px] sm:w-[155px] xl:w-[165px] h-[260px] sm:h-[280px] xl:h-[295px] rounded-[16px] sm:rounded-[18px] overflow-hidden transition-all duration-500 ease-out flex flex-col justify-end group ${
+                        isActive
+                          ? 'border-2 border-white/40 shadow-[0_20px_40px_rgba(0,0,0,0.9)] scale-[1.02] z-20'
+                          : 'border border-white/15 opacity-85 hover:opacity-100 hover:scale-[1.0] z-10 cursor-pointer'
+                      } ${rotationClass}`}
+                    >
+                      {/* Photographic Artwork */}
+                      <img
+                        src={mood.image}
+                        alt={mood.title}
+                        loading="lazy"
+                        className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
+                      />
+
+                      {/* Dark gradient for legibility */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 via-45% to-transparent pointer-events-none" />
+
+                      {/* Bottom Editorial Content */}
+                      <div className="relative z-10 p-3 sm:p-3.5 flex flex-col justify-end">
+                        <h3 className="text-[16px] sm:text-[17px] font-bold tracking-tight text-white leading-tight mb-1">
+                          {mood.title}
+                        </h3>
+
+                        <p className="text-[11px] sm:text-[11.5px] text-neutral-300 font-normal leading-snug line-clamp-2 mb-2">
+                          {mood.description}
+                        </p>
+
+                        <div className="flex flex-wrap items-center gap-1 text-[9.5px] sm:text-[10px] font-mono text-neutral-400">
+                          {mood.tags.slice(0, 2).map((tag, tIdx) => (
+                            <span key={tag} className="inline-flex items-center">
+                              {tIdx > 0 && <span className="mx-1 text-neutral-600">•</span>}
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Link overlay */}
+                      <Link
+                        to={mood.link as any}
+                        className="absolute inset-0 z-20 focus:outline-none"
+                        aria-label={`Explore ${mood.title} mood`}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      {/* =========================================================================
+          3. OUR PRINCIPLES — Light Warm Editorial Canvas (#FAF7F2)
+             Compact Upward-Looking Architectural Perspective Cards
+          ========================================================================= */}
+      <section className="relative w-full bg-[#FAF7F2] dark:bg-[#121316] text-[#18181B] dark:text-[#F4F4F5] py-10 sm:py-12 lg:py-14 border-b border-[#EAE4D8] dark:border-neutral-800 overflow-hidden select-none">
+        {/* Subtle decorative curved ambient contour lines */}
+        <div className="absolute inset-0 pointer-events-none opacity-40 overflow-hidden">
+          <svg className="w-full h-full" viewBox="0 0 1440 500" fill="none" preserveAspectRatio="none">
+            <path
+              d="M-80 380 C 250 120, 580 440, 950 200 C 1150 80, 1380 280, 1600 160"
+              stroke="#D4CEBF"
+              strokeWidth="1.2"
+              strokeDasharray="4 6"
+              className="dark:stroke-neutral-800"
+            />
+            <path
+              d="M100 480 C 420 220, 780 500, 1180 240 C 1320 160, 1460 260, 1620 210"
+              stroke="#E2DBD0"
+              strokeWidth="0.8"
+              className="dark:stroke-neutral-800/60"
+            />
+          </svg>
+        </div>
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
+            
+            {/* Left Editorial Header Column (approx 30–33% desktop width) */}
+            <div className="lg:col-span-4 flex flex-col justify-between items-start pr-0 lg:pr-2">
+              <div>
+                <span className="text-[11px] sm:text-[12px] font-bold tracking-[0.22em] uppercase text-[#C85A32] mb-2 sm:mb-2.5 block">
+                  OUR PRINCIPLES
+                </span>
+
+                <h2 className="text-[32px] sm:text-[38px] lg:text-[40px] xl:text-[44px] font-black tracking-[-0.035em] leading-[1.04] text-[#18181B] dark:text-[#F4F4F5] mb-3 sm:mb-4">
+                  A better place<br className="hidden sm:inline" />
+                  {' '}for every <span className="text-[#C85A32]">writer.</span>
+                </h2>
+
+                <p className="text-[13.5px] sm:text-[14.5px] leading-[1.58] text-[#5A544C] dark:text-[#A1A1AA] max-w-[320px] mb-6 sm:mb-7 font-normal">
+                  Fair discovery, a reading experience that feels effortless, and the tools to grow. That&apos;s what HatchPen is built for.
+                </p>
+
+                <Link
+                  to="/discover"
+                  className="inline-flex items-center justify-between w-full max-w-[240px] h-[46px] sm:h-[48px] px-6 rounded-full bg-[#18181B] hover:bg-[#2B2C31] dark:bg-white dark:hover:bg-neutral-200 text-[#FAF7F2] dark:text-[#18181B] text-[13.5px] font-semibold transition-all duration-200 shadow-lg group no-underline focus:outline-none focus:ring-2 focus:ring-[#C85A32] focus:ring-offset-2"
+                >
+                  <span>Explore how it works</span>
+                  <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
+                </Link>
+              </div>
+
+              {/* Bottom Brand Values Ticker */}
+              <div className="mt-8 sm:mt-10 text-[10.5px] sm:text-[11px] font-mono tracking-[0.24em] text-[#8E887E] dark:text-neutral-500 uppercase flex items-center gap-1.5 select-none">
+                <span>DISCOVER</span>
+                <span className="opacity-40">/</span>
+                <span>READ</span>
+                <span className="opacity-40">/</span>
+                <span>GROW</span>
+                <span className="opacity-40">/</span>
+                <span>TOGETHER</span>
+              </div>
+            </div>
+
+            {/* Right 3-Card Principle Grid (Dark Obsidian Cinematic Cards matching reference, on light background) */}
+            <div className="lg:col-span-8 relative py-1 sm:py-2">
+              {/* Vintage Manuscript Sheets Peeking Out Behind the Cards (Matching Reference Image) */}
+              <div
+                className="absolute -left-4 sm:-left-6 top-6 sm:top-10 w-28 sm:w-36 h-48 sm:h-60 bg-[#EADFCE] border border-[#D6C7AE] rounded-xl -rotate-12 pointer-events-none shadow-lg opacity-80 overflow-hidden z-0 hidden md:block"
+                style={{ transform: 'rotate(-9deg) translateY(6px)' }}
+              >
+                <div className="p-3.5 space-y-2.5 opacity-30 select-none">
+                  <div className="h-1.5 bg-[#7D6B5A] rounded w-3/4" />
+                  <div className="h-1.5 bg-[#7D6B5A] rounded w-5/6" />
+                  <div className="h-1.5 bg-[#7D6B5A] rounded w-2/3" />
+                  <div className="h-1.5 bg-[#7D6B5A] rounded w-4/5" />
+                  <div className="h-1.5 bg-[#7D6B5A] rounded w-1/2" />
+                  <div className="h-1.5 bg-[#7D6B5A] rounded w-3/4" />
+                </div>
+              </div>
+
+              <div
+                className="absolute -right-4 sm:-right-6 top-8 sm:top-12 w-30 sm:w-40 h-50 sm:h-64 bg-[#E8DCB7] border border-[#CEBD8E] rounded-xl rotate-12 pointer-events-none shadow-lg opacity-80 overflow-hidden z-0 hidden md:block"
+                style={{ transform: 'rotate(8deg) translateY(10px)' }}
+              >
+                <div className="p-3.5 space-y-2.5 opacity-35 select-none">
+                  <div className="h-1.5 bg-[#6D5A46] rounded w-4/5" />
+                  <div className="h-1.5 bg-[#6D5A46] rounded w-full" />
+                  <div className="h-1.5 bg-[#6D5A46] rounded w-3/4" />
+                  <div className="h-1.5 bg-[#6D5A46] rounded w-5/6" />
+                  <div className="h-1.5 bg-[#6D5A46] rounded w-2/3" />
+                  <div className="h-1.5 bg-[#6D5A46] rounded w-3/4" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-4.5 lg:gap-4.5 relative z-10 [perspective:900px]">
+                
+                {/* Card 1: Fair Discovery (Top expanded, bottom narrower, subtle tilt) */}
+                <div
+                  style={{
+                    transform: 'perspective(800px) rotateX(-5deg) rotateY(2deg) rotateZ(-1deg)',
+                    transformOrigin: '50% 0%',
+                    transformStyle: 'preserve-3d',
+                  }}
+                  className="group relative h-[385px] sm:h-[405px] rounded-[20px] sm:rounded-[24px] bg-[#0E0F12] border border-white/[0.12] hover:border-white/[0.25] shadow-[0_16px_36px_rgba(0,0,0,0.3),0_4px_12px_rgba(0,0,0,0.18)] hover:shadow-[0_24px_50px_rgba(0,0,0,0.45)] transition-all duration-300 hover:-translate-y-1.5 overflow-hidden flex flex-col justify-between"
+                >
+                  {/* Photo Artwork with subtle bottom fade into dark card */}
+                  <div className="relative w-full h-[165px] sm:h-[180px] overflow-hidden bg-[#15161A] shrink-0">
+                    <img
+                      src={principle1Img}
+                      alt="Atmospheric sunbeams through a rustic window on stacked books with circular discovery badge"
+                      loading="lazy"
+                      className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-700"
+                    />
+                    {/* Seamless bottom fade into obsidian body */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#0E0F12] via-[#0E0F12]/40 via-20% to-transparent pointer-events-none" />
+                  </div>
+
+                  {/* Card Content Column */}
+                  <div className="p-4 sm:p-4.5 pt-1 flex-1 flex flex-col justify-between relative z-10">
+                    <div>
+                      <h3 className="text-[19px] sm:text-[21px] font-black tracking-tight leading-[1.08] mb-1.5">
+                        <span className="text-[#FAF7F2] block">Fair</span>
+                        <span className="text-[#E06338] block">Discovery</span>
+                      </h3>
+
+                      <p className="text-[11.5px] sm:text-[12px] leading-[1.48] text-[#A1A1AA] font-normal mb-2">
+                        Great stories shouldn&apos;t need to be popular to be found. We give new and lesser-known writers a real chance.
+                      </p>
+                    </div>
+
+                    <div>
+                      <span className="inline-flex items-center gap-1.5 text-[12px] sm:text-[12.5px] font-semibold text-[#E06338] border-b border-[#E06338]/60 pb-0.5 group-hover:border-[#E06338] group-hover:text-[#F37B53] transition-colors">
+                        <span>Learn more</span>
+                        <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
+                      </span>
+                    </div>
+                  </div>
+
+                  <Link
+                    to="/discover"
+                    className="absolute inset-0 z-20 focus:outline-none"
+                    aria-label="Learn more about Fair Discovery"
+                  />
+                </div>
+
+                {/* Card 2: Better Reading (Normal, zero tilt) */}
+                <div
+                  style={{
+                    transform: 'none',
+                  }}
+                  className="group relative h-[385px] sm:h-[405px] rounded-[20px] sm:rounded-[24px] bg-[#0E0F12] border border-white/[0.12] hover:border-white/[0.25] shadow-[0_16px_36px_rgba(0,0,0,0.3),0_4px_12px_rgba(0,0,0,0.18)] hover:shadow-[0_24px_50px_rgba(0,0,0,0.45)] transition-all duration-300 hover:-translate-y-1.5 overflow-hidden flex flex-col justify-between"
+                >
+                  {/* Photo Artwork with subtle bottom fade into dark card */}
+                  <div className="relative w-full h-[165px] sm:h-[180px] overflow-hidden bg-[#15161A] shrink-0">
+                    <img
+                      src={principle2Img}
+                      alt="Cozy reading nook with open book and warm coffee mug on knit blanket with circular book badge"
+                      loading="lazy"
+                      className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-700"
+                    />
+                    {/* Seamless bottom fade into obsidian body */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#0E0F12] via-[#0E0F12]/40 via-20% to-transparent pointer-events-none" />
+                  </div>
+
+                  {/* Card Content Column */}
+                  <div className="p-4 sm:p-4.5 pt-1 flex-1 flex flex-col justify-between relative z-10">
+                    <div>
+                      <h3 className="text-[19px] sm:text-[21px] font-black tracking-tight leading-[1.08] mb-1.5">
+                        <span className="text-[#FAF7F2] block">Better</span>
+                        <span className="text-[#E06338] block">Reading</span>
+                      </h3>
+
+                      <p className="text-[11.5px] sm:text-[12px] leading-[1.48] text-[#A1A1AA] font-normal mb-2">
+                        A clean, immersive reading experience that helps you stay in the story, without unnecessary distractions.
+                      </p>
+                    </div>
+
+                    <div>
+                      <span className="inline-flex items-center gap-1.5 text-[12px] sm:text-[12.5px] font-semibold text-[#E06338] border-b border-[#E06338]/60 pb-0.5 group-hover:border-[#E06338] group-hover:text-[#F37B53] transition-colors">
+                        <span>Learn more</span>
+                        <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
+                      </span>
+                    </div>
+                  </div>
+
+                  <Link
+                    to="/discover"
+                    className="absolute inset-0 z-20 focus:outline-none"
+                    aria-label="Learn more about Better Reading"
+                  />
+                </div>
+
+                {/* Card 3: Writer Growth (Top expanded, bottom narrower, subtle tilt) */}
+                <div
+                  style={{
+                    transform: 'perspective(800px) rotateX(-5deg) rotateY(-2deg) rotateZ(1deg)',
+                    transformOrigin: '50% 0%',
+                    transformStyle: 'preserve-3d',
+                  }}
+                  className="group relative h-[385px] sm:h-[405px] rounded-[20px] sm:rounded-[24px] bg-[#0E0F12] border border-white/[0.12] hover:border-white/[0.25] shadow-[0_16px_36px_rgba(0,0,0,0.3),0_4px_12px_rgba(0,0,0,0.18)] hover:shadow-[0_24px_50px_rgba(0,0,0,0.45)] transition-all duration-300 hover:-translate-y-1.5 overflow-hidden flex flex-col justify-between"
+                >
+                  {/* Photo Artwork with subtle bottom fade into dark card */}
+                  <div className="relative w-full h-[165px] sm:h-[180px] overflow-hidden bg-[#15161A] shrink-0">
+                    <img
+                      src={principle3Img}
+                      alt="Writer sitting at desk in warm golden hour sunset by window with circular sprout badge"
+                      loading="lazy"
+                      className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-700"
+                    />
+                    {/* Seamless bottom fade into obsidian body */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#0E0F12] via-[#0E0F12]/40 via-20% to-transparent pointer-events-none" />
+                  </div>
+
+                  {/* Card Content Column */}
+                  <div className="p-4 sm:p-4.5 pt-1 flex-1 flex flex-col justify-between relative z-10">
+                    <div>
+                      <h3 className="text-[19px] sm:text-[21px] font-black tracking-tight leading-[1.08] mb-1.5">
+                        <span className="text-[#FAF7F2] block">Writer</span>
+                        <span className="text-[#E06338] block">Growth</span>
+                      </h3>
+
+                      <p className="text-[11.5px] sm:text-[12px] leading-[1.48] text-[#A1A1AA] font-normal mb-2">
+                        Publishing is just the beginning. Get meaningful insights, helpful feedback, and a supportive community as you grow.
+                      </p>
+                    </div>
+
+                    <div>
+                      <span className="inline-flex items-center gap-1.5 text-[12px] sm:text-[12.5px] font-semibold text-[#E06338] border-b border-[#E06338]/60 pb-0.5 group-hover:border-[#E06338] group-hover:text-[#F37B53] transition-colors">
+                        <span>Learn more</span>
+                        <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
+                      </span>
+                    </div>
+                  </div>
+
+                  <Link
+                    to={isSignedIn ? '/write' : '#'}
+                    onClick={(e) => {
+                      if (!isSignedIn) {
+                        e.preventDefault()
+                        openAuthModal('sign-in')
+                      }
+                    }}
+                    className="absolute inset-0 z-20 focus:outline-none"
+                    aria-label="Learn more about Writer Growth"
+                  />
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      {/* =========================================================================
+          4. BEYOND THE HYPE — Dark Obsidian Theme (#111215)
+          ========================================================================= */}
+      <section className="relative w-full bg-[#111215] text-white py-16 sm:py-24 border-b border-neutral-800 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          
+          {/* Top Row: Headline & Testimonial Carousel */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
+            
+            {/* Left Header */}
+            <div className="lg:col-span-5 flex flex-col items-start pr-0 lg:pr-4">
+              <div className="flex items-center gap-3 mb-3">
+                <span className="text-[11px] font-semibold tracking-[0.2em] uppercase text-[#D97746]">
+                  BEYOND THE HYPE
+                </span>
+                <div className="w-10 h-[1px] bg-neutral-800" />
+              </div>
+
+              <h2 className="text-[36px] sm:text-[48px] font-bold tracking-tight leading-[1.08] text-white mb-4">
+                Writings.<br />
+                <span className="text-[#D97746]">Beyond</span> the hype.
+              </h2>
+
+              <p className="text-[15px] sm:text-[16px] leading-relaxed text-[#A1A1AA] mb-6 max-w-sm">
+                A place for underrated stories and underrepresented voices.
+              </p>
+
+              <Link
+                to="/discover"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white text-[#111215] text-[13px] font-semibold hover:bg-neutral-200 transition-all shadow-sm no-underline group"
+              >
+                <span>See real stories</span>
+                <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
               </Link>
+            </div>
+
+            {/* Right Testimonial Quote Cards */}
+            <div className="lg:col-span-7 relative flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() =>
+                  setActiveTestimonialIndex((prev) =>
+                    prev === 0 ? TESTIMONIALS_DATA.length - 1 : prev - 1
+                  )
+                }
+                className="w-10 h-10 rounded-full border border-neutral-700 hover:border-white hover:bg-neutral-800 flex items-center justify-center text-white transition-colors cursor-pointer shrink-0"
+                aria-label="Previous quote"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {TESTIMONIALS_DATA.map((t, idx) => (
+                  <div
+                    key={t.id}
+                    className="bg-[#18191C] rounded-2xl p-5 border border-neutral-800 flex flex-col justify-between shadow-lg"
+                  >
+                    <div>
+                      <div className="text-[36px] leading-none font-serif text-[#71717A] mb-2 select-none">
+                        &ldquo;
+                      </div>
+                      <p className="text-[13px] leading-relaxed text-[#D4D4D8] font-normal mb-4">
+                        &ldquo;{t.quote}&rdquo;
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-3 border-t border-neutral-800/80">
+                      <div className="flex items-center gap-2.5">
+                        <img
+                          src={t.avatar}
+                          alt={t.authorName}
+                          className="w-7 h-7 rounded-full object-cover"
+                        />
+                        <div className="text-left">
+                          <div className="text-[11.5px] font-semibold text-white leading-tight">
+                            {t.authorName}
+                          </div>
+                          <div className="text-[10px] text-[#A1A1AA]">{t.authorSub}</div>
+                        </div>
+                      </div>
+                      <Send className="w-3.5 h-3.5 text-[#D97746] rotate-12" />
+                    </div>
+                  </div>
+                ))}
+              </div>
 
               <button
                 type="button"
-                onClick={() => {
-                  if (!isSignedIn) {
-                    setMobileSheetTasteOpen(false)
-                    openAuthModal()
-                  } else if (activeHeroWork?.id) {
-                    toggleSaveWork(activeHeroWork.id)
-                  }
-                }}
-                className={`inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-lg border text-xs transition cursor-pointer ${
-                  activeHeroWork && isWorkSaved(activeHeroWork.id)
-                    ? 'border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-medium'
-                    : 'border-[var(--border-strong)] text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)]'
-                }`}
+                onClick={() =>
+                  setActiveTestimonialIndex((prev) =>
+                    prev === TESTIMONIALS_DATA.length - 1 ? 0 : prev + 1
+                  )
+                }
+                className="w-10 h-10 rounded-full border border-neutral-700 hover:border-white hover:bg-neutral-800 flex items-center justify-center text-white transition-colors cursor-pointer shrink-0"
+                aria-label="Next quote"
               >
-                <Bookmark
-                  className={`h-4 w-4 ${
-                    activeHeroWork && isWorkSaved(activeHeroWork.id) ? 'fill-current' : ''
-                  }`}
-                />
-                <span>{activeHeroWork && isWorkSaved(activeHeroWork.id) ? 'Saved' : 'Save'}</span>
+                <ChevronRight className="w-4 h-4" />
               </button>
             </div>
-          }
-        >
-          {/* Metadata banner */}
-          <div className="pb-2 border-b border-dashed border-[var(--border-subtle)] flex items-center justify-between text-xs font-mono text-[var(--ink-muted)]">
-            <span className="flex items-center gap-1.5 text-[var(--ink-primary)] font-medium">
-              <span>By {activeHeroWork.author.name}</span>
-            </span>
-            <span>{activeHeroWork.publishedChaptersCount} Chapters Available</span>
+
           </div>
 
-          {/* Typeset Prose with Literary Drop Cap */}
-          {activeTasteParagraphs.map((paragraph, index) => {
-            if (index === 0) {
-              const firstChar = paragraph.charAt(0)
-              const restOfParagraph = paragraph.slice(1)
-              return (
-                <p key={index} className="text-base leading-relaxed text-[var(--ink-primary)]">
-                  <span className="float-left text-4xl font-serif font-bold text-[var(--ink-primary)] leading-none mr-2.5 mt-1 border-b-2 border-[var(--ink-primary)] pb-0.5">
-                    {firstChar}
-                  </span>
-                  {restOfParagraph}
+          {/* Bottom 3-Column Value Props Row */}
+          <div className="mt-16 pt-12 border-t border-neutral-800/80 grid grid-cols-1 sm:grid-cols-3 gap-8 sm:gap-10">
+            {/* Prop 1 */}
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center text-[#D97746] shrink-0">
+                <Feather className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-[15px] font-semibold text-white leading-tight mb-1">
+                  New writers get real exposure
+                </h4>
+                <p className="text-[13px] text-[#A1A1AA]">
+                  Quality stories over popularity
                 </p>
-              )
-            }
-            return (
-              <p key={index} className="text-base leading-relaxed text-[var(--ink-secondary)]">
-                {paragraph}
-              </p>
-            )
-          })}
-
-          <div className="pt-6 pb-2 text-center border-t border-[var(--border-subtle)]">
-            <p className="font-mono text-xs text-[var(--ink-muted)] italic">
-              — End of sample folio preview —
-            </p>
-          </div>
-        </BottomSheet>
-      </div>
-
-
-      {/* =========================================================================
-          4. REIMAGINED: THE BOOKSTORE LIBRARY CATALOG & ARCHIVE SHELVES
-          ========================================================================= */}
-      <section className="space-y-6 pt-2">
-        {/* Catalog Header */}
-        <div className="pb-5 border-b border-[var(--border-subtle)]">
-          <h2 className="font-serif text-2xl sm:text-3xl font-semibold text-[var(--ink-primary)] tracking-tight">
-            Browse The Catalog
-          </h2>
-          <p className="text-xs sm:text-sm text-[var(--ink-muted)] mt-1 font-serif">
-            Explore serialized novels, meditative essays, and speculative archives arranged by shelf.
-          </p>
-        </div>
-
-        {/* Clean Bookstore Stacks Display */}
-
-        {/* Live Filtered Shelf Grid (Clean bookstore spine cards with cover, author & chapter counts) */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 pt-1">
-          {catalogDisplayWorks.map((work) => (
-            <Link
-              key={work.id}
-              to="/works/$workId"
-              params={{ workId: work.id }}
-              className="group flex flex-col rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] p-2.5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all no-underline text-inherit"
-            >
-              {/* Book Jacket Aspect with subtle spine */}
-              <div className="aspect-[2/3] w-full rounded overflow-hidden border border-[var(--border-subtle)] bg-[var(--bg-subtle)] relative mb-2.5">
-                <OptimizedImage
-                  src={work.cover}
-                  alt={work.title}
-                  width={240}
-                  height={360}
-                  sizes="(max-width: 640px) 160px, (max-width: 1024px) 200px, 240px"
-                  containerClassName="h-full w-full"
-                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-104 grayscale-25 group-hover:grayscale-0"
-                />
-                <div className="absolute inset-y-0 left-0 w-2 bg-gradient-to-r from-black/25 to-transparent pointer-events-none" />
-                <div className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded bg-black/75 text-[9px] font-mono text-white backdrop-blur-2xs">
-                  {work.chaptersCount} ch
-                </div>
               </div>
+            </div>
 
-              {/* Typography Details */}
-              <div className="flex flex-col flex-1 justify-between">
-                <div>
-                  <span className="font-mono text-[10px] text-[var(--ink-faint)] uppercase block truncate">
-                    {work.category} • {work.genre}
-                  </span>
-                  <h4 className="font-serif text-xs sm:text-sm font-semibold text-[var(--ink-primary)] leading-snug line-clamp-2 mt-0.5 group-hover:underline">
-                    {work.title}
-                  </h4>
-                </div>
-
-                <div className="pt-2 mt-2 border-t border-[var(--border-subtle)] flex items-center justify-between text-[11px] text-[var(--ink-muted)] gap-1">
-                  <span className="truncate">By {work.author.name}</span>
-                  <div
-                    className="flex items-center gap-1 font-mono text-[10px] text-[var(--ink-muted)] shrink-0 bg-[var(--bg-subtle)] px-1.5 py-0.5 rounded"
-                    title={`${formatViewCount(work.totalReads, false)} Reads`}
-                  >
-                    <Eye className="h-3 w-3 text-[var(--ink-faint)]" />
-                    <span>{formatViewCount(work.totalReads, true)}</span>
-                  </div>
-                </div>
+            {/* Prop 2 */}
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center text-[#D97746] shrink-0">
+                <Users className="w-5 h-5" />
               </div>
-            </Link>
-          ))}
-        </div>
-      </section>
+              <div>
+                <h4 className="text-[15px] font-semibold text-white leading-tight mb-1">
+                  A community that values writing
+                </h4>
+                <p className="text-[13px] text-[#A1A1AA]">
+                  Readers who actually stay
+                </p>
+              </div>
+            </div>
 
-      {/* =========================================================================
-          5. TRENDING ACROSS READERS
-          ========================================================================= */}
-      <section className="space-y-6 pt-6 border-t border-[var(--border-subtle)]">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <TrendingUp className="h-4 w-4 text-[var(--ink-primary)]" />
-            <div>
-              <h2 className="font-serif text-2xl font-semibold text-[var(--ink-primary)]">
-                Trending on the Salon Floor
-              </h2>
-              <p className="text-xs text-[var(--ink-muted)] mt-0.5">
-                Manuscripts commanding sustained reader engagement and discourse
-              </p>
+            {/* Prop 3 */}
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center text-[#D97746] shrink-0">
+                <Star className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-[15px] font-semibold text-white leading-tight mb-1">
+                  Stories worth finding
+                </h4>
+                <p className="text-[13px] text-[#A1A1AA]">
+                  Hidden gems, not just bestsellers
+                </p>
+              </div>
             </div>
           </div>
-          <Link
-            to="/discover"
-            className="text-xs font-medium text-[var(--ink-primary)] hover:underline inline-flex items-center gap-1"
-          >
-            Explore Trending <ArrowRight className="h-3 w-3" />
-          </Link>
-        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {trendingWorks.map((work) => (
-            <WorkCard key={work.id} work={work} layout="portrait" />
-          ))}
         </div>
       </section>
 
       {/* =========================================================================
-          6. SPLIT CURATION: COMPLETED MASTERPIECES & GENRE ALCOVES
+          5. STUDIO / FINAL CTA — Warm Cream Split Layout
           ========================================================================= */}
-      <section className="space-y-6 pt-6 border-t border-[var(--border-subtle)]">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+      <section id="about" className="relative w-full bg-[#FAF7F2] dark:bg-[#151619] text-[#18181B] dark:text-[#F4F4F5] py-16 sm:py-24">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
-          {/* Left: Completed Works (Ready to Binge End-to-End) */}
-          <div className="lg:col-span-7 space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-[var(--ink-primary)]" />
-                <h3 className="font-serif text-xl font-semibold text-[var(--ink-primary)]">
-                  Completed Serials
-                </h3>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
+            
+            {/* Left Photographic Studio Visual */}
+            <div className="lg:col-span-6 relative">
+              <div className="aspect-[4/3] rounded-3xl overflow-hidden shadow-xl border border-[#EAE5DA] dark:border-neutral-800">
+                <img
+                  src="https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=1200&q=85"
+                  alt="Fountain pen on open journal with glasses and coffee"
+                  className="w-full h-full object-cover"
+                />
               </div>
-              <span className="font-mono text-xs text-[var(--ink-muted)]">Read End-to-End</span>
             </div>
 
-            <div className="space-y-3">
-              {completedWorks.map((work) => (
-                <Link
-                  key={work.id}
-                  to="/works/$workId"
-                  params={{ workId: work.id }}
-                  className="group flex items-center gap-4 rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] p-3 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all no-underline text-inherit"
-                >
-                  <img
-                    src={work.cover}
-                    alt={work.title}
-                    loading="lazy"
-                    decoding="async"
-                    className="h-16 w-12 rounded object-cover grayscale flex-shrink-0"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 text-[10px] font-mono text-[var(--ink-faint)]">
-                      <span>{work.category}</span>
-                      <span>•</span>
-                      <span>{work.chaptersCount} Chapters</span>
-                    </div>
-                    <h4 className="font-serif text-sm font-semibold text-[var(--ink-primary)] truncate group-hover:underline">
-                      {work.title}
+            {/* Right Content & Feature List */}
+            <div className="lg:col-span-6 flex flex-col items-start pl-0 lg:pl-6">
+              
+              <div className="flex items-center gap-3 mb-2.5">
+                <span className="text-[11px] font-semibold tracking-[0.2em] uppercase text-[#71717A] dark:text-[#A1A1AA]">
+                  WRITE FREELY
+                </span>
+                <div className="w-10 h-[1px] bg-[#D4CEBF] dark:bg-neutral-700" />
+              </div>
+
+              <h2 className="text-[36px] sm:text-[46px] font-bold tracking-tight leading-[1.08] text-[#18181B] dark:text-[#F4F4F5] mb-4">
+                Your story<br />
+                belongs <span className="text-[#C85A32]">here.</span>
+              </h2>
+
+              <p className="text-[15px] sm:text-[16px] leading-relaxed text-[#52525B] dark:text-[#A1A1AA] mb-6 max-w-lg">
+                Whether it&apos;s a short story, a poem, or a whole new world — HatchPen is your space to write, share, and grow.
+              </p>
+
+              <Link
+                to={isSignedIn ? '/write' : '#'}
+                onClick={(e) => {
+                  if (!isSignedIn) {
+                    e.preventDefault()
+                    openAuthModal('sign-in')
+                  }
+                }}
+                className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-[#18181B] dark:bg-white text-white dark:text-[#18181B] text-[14px] font-medium hover:opacity-90 transition-all shadow-sm group no-underline mb-10"
+              >
+                <span>Start writing</span>
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+
+              {/* Feature Checklist List */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full pt-6 border-t border-[#EAE5DA] dark:border-neutral-800">
+                {/* Feature 1 */}
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#F3EFE6] dark:bg-neutral-800 flex items-center justify-center text-[#18181B] dark:text-white shrink-0 mt-0.5">
+                    <PenLine className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-[14px] font-semibold text-[#18181B] dark:text-white leading-tight">
+                      Write freely
                     </h4>
-                    <p className="text-xs text-[var(--ink-muted)] truncate">
-                      By {work.author.name}
+                    <p className="text-[12px] text-[#71717A] dark:text-[#A1A1AA] mt-0.5">
+                      Your stories, your voice.
                     </p>
                   </div>
-                  <ArrowRight className="h-4 w-4 text-[var(--ink-faint)] group-hover:text-[var(--ink-primary)] transition-colors mr-2" />
-                </Link>
-              ))}
+                </div>
+
+                {/* Feature 2 */}
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#F3EFE6] dark:bg-neutral-800 flex items-center justify-center text-[#18181B] dark:text-white shrink-0 mt-0.5">
+                    <Users className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-[14px] font-semibold text-[#18181B] dark:text-white leading-tight">
+                      Find your readers
+                    </h4>
+                    <p className="text-[12px] text-[#71717A] dark:text-[#A1A1AA] mt-0.5">
+                      A community that cares.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Feature 3 */}
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#F3EFE6] dark:bg-neutral-800 flex items-center justify-center text-[#18181B] dark:text-white shrink-0 mt-0.5">
+                    <TrendingUp className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-[14px] font-semibold text-[#18181B] dark:text-white leading-tight">
+                      Grow together
+                    </h4>
+                    <p className="text-[12px] text-[#71717A] dark:text-[#A1A1AA] mt-0.5">
+                      New opportunities, real support.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Feature 4 */}
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#F3EFE6] dark:bg-neutral-800 flex items-center justify-center text-[#18181B] dark:text-white shrink-0 mt-0.5">
+                    <Shield className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-[14px] font-semibold text-[#18181B] dark:text-white leading-tight">
+                      A healthier space
+                    </h4>
+                    <p className="text-[12px] text-[#71717A] dark:text-[#A1A1AA] mt-0.5">
+                      Respectful. Creative. Built for writers.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
             </div>
+
           </div>
 
-          {/* Right: Literary Genres Alcoves */}
-          <div className="lg:col-span-5 space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
-              <h3 className="font-serif text-xl font-semibold text-[var(--ink-primary)]">
-                Literary Genres
-              </h3>
-              <span className="font-mono text-xs text-[var(--ink-faint)]">{genres.length} Shelves</span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2.5 max-h-[480px] overflow-y-auto pr-1 scrollbar-thin">
-              {genres.map((genre) => (
-                <Link
-                  key={genre.slug}
-                  to="/genre/$slug"
-                  params={{ slug: genre.slug }}
-                  className="rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] p-2.5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] hover:bg-[var(--bg-subtle)] transition-all no-underline text-inherit"
-                >
-                  <p className="font-serif text-xs font-semibold text-[var(--ink-primary)]">
-                    {genre.name}
-                  </p>
-                  <p className="font-mono text-[10px] text-[var(--ink-faint)] mt-0.5">
-                    {genre.worksCount || 0} cataloged
-                  </p>
-                </Link>
-              ))}
-            </div>
-          </div>
-
-        </div>
-      </section>
-
-
-      {/* =========================================================================
-          8. PUBLIC INVITATION / MEMBERSHIP CALL TO ACTION
-          ========================================================================= */}
-      <section className="rounded-2xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] p-8 sm:p-14 text-center space-y-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all">
-        <div className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-[var(--border-strong)] bg-[var(--bg-canvas)] text-[var(--ink-primary)] shadow-2xs">
-          <BookOpen className="h-5 w-5" />
-        </div>
-
-        <div className="space-y-2 max-w-xl mx-auto">
-          <h2 className="font-serif text-2xl sm:text-3xl font-semibold tracking-tight text-[var(--ink-primary)]">
-            A quiet typographic sanctuary for modern letters.
-          </h2>
-          <p className="text-xs sm:text-sm leading-relaxed text-[var(--ink-muted)]">
-            Discover original serialized fiction, essays, and meditations. Create an account to customize your typography, bookmark manuscripts, and follow authors.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-          {!isSignedIn ? (
-            <button
-              type="button"
-              onClick={() => openAuthModal()}
-              className="inline-flex items-center gap-2 rounded border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-6 py-2.5 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 transition-opacity cursor-pointer shadow-xs"
-            >
-              <span>Join The Hatchpen Reading Room</span>
-              <ArrowRight className="h-3.5 w-3.5" />
-            </button>
-          ) : (
-            <Link
-              to="/library"
-              className="inline-flex items-center gap-2 rounded border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-6 py-2.5 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 transition-opacity cursor-pointer shadow-xs no-underline"
-            >
-              <span>Open Your Library</span>
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          )}
-
-          <Link
-            to="/discover"
-            className="inline-flex items-center gap-2 rounded border border-[var(--border-strong)] bg-[var(--bg-surface)] px-5 py-2.5 text-xs font-medium text-[var(--ink-secondary)] hover:bg-[var(--bg-subtle)] transition-colors no-underline"
-          >
-            <span>Explore Library Catalog</span>
-          </Link>
         </div>
       </section>
 
@@ -1064,7 +1376,6 @@ function SignedInHome() {
             <div className="rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] p-5 sm:p-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all space-y-4">
               <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2.5">
                 <div className="flex items-center gap-2">
-                  <Clock className="h-3.5 w-3.5 text-[var(--ink-primary)]" />
                   <h2 className="font-serif text-base sm:text-lg font-semibold text-[var(--ink-primary)]">
                     Continue Reading
                   </h2>
@@ -1146,7 +1457,6 @@ function SignedInHome() {
             <div className="rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] p-5 sm:p-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all space-y-4">
               <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2.5">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="h-3.5 w-3.5 text-[var(--ink-primary)]" />
                   <h2 className="font-serif text-base sm:text-lg font-semibold text-[var(--ink-primary)]">
                     Editor's Desk Selection
                   </h2>
@@ -1206,7 +1516,6 @@ function SignedInHome() {
           <div className="rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all space-y-4">
             <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2.5">
               <div className="flex items-center gap-2">
-                <Flame className="h-3.5 w-3.5 text-[var(--ink-primary)]" />
                 <h2 className="font-serif text-base font-semibold text-[var(--ink-primary)]">
                   Daily Reading Pulse
                 </h2>
@@ -1376,9 +1685,6 @@ function SignedInHome() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
           <div className="space-y-1.5 max-w-xl">
             <div className="flex items-center gap-2">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-[var(--border-subtle)] bg-[var(--bg-canvas)] text-[var(--ink-primary)]">
-                <Feather className="h-3.5 w-3.5" />
-              </span>
               <h2 className="font-serif text-lg font-semibold text-[var(--ink-primary)]">
                 Writer Studio
               </h2>
@@ -1621,65 +1927,7 @@ function LoggedInHome() {
       {/* 5-Month In-App Opportunity Modal */}
       <NewVoicesOpportunityModal />
 
-      {/* =========================================================================
-          SECTION 1: INTERACTIVE TOP ACTION & ORIENTATION BAR (STICKY BLURRED ACCORDION)
-          ========================================================================= */}
-      <section className="w-full sticky top-16 z-20 transition-all">
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-[var(--color-surface-container-low)]/90 backdrop-blur-md p-3 sm:p-3.5 rounded-xl border border-[var(--border-subtle)] shadow-xs">
-          
-          {/* Quick Navigation Anchors */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
-            <a
-              href="#for-you"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] rounded-full border border-[var(--border-subtle)] text-xs font-mono font-medium shadow-2xs transition-all no-underline shrink-0"
-            >
-              <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-              <span>For You ({forYouRecommendations.length})</span>
-            </a>
 
-            <a
-              href="#new-voices"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] rounded-full border border-[var(--border-subtle)] text-xs font-mono font-medium shadow-2xs transition-all no-underline shrink-0"
-            >
-              <Feather className="h-3.5 w-3.5 text-amber-500" />
-              <span>New Voices ({newVoicesWorks.length})</span>
-            </a>
-
-            <a
-              href="#trending-serials"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] rounded-full border border-[var(--border-subtle)] text-xs font-mono font-medium shadow-2xs transition-all no-underline shrink-0"
-            >
-              <Flame className="h-3.5 w-3.5 text-amber-500" />
-              <span>Trending Leaderboards</span>
-            </a>
-
-            <a
-              href="#saved-shelf"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] rounded-full border border-[var(--border-subtle)] text-xs font-mono font-medium shadow-2xs transition-all no-underline shrink-0"
-            >
-              <Bookmark className="h-3.5 w-3.5 text-[var(--ink-primary)]" />
-              <span>Jump to Saved ({savedWorks.length})</span>
-            </a>
-          </div>
-
-          {/* Quick Exploration Trending Tags */}
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none text-[var(--ink-muted)]">
-            <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--ink-faint)] shrink-0 mr-1">
-              Trending Tags:
-            </span>
-            {['DarkRomance', 'SciFiThriller', 'SlowBurn', 'FolkloreNoir'].map((tag) => (
-              <Link
-                key={tag}
-                to="/search"
-                className="font-mono text-[11px] px-2.5 py-1 bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] rounded-md border border-[var(--border-subtle)] transition-colors no-underline shrink-0"
-              >
-                #{tag}
-              </Link>
-            ))}
-          </div>
-
-        </div>
-      </section>
 
       {/* =========================================================================
           SECTION 2: PICK UP WHERE YOU LEFT OFF (ASYMMETRIC PRIMARY HERO CARD)
@@ -1693,9 +1941,6 @@ function LoggedInHome() {
               <h3 className="font-serif text-xl sm:text-2xl font-bold text-[var(--ink-primary)] tracking-tight">
                 Currently Reading
               </h3>
-              <Badge variant="subtle" size="sm" className="hidden sm:inline-flex">
-                Ch. {activeChapter?.number || 1} • {progressPercent}%
-              </Badge>
             </div>
             <div className="flex items-center gap-3 text-xs font-mono text-[var(--ink-muted)]">
               <span className="hidden md:inline text-[11px] text-[var(--ink-faint)]">
@@ -1953,17 +2198,9 @@ function LoggedInHome() {
       <section id="for-you" className="w-full space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-3 border-b border-[var(--border-subtle)]">
           <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="p-1.5 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-amber-500 shadow-2xs">
-                <Sparkles className="h-4 w-4" />
-              </span>
-              <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] tracking-tight">
-                Recommended For You
-              </h3>
-              <Badge variant="subtle" size="sm">
-                {forYouRecommendations.length} Curated
-              </Badge>
-            </div>
+            <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] tracking-tight">
+              Recommended For You
+            </h3>
             <p className="font-serif text-xs sm:text-sm text-[var(--ink-secondary)]">
               Personalized based on your reading sessions and literary interests.
             </p>
@@ -2099,17 +2336,9 @@ function LoggedInHome() {
       <section id="new-voices" className="w-full space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-3 border-b border-[var(--border-subtle)]">
           <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="p-1.5 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-amber-500 shadow-2xs">
-                <Feather className="h-4 w-4" />
-              </span>
-              <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] tracking-tight">
-                New Voices Showcase
-              </h3>
-              <Badge variant="subtle" size="sm">
-                {newVoicesWorks.length} {newVoicesWorks.length === 1 ? 'Debut' : 'Debuts'}
-              </Badge>
-            </div>
+            <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] tracking-tight">
+              New Voices Showcase
+            </h3>
             <p className="font-serif text-xs sm:text-sm text-[var(--ink-secondary)]">
               Fresh original stories published by writers in their first five calendar months on Hatchpen.
             </p>
@@ -2218,7 +2447,7 @@ function LoggedInHome() {
           </div>
         ) : (
           <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-8 text-center space-y-3">
-            <div className="mx-auto w-10 h-10 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center">
+            <div className="mx-auto w-10 h-10 rounded-full bg-[var(--bg-subtle)] text-black dark:text-white flex items-center justify-center">
               <Feather className="h-5 w-5" />
             </div>
             <div className="space-y-1">
@@ -2384,16 +2613,10 @@ function LoggedInHome() {
 
       <section id="saved-shelf" className="w-full space-y-5">
         <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
-          <div className="flex items-center gap-2.5">
-            <span className="p-1.5 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--ink-primary)]">
-              <Bookmark className="h-4 w-4" />
-            </span>
+          <div>
             <h3 className="font-serif text-xl sm:text-2xl font-bold text-[var(--ink-primary)]">
               Your Reading Shelf
             </h3>
-            <Badge variant="subtle" size="sm">
-              {savedWorks.length} Books
-            </Badge>
           </div>
 
           <Link
@@ -2476,7 +2699,7 @@ function LoggedInHome() {
         ) : (
           /* Honest, Authentic Empty State connected to Database */
           <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-6 sm:p-8 text-center space-y-3">
-            <div className="w-10 h-10 rounded-full bg-[var(--bg-canvas)] border border-[var(--border-subtle)] flex items-center justify-center mx-auto text-[var(--ink-muted)]">
+            <div className="w-10 h-10 rounded-full bg-[var(--bg-canvas)] border border-[var(--border-subtle)] flex items-center justify-center mx-auto text-black dark:text-white">
               <Bookmark className="h-4 w-4" />
             </div>
             <div className="max-w-md mx-auto space-y-1">

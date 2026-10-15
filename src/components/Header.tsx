@@ -17,6 +17,7 @@ import {
   LogOut,
   Plus,
   Users,
+  ArrowRight,
 } from 'lucide-react'
 import { useUser, useClerk } from '@clerk/react'
 import { useApp } from '../context/AppContext'
@@ -43,16 +44,7 @@ export default function Header() {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [navSearchQuery, setNavSearchQuery] = useState('')
-  const [navSearchScope, setNavSearchScope] = useState('all')
   const [isNavSearchOpen, setIsNavSearchOpen] = useState(false)
-
-  const navSearchScopes = React.useMemo(() => [
-    { id: 'all', label: 'All' },
-    ...genres.map((g) => ({
-      id: g.slug,
-      label: g.name,
-    })),
-  ], [genres])
 
   const routerState = useRouterState()
   const currentPath = routerState.location.pathname
@@ -79,12 +71,34 @@ export default function Header() {
   const isReaderMode = currentPath.startsWith('/read/')
   const isEditorMode = currentPath.startsWith('/write/editor')
 
+  const isHomePage = currentPath === '/'
+  const [hasScrolled, setHasScrolled] = useState(false)
+
+  React.useEffect(() => {
+    if (!isHomePage) {
+      setHasScrolled(false)
+      return
+    }
+    const handleScroll = () => {
+      setHasScrolled(window.scrollY > 40)
+    }
+    handleScroll()
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [isHomePage])
+
   if (isReaderMode || isEditorMode) {
     return null
   }
 
+  const headerClasses = isHomePage
+    ? hasScrolled
+      ? 'fixed top-0 left-0 right-0 z-40 w-full border-b border-[#D7CFC3]/50 dark:border-neutral-800 bg-[#F2EDE3]/90 dark:bg-[#121316]/90 backdrop-blur-md shadow-xs transition-all duration-200'
+      : 'absolute top-0 left-0 right-0 z-40 w-full border-b border-transparent bg-transparent transition-all duration-200'
+    : 'sticky top-0 z-40 w-full border-b border-[var(--border-subtle)] bg-[var(--bg-canvas)]/95 backdrop-blur-md transition-colors duration-150'
+
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-[var(--border-subtle)] bg-[var(--bg-canvas)]/95 backdrop-blur-md transition-colors duration-150">
+    <header className={headerClasses}>
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 gap-2 sm:gap-4">
         
         {/* Left: Brand Identity */}
@@ -101,14 +115,6 @@ export default function Header() {
           {!isReaderMode && (
             <nav className={`hidden ${isNavSearchOpen ? 'lg:flex' : 'md:flex'} items-center gap-1 text-[13px] font-medium text-[var(--ink-muted)]`}>
               <Link
-                to="/"
-                className={`px-3 py-1.5 rounded transition-colors hover:text-[var(--ink-primary)] ${
-                  currentPath === '/' ? 'text-[var(--ink-primary)] font-semibold' : ''
-                }`}
-              >
-                Home
-              </Link>
-              <Link
                 to="/discover"
                 className={`px-3 py-1.5 rounded transition-colors hover:text-[var(--ink-primary)] ${
                   currentPath.startsWith('/discover') ? 'text-[var(--ink-primary)] font-semibold' : ''
@@ -117,13 +123,31 @@ export default function Header() {
                 Discover
               </Link>
               <Link
-                to="/search"
+                to={isSignedIn ? "/write" : "#"}
+                onClick={(e) => {
+                  if (!isSignedIn) {
+                    e.preventDefault()
+                    openAuthModal('sign-in')
+                  }
+                }}
                 className={`px-3 py-1.5 rounded transition-colors hover:text-[var(--ink-primary)] ${
-                  currentPath.startsWith('/search') ? 'text-[var(--ink-primary)] font-semibold' : ''
+                  currentPath.startsWith('/write') ? 'text-[var(--ink-primary)] font-semibold' : ''
                 }`}
               >
-                Search
+                Write
               </Link>
+              <Link
+                to="/discover"
+                className="px-3 py-1.5 rounded transition-colors hover:text-[var(--ink-primary)]"
+              >
+                Community
+              </Link>
+              <a
+                href="#about"
+                className="px-3 py-1.5 rounded transition-colors hover:text-[var(--ink-primary)]"
+              >
+                About
+              </a>
               {isSignedIn && (
                 <>
                   <Link
@@ -162,32 +186,29 @@ export default function Header() {
             <OmniSearch
               expandMode="responsive"
               size="sm"
+              iconButtonClassName="bg-white text-black border border-neutral-200/80 shadow-xs hover:bg-neutral-100 hover:text-black"
               value={navSearchQuery}
               onChange={setNavSearchQuery}
               isExpanded={isNavSearchOpen}
               onExpand={() => setIsNavSearchOpen(true)}
               onCollapse={() => setIsNavSearchOpen(false)}
-              onSubmit={(q, scope) => {
+              onSubmit={(q) => {
                 const trimmed = q.trim()
                 if (!trimmed) return
                 if (trimmed.length < 5) {
                   showToast('Please enter at least 5 letters to search.')
                   return
                 }
-                const activeGenre = scope || navSearchScope
                 navigate({
                   to: '/search',
                   search: {
                     q: trimmed,
-                    ...(activeGenre && activeGenre !== 'all' ? { genre: activeGenre } : {}),
                   } as any,
                 })
                 setIsNavSearchOpen(false)
               }}
-              scopes={navSearchScopes}
-              activeScope={navSearchScope}
-              onScopeChange={setNavSearchScope}
-              shortcut="/"
+              shortcut={false}
+              showShortcut={false}
               placeholders={[
                 "Search manuscripts...",
                 "Search 'A Winter in Kyoto'...",
@@ -226,11 +247,15 @@ export default function Header() {
           {/* Dark Mode Quick Toggle */}
           <button
             onClick={() => setSiteTheme(siteTheme === 'dark' ? 'light' : 'dark')}
-            className="flex h-8 w-8 items-center justify-center rounded border border-transparent text-[var(--ink-muted)] hover:border-[var(--border-subtle)] hover:text-[var(--ink-primary)] transition-colors flex-shrink-0 cursor-pointer"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-black border border-neutral-200/80 shadow-xs hover:bg-neutral-100 transition-all flex-shrink-0 cursor-pointer"
             title={mounted && siteTheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
             aria-label="Toggle dark mode"
           >
-            {mounted && siteTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            {mounted && siteTheme === 'dark' ? (
+              <Sun className="h-4 w-4 text-black stroke-[2.2]" />
+            ) : (
+              <Moon className="h-4 w-4 text-black stroke-[2.2]" />
+            )}
           </button>
           {!isLoaded ? (
             <div className="h-8 w-8 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-subtle)] animate-pulse shrink-0" />
@@ -358,13 +383,23 @@ export default function Header() {
               )}
             </div>
           ) : (
-            <button
-              type="button"
-              onClick={() => openAuthModal()}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-3 py-1.5 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 transition-opacity shrink-0 cursor-pointer"
-            >
-              Sign In
-            </button>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <button
+                type="button"
+                onClick={() => openAuthModal('sign-in')}
+                className="inline-flex items-center justify-center rounded-full bg-white text-[#18181B] border border-neutral-200/80 px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-[13px] font-medium hover:bg-neutral-100 transition-all shadow-xs cursor-pointer"
+              >
+                <span>Log in</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => openAuthModal('sign-up')}
+                className="inline-flex items-center gap-1.5 rounded-full bg-[#18181B] dark:bg-white text-white dark:text-[#18181B] px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-[13px] font-medium hover:opacity-90 transition-all shadow-xs cursor-pointer"
+              >
+                <span>Join HatchPen</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           )}
 
           {/* Mobile Navigation Hamburger */}
@@ -472,10 +507,10 @@ export default function Header() {
             <button
               type="button"
               onClick={() => setSiteTheme(siteTheme === 'dark' ? 'light' : 'dark')}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-subtle)] text-xs font-mono text-[var(--ink-primary)] cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white text-black border border-neutral-200 text-xs font-mono shadow-xs cursor-pointer hover:bg-neutral-100 transition-colors"
             >
-              {siteTheme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
-              <span>{siteTheme === 'dark' ? 'Dark' : 'Light'}</span>
+              {siteTheme === 'dark' ? <Sun className="h-3.5 w-3.5 text-black stroke-[2.2]" /> : <Moon className="h-3.5 w-3.5 text-black stroke-[2.2]" />}
+              <span className="text-black font-semibold">{siteTheme === 'dark' ? 'Dark' : 'Light'}</span>
             </button>
           </div>
           <div className="pt-2 border-t border-[var(--border-subtle)]">
