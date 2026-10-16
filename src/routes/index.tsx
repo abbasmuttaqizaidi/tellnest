@@ -58,6 +58,7 @@ import { getUserRecommendationSignalsServerFn, type UserRecommendationSignals } 
 import { calculateForYouRecommendations } from '../lib/recommendations/engine'
 import { filterAndOrderNewVoicesStories } from '../lib/recommendations/newVoices'
 import { NewVoicesOpportunityModal } from '../components/NewVoicesOpportunityModal'
+import { PublicMobileStories } from '../components/PublicMobileStories'
 import {
   HERO_IMAGE_URL,
   getHeroImageSources,
@@ -81,9 +82,16 @@ import eerieMoodImg from '../assets/moods/Eerie.webp'
 import wittyMoodImg from '../assets/moods/witty.webp'
 
 export const Route = createFileRoute('/')({
-  loader: async () => ({
-    authUser: await getAuthUserServerFn(),
+  validateSearch: (search: Record<string, unknown>) => ({
+    view: (search.view as string) || undefined,
   }),
+  loader: async () => {
+    const authUser = await getAuthUserServerFn()
+    return {
+      authUser,
+      isAuthenticated: Boolean(authUser?.isAuthenticated),
+    }
+  },
   head: () =>
     generateMeta({
       title: 'HatchPen — A Quieter Place for Bolder Stories',
@@ -114,6 +122,54 @@ export const Route = createFileRoute('/')({
 })
 
 function HomePage() {
+  const loaderData = Route.useLoaderData()
+  const search = Route.useSearch()
+  const { isSignedIn, isLoaded } = useUser()
+  const [explicitlyLoggedOut, setExplicitlyLoggedOut] = useState(false)
+  const hadSignedInRef = useRef(false)
+
+  useEffect(() => {
+    if (isSignedIn) {
+      hadSignedInRef.current = true
+    } else if (hadSignedInRef.current && isLoaded && !isSignedIn) {
+      // User was signed in during this client session, but just signed out
+      setExplicitlyLoggedOut(true)
+    }
+  }, [isSignedIn, isLoaded])
+
+  // Explicit query param override for testing / previewing
+  if (search?.view === 'signed-in') {
+    return <LoggedInHome />
+  }
+  if (search?.view === 'public') {
+    return <PublicHome />
+  }
+
+  // 1. If user explicitly signed out in this session, render PublicHome
+  if (explicitlyLoggedOut) {
+    return <PublicHome />
+  }
+
+  // 2. If server determined authenticated session, render LoggedInHome immediately.
+  if (loaderData?.isAuthenticated || loaderData?.authUser?.isAuthenticated) {
+    return <LoggedInHome />
+  }
+
+  // 3. If server was unauthenticated, but user signed in dynamically on client
+  if (isLoaded && isSignedIn) {
+    return <LoggedInHome />
+  }
+
+  // 4. Check for cached session indicator if present
+  if (typeof window !== 'undefined') {
+    try {
+      if (window.localStorage.getItem('hatchpen_has_session') === 'true' && !explicitlyLoggedOut) {
+        return <LoggedInHome />
+      }
+    } catch {}
+  }
+
+  // 5. Default for unauthenticated visitors
   return <PublicHome />
 }
 
@@ -287,7 +343,7 @@ const TESTIMONIALS_DATA = [
 ]
 
 function PublicHome() {
-  const { openAuthModal } = useApp()
+  const { openAuthModal, openPublicWriteModal } = useApp()
   const { isSignedIn } = useUser()
 
   // Single-source hero photograph configuration (src/config/hero.ts)
@@ -340,7 +396,12 @@ function PublicHome() {
   const [activeTestimonialIndex, setActiveTestimonialIndex] = useState(0)
 
   return (
-    <div className="w-full min-h-screen bg-[#FAF7F2] dark:bg-[#0E0F12] text-[#18181B] dark:text-[#F4F4F5] selection:bg-[#C85A32]/20 selection:text-[#C85A32]">
+    <>
+      <PublicMobileStories
+        onOpenAuth={openAuthModal}
+        onOpenWriteModal={openPublicWriteModal}
+      />
+      <div className="hidden md:block w-full min-h-screen bg-[#FAF7F2] dark:bg-[#0E0F12] text-[#18181B] dark:text-[#F4F4F5] selection:bg-[#C85A32]/20 selection:text-[#C85A32]">
       
       {/* =========================================================================
           1. HERO SECTION — Premium Editorial Composition (Full-Bleed Asymmetric)
@@ -381,7 +442,7 @@ function PublicHome() {
               {/* Eyebrow with burnt-orange accent rule */}
               <div className="flex items-center gap-2.5 mb-4 sm:mb-5">
                 <span className="text-[11px] font-bold tracking-[0.22em] uppercase text-[#201F1D] dark:text-[#E4E4E7]">
-                  REAL PEOPLE. ORIGINAL STORIES.
+                  WRITINGS. BEYOND THE HYPE
                 </span>
                 <div className="w-7 h-[2px] bg-[#B94F37] rounded-full" />
               </div>
@@ -414,7 +475,7 @@ function PublicHome() {
                   onClick={(e) => {
                     if (!isSignedIn) {
                       e.preventDefault()
-                      openAuthModal('sign-in')
+                      openPublicWriteModal()
                     }
                   }}
                   className="inline-flex items-center justify-center px-7 py-3.5 rounded-full border border-[#201F1D]/30 hover:border-[#201F1D] bg-transparent hover:bg-[#EAE4D8]/60 dark:hover:bg-neutral-800 text-[#201F1D] dark:text-[#F4F4F5] text-[14px] font-medium transition-all duration-200 no-underline focus:outline-none focus:ring-2 focus:ring-[#B94F37] focus:ring-offset-2"
@@ -929,7 +990,7 @@ function PublicHome() {
                     onClick={(e) => {
                       if (!isSignedIn) {
                         e.preventDefault()
-                        openAuthModal('sign-in')
+                        openPublicWriteModal()
                       }
                     }}
                     className="absolute inset-0 z-20 focus:outline-none"
@@ -1140,7 +1201,7 @@ function PublicHome() {
                 onClick={(e) => {
                   if (!isSignedIn) {
                     e.preventDefault()
-                    openAuthModal('sign-in')
+                    openPublicWriteModal()
                   }
                 }}
                 className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-[#18181B] dark:bg-white text-white dark:text-[#18181B] text-[14px] font-medium hover:opacity-90 transition-all shadow-sm group no-underline mb-10"
@@ -1220,6 +1281,7 @@ function PublicHome() {
       </section>
 
     </div>
+    </>
   )
 }
 
@@ -1722,7 +1784,7 @@ function SignedInHome() {
    ========================================================================== */
 function LoggedInHomeSkeleton() {
   return (
-    <div className="logged-in-home-container min-h-screen py-4 sm:py-6 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-6 sm:space-y-8 animate-pulse">
+    <div className="logged-in-home-container min-h-screen py-6 sm:py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-6 sm:space-y-8 animate-pulse">
       {/* 1. WELCOME BANNER SKELETON */}
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-3 pb-3 sm:pb-4 border-b border-[var(--border-subtle)]">
         <div className="space-y-2">
@@ -1780,6 +1842,8 @@ function LoggedInHomeSkeleton() {
    Enhanced with Quick Book Switcher, Real Chapter Highlights, Adaptive Writer Atelier & Shelf Fallbacks
    ========================================================================== */
 function LoggedInHome() {
+  const searchParams = Route.useSearch()
+  const forcedView = (searchParams as any)?.view
   const { user, isLoaded: isUserLoaded } = useUser()
   const {
     allWorks,
@@ -1797,6 +1861,14 @@ function LoggedInHome() {
   const [isSwitchMenuOpen, setIsSwitchMenuOpen] = useState(false)
   const [recommendationSignals, setRecommendationSignals] = useState<UserRecommendationSignals | null>(null)
   const [isLoadingSignals, setIsLoadingSignals] = useState(true)
+  const forYouCarouselRef = useRef<HTMLDivElement>(null)
+
+  const scrollForYou = (direction: 'left' | 'right') => {
+    if (forYouCarouselRef.current) {
+      const scrollAmount = direction === 'left' ? -380 : 380
+      forYouCarouselRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' })
+    }
+  }
 
   useEffect(() => {
     let isMounted = true
@@ -1916,14 +1988,14 @@ function LoggedInHome() {
   const activeDraft = isAuthor ? writerWorks[0] : null
 
   // Show localized dashboard skeleton while Clerk loads user profile
-  if (!isUserLoaded) {
+  if (!isUserLoaded && !forcedView) {
     return <LoggedInHomeSkeleton />
   }
 
   const activeWorkSlug = activeWork ? getWorkSlug(activeWork) : ''
 
   return (
-    <div className="logged-in-home-container min-h-screen py-3 sm:py-6 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-8 sm:space-y-12">
+    <div className="logged-in-home-container min-h-screen py-6 sm:py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-8 sm:space-y-12">
       {/* 5-Month In-App Opportunity Modal */}
       <NewVoicesOpportunityModal />
 
@@ -1933,258 +2005,229 @@ function LoggedInHome() {
           SECTION 2: PICK UP WHERE YOU LEFT OFF (ASYMMETRIC PRIMARY HERO CARD)
           ========================================================================= */}
       {hasReadingHistory && activeWork ? (
-        <section id="active-novel" className="w-full space-y-6">
+        <section id="active-novel" className="w-full space-y-3">
           {/* Section Header with live status */}
-          <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
-            <div className="flex items-center gap-2.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-[var(--ink-primary)] animate-pulse" />
-              <h3 className="font-serif text-xl sm:text-2xl font-bold text-[var(--ink-primary)] tracking-tight">
+          <div className="flex items-center justify-between pb-2 border-b border-[var(--border-subtle)]">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-[var(--ink-primary)] animate-pulse" />
+              <h3 className="font-serif text-lg sm:text-xl font-bold text-[var(--ink-primary)] tracking-tight">
                 Currently Reading
               </h3>
             </div>
-            <div className="flex items-center gap-3 text-xs font-mono text-[var(--ink-muted)]">
-              <span className="hidden md:inline text-[11px] text-[var(--ink-faint)]">
-                Synchronized across devices
-              </span>
-              <span className="inline-flex items-center gap-1 text-[var(--ink-primary)] font-semibold text-xs bg-[var(--bg-surface)] px-2.5 py-1 rounded-full border border-[var(--border-subtle)]">
-                🔥 Active Reading Session
+            <div className="flex items-center gap-2.5 text-xs font-mono text-[var(--ink-muted)]">
+              {inProgressList.length > 1 && (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsSwitchMenuOpen((prev) => !prev)}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] font-mono text-[11px] font-semibold cursor-pointer shadow-2xs transition-all"
+                  >
+                    <Clock className="h-3 w-3 text-[var(--ink-muted)]" />
+                    <span>Switch Book ({inProgressList.length})</span>
+                    <ChevronRight className={`h-2.5 w-2.5 transition-transform ${isSwitchMenuOpen ? 'rotate-90' : ''}`} />
+                  </button>
+
+                  {isSwitchMenuOpen && (
+                    <div className="absolute right-0 top-full mt-1.5 w-64 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-strong)] shadow-xl p-1.5 z-50 space-y-1">
+                      <div className="px-2 py-1 font-mono text-[9px] uppercase tracking-wider text-[var(--ink-muted)]">
+                        Active Queue Folios
+                      </div>
+                      {inProgressList.map((item) => (
+                        <button
+                          key={item.work.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedHeroWorkId(item.work.id)
+                            setIsSwitchMenuOpen(false)
+                          }}
+                          className={`w-full flex items-center gap-2 p-1.5 rounded-lg text-left text-xs transition-colors cursor-pointer ${
+                            item.work.id === activeWork.id
+                              ? 'bg-[var(--bg-subtle)] font-semibold text-[var(--ink-primary)]'
+                              : 'hover:bg-[var(--bg-subtle)] text-[var(--ink-secondary)]'
+                          }`}
+                        >
+                          <img src={item.work.cover} alt={item.work.title} className="w-7 h-9 object-cover rounded shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="truncate font-serif text-xs">{item.work.title}</p>
+                            <p className="font-mono text-[9.5px] text-[var(--ink-muted)]">
+                              Ch. {item.currentChapter?.number || 1} • {item.progress.progressPercent}%
+                            </p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              <span className="inline-flex items-center gap-1 text-[var(--ink-primary)] font-semibold text-[11px] bg-[var(--bg-surface)] px-2 py-0.5 rounded-full border border-[var(--border-subtle)]">
+                Active Session
               </span>
             </div>
           </div>
 
-          {/* Full-Width Unwrapped Layout */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-10 items-start">
-            
-            {/* Book Cover + Progress Stack (3 cols on desktop) */}
-            <div className="md:col-span-4 lg:col-span-3 flex flex-col sm:flex-row md:flex-col items-center sm:items-start md:items-center gap-5">
+          {/* Compact Card Layout */}
+          <div className="relative overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3.5 sm:p-4 shadow-2xs">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5">
+              
+              {/* Thumbnail Cover */}
               <Link
                 to="/read/$workId/$chapterId"
                 params={{
                   workId: activeWorkSlug,
                   chapterId: activeChapter?.id || 'ch-1',
                 }}
-                className="relative w-48 sm:w-56 md:w-full max-w-[260px] aspect-[2/3] rounded-2xl overflow-hidden shadow-md group no-underline border border-[var(--border-subtle)] bg-[var(--bg-subtle)] shrink-0"
+                className="relative w-20 sm:w-24 aspect-[2/3] rounded-lg overflow-hidden shadow-xs group no-underline border border-[var(--border-subtle)] bg-[var(--bg-subtle)] shrink-0"
               >
                 <img
                   src={activeWork.cover}
                   alt={activeWork.title}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent pointer-events-none" />
-                <div className="absolute bottom-3 left-3 right-3 text-white pointer-events-none">
-                  <span className="font-mono text-[10px] tracking-wider uppercase bg-black/50 backdrop-blur-md px-2.5 py-1 rounded border border-white/20 block truncate">
-                    {activeChapter ? `Ch. ${activeChapter.number}: ${activeChapter.title}` : 'Part I: Prelude'}
-                  </span>
-                </div>
               </Link>
 
-              {/* Progress & Timing */}
-              <div className="w-full flex-1 max-w-[260px] space-y-2">
-                <div className="flex items-center justify-between font-mono text-xs text-[var(--ink-muted)]">
-                  <span>Progress</span>
-                  <span className="font-semibold text-[var(--ink-primary)]">
-                    {progressPercent}% read
-                  </span>
-                </div>
-
-                <div className="w-full h-2 bg-[var(--bg-subtle)] rounded-full overflow-hidden border border-[var(--border-subtle)]">
-                  <div
-                    className="h-full bg-[var(--ink-primary)] rounded-full transition-all duration-500"
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between font-mono text-[11px] text-[var(--ink-faint)]">
-                  <span>~{activeChapter?.readTimeMinutes || 12} min left</span>
-                  <span>Ch. {activeChapter?.number || 1}/{activeWork.chaptersCount}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Narrative Info, Quote & Actions (8-9 cols on desktop) */}
-            <div className="md:col-span-8 lg:col-span-9 flex flex-col justify-between h-full space-y-5">
-              <div className="space-y-4">
-                {/* Genre Badges & Selection Tag */}
-                <div className="flex flex-wrap items-center gap-2">
+              {/* Middle Details & Progress */}
+              <div className="flex-1 min-w-0 space-y-2 w-full">
+                {/* Badges + Author row */}
+                <div className="flex flex-wrap items-center gap-2 text-xs">
                   <Badge variant="subtle" size="sm">
                     {activeWork.genre}
                   </Badge>
-                  <Badge variant="outline" size="sm">
-                    {activeWork.category}
-                  </Badge>
-                  <span className="font-mono text-[11px] text-[var(--ink-muted)] flex items-center gap-1 ml-1">
-                    <Sparkles className="h-3 w-3 text-amber-600 dark:text-amber-400" />
-                    Staff Atelier Selection
+                  <span className="text-[var(--ink-muted)] font-serif text-xs">
+                    by <strong className="text-[var(--ink-primary)] font-medium">{activeWork.author.name}</strong>
+                  </span>
+                  <span className="text-[var(--ink-faint)] hidden md:inline">•</span>
+                  <span className="text-[var(--ink-muted)] font-mono text-[11px] hidden md:inline">
+                    Ch. {activeChapter?.number || 1} of {activeWork.chaptersCount}
                   </span>
                 </div>
 
-                {/* Work Title */}
-                <h2 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-[var(--ink-primary)] tracking-tight leading-[1.15]">
-                  {activeWork.title}
-                </h2>
+                {/* Title */}
+                <Link
+                  to="/works/$workId"
+                  params={{ workId: activeWorkSlug }}
+                  className="block no-underline text-inherit group"
+                >
+                  <h4 className="font-serif text-lg sm:text-xl font-bold text-[var(--ink-primary)] tracking-tight truncate group-hover:underline">
+                    {activeWork.title}
+                  </h4>
+                </Link>
 
-                {/* Metadata Row */}
-                <div className="flex flex-wrap items-center gap-2.5 text-xs text-[var(--ink-muted)] font-serif">
-                  <span>
-                    By <strong className="text-[var(--ink-primary)] font-semibold">{activeWork.author.name}</strong>
-                  </span>
-                  <span>•</span>
-                  <span>{formatViewCount(activeWork.totalReads, true)} Serial Reads</span>
-                  <span>•</span>
-                  <span className="flex items-center gap-1 font-mono text-[11px] text-[var(--ink-primary)] font-semibold">
-                    <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
-                    4.96 rating
-                  </span>
-                </div>
+                {/* Progress Bar + Stats Row */}
+                <div className="space-y-1.5 max-w-lg">
+                  <div className="flex items-center justify-between font-mono text-[11px] text-[var(--ink-muted)]">
+                    <span className="font-medium text-[var(--ink-primary)] truncate max-w-[200px] sm:max-w-xs">
+                      {activeChapter?.title ? `Ch. ${activeChapter.number}: ${activeChapter.title}` : `Chapter ${activeChapter?.number || 1}`}
+                    </span>
+                    <span className="shrink-0 font-semibold text-[var(--ink-primary)]">
+                      {progressPercent}% read
+                    </span>
+                  </div>
 
-                {/* Serial Synopsis */}
-                {activeWork.synopsis && (
-                  <p className="font-serif text-sm sm:text-base text-[var(--ink-secondary)] leading-relaxed line-clamp-3">
-                    {activeWork.synopsis}
-                  </p>
-                )}
-
-                {/* Pull Quote Excerpt (Authentic Highlight) */}
-                <div className="bg-[var(--bg-surface)] p-4 sm:p-5 rounded-2xl border border-[var(--border-subtle)] shadow-xs relative">
-                  <p className="font-serif italic text-sm sm:text-base text-[var(--ink-secondary)] leading-relaxed">
-                    “{activeQuoteExcerpt}”
-                  </p>
-                  <span className="block mt-2.5 font-mono text-[10px] text-[var(--ink-faint)] uppercase tracking-wider">
-                    Bookmarked from Ch. {activeChapter?.number || 1} • {activeChapter?.title || 'Prelude'}
-                  </span>
+                  <div className="w-full h-1.5 bg-[var(--bg-subtle)] rounded-full overflow-hidden border border-[var(--border-subtle)]">
+                    <div
+                      className="h-full bg-[var(--ink-primary)] rounded-full transition-all duration-500"
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* Action Controls & Multi-Book Switcher */}
-              <div className="flex flex-wrap items-center gap-3 pt-2">
+              {/* Action Buttons Right Column */}
+              <div className="flex sm:flex-col items-center sm:items-end gap-2 w-full sm:w-auto shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-[var(--border-subtle)]">
                 <Link
                   to="/read/$workId/$chapterId"
                   params={{
                     workId: activeWorkSlug,
                     chapterId: activeChapter?.id || 'ch-1',
                   }}
-                  className="no-underline"
+                  className="flex-1 sm:flex-initial no-underline w-full sm:w-auto"
                 >
-                  <Button
-                    variant="primary"
-                    size="md"
-                    leftIcon={<Play className="h-3.5 w-3.5 fill-current shrink-0" />}
+                  <button
+                    type="button"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-xs font-semibold hover:opacity-90 transition-opacity shadow-2xs cursor-pointer"
                   >
-                    Resume Chapter {activeChapter?.number || 1}
-                  </Button>
+                    <Play className="h-3 w-3 fill-current shrink-0" />
+                    <span>Resume Ch. {activeChapter?.number || 1}</span>
+                  </button>
                 </Link>
 
-                {/* Quick Active Book Switcher */}
-                {inProgressList.length > 1 && (
-                  <div className="relative">
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Link
+                    to="/works/$workId"
+                    params={{ workId: activeWorkSlug }}
+                    className="no-underline"
+                  >
                     <button
                       type="button"
-                      onClick={() => setIsSwitchMenuOpen((prev) => !prev)}
-                      className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] font-mono text-xs font-semibold cursor-pointer shadow-2xs transition-all"
+                      className="inline-flex items-center justify-center px-3 py-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] text-xs font-mono transition-colors cursor-pointer"
                     >
-                      <Clock className="h-3.5 w-3.5 text-[var(--ink-muted)]" />
-                      <span>Switch Reading ({inProgressList.length})</span>
-                      <ChevronRight className={`h-3 w-3 transition-transform ${isSwitchMenuOpen ? 'rotate-90' : ''}`} />
+                      <span>Chapters</span>
                     </button>
+                  </Link>
 
-                    {isSwitchMenuOpen && (
-                      <div className="absolute left-0 bottom-full mb-2 w-72 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-strong)] shadow-xl p-2 z-50 space-y-1">
-                        <div className="px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-[var(--ink-muted)]">
-                          Active Queue Folios
-                        </div>
-                        {inProgressList.map((item) => (
-                          <button
-                            key={item.work.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedHeroWorkId(item.work.id)
-                              setIsSwitchMenuOpen(false)
-                            }}
-                            className={`w-full flex items-center gap-2.5 p-2 rounded-lg text-left text-xs transition-colors cursor-pointer ${
-                              item.work.id === activeWork.id
-                                ? 'bg-[var(--bg-subtle)] font-semibold text-[var(--ink-primary)]'
-                                : 'hover:bg-[var(--bg-subtle)] text-[var(--ink-secondary)]'
-                            }`}
-                          >
-                            <img src={item.work.cover} alt={item.work.title} className="w-8 h-10 object-cover rounded shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <p className="truncate font-serif">{item.work.title}</p>
-                              <p className="font-mono text-[10px] text-[var(--ink-muted)]">
-                                Ch. {item.currentChapter?.number || 1} • {item.progress.progressPercent}%
-                              </p>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <Link
-                  to="/works/$workId"
-                  params={{ workId: activeWorkSlug }}
-                  className="no-underline"
-                >
-                  <Button variant="outline" size="md">
-                    All {activeWork.chaptersCount} Chapters
-                  </Button>
-                </Link>
-
-                <button
-                  type="button"
-                  onClick={() => toggleSaveWork(activeWork.id)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-2.5 rounded-lg border text-xs font-mono transition-colors cursor-pointer ml-auto ${
-                    isWorkSaved(activeWork.id)
-                      ? 'border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--bg-canvas)] shadow-xs font-semibold'
-                      : 'border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)]'
-                  }`}
-                >
-                  <Bookmark className={`h-3.5 w-3.5 ${isWorkSaved(activeWork.id) ? 'fill-current' : ''}`} />
-                  <span>{isWorkSaved(activeWork.id) ? 'Saved' : 'Save'}</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => toggleSaveWork(activeWork.id)}
+                    className={`inline-flex items-center justify-center p-1.5 rounded-lg border text-xs transition-colors cursor-pointer ${
+                      isWorkSaved(activeWork.id)
+                        ? 'border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)]'
+                        : 'border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
+                    }`}
+                    title={isWorkSaved(activeWork.id) ? 'Saved in library' : 'Save to library'}
+                    aria-label="Bookmark story"
+                  >
+                    <Bookmark className={`h-3.5 w-3.5 ${isWorkSaved(activeWork.id) ? 'fill-current' : ''}`} />
+                  </button>
+                </div>
               </div>
-            </div>
 
+            </div>
           </div>
         </section>
       ) : (
-        /* Optimistic First-Time Reader Onboarding Banner (No specific story mentioned) */
-        <section id="active-novel" className="w-full space-y-6">
-          <div className="pb-3 border-b border-[var(--border-subtle)]">
-            <h3 className="font-serif text-xl sm:text-2xl font-bold text-[var(--ink-primary)] tracking-tight">
-              Read Your First Story
-            </h3>
-          </div>
+        /* Compact First-Time Reader Onboarding Banner */
+        <section id="active-novel" className="w-full">
+          <div className="relative overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 sm:p-5 shadow-2xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className="h-10 w-10 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-subtle)] flex items-center justify-center shrink-0 text-[var(--ink-primary)]">
+                  <BookOpen className="h-4 w-4" />
+                </div>
+                <div className="space-y-0.5 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-serif text-sm sm:text-base font-semibold text-[var(--ink-primary)] tracking-tight">
+                      Read Your First Story
+                    </span>
+                    <span className="font-mono text-[10px] text-[var(--ink-faint)] uppercase tracking-wider hidden sm:inline-block">
+                      • Empty Shelf
+                    </span>
+                  </div>
+                  <p className="font-sans text-xs text-[var(--ink-secondary)]">
+                    Explore original serials below. When you open any chapter, your progress and reading session will appear here.
+                  </p>
+                </div>
+              </div>
 
-          <div className="relative overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--color-surface-container-low)] p-6 sm:p-8 lg:p-10 shadow-xs">
-            <div className="max-w-2xl space-y-4">
-              <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold text-[var(--ink-primary)] tracking-tight leading-snug">
-                Your shelf is empty. Dive into serialized fiction crafted by independent authors.
-              </h2>
-              <p className="font-serif text-sm sm:text-base text-[var(--ink-secondary)] leading-relaxed">
-                Explore original weekly serials across romance, speculative fiction, thriller, and historical drama. When you open any chapter, your progress and reading session will appear right here.
-              </p>
-              
-              <div className="flex flex-wrap items-center gap-3 pt-2">
+              <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-center">
                 <Link
                   to="/discover"
                   className="no-underline"
                 >
                   <Button
                     variant="primary"
-                    size="md"
-                    leftIcon={<BookOpen className="h-4 w-4 fill-current shrink-0" />}
+                    size="sm"
+                    leftIcon={<Compass className="h-3.5 w-3.5 shrink-0" />}
                   >
-                    Browse Stories &amp; Serials
+                    Browse Stories
                   </Button>
                 </Link>
 
                 <a
                   href="#trending-serials"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] font-mono text-xs font-semibold cursor-pointer shadow-2xs transition-all no-underline"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] font-mono text-[11px] font-medium cursor-pointer shadow-2xs transition-colors no-underline"
                 >
-                  <Flame className="h-3.5 w-3.5 text-amber-500" />
-                  <span>See Trending Below</span>
+                  <Flame className="h-3 w-3 text-amber-500" />
+                  <span>Trending ↓</span>
                 </a>
               </div>
             </div>
@@ -2195,7 +2238,7 @@ function LoggedInHome() {
       {/* =========================================================================
           SECTION: FOR YOU RECOMMENDATIONS (PERSONALIZED ADAPTIVE DISCOVERY)
           ========================================================================= */}
-      <section id="for-you" className="w-full space-y-5">
+      <section id="for-you" className="w-full space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-3 border-b border-[var(--border-subtle)]">
           <div className="space-y-1">
             <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] tracking-tight">
@@ -2206,36 +2249,59 @@ function LoggedInHome() {
             </p>
           </div>
 
-          <Link
-            to="/discover"
-            className="font-mono text-xs font-semibold text-[var(--ink-primary)] hover:underline flex items-center gap-1 no-underline"
-          >
-            <span>Explore All Serials</span>
-            <ChevronRight className="h-3.5 w-3.5" />
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => scrollForYou('left')}
+              className="w-8 h-8 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] flex items-center justify-center cursor-pointer transition-colors shadow-2xs"
+              aria-label="Previous recommendations"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollForYou('right')}
+              className="w-8 h-8 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] flex items-center justify-center cursor-pointer transition-colors shadow-2xs"
+              aria-label="Next recommendations"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            <Link
+              to="/discover"
+              className="hidden sm:inline-flex font-mono text-xs font-semibold text-[var(--ink-primary)] hover:underline items-center gap-1 no-underline ml-2"
+            >
+              <span>Explore All</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
         </div>
 
         {isLoadingSignals ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {Array.from({ length: 5 }).map((_, idx) => (
+          <div className="flex items-stretch gap-3 sm:gap-3.5 overflow-hidden py-1">
+            {Array.from({ length: 6 }).map((_, idx) => (
               <div
                 key={`foryou-skeleton-${idx}`}
-                className="aspect-[2/3] rounded-xl bg-[var(--bg-subtle)] animate-pulse border border-[var(--border-subtle)]"
+                className="w-[145px] sm:w-[160px] md:w-[170px] aspect-[2/3] shrink-0 rounded-xl bg-[var(--bg-subtle)] animate-pulse border border-[var(--border-subtle)]"
               />
             ))}
           </div>
         ) : forYouRecommendations.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
-            {forYouRecommendations.map(({ work, explanationLabel }) => {
+          <div
+            ref={forYouCarouselRef}
+            className="flex items-stretch gap-3 sm:gap-3.5 overflow-x-auto scroll-smooth py-1 px-0.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+            style={{ scrollSnapType: 'x mandatory' }}
+          >
+            {forYouRecommendations.map(({ work }) => {
               const wSlug = getWorkSlug(work)
               const saved = isWorkSaved(work.id)
               return (
                 <div
                   key={work.id}
-                  className="rounded-2xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-xs hover:shadow-md transition-all duration-300 flex flex-col overflow-hidden group"
+                  style={{ scrollSnapAlign: 'start' }}
+                  className="w-[145px] sm:w-[160px] md:w-[170px] shrink-0 flex flex-col justify-between rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-xs hover:shadow-md transition-all duration-300 overflow-hidden group"
                 >
                   {/* Cover with badge */}
-                  <div className="relative aspect-[2/3] overflow-hidden bg-[var(--bg-subtle)]">
+                  <div className="relative aspect-[2/3] w-full overflow-hidden bg-[var(--bg-subtle)]">
                     <Link
                       to="/works/$workId"
                       params={{ workId: wSlug }}
@@ -2244,8 +2310,8 @@ function LoggedInHome() {
                       <OptimizedImage
                         src={work.cover}
                         alt={work.title}
-                        width={260}
-                        height={390}
+                        width={200}
+                        height={300}
                         containerClassName="w-full h-full"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
@@ -2255,47 +2321,41 @@ function LoggedInHome() {
                     <button
                       type="button"
                       onClick={() => toggleSaveWork(work.id)}
-                      className="absolute top-2.5 right-2.5 w-8 h-8 rounded-full bg-black/60 backdrop-blur-md text-white flex items-center justify-center hover:bg-black transition-colors cursor-pointer z-10"
+                      className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 backdrop-blur-md text-white flex items-center justify-center hover:bg-black transition-colors cursor-pointer z-10"
                       title={saved ? 'Remove Bookmark' : 'Save to Shelf'}
                     >
-                      <Bookmark className={`h-3.5 w-3.5 ${saved ? 'fill-amber-400 text-amber-400' : ''}`} />
+                      <Bookmark className={`h-3 w-3 ${saved ? 'fill-amber-400 text-amber-400' : ''}`} />
                     </button>
 
                     {/* Chapter count */}
-                    <div className="absolute bottom-2 left-2 bg-black/75 text-white font-mono text-[9px] px-1.5 py-0.5 rounded backdrop-blur-2xs">
+                    <div className="absolute bottom-1.5 left-1.5 bg-black/75 text-white font-mono text-[8px] px-1.5 py-0.5 rounded backdrop-blur-2xs">
                       {work.chaptersCount} Ch
                     </div>
                   </div>
 
                   {/* Card Content */}
-                  <div className="p-3.5 flex-1 flex flex-col justify-between space-y-2.5">
-                    <div className="space-y-1.5">
-                      {/* Reason / Explanation Tag */}
-                      <div className="flex items-center gap-1 font-mono text-[10px] text-amber-600 dark:text-amber-400 truncate">
-                        <Sparkles className="h-2.5 w-2.5 shrink-0" />
-                        <span className="truncate">{explanationLabel}</span>
-                      </div>
-
+                  <div className="p-2.5 sm:p-3 flex-1 flex flex-col justify-between space-y-2">
+                    <div className="space-y-1">
                       <Link
                         to="/works/$workId"
                         params={{ workId: wSlug }}
                         className="block no-underline text-inherit group-hover:underline"
                       >
-                        <h4 className="font-serif text-sm font-bold text-[var(--ink-primary)] leading-snug line-clamp-1">
+                        <h4 className="font-serif text-xs sm:text-[13px] font-bold text-[var(--ink-primary)] leading-tight line-clamp-1">
                           {work.title}
                         </h4>
                       </Link>
 
-                      <div className="flex items-center justify-between font-mono text-[11px] text-[var(--ink-muted)]">
+                      <div className="flex items-center justify-between font-mono text-[10px] text-[var(--ink-muted)]">
                         <span className="truncate">{work.author.name}</span>
-                        <span className="shrink-0 text-[10px] text-[var(--ink-faint)]">
+                        <span className="shrink-0 text-[9px] text-[var(--ink-faint)]">
                           {work.genre}
                         </span>
                       </div>
                     </div>
 
-                    <div className="pt-2 border-t border-[var(--border-subtle)] flex items-center justify-between">
-                      <span className="font-mono text-[10px] text-[var(--ink-faint)]">
+                    <div className="pt-1.5 border-t border-[var(--border-subtle)] flex items-center justify-between text-[10px] font-mono">
+                      <span className="text-[9px] text-[var(--ink-faint)]">
                         {formatViewCount(work.totalReads, true)} reads
                       </span>
 
@@ -2305,9 +2365,9 @@ function LoggedInHome() {
                           workId: wSlug,
                           chapterId: work.chapters?.[0]?.id || 'ch-1',
                         }}
-                        className="inline-flex items-center gap-1 font-mono text-[10px] uppercase font-semibold text-[var(--ink-primary)] hover:underline no-underline"
+                        className="inline-flex items-center gap-0.5 font-mono text-[9px] uppercase font-semibold text-[var(--ink-primary)] hover:underline no-underline"
                       >
-                        Read Ch 1 →
+                        Read →
                       </Link>
                     </div>
                   </div>
@@ -2400,12 +2460,6 @@ function LoggedInHome() {
                   {/* Card Content */}
                   <div className="p-3.5 flex-1 flex flex-col justify-between space-y-2.5">
                     <div className="space-y-1.5">
-                      {/* Debut Tag */}
-                      <div className="flex items-center gap-1 font-mono text-[10px] text-amber-600 dark:text-amber-400 truncate">
-                        <Feather className="h-2.5 w-2.5 shrink-0" />
-                        <span className="truncate">Debut Voice</span>
-                      </div>
-
                       <Link
                         to="/works/$workId"
                         params={{ workId: wSlug }}
@@ -2543,7 +2597,7 @@ function LoggedInHome() {
 
                   {/* Title & Season Info */}
                   <div className="absolute bottom-3 left-4 right-4 text-white">
-                    <span className="font-mono text-[10px] tracking-wider uppercase text-amber-200">
+                    <span className="font-mono text-[10px] tracking-wider uppercase text-white/80">
                       Season 1 • {work.chaptersCount} Chapters
                     </span>
                     <h4 className="font-serif text-lg font-bold text-white leading-snug line-clamp-1 mt-0.5">

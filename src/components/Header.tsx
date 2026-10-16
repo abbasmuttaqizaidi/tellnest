@@ -34,6 +34,7 @@ export default function Header() {
     siteTheme,
     setSiteTheme,
     openAuthModal,
+    openPublicWriteModal,
     customAvatarUrl,
     genres,
     showToast,
@@ -72,30 +73,47 @@ export default function Header() {
   const isEditorMode = currentPath.startsWith('/write/editor')
 
   const isHomePage = currentPath === '/'
+  const search = (routerState.location.search || {}) as Record<string, any>
+  const searchView = search?.view || (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') : undefined)
+
+  const isPublicHome = React.useMemo(() => {
+    if (currentPath !== '/') return false
+    if (searchView === 'public') return true
+    if (searchView === 'signed-in') return false
+    if (isSignedIn) return false
+    if (typeof window !== 'undefined' && window.localStorage.getItem('hatchpen_has_session') === 'true') {
+      return false
+    }
+    return true
+  }, [currentPath, searchView, isSignedIn])
+
   const [hasScrolled, setHasScrolled] = useState(false)
 
   React.useEffect(() => {
-    if (!isHomePage) {
-      setHasScrolled(false)
-      return
-    }
     const handleScroll = () => {
-      setHasScrolled(window.scrollY > 40)
+      setHasScrolled(window.scrollY > 15)
     }
     handleScroll()
     window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
-  }, [isHomePage])
+  }, [])
 
   if (isReaderMode || isEditorMode) {
     return null
   }
 
-  const headerClasses = isHomePage
+  // Dual navigation styling:
+  // 1. Public Home: Atmospheric ivory hero background with transparent top and frosted ivory/dark glass on scroll
+  // 2. Logged-in / App: Clean monochrome black & white palette. Sticky top-0 in document flow (never overlaps content).
+  //    - Top state: crisp white/black background with subtle border
+  //    - Scrolled state: frosted white/black glass (bg-white/95 dark:bg-black/95) with subtle elevation shadow
+  const headerClasses = isPublicHome
     ? hasScrolled
-      ? 'fixed top-0 left-0 right-0 z-40 w-full border-b border-[#D7CFC3]/50 dark:border-neutral-800 bg-[#F2EDE3]/90 dark:bg-[#121316]/90 backdrop-blur-md shadow-xs transition-all duration-200'
-      : 'absolute top-0 left-0 right-0 z-40 w-full border-b border-transparent bg-transparent transition-all duration-200'
-    : 'sticky top-0 z-40 w-full border-b border-[var(--border-subtle)] bg-[var(--bg-canvas)]/95 backdrop-blur-md transition-colors duration-150'
+      ? 'hidden md:block fixed top-0 left-0 right-0 z-40 w-full border-b border-[#D7CFC3]/50 dark:border-neutral-800 bg-[#F2EDE3]/90 dark:bg-[#121316]/90 backdrop-blur-md shadow-xs transition-all duration-200'
+      : 'hidden md:block absolute top-0 left-0 right-0 z-40 w-full border-b border-transparent bg-transparent transition-all duration-200'
+    : hasScrolled
+      ? 'sticky top-0 z-40 w-full border-b border-neutral-200/90 dark:border-neutral-800 bg-white/95 dark:bg-black/95 backdrop-blur-md shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] dark:shadow-[0_1px_3px_0_rgba(0,0,0,0.4)] transition-all duration-200'
+      : 'sticky top-0 z-40 w-full border-b border-neutral-200/60 dark:border-neutral-800/60 bg-white/90 dark:bg-black/90 backdrop-blur-sm transition-all duration-200'
 
   return (
     <header className={headerClasses}>
@@ -127,7 +145,7 @@ export default function Header() {
                 onClick={(e) => {
                   if (!isSignedIn) {
                     e.preventDefault()
-                    openAuthModal('sign-in')
+                    openPublicWriteModal()
                   }
                 }}
                 className={`px-3 py-1.5 rounded transition-colors hover:text-[var(--ink-primary)] ${
@@ -136,18 +154,7 @@ export default function Header() {
               >
                 Write
               </Link>
-              <Link
-                to="/discover"
-                className="px-3 py-1.5 rounded transition-colors hover:text-[var(--ink-primary)]"
-              >
-                Community
-              </Link>
-              <a
-                href="#about"
-                className="px-3 py-1.5 rounded transition-colors hover:text-[var(--ink-primary)]"
-              >
-                About
-              </a>
+
               {isSignedIn && (
                 <>
                   <Link
@@ -181,42 +188,44 @@ export default function Header() {
         {/* Right Actions & Responsive Expansion Search */}
         <div className="flex items-center gap-1.5 sm:gap-3 flex-1 justify-end min-w-0">
           
-          {/* Responsive Expansion OmniSearch on Nav Menu */}
-          <div className={isNavSearchOpen ? 'flex-1 max-w-xs sm:max-w-sm md:max-w-md w-full min-w-0' : ''}>
-            <OmniSearch
-              expandMode="responsive"
-              size="sm"
-              iconButtonClassName="bg-white text-black border border-neutral-200/80 shadow-xs hover:bg-neutral-100 hover:text-black"
-              value={navSearchQuery}
-              onChange={setNavSearchQuery}
-              isExpanded={isNavSearchOpen}
-              onExpand={() => setIsNavSearchOpen(true)}
-              onCollapse={() => setIsNavSearchOpen(false)}
-              onSubmit={(q) => {
-                const trimmed = q.trim()
-                if (!trimmed) return
-                if (trimmed.length < 5) {
-                  showToast('Please enter at least 5 letters to search.')
-                  return
-                }
-                navigate({
-                  to: '/search',
-                  search: {
-                    q: trimmed,
-                  } as any,
-                })
-                setIsNavSearchOpen(false)
-              }}
-              shortcut={false}
-              showShortcut={false}
-              placeholders={[
-                "Search manuscripts...",
-                "Search 'A Winter in Kyoto'...",
-                "Search 'Elena Vance'...",
-                "Search by theme or tag...",
-              ]}
-            />
-          </div>
+          {/* Responsive Expansion OmniSearch on Nav Menu (Hidden on public homepage) */}
+          {!isPublicHome && (
+            <div className={isNavSearchOpen ? 'flex-1 max-w-xs sm:max-w-sm md:max-w-md w-full min-w-0' : ''}>
+              <OmniSearch
+                expandMode="responsive"
+                size="sm"
+                iconButtonClassName="bg-white text-black border border-neutral-200/80 shadow-xs hover:bg-neutral-100 hover:text-black"
+                value={navSearchQuery}
+                onChange={setNavSearchQuery}
+                isExpanded={isNavSearchOpen}
+                onExpand={() => setIsNavSearchOpen(true)}
+                onCollapse={() => setIsNavSearchOpen(false)}
+                onSubmit={(q) => {
+                  const trimmed = q.trim()
+                  if (!trimmed) return
+                  if (trimmed.length < 5) {
+                    showToast('Please enter at least 5 letters to search.')
+                    return
+                  }
+                  navigate({
+                    to: '/search',
+                    search: {
+                      q: trimmed,
+                    } as any,
+                  })
+                  setIsNavSearchOpen(false)
+                }}
+                shortcut={false}
+                showShortcut={false}
+                placeholders={[
+                  "Search manuscripts...",
+                  "Search 'A Winter in Kyoto'...",
+                  "Search 'Elena Vance'...",
+                  "Search by theme or tag...",
+                ]}
+              />
+            </div>
+          )}
 
           {/* Prominent Write CTA (Only when signed in) */}
           {isSignedIn && (
@@ -244,19 +253,21 @@ export default function Header() {
           )}
 
 
-          {/* Dark Mode Quick Toggle */}
-          <button
-            onClick={() => setSiteTheme(siteTheme === 'dark' ? 'light' : 'dark')}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-black border border-neutral-200/80 shadow-xs hover:bg-neutral-100 transition-all flex-shrink-0 cursor-pointer"
-            title={mounted && siteTheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-            aria-label="Toggle dark mode"
-          >
-            {mounted && siteTheme === 'dark' ? (
-              <Sun className="h-4 w-4 text-black stroke-[2.2]" />
-            ) : (
-              <Moon className="h-4 w-4 text-black stroke-[2.2]" />
-            )}
-          </button>
+          {/* Dark Mode Quick Toggle (Hidden on public homepage) */}
+          {!isPublicHome && (
+            <button
+              onClick={() => setSiteTheme(siteTheme === 'dark' ? 'light' : 'dark')}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-black dark:bg-neutral-900 dark:text-white border border-neutral-200/80 dark:border-neutral-800 shadow-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all flex-shrink-0 cursor-pointer"
+              title={mounted && siteTheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              aria-label="Toggle dark mode"
+            >
+              {mounted && siteTheme === 'dark' ? (
+                <Sun className="h-4 w-4 text-white stroke-[2.2]" />
+              ) : (
+                <Moon className="h-4 w-4 text-black stroke-[2.2]" />
+              )}
+            </button>
+          )}
           {!isLoaded ? (
             <div className="h-8 w-8 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-subtle)] animate-pulse shrink-0" />
           ) : isSignedIn ? (
@@ -386,14 +397,14 @@ export default function Header() {
             <div className="flex items-center gap-2 sm:gap-3">
               <button
                 type="button"
-                onClick={() => openAuthModal('sign-in')}
+                onClick={() => openAuthModal()}
                 className="inline-flex items-center justify-center rounded-full bg-white text-[#18181B] border border-neutral-200/80 px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-[13px] font-medium hover:bg-neutral-100 transition-all shadow-xs cursor-pointer"
               >
                 <span>Log in</span>
               </button>
               <button
                 type="button"
-                onClick={() => openAuthModal('sign-up')}
+                onClick={() => openAuthModal()}
                 className="inline-flex items-center gap-1.5 rounded-full bg-[#18181B] dark:bg-white text-white dark:text-[#18181B] px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-[13px] font-medium hover:opacity-90 transition-all shadow-xs cursor-pointer"
               >
                 <span>Join HatchPen</span>
@@ -430,13 +441,27 @@ export default function Header() {
           >
             Discover
           </Link>
-          <Link
-            to="/search"
-            onClick={() => setMobileMenuOpen(false)}
-            className="block py-1.5 text-[var(--ink-secondary)] hover:text-[var(--ink-primary)]"
-          >
-            Search
-          </Link>
+          {!isPublicHome && (
+            <Link
+              to="/search"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block py-1.5 text-[var(--ink-secondary)] hover:text-[var(--ink-primary)]"
+            >
+              Search
+            </Link>
+          )}
+          {!isSignedIn && (
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(false)
+                openPublicWriteModal()
+              }}
+              className="block w-full text-left py-1.5 text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] cursor-pointer"
+            >
+              Write
+            </button>
+          )}
           {isSignedIn && (
             <>
               <div className="flex items-center gap-3 py-2 px-2.5 my-1 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)]">
@@ -501,18 +526,20 @@ export default function Header() {
               </Link>
             </>
           )}
-          {/* Mobile Theme Toggle */}
-          <div className="pt-2 border-t border-[var(--border-subtle)] flex items-center justify-between py-1.5">
-            <span className="text-xs text-[var(--ink-secondary)]">Theme Appearance</span>
-            <button
-              type="button"
-              onClick={() => setSiteTheme(siteTheme === 'dark' ? 'light' : 'dark')}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white text-black border border-neutral-200 text-xs font-mono shadow-xs cursor-pointer hover:bg-neutral-100 transition-colors"
-            >
-              {siteTheme === 'dark' ? <Sun className="h-3.5 w-3.5 text-black stroke-[2.2]" /> : <Moon className="h-3.5 w-3.5 text-black stroke-[2.2]" />}
-              <span className="text-black font-semibold">{siteTheme === 'dark' ? 'Dark' : 'Light'}</span>
-            </button>
-          </div>
+          {/* Mobile Theme Toggle (Hidden on public homepage) */}
+          {!isPublicHome && (
+            <div className="pt-2 border-t border-[var(--border-subtle)] flex items-center justify-between py-1.5">
+              <span className="text-xs text-[var(--ink-secondary)]">Theme Appearance</span>
+              <button
+                type="button"
+                onClick={() => setSiteTheme(siteTheme === 'dark' ? 'light' : 'dark')}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white text-black border border-neutral-200 text-xs font-mono shadow-xs cursor-pointer hover:bg-neutral-100 transition-colors"
+              >
+                {siteTheme === 'dark' ? <Sun className="h-3.5 w-3.5 text-black stroke-[2.2]" /> : <Moon className="h-3.5 w-3.5 text-black stroke-[2.2]" />}
+                <span className="text-black font-semibold">{siteTheme === 'dark' ? 'Dark' : 'Light'}</span>
+              </button>
+            </div>
+          )}
           <div className="pt-2 border-t border-[var(--border-subtle)]">
             {!isSignedIn ? (
               <button

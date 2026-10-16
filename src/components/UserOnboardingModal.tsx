@@ -228,6 +228,7 @@ export function UserOnboardingModal() {
       localStorage.setItem(`hatchpen_onboarding_completed_${user.id}`, 'true')
       if (typeof window !== 'undefined') {
         sessionStorage.removeItem('hatchpen_just_signed_up_google')
+        window.dispatchEvent(new CustomEvent('hatchpen:onboarding-completed'))
       }
       localStorage.setItem(
         `hatchpen_user_profile_data_${user.id}`,

@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { useUser } from '@clerk/react'
 import { useApp } from '../context/AppContext'
 import EmptyState from '../components/EmptyState'
@@ -471,7 +471,7 @@ function WorkDetailPage() {
               className="inline-flex w-full sm:w-auto items-center justify-center gap-3 rounded-lg border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-8 py-3.5 text-sm font-semibold text-[var(--accent-contrast)] hover:opacity-90 transition-opacity no-underline shadow-sm"
             >
               <BookOpen className="h-4 w-4" />
-              <span>
+              <span suppressHydrationWarning>
                 {progress
                   ? `CONTINUE READING (Chapter ${progress.chapterNumber} • ${progress.progressPercent}%)`
                   : 'START READING CHAPTER 01'}

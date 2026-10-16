@@ -329,6 +329,15 @@ test('New Voices Popup Invariants: Triggers for undismissed eligible users; supp
   const expiredCreatedAt = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString()
   const freshStorage = new Map()
   assert.equal(shouldShowPopup('older-writer', expiredCreatedAt, freshStorage), false)
+
+  // 6. Onboarding Collision Guard: User eligible but onboarding pending -> Suppressed to avoid stacked modals
+  function shouldShowWithOnboarding(uId, createdAt, storage, isOnboardingPending) {
+    if (!shouldShowPopup(uId, createdAt, storage)) return false
+    if (isOnboardingPending) return false
+    return true
+  }
+  assert.equal(shouldShowWithOnboarding(userId, authorCreatedAt, new Map(), true), false)
+  assert.equal(shouldShowWithOnboarding(userId, authorCreatedAt, new Map(), false), true)
 })
 
 test('Publishing Safety: Initial publish sets published_at and last_published_at; republishing preserves original published_at', async () => {

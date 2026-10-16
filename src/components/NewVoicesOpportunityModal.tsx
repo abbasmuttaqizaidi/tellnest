@@ -5,6 +5,62 @@ import { Modal, Button } from '../design-system'
 import { PenLine } from 'lucide-react'
 import { isNewVoiceEligible, calculateFiveMonthExpiration } from '../lib/recommendations/newVoices'
 
+/**
+ * Evaluates whether the New Voices Showcase modal should trigger for a user.
+ * Guards against showing if:
+ * 1. User is not loaded, not signed in, or missing id.
+ * 2. User account is older than 5 calendar months.
+ * 3. User has already dismissed this popup.
+ * 4. User is currently undergoing onboarding (to prevent modal collision).
+ */
+export function shouldShowNewVoicesModal({
+  user,
+  isLoaded,
+  isSignedIn,
+}: {
+  user: any
+  isLoaded: boolean
+  isSignedIn: boolean
+}): boolean {
+  if (!isLoaded || !isSignedIn || !user?.id) {
+    return false
+  }
+
+  if (!isNewVoiceEligible(user.createdAt)) {
+    return false
+  }
+
+  try {
+    // 1. Check if already dismissed
+    const storageKey = `hatchpen_new_voices_popup_dismissed_${user.id}`
+    if (localStorage.getItem(storageKey)) {
+      return false
+    }
+
+    // 2. Onboarding collision guard: If user just signed up or onboarding is pending, suppress
+    if (typeof window !== 'undefined' && sessionStorage.getItem('hatchpen_just_signed_up_google') === 'true') {
+      return false
+    }
+
+    const isGoogleUser = user.externalAccounts?.some(
+      (acc: any) => acc.provider === 'google' || acc.provider === 'oauth_google'
+    )
+    if (isGoogleUser) {
+      const onboardingKey = `hatchpen_onboarding_completed_${user.id}`
+      const clerkMeta = (user.publicMetadata as any) || {}
+      const hasCompletedOnboarding =
+        localStorage.getItem(onboardingKey) === 'true' || clerkMeta.onboardingCompleted
+      if (!hasCompletedOnboarding) {
+        return false
+      }
+    }
+
+    return true
+  } catch {
+    return false
+  }
+}
+
 export function NewVoicesOpportunityModal() {
   const [isOpen, setIsOpen] = useState(false)
   const [expirationText, setExpirationText] = useState<string | null>(null)
@@ -12,21 +68,15 @@ export function NewVoicesOpportunityModal() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (!isLoaded || !isSignedIn || !user?.id) {
-      return
-    }
+    let timer: NodeJS.Timeout | null = null
 
-    if (!isNewVoiceEligible(user.createdAt)) {
-      return
-    }
-
-    try {
-      const storageKey = `hatchpen_new_voices_popup_dismissed_${user.id}`
-      if (localStorage.getItem(storageKey)) {
+    const evaluateAndSchedule = () => {
+      if (!shouldShowNewVoicesModal({ user, isLoaded, isSignedIn })) {
+        setIsOpen(false)
         return
       }
 
-      if (user.createdAt) {
+      if (user?.createdAt) {
         const expiration = calculateFiveMonthExpiration(user.createdAt)
         setExpirationText(
           expiration.toLocaleDateString(undefined, {
@@ -37,11 +87,29 @@ export function NewVoicesOpportunityModal() {
         )
       }
 
-      setIsOpen(true)
-    } catch {
-      // Graceful fallback if localStorage is blocked
+      // Subtle 800ms delay so dashboard finishes settling before showing modal
+      timer = setTimeout(() => {
+        setIsOpen(true)
+      }, 800)
     }
-  }, [isLoaded, isSignedIn, user?.id, user?.createdAt])
+
+    evaluateAndSchedule()
+
+    // Listen for onboarding completion event so modal can safely present after onboarding finishes
+    const handleOnboardingComplete = () => {
+      evaluateAndSchedule()
+    }
+    if (typeof window !== 'undefined') {
+      window.addEventListener('hatchpen:onboarding-completed', handleOnboardingComplete)
+    }
+
+    return () => {
+      if (timer) clearTimeout(timer)
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('hatchpen:onboarding-completed', handleOnboardingComplete)
+      }
+    }
+  }, [isLoaded, isSignedIn, user, user?.id, user?.createdAt])
 
   const handleDismiss = () => {
     try {

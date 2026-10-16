@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import ReaderSettingsModal from '../components/ReaderSettingsModal'
 import ChapterDrawer from '../components/ChapterDrawer'
@@ -316,14 +316,14 @@ function ReaderPage() {
   // =========================================================================
   // RELIABLE ACTIVE READING BEHAVIOR TRACKING (Visibility, Heartbeat & Sentinel)
   // =========================================================================
-  const maxProgressRef = React.useRef(0)
-  const currentScrollRef = React.useRef(0)
-  const accumulatedActiveSecondsRef = React.useRef(0)
-  const lastActiveTimestampRef = React.useRef<number | null>(null)
-  const isDocumentVisibleRef = React.useRef(typeof document !== 'undefined' ? document.visibilityState === 'visible' : true)
-  const endMarkerReachedRef = React.useRef(false)
-  const isCompletedRef = React.useRef(false)
-  const chapterEndSentinelRef = React.useRef<HTMLDivElement | null>(null)
+  const maxProgressRef = useRef(0)
+  const currentScrollRef = useRef(0)
+  const accumulatedActiveSecondsRef = useRef(0)
+  const lastActiveTimestampRef = useRef<number | null>(null)
+  const isDocumentVisibleRef = useRef(typeof document !== 'undefined' ? document.visibilityState === 'visible' : true)
+  const endMarkerReachedRef = useRef(false)
+  const isCompletedRef = useRef(false)
+  const chapterEndSentinelRef = useRef<HTMLDivElement | null>(null)
 
   // Track scroll progress for reading bar and track maximum scroll reached
   useEffect(() => {

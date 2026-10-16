@@ -6,6 +6,7 @@ import Footer from '../components/Footer'
 import Toast from '../components/Toast'
 import { ClerkSync } from '../components/ClerkSync'
 import { AuthModal } from '../components/AuthModal'
+import { PublicWriteModal } from '../components/PublicWriteModal'
 import { UserOnboardingModal } from '../components/UserOnboardingModal'
 import { AppProvider } from '../context/AppContext'
 
@@ -163,7 +164,7 @@ export const Route = createRootRoute({
       },
       {
         rel: 'stylesheet',
-        href: 'https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap',
+        href: 'https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Instrument+Serif:ital@0;1&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap',
       },
       {
         rel: 'stylesheet',
@@ -230,6 +231,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
     <AppProvider>
       <ClerkSync />
       <AuthModal />
+      <PublicWriteModal />
       <UserOnboardingModal />
       <Header />
       <main className="flex-1 w-full max-w-full overflow-x-hidden pb-16 md:pb-0 bg-[var(--bg-canvas)]">
@@ -244,6 +246,14 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   const bodyContent = CLERK_PUBLISHABLE_KEY ? (
     <ClerkProvider
       publishableKey={CLERK_PUBLISHABLE_KEY}
+      signInForceRedirectUrl="/"
+      signUpForceRedirectUrl="/"
+      signInFallbackRedirectUrl="/"
+      signUpFallbackRedirectUrl="/"
+      afterSignInUrl="/"
+      afterSignUpUrl="/"
+      signInUrl="/"
+      signUpUrl="/"
       appearance={{
         variables: {
           colorPrimary: '#010611',

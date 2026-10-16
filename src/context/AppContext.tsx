@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import {
   WORKS,
   AUTHORS,
@@ -125,6 +125,11 @@ interface AppContextType {
   openAuthModal: (returnUrl?: string) => void
   closeAuthModal: () => void
   authReturnUrl: string | null
+
+  // Public Write Modal
+  isPublicWriteModalOpen: boolean
+  openPublicWriteModal: () => void
+  closePublicWriteModal: () => void
 
   // Admin work injection & Database Sync
   addAdminPostedWork: (work: Work) => void
@@ -616,13 +621,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [authReturnUrl, setAuthReturnUrl] = useState<string | null>(null)
 
   const openAuthModal = (returnUrl?: string) => {
-    if (returnUrl) setAuthReturnUrl(returnUrl)
+    if (
+      returnUrl &&
+      returnUrl !== 'sign-in' &&
+      returnUrl !== 'sign-up' &&
+      returnUrl !== '/sign-in' &&
+      returnUrl !== '/sign-up' &&
+      !returnUrl.startsWith('/sign-in') &&
+      !returnUrl.startsWith('/sign-up') &&
+      !returnUrl.startsWith('/sso-callback')
+    ) {
+      setAuthReturnUrl(returnUrl.startsWith('/') ? returnUrl : `/${returnUrl}`)
+    } else {
+      setAuthReturnUrl('/')
+    }
     setIsAuthModalOpen(true)
   }
 
   const closeAuthModal = () => {
     setIsAuthModalOpen(false)
+    setAuthReturnUrl(null)
   }
+
+  const [isPublicWriteModalOpen, setIsPublicWriteModalOpen] = useState(false)
+  const openPublicWriteModal = () => setIsPublicWriteModalOpen(true)
+  const closePublicWriteModal = () => setIsPublicWriteModalOpen(false)
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -1489,6 +1512,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         openAuthModal,
         closeAuthModal,
         authReturnUrl,
+        isPublicWriteModalOpen,
+        openPublicWriteModal,
+        closePublicWriteModal,
         addAdminPostedWork,
         addAdminPostedChapter,
         reloadWorksFromDb

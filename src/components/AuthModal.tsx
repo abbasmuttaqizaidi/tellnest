@@ -42,84 +42,113 @@ export function AuthModal() {
 
   if (!isAuthModalOpen) return null
 
+  const sanitizeTargetPath = (url?: string | null): string => {
+    if (!url) return '/'
+    const trimmed = url.trim()
+    if (
+      !trimmed ||
+      trimmed === 'sign-in' ||
+      trimmed === 'sign-up' ||
+      trimmed === '/sign-in' ||
+      trimmed === '/sign-up' ||
+      trimmed.startsWith('/sign-in') ||
+      trimmed.startsWith('/sign-up') ||
+      trimmed.startsWith('/sso-callback')
+    ) {
+      return '/'
+    }
+    return trimmed.startsWith('/') ? trimmed : `/${trimmed}`
+  }
+
   const handleGoogleLogin = async () => {
     setIsGoogleLoading(true)
-    const targetUrl = authReturnUrl || '/'
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'
+    const targetPath = sanitizeTargetPath(authReturnUrl)
+    const redirectUrl = new URL('/sso-callback', origin).toString()
+    const redirectUrlComplete = new URL(targetPath, origin).toString()
 
     try {
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('hatchpen_just_signed_up_google', 'true')
       }
-      // 1. Wait briefly for Clerk to finish loading if needed
-      if (!clerk.loaded) {
+
+      // 1. Ensure Clerk is fully loaded before invoking OAuth
+      const clerkObj = typeof window !== 'undefined' ? (window as any).Clerk : null
+      if (!clerk.loaded && !clerkObj?.loaded) {
         let attempts = 0
-        while (!clerk.loaded && attempts < 10) {
-          await new Promise((resolve) => setTimeout(resolve, 150))
+        while (!clerk.loaded && !clerkObj?.loaded && attempts < 25) {
+          await new Promise((resolve) => setTimeout(resolve, 100))
           attempts++
         }
       }
 
-      // 2. Try the modern Signal API (signIn.sso)
-      if (signIn && typeof (signIn as any).sso === 'function') {
-        const res = await (signIn as any).sso({
-          strategy: 'oauth_google',
-          redirectUrl: targetUrl,
-          redirectCallbackUrl: '/sso-callback',
-          oidcPrompt: 'select_account',
-        })
-        if (!res?.error) return
-        console.warn('signIn.sso reported error, trying signUp.sso fallback:', res.error)
-      }
+      const client = clerk.client || (typeof window !== 'undefined' ? (window as any).Clerk?.client : null)
 
-      // 3. Try signUp.sso if signIn.sso returned an error or is unavailable
-      if (signUp && typeof (signUp as any).sso === 'function') {
-        const res = await (signUp as any).sso({
+      // 2. Direct signIn.authenticateWithRedirect (primary standard OAuth route)
+      if (signIn && typeof signIn.authenticateWithRedirect === 'function') {
+        await signIn.authenticateWithRedirect({
           strategy: 'oauth_google',
-          redirectUrl: targetUrl,
-          redirectCallbackUrl: '/sso-callback',
-          oidcPrompt: 'select_account',
-        })
-        if (!res?.error) return
-        console.warn('signUp.sso reported error:', res.error)
-      }
-
-      // 4. Try classic Clerk client authenticateWithRedirect (clerk.client.signIn)
-      const clientSignIn = clerk.client?.signIn || (typeof window !== 'undefined' ? (window as any).Clerk?.client?.signIn : null)
-      if (clientSignIn && typeof clientSignIn.authenticateWithRedirect === 'function') {
-        await clientSignIn.authenticateWithRedirect({
-          strategy: 'oauth_google',
-          redirectUrl: '/sso-callback',
-          redirectUrlComplete: targetUrl,
-          oidcPrompt: 'select_account',
+          redirectUrl,
+          redirectUrlComplete,
         })
         return
       }
 
-      // 5. Try classic Clerk client authenticateWithRedirect (clerk.client.signUp)
-      const clientSignUp = clerk.client?.signUp || (typeof window !== 'undefined' ? (window as any).Clerk?.client?.signUp : null)
-      if (clientSignUp && typeof clientSignUp.authenticateWithRedirect === 'function') {
-        await clientSignUp.authenticateWithRedirect({
+      // 3. Fallback: client.signIn.authenticateWithRedirect
+      if (client?.signIn && typeof client.signIn.authenticateWithRedirect === 'function') {
+        await client.signIn.authenticateWithRedirect({
           strategy: 'oauth_google',
-          redirectUrl: '/sso-callback',
-          redirectUrlComplete: targetUrl,
-          oidcPrompt: 'select_account',
+          redirectUrl,
+          redirectUrlComplete,
         })
         return
       }
 
-      // 6. Graceful fallback to openSignIn
-      clerk.openSignIn({
-        fallbackRedirectUrl: '/sso-callback',
-        forceRedirectUrl: '/sso-callback',
-      })
+      // 4. Fallback: signUp.authenticateWithRedirect
+      if (signUp && typeof signUp.authenticateWithRedirect === 'function') {
+        await signUp.authenticateWithRedirect({
+          strategy: 'oauth_google',
+          redirectUrl,
+          redirectUrlComplete,
+        })
+        return
+      }
+
+      // 5. Fallback: client.signUp.authenticateWithRedirect
+      if (client?.signUp && typeof client.signUp.authenticateWithRedirect === 'function') {
+        await client.signUp.authenticateWithRedirect({
+          strategy: 'oauth_google',
+          redirectUrl,
+          redirectUrlComplete,
+        })
+        return
+      }
+
+      throw new Error('Clerk OAuth redirect handler is unavailable.')
     } catch (err: any) {
-      console.error('All OAuth redirect attempts failed:', err)
+      console.error('[Google OAuth] Direct redirect failed, attempting signUp fallback:', err)
+      // Retry via signUp if signIn failed due to new user account
       try {
-        clerk.openSignIn({
-          fallbackRedirectUrl: '/sso-callback',
-          forceRedirectUrl: '/sso-callback',
-        })
-      } catch (e) {}
+        const client = clerk.client || (typeof window !== 'undefined' ? (window as any).Clerk?.client : null)
+        if (signUp && typeof signUp.authenticateWithRedirect === 'function') {
+          await signUp.authenticateWithRedirect({
+            strategy: 'oauth_google',
+            redirectUrl,
+            redirectUrlComplete,
+          })
+          return
+        }
+        if (client?.signUp && typeof client.signUp.authenticateWithRedirect === 'function') {
+          await client.signUp.authenticateWithRedirect({
+            strategy: 'oauth_google',
+            redirectUrl,
+            redirectUrlComplete,
+          })
+          return
+        }
+      } catch (fallbackErr) {
+        console.error('[Google OAuth] Fallback signUp redirect also failed:', fallbackErr)
+      }
     } finally {
       setIsGoogleLoading(false)
     }
@@ -133,6 +162,9 @@ export function AuthModal() {
       }}
     >
       <div className="relative w-full max-w-sm rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 shadow-2xl transition-all">
+        {/* Clerk Smart Captcha anchor element */}
+        <div id="clerk-captcha" />
+
         {/* Close Button */}
         <button
           type="button"
@@ -212,10 +244,10 @@ export function AuthModal() {
             <div className="pt-1 animate-in fade-in duration-200">
               <SignIn
                 routing="virtual"
-                fallbackRedirectUrl={authReturnUrl || '/'}
-                forceRedirectUrl={authReturnUrl || '/'}
-                signUpFallbackRedirectUrl={authReturnUrl || '/'}
-                signUpForceRedirectUrl={authReturnUrl || '/'}
+                fallbackRedirectUrl={sanitizeTargetPath(authReturnUrl)}
+                forceRedirectUrl={sanitizeTargetPath(authReturnUrl)}
+                signUpFallbackRedirectUrl={sanitizeTargetPath(authReturnUrl)}
+                signUpForceRedirectUrl={sanitizeTargetPath(authReturnUrl)}
                 appearance={{
                   layout: {
                     unsafe_disableDevelopmentModeWarnings: true,

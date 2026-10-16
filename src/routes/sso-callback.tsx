@@ -1,5 +1,6 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { AuthenticateWithRedirectCallback } from '@clerk/react'
+import { useEffect } from 'react'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { AuthenticateWithRedirectCallback, useUser } from '@clerk/react'
 import { Loader2 } from 'lucide-react'
 import { HatchpenLogo } from '../components/HatchpenLogo'
 import { generateMeta } from '../lib/seo'
@@ -14,6 +15,16 @@ export const Route = createFileRoute('/sso-callback')({
 })
 
 export default function SSOCallbackPage() {
+  const navigate = useNavigate()
+  const { isLoaded, isSignedIn } = useUser()
+
+  useEffect(() => {
+    // Once Clerk completes session establishment, immediately navigate to home
+    if (isLoaded && isSignedIn) {
+      navigate({ to: '/' })
+    }
+  }, [isLoaded, isSignedIn, navigate])
+
   return (
     <div className="fixed inset-0 z-50 bg-white dark:bg-[#111722] flex flex-col items-center justify-center px-6">
       {/* ─── Our Custom Branded Loader ─── */}
@@ -43,6 +54,9 @@ export default function SSOCallbackPage() {
         signUpForceRedirectUrl="/"
         signInFallbackRedirectUrl="/"
         signUpFallbackRedirectUrl="/"
+        continueSignUpUrl="/"
+        signInUrl="/"
+        signUpUrl="/"
       />
     </div>
   )

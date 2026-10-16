@@ -1,3 +1,4 @@
+import React, { useState } from 'react'
 import { INITIAL_COMMENTS } from '../data/mockData'
 import type { CommentItem } from '../data/mockData'
 import { Heart, Reply, Flag, Trash2, Send, CornerDownRight } from 'lucide-react'
