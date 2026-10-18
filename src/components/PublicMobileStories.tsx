@@ -4,8 +4,20 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { X, Compass, PenLine, ChevronRight, ArrowLeft, ArrowRight, Dices, Sparkles, BookOpen, Bookmark } from 'lucide-react'
 import { HatchpenLogo } from './HatchpenLogo'
 
-// Hero Section Image
+// Hero Section Reader Portraits (Ambient Editorial Cross-Fade)
 import screen01WomanImg from '../assets/home-screen/screen01-woman.webp'
+import screen02ManImg from '../assets/home-screen/screen02-man.webp'
+import screen01Woman2Img from '../assets/home-screen/screen01-woman-2.webp'
+import screen02Man2Img from '../assets/home-screen/screen02-man-2.webp'
+import screen01Woman3Img from '../assets/home-screen/1screen01-woman.webp'
+
+const HERO_PORTRAITS = [
+  { src: screen01WomanImg, alt: 'Woman reading an open book engrossed in stories' },
+  { src: screen02ManImg, alt: 'Man reading thoughtfully in quiet contemplation' },
+  { src: screen01Woman2Img, alt: 'Woman immersed in a literary novel' },
+  { src: screen02Man2Img, alt: 'Young reader captivated by an unfolding tale' },
+  { src: screen01Woman3Img, alt: 'Reader finding inspiration between pages' },
+]
 
 // 12 Curated Mood Artworks
 import adventurousMoodImg from '../assets/moods/adventurous.webp'
@@ -350,6 +362,28 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
   const [isMoodDrawerOpen, setIsMoodDrawerOpen] = useState(false)
   const [drawerStep, setDrawerStep] = useState<'selection' | 'loading' | 'stories'>('selection')
   const [selectedDrawerMood, setSelectedDrawerMood] = useState<MoodItem>(() => MOODS[0])
+
+  // Section 1: Ambient Editorial Cross-Fade for Hero Reader Portraits
+  const [heroPortraitIdx, setHeroPortraitIdx] = useState(0)
+
+  // Preload all hero portraits for instant, seamless 60fps cross-fades
+  useEffect(() => {
+    HERO_PORTRAITS.forEach((portrait) => {
+      const img = new Image()
+      img.src = portrait.src
+    })
+  }, [])
+
+  // Ambient cross-fade every 4.2 seconds
+  useEffect(() => {
+    if (shouldReduceMotion) return
+
+    const interval = setInterval(() => {
+      setHeroPortraitIdx((prev) => (prev + 1) % HERO_PORTRAITS.length)
+    }, 4200)
+
+    return () => clearInterval(interval)
+  }, [shouldReduceMotion])
 
   // Ensure page always starts at top (Slide 01) on reload or initial visit
   useEffect(() => {
@@ -698,17 +732,36 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
       <section className="h-[calc(100svh-3.5rem-env(safe-area-inset-top,0px))] max-h-[calc(100svh-3.5rem-env(safe-area-inset-top,0px))] w-full flex flex-col justify-between items-center px-6 pt-1 pb-4 max-w-md mx-auto overflow-hidden">
         {/* Narrative Center Editorial Section — ALWAYS VERTICALLY CENTERED */}
         <div className="flex-1 min-h-0 w-full flex flex-col items-center justify-center my-auto">
-          {/* Centered Image Container: increased size to fill vertical space prominently */}
-          <div className="relative w-full flex-1 min-h-0 max-h-[50vh] sm:max-h-[54vh] flex items-center justify-center my-auto scale-[1.14] sm:scale-[1.18] origin-center">
-            <img
-              alt="Portrait of creative woman reading an open book"
-              className="w-auto h-full max-h-full max-w-full object-contain object-center pointer-events-none mx-auto"
-              src={screen01WomanImg}
-              style={{
-                WebkitMaskImage: 'linear-gradient(black 76%, transparent 100%)',
-                maskImage: 'linear-gradient(black 76%, transparent 100%)',
-              }}
-            />
+          {/* Centered Image Container: Ambient cross-fade with subtle breathing scale */}
+          <div className="relative w-full flex-1 min-h-[260px] max-h-[50vh] sm:max-h-[54vh] flex items-center justify-center my-auto scale-[1.14] sm:scale-[1.18] origin-center">
+            <AnimatePresence initial={false}>
+              <motion.div
+                key={heroPortraitIdx}
+                initial={{ opacity: 0, scale: 0.985 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 1.015 }}
+                transition={{
+                  opacity: { duration: 1.0, ease: [0.4, 0, 0.2, 1] },
+                  scale: { duration: 4.2, ease: 'easeOut' },
+                }}
+                className="absolute inset-0 flex items-center justify-center pointer-events-none will-change-[opacity,transform]"
+              >
+                <img
+                  alt={HERO_PORTRAITS[heroPortraitIdx].alt}
+                  className="w-auto h-full max-h-full max-w-full object-contain object-center pointer-events-none mx-auto block"
+                  src={HERO_PORTRAITS[heroPortraitIdx].src}
+                  loading="eager"
+                  decoding="async"
+                  style={{
+                    WebkitMaskImage: 'linear-gradient(to bottom, black 52%, rgba(0,0,0,0.6) 72%, transparent 88%)',
+                    maskImage: 'linear-gradient(to bottom, black 52%, rgba(0,0,0,0.6) 72%, transparent 88%)',
+                  }}
+                />
+              </motion.div>
+            </AnimatePresence>
+
+            {/* Seamless white feathering overlay across container bottom */}
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 sm:h-28 bg-gradient-to-t from-white via-white/80 to-transparent z-10" />
           </div>
           <div className="w-full text-center px-4 pt-1 pb-1 shrink-0">
             <h1 className="font-serif text-[26px] sm:text-[32px] text-[#161c14] leading-[1.18] tracking-tight mx-auto max-w-[320px]">
