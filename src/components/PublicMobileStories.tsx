@@ -1,1161 +1,1280 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useCallback, useEffect } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { ArrowRight, X, Sparkles, Compass, PenLine, LogIn, ChevronRight } from 'lucide-react'
-import { useApp } from '../context/AppContext'
+import { X, Compass, PenLine, ChevronRight, ArrowLeft, ArrowRight, Dices, Sparkles, BookOpen, Bookmark } from 'lucide-react'
 import { HatchpenLogo } from './HatchpenLogo'
+
+// Hero Section Image
+import screen01WomanImg from '../assets/home-screen/screen01-woman.webp'
+
+// 12 Curated Mood Artworks
+import adventurousMoodImg from '../assets/moods/adventurous.webp'
+import melancholicMoodImg from '../assets/moods/melancholic.webp'
+import mysteriousMoodImg from '../assets/moods/Mysterious.webp'
+import intenseMoodImg from '../assets/moods/intense.webp'
+import romanticMoodImg from '../assets/moods/romantic.webp'
+import whimsicalMoodImg from '../assets/moods/whimsical.webp'
+import eerieMoodImg from '../assets/moods/Eerie.webp'
+import thoughtfulMoodImg from '../assets/moods/thoughtful.webp'
+import calmMoodImg from '../assets/moods/Calm.webp'
+import upliftingMoodImg from '../assets/moods/Uplifting.webp'
+import wittyMoodImg from '../assets/moods/witty.webp'
+import nostalgicMoodImg from '../assets/moods/Nostalgiac_or_Meloncholic.webp'
+import surpriseRandomBookImg from '../assets/surprise-with-a-random-book/surprise-with-a-random-book.webp'
+import bookIdleImg from '../assets/surprise-with-a-random-book/book-idle-9x16.png'
+import bookIdleWebp from '../assets/surprise-with-a-random-book/book-idle-9x16.webp'
+import animatedBookVideoOptimized from '../assets/surprise-with-a-random-book/animated-book-video-optimized.mp4'
 
 interface PublicMobileStoriesProps {
   onOpenAuth: () => void
   onOpenWriteModal: () => void
 }
 
+export interface CuratedStoryItem {
+  id: string
+  title: string
+  category: string
+  readTime: string
+}
+
+interface MoodItem {
+  name: string
+  count: string
+  genreSlug: string
+  img: string
+  hook: string
+  glow: string
+  icon: string
+  story: {
+    title: string
+    author: string
+    chapters: string
+    category: string
+    synopsis: string
+  }
+  curatedStories: CuratedStoryItem[]
+}
+
+const MOODS: MoodItem[] = [
+  {
+    name: 'Adventurous',
+    count: '2,480+ Serials',
+    genreSlug: 'fantasy',
+    img: adventurousMoodImg,
+    hook: '“The map ended where the fog began, which was exactly where they aimed.”',
+    glow: 'rgba(34, 197, 94, 0.22)',
+    icon: '🏔️',
+    story: {
+      title: 'The Cartographer of Lost Ships',
+      author: 'Julian Montgomery',
+      chapters: '10 Chapters • Complete',
+      category: 'Nautical Myth & Adventure',
+      synopsis: 'A surveyor charts phantom reefs in the Outer Hebrides to safeguard sacred sanctuaries from whaling fleets.',
+    },
+    curatedStories: [
+      { id: 'adv-1', title: 'The Cartographer of Lost Ships', category: 'Nautical Myth', readTime: '12 min' },
+      { id: 'adv-2', title: 'Beyond the Silver Trees', category: 'Alpine Fantasy', readTime: '14 min' },
+      { id: 'adv-3', title: 'The North Watch', category: 'Polar Adventure', readTime: '10 min' },
+      { id: 'adv-4', title: 'Isle of Whispering Pines', category: 'Lost Frontiers', readTime: '15 min' },
+      { id: 'adv-5', title: 'The Sunken Citadel', category: 'Ocean Expedition', readTime: '11 min' },
+    ],
+  },
+  {
+    name: 'Melancholic',
+    count: '1,210+ Serials',
+    genreSlug: 'literary-fiction',
+    img: melancholicMoodImg,
+    hook: '“The rain had a habit of arriving only after everyone had already left.”',
+    glow: 'rgba(217, 119, 6, 0.22)',
+    icon: '🌧️',
+    story: {
+      title: 'Letters from the Rainmaker',
+      author: 'Kenji Takahashi',
+      chapters: '8 Chapters • Ongoing',
+      category: 'Literary & Solitary',
+      synopsis: 'A translator in Kyoto chronicles storms that only arrive after the ancient city has already surrendered its secrets.',
+    },
+    curatedStories: [
+      { id: 'mel-1', title: 'Letters from the Rainmaker', category: 'Kyoto Solitary', readTime: '11 min' },
+      { id: 'mel-2', title: 'The Last Letter', category: 'Epistolary Drama', readTime: '12 min' },
+      { id: 'mel-3', title: 'An Autumn in Vienna', category: 'Classical Solitude', readTime: '9 min' },
+      { id: 'mel-4', title: 'House of Quiet Clocks', category: 'Literary Drama', readTime: '14 min' },
+      { id: 'mel-5', title: 'Before the Snow Falls', category: 'Memoir & Loss', readTime: '10 min' },
+    ],
+  },
+  {
+    name: 'Mysterious',
+    count: '1,940+ Serials',
+    genreSlug: 'mystery',
+    img: mysteriousMoodImg,
+    hook: '“Three people knew where the key lay. None survived until dawn.”',
+    glow: 'rgba(147, 51, 234, 0.22)',
+    icon: '🕯️',
+    story: {
+      title: 'Sub-Ministry of Impossible Affairs',
+      author: 'Soren Vance',
+      chapters: '9 Chapters • Complete',
+      category: 'Bureaucratic Noir & Mystery',
+      synopsis: 'Civil servants in Section 18-C audit events violating Newtonian physics, ensuring miracles pay proper municipal tax.',
+    },
+    curatedStories: [
+      { id: 'mys-1', title: 'Sub-Ministry of Impossible Affairs', category: 'Bureaucratic Noir', readTime: '13 min' },
+      { id: 'mys-2', title: 'The Keyhole Society', category: 'Secret Archives', readTime: '15 min' },
+      { id: 'mys-3', title: 'The Shadow at Table 4', category: 'London Mystery', readTime: '10 min' },
+      { id: 'mys-4', title: 'Curator of Forgotten Sins', category: 'Gothic Noir', readTime: '14 min' },
+      { id: 'mys-5', title: 'Cipher of the Red Abbey', category: 'Ancient Enigma', readTime: '12 min' },
+    ],
+  },
+  {
+    name: 'Intense',
+    count: '1,530+ Serials',
+    genreSlug: 'thriller',
+    img: intenseMoodImg,
+    hook: '“Every breath felt borrowed, and time was running out of mercy.”',
+    glow: 'rgba(239, 68, 68, 0.22)',
+    icon: '⚡',
+    story: {
+      title: 'The Last Signal from Station 9',
+      author: 'Elena Rostova',
+      chapters: '12 Chapters • Ongoing',
+      category: 'Cold War Thriller',
+      synopsis: 'An isolated operator in the Arctic Circle catches radio transmissions from a submarine declared lost 40 years ago.',
+    },
+    curatedStories: [
+      { id: 'int-1', title: 'The Last Signal from Station 9', category: 'Cold War Thriller', readTime: '12 min' },
+      { id: 'int-2', title: 'Terminal Altitude', category: 'Aviation Suspense', readTime: '10 min' },
+      { id: 'int-3', title: 'Redacted Flight 404', category: 'Political Noir', readTime: '14 min' },
+      { id: 'int-4', title: 'Zero Hour at Verkhoyansk', category: 'Arctic Espionage', readTime: '11 min' },
+      { id: 'int-5', title: 'The Diver’s Dilemma', category: 'Deep Sea Pressure', readTime: '13 min' },
+    ],
+  },
+  {
+    name: 'Romantic',
+    count: '2,030+ Serials',
+    genreSlug: 'romance',
+    img: romanticMoodImg,
+    hook: '“They said nothing, but in the silence between them, everything shifted.”',
+    glow: 'rgba(244, 63, 94, 0.22)',
+    icon: '🌹',
+    story: {
+      title: 'Autumn at Lake Como',
+      author: 'Julian Montgomery',
+      chapters: '7 Chapters • Complete',
+      category: 'Slow-Burn Romance',
+      synopsis: 'Two estranged art restorers reunite on a secluded lakeside villa terrace to preserve a forgotten 18th-century fresco.',
+    },
+    curatedStories: [
+      { id: 'rom-1', title: 'Autumn at Lake Como', category: 'Slow-Burn Romance', readTime: '12 min' },
+      { id: 'rom-2', title: 'Letters to a Stranger', category: 'Epistolary Romance', readTime: '11 min' },
+      { id: 'rom-3', title: 'The Botanist’s Vow', category: 'Historical Romance', readTime: '15 min' },
+      { id: 'rom-4', title: 'Coffee at Saint-Germain', category: 'Parisian Romance', readTime: '9 min' },
+      { id: 'rom-5', title: 'Midnight at the Alhambra', category: 'Mediterranean Drama', readTime: '13 min' },
+    ],
+  },
+  {
+    name: 'Enchanting',
+    count: '3,120+ Serials',
+    genreSlug: 'magical-realism',
+    img: whimsicalMoodImg,
+    hook: '“Doors appeared only for those who had stopped looking for answers.”',
+    glow: 'rgba(168, 85, 247, 0.22)',
+    icon: '✨',
+    story: {
+      title: 'The Clockwork Forest',
+      author: 'Mara Lindqvist',
+      chapters: '14 Chapters • Ongoing',
+      category: 'Magical Realism',
+      synopsis: 'In an ancient pine valley where time behaves like water, brass foliage and clockwork moss whisper forgotten destinies.',
+    },
+    curatedStories: [
+      { id: 'enc-1', title: 'The Clockwork Forest', category: 'Magical Realism', readTime: '14 min' },
+      { id: 'enc-2', title: 'The Lantern Weaver', category: 'Folklore Fantasy', readTime: '11 min' },
+      { id: 'enc-3', title: 'Spirits of the Tea House', category: 'Eastern Myth', readTime: '13 min' },
+      { id: 'enc-4', title: 'The Mapmaker’s Garden', category: 'Enchanted Flora', readTime: '12 min' },
+      { id: 'enc-5', title: 'A Parlour of Whispers', category: 'Parisian Sorcery', readTime: '10 min' },
+    ],
+  },
+  {
+    name: 'Eerie',
+    count: '1,060+ Serials',
+    genreSlug: 'horror',
+    img: eerieMoodImg,
+    hook: '“Something was breathing in rhythm with the house, and it wasn’t him.”',
+    glow: 'rgba(75, 85, 99, 0.25)',
+    icon: '🌘',
+    story: {
+      title: 'The House That Kept Time',
+      author: 'Soren Vance',
+      chapters: '6 Chapters • Complete',
+      category: 'Psychological Horror',
+      synopsis: 'Every grandfather clock in the manor strikes thirteen at midnight. On the third night, the thirteenth hour refuses to end.',
+    },
+    curatedStories: [
+      { id: 'eer-1', title: 'The House That Kept Time', category: 'Psychological Horror', readTime: '11 min' },
+      { id: 'eer-2', title: 'The Thirteenth Bell', category: 'Gothic Dread', readTime: '9 min' },
+      { id: 'eer-3', title: 'Footsteps in the Conservatory', category: 'Manor Haunting', readTime: '12 min' },
+      { id: 'eer-4', title: 'The Black Lighthouse', category: 'Coastal Macabre', readTime: '14 min' },
+      { id: 'eer-5', title: 'The Pale Marionette', category: 'Victorian Terror', readTime: '10 min' },
+    ],
+  },
+  {
+    name: 'Thoughtful',
+    count: '1,780+ Serials',
+    genreSlug: 'philosophical-fiction',
+    img: thoughtfulMoodImg,
+    hook: '“We are all just stories waiting for someone patient enough to read us.”',
+    glow: 'rgba(59, 130, 246, 0.22)',
+    icon: '📖',
+    story: {
+      title: 'The Architecture of Forgetting',
+      author: 'Elena Rostova',
+      chapters: '11 Chapters • Ongoing',
+      category: 'Philosophical Fiction',
+      synopsis: 'An archivist constructs memory blueprints for clients desperate to cleanly erase a single grief from their past.',
+    },
+    curatedStories: [
+      { id: 'tho-1', title: 'Philosophy of the Second Cup', category: 'Philosophical Fiction', readTime: '10 min' },
+      { id: 'tho-2', title: 'The Bookseller of Tangier', category: 'Solitary Drama', readTime: '13 min' },
+      { id: 'tho-3', title: 'Conversations with Solitude', category: 'Meditative Essays', readTime: '12 min' },
+      { id: 'tho-4', title: 'The Memory Cartographer', category: 'Speculative Fiction', readTime: '15 min' },
+      { id: 'tho-5', title: 'Echoes in Empty Theatres', category: 'Artistic Reflection', readTime: '11 min' },
+    ],
+  },
+  {
+    name: 'Calm',
+    count: '1,420+ Serials',
+    genreSlug: 'slice-of-life',
+    img: calmMoodImg,
+    hook: '“The afternoon kettle whistled softly, forgiving everything that came before.”',
+    glow: 'rgba(20, 184, 166, 0.22)',
+    icon: '☕',
+    story: {
+      title: 'Tea at the End of the World',
+      author: 'Kenji Takahashi',
+      chapters: '5 Chapters • Complete',
+      category: 'Slice-of-Life & Serenity',
+      synopsis: 'A tranquil seaside teahouse serves warm jasmine infusions while the rushing world outside softly quiets down.',
+    },
+    curatedStories: [
+      { id: 'cal-1', title: 'Tea House on the Bamboo Ridge', category: 'Zen Fiction', readTime: '9 min' },
+      { id: 'cal-2', title: 'Morning Mist in Kyoto', category: 'Quiet Realism', readTime: '10 min' },
+      { id: 'cal-3', title: 'The Lavender Distiller', category: 'Pastoral Life', readTime: '12 min' },
+      { id: 'cal-4', title: 'Still Waters of Como', category: 'Meditative Fiction', readTime: '11 min' },
+      { id: 'cal-5', title: 'The Carpenter’s Solace', category: 'Contemplation', readTime: '8 min' },
+    ],
+  },
+  {
+    name: 'Uplifting',
+    count: '1,650+ Serials',
+    genreSlug: 'contemporary-fiction',
+    img: upliftingMoodImg,
+    hook: '“Even the narrowest alleyways eventually opened up to the morning sky.”',
+    glow: 'rgba(234, 179, 8, 0.22)',
+    icon: '☀️',
+    story: {
+      title: 'Where the Streetlamps Lead',
+      author: 'Julian Montgomery',
+      chapters: '9 Chapters • Ongoing',
+      category: 'Contemporary Hope',
+      synopsis: 'A night-shift baker discovers secret handwritten notes tucked inside glass bottles left on doorsteps at dawn.',
+    },
+    curatedStories: [
+      { id: 'upl-1', title: 'A Bakery at the Edge of Dawn', category: 'Heartwarming Drama', readTime: '11 min' },
+      { id: 'upl-2', title: 'The Choir of Bell Street', category: 'Community Fiction', readTime: '12 min' },
+      { id: 'upl-3', title: 'A Second Spring in Seville', category: 'Second Chances', readTime: '14 min' },
+      { id: 'upl-4', title: 'The Gardener Who Painted Stars', category: 'Whimsical Life', readTime: '10 min' },
+      { id: 'upl-5', title: 'Letters to Tomorrow', category: 'Hopeful Fiction', readTime: '9 min' },
+    ],
+  },
+  {
+    name: 'Witty',
+    count: '1,120+ Serials',
+    genreSlug: 'general-fiction',
+    img: wittyMoodImg,
+    hook: '“He had a talent for arriving late with precisely the wrong apology.”',
+    glow: 'rgba(249, 115, 22, 0.22)',
+    icon: '🍸',
+    story: {
+      title: 'A Gentleman’s Guide to Ruin',
+      author: 'Arthur Klein',
+      chapters: '8 Chapters • Complete',
+      category: 'Satirical Fiction',
+      synopsis: 'A bankrupt aristocrat with impeccably tailored suits schemes to repay his creditors by inventing a brilliant society scandal.',
+    },
+    curatedStories: [
+      { id: 'wit-1', title: 'A Gentleman’s Guide to Ruin', category: 'Satirical Fiction', readTime: '11 min' },
+      { id: 'wit-2', title: 'The Polite Extortionist', category: 'High-Society Comedy', readTime: '10 min' },
+      { id: 'wit-3', title: 'Rules for Crashing an Embassy', category: 'Farce & Manners', readTime: '13 min' },
+      { id: 'wit-4', title: 'The Aristocrat Who Refused to Pay', category: 'Witty Romance', readTime: '12 min' },
+      { id: 'wit-5', title: 'Scandal at the Lawn Club', category: 'British Comedy', readTime: '9 min' },
+    ],
+  },
+  {
+    name: 'Nostalgic',
+    count: '1,290+ Serials',
+    genreSlug: 'historical-fiction',
+    img: nostalgicMoodImg,
+    hook: '“The smell of old paper and summer dusk brought that distant year back.”',
+    glow: 'rgba(180, 83, 9, 0.22)',
+    icon: '📻',
+    story: {
+      title: 'Summer of the Old Radios',
+      author: 'Mara Lindqvist',
+      chapters: '10 Chapters • Complete',
+      category: 'Historical Memory',
+      synopsis: 'Two teenagers repair vacuum-tube transmitters in an attic, inadvertently catching music broadcasts from thirty years prior.',
+    },
+    curatedStories: [
+      { id: 'nos-1', title: 'Radio Transmissions from 1974', category: 'Retrospective Drama', readTime: '13 min' },
+      { id: 'nos-2', title: 'The Vinyl Shop on 4th Street', category: 'Vintage Coming-of-Age', readTime: '11 min' },
+      { id: 'nos-3', title: 'Gramophone in the Attic', category: 'Family Sagas', readTime: '14 min' },
+      { id: 'nos-4', title: 'The Summer of Analog Cameras', category: 'Kodak Memories', readTime: '12 min' },
+      { id: 'nos-5', title: 'Postcards from a Forgotten Pier', category: 'Coastal Nostalgia', readTime: '10 min' },
+    ],
+  },
+]
+
 export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobileStoriesProps) {
   const navigate = useNavigate()
-  const [currentSlide, setCurrentSlide] = useState(0)
-  const [direction, setDirection] = useState(0)
+  const [currentIndex, setCurrentIndex] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
-  const totalSlides = 4
-
-  const goToSlide = useCallback((target: number) => {
-    setCurrentSlide((prev) => {
-      setDirection(target > prev ? 1 : -1)
-      return target
-    })
-  }, [])
-
-  const nextSlide = useCallback(() => {
-    setCurrentSlide((prev) => {
-      if (prev < totalSlides - 1) {
-        setDirection(1)
-        return prev + 1
-      }
-      return prev
-    })
-  }, [totalSlides])
-
-  const prevSlide = useCallback(() => {
-    setCurrentSlide((prev) => {
-      if (prev > 0) {
-        setDirection(-1)
-        return prev - 1
-      }
-      return prev
-    })
-  }, [])
-
   const shouldReduceMotion = useReducedMotion()
+
+  const [slideDirection, setSlideDirection] = useState<number>(1)
+  const [selectedMoodForStories, setSelectedMoodForStories] = useState<MoodItem | null>(null)
+  const [extraStoriesCount, setExtraStoriesCount] = useState<number>(0)
+  const [activeStoryIdx, setActiveStoryIdx] = useState<number>(0)
+
+  // Prevent background scroll and support Escape key when 80% curated sheet is open
+  useEffect(() => {
+    if (selectedMoodForStories) {
+      const origOverflow = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') setSelectedMoodForStories(null)
+      }
+      window.addEventListener('keydown', handleKeyDown)
+      return () => {
+        document.body.style.overflow = origOverflow
+        window.removeEventListener('keydown', handleKeyDown)
+      }
+    }
+  }, [selectedMoodForStories])
+
+  const touchStartX = useRef(0)
+  const touchStartY = useRef(0)
+  const touchEndX = useRef(0)
+  const touchEndY = useRef(0)
+
+  const prevIndex = (currentIndex - 1 + MOODS.length) % MOODS.length
+  const nextIndex = (currentIndex + 1) % MOODS.length
+
+  const currentMood = MOODS[currentIndex]
+  const prevMood = MOODS[prevIndex]
+  const nextMood = MOODS[nextIndex]
+
+  const triggerHaptic = useCallback((duration = 10) => {
+    if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate(duration)
+      } catch {
+        // Safe fallback
+      }
+    }
+  }, [])
+
+  const updateMood = useCallback((direction: 'next' | 'prev') => {
+    triggerHaptic(10)
+    setSlideDirection(direction === 'next' ? 1 : -1)
+    setCurrentIndex((prev) => {
+      if (direction === 'next') {
+        return (prev + 1) % MOODS.length
+      }
+      return (prev - 1 + MOODS.length) % MOODS.length
+    })
+  }, [triggerHaptic])
+
+  const goToMood = useCallback((targetIndex: number) => {
+    if (targetIndex === currentIndex) return
+    triggerHaptic(12)
+    setSlideDirection(targetIndex > currentIndex ? 1 : -1)
+    setCurrentIndex(targetIndex)
+  }, [currentIndex, triggerHaptic])
+
+  // Section 2: Serendipity / Surprise Me States
+  const [surpriseState, setSurpriseState] = useState<'idle' | 'flipping' | 'revealed'>('idle')
+  const [surpriseIndex, setSurpriseIndex] = useState<number>(() => Math.floor(Math.random() * MOODS.length))
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const surprisedMood = MOODS[surpriseIndex] || MOODS[0]
+
+  // Clean up video decoder on component unmount
+  useEffect(() => {
+    return () => {
+      if (videoRef.current) {
+        videoRef.current.pause()
+      }
+    }
+  }, [])
+
+  const triggerSurprise = useCallback(() => {
+    triggerHaptic(20)
+
+    let nextIdx = Math.floor(Math.random() * MOODS.length)
+    if (nextIdx === surpriseIndex && MOODS.length > 1) {
+      nextIdx = (surpriseIndex + 1) % MOODS.length
+    }
+    setSurpriseIndex(nextIdx)
+
+    // Low-end mobile / accessibility optimization: skip video playback if motion reduction requested
+    if (shouldReduceMotion) {
+      setSurpriseState('revealed')
+      triggerHaptic(25)
+      return
+    }
+
+    setSurpriseState('flipping')
+
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0
+      videoRef.current.play().catch(() => {})
+    }
+
+    const tick1 = setTimeout(() => triggerHaptic(8), 350)
+    const tick2 = setTimeout(() => triggerHaptic(8), 850)
+    const tick3 = setTimeout(() => triggerHaptic(8), 1350)
+    const tick4 = setTimeout(() => triggerHaptic(12), 1850)
+
+    const timer = setTimeout(() => {
+      // Release mobile video hardware decoder resources
+      if (videoRef.current) {
+        videoRef.current.pause()
+        videoRef.current.currentTime = 0
+      }
+      setSurpriseState('revealed')
+      triggerHaptic(25)
+    }, 2400)
+
+    return () => {
+      clearTimeout(tick1)
+      clearTimeout(tick2)
+      clearTimeout(tick3)
+      clearTimeout(tick4)
+      clearTimeout(timer)
+    }
+  }, [surpriseIndex, triggerHaptic, shouldReduceMotion])
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.changedTouches[0].screenX
+    touchStartY.current = e.changedTouches[0].screenY
+    touchEndX.current = e.changedTouches[0].screenX
+    touchEndY.current = e.changedTouches[0].screenY
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.changedTouches[0].screenX
+    touchEndY.current = e.changedTouches[0].screenY
+  }
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    touchEndX.current = e.changedTouches[0].screenX
+    touchEndY.current = e.changedTouches[0].screenY
+    const swipeDistanceX = touchEndX.current - touchStartX.current
+    const swipeDistanceY = touchEndY.current - touchStartY.current
+
+    // If swipe was mostly vertical, allow normal document scroll and don't change mood
+    if (Math.abs(swipeDistanceY) > Math.abs(swipeDistanceX)) {
+      return
+    }
+
+    if (swipeDistanceX < -40) {
+      updateMood('next')
+    } else if (swipeDistanceX > 40) {
+      updateMood('prev')
+    }
+  }
+
+  const handleSelectMood = () => {
+    navigate({
+      to: '/discover',
+      search: { genre: currentMood.genreSlug },
+    })
+  }
+
+  const scrollToSlide2 = () => {
+    const section = document.getElementById('serendipity-section')
+    if (section) {
+      const headerOffset = 56
+      const elementPosition = section.getBoundingClientRect().top
+      const offsetPosition = elementPosition + window.scrollY - headerOffset
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth',
+      })
+    }
+  }
+
+  const scrollToSlide3 = () => {
+    const section = document.getElementById('feelings-carousel-section')
+    if (section) {
+      const headerOffset = 56
+      const elementPosition = section.getBoundingClientRect().top
+      const offsetPosition = elementPosition + window.scrollY - headerOffset
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth',
+      })
+    }
+  }
+
+  const viewMoodInCarousel = (moodIndex: number) => {
+    setSlideDirection(moodIndex > currentIndex ? 1 : -1)
+    setCurrentIndex(moodIndex)
+    scrollToSlide3()
+  }
 
   return (
     <div
-      className="block md:hidden fixed inset-0 z-30 h-screen supports-[height:100dvh]:h-[100dvh] supports-[height:100svh]:h-[100svh] w-full overflow-hidden bg-[#111417] text-[#161513] select-none touch-none"
-      style={{ height: '100svh' }}
+      className="block md:hidden w-full min-h-screen bg-white text-[#191d16] select-none pt-14"
       role="region"
-      aria-label="Hatchpen Mobile Story Presentation"
+      aria-label="Hatchpen Mobile Experience"
     >
       {/* =====================================================================
-          SVG DEF: Proportional Artisan Bookbinding Seam Curve
-          Keeps cream panel <= 60% of width, leaving artwork visible on tall/short screens
+          Fixed Top Navigation Header
+          Exception 1: Left mein icon
+          Exception 2: Right mein hamburger
+          Exception 3: 100% existing app font-family
           ===================================================================== */}
-      <svg className="absolute" height="0" width="0" aria-hidden="true">
-        <defs>
-          <clipPath id="book-seam-clip" clipPathUnits="objectBoundingBox">
-            <path
-              d="
-                M 0,0 
-                L 0.15,0
-                C 0.19,0.06 0.29,0.14 0.39,0.22
-                C 0.49,0.30 0.54,0.38 0.56,0.48
-                C 0.58,0.57 0.60,0.64 0.60,0.70
-                C 0.60,0.77 0.61,0.84 0.61,0.88
-                C 0.60,0.93 0.59,0.97 0.59,1.0
-                L 0,1.0 
-                Z"
-            />
-          </clipPath>
-        </defs>
-      </svg>
-
-      {/* =====================================================================
-          ANIMATED STORY SLIDES CAROUSEL WITH NATIVE TOUCH & POINTER DRAG
-          ===================================================================== */}
-      <AnimatePresence initial={false} custom={direction} mode="popLayout">
-        <motion.div
-          key={currentSlide}
-          custom={direction}
-          variants={
-            shouldReduceMotion
-              ? undefined
-              : {
-                  enter: (dir: number) => ({
-                    x: dir > 0 ? '100%' : dir < 0 ? '-100%' : '0%',
-                    opacity: 0.95,
-                  }),
-                  center: {
-                    x: 0,
-                    opacity: 1,
-                  },
-                  exit: (dir: number) => ({
-                    x: dir > 0 ? '-100%' : dir < 0 ? '100%' : '0%',
-                    opacity: 0.95,
-                  }),
-                }
-          }
-          initial="enter"
-          animate="center"
-          exit="exit"
-          transition={{
-            x: { type: 'spring', stiffness: 320, damping: 32 },
-            opacity: { duration: 0.2 },
-          }}
-          drag="x"
-          dragDirectionLock
-          dragConstraints={{ left: 0, right: 0 }}
-          dragElastic={0.25}
-          onDragEnd={(_e, { offset, velocity }) => {
-            const swipeThreshold = 40
-            const velocityThreshold = 0.25
-            if (offset.x < -swipeThreshold || velocity.x < -velocityThreshold) {
-              nextSlide()
-            } else if (offset.x > swipeThreshold || velocity.x > velocityThreshold) {
-              prevSlide()
-            }
-          }}
-          className="absolute inset-0 w-full h-full overflow-hidden flex flex-col justify-between touch-none"
-        >
-          {/* =====================================================================
-              SLIDE 0: OPTION 3 STITCHED BOOKBINDING PERFORATION (FIRST PAGE)
-              ===================================================================== */}
-          {currentSlide === 0 && (
-        <div className="relative w-full h-full overflow-hidden flex flex-col justify-between">
-          {/* Layer 1: Illustrated sunset cliff mountain artwork behind paper */}
-          <div className="absolute inset-0 w-full h-full z-1 bg-[#10151c]">
-            <img
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuAiMbi1xnPDZtlnQZfiFQB1J_xAMrh6Ywbf3HpDHxm7IzmC1vq2wEPBBd_yWrCzTMdHDmZVlOdcZn3P17Vw3cFEUmqDIoNzA9ntx6WgZ5QcW_JFDCAD2cxCKvqpw7DT8c6Dw5dgPGY_iia0Z74pdxh9UIt9zNutIGOFHZ1QIjKUY7V0ABfc1p6HVeuLLCYYrpc2XixtZ8p0QyT26iSL6TMfwqluJVLvbUeVJlAEjCpgyycp33UK9FWXfERfPGgmhzXxZGA"
-              alt="Sunset cliff mountain vista artwork"
-              className="absolute inset-0 w-full h-full object-cover object-[78%_center]"
-            />
-            {/* Soft vignette over image */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 pointer-events-none" />
-          </div>
-
-          {/* Layer 2: Foreground Stitched Bookbinding Paper Layer (Curved Folio Mask) */}
-          <div
-            className="absolute inset-0 z-10 [clip-path:url(#book-seam-clip)]"
-            style={{
-              backgroundColor: '#f7efe4',
-              backgroundImage:
-                'radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.95) 0%, transparent 60%), radial-gradient(circle at 80% 90%, rgba(210, 195, 175, 0.3) 0%, transparent 65%)',
-              filter: 'drop-shadow(6px 0 16px rgba(0, 0, 0, 0.38))',
-            }}
-          />
-
-          {/* Layer 3: Artisan Bookbinding Stitches, Perforations & Seam Indent Overlay */}
-          <svg
-            className="absolute inset-0 w-full h-full pointer-events-none z-15"
-            preserveAspectRatio="none"
-            viewBox="0 0 412 874"
-            aria-hidden="true"
+      <header className="fixed top-0 inset-x-0 z-50 bg-white/95 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.03)] pt-safe">
+        <div className="h-14 sm:h-16 px-4 sm:px-6 flex items-center justify-between">
+          {/* Exception 1: Left mein icon */}
+          <Link
+            to="/"
+            className="flex items-center space-x-2 focus:outline-none"
+            aria-label="Hatchpen Home"
           >
-            <defs>
-              <filter id="stitch-emboss" x="-20%" y="-20%" width="140%" height="140%">
-                <feDropShadow dx="0.5" dy="1" stdDeviation="0.6" floodColor="#3d2c1c" floodOpacity="0.45" />
-              </filter>
-            </defs>
-            {/* Embossed pressed seam groove */}
-            <path
-              d="M 59,-2 C 75,50 117,120 159,190 C 197,260 219,330 229,418 C 237,496 245,558 245,610 C 245,670 249,730 247,770 C 245,815 242,850 239,876"
-              fill="none"
-              stroke="#d5c7b3"
-              strokeWidth="4.5"
-              opacity="0.65"
-            />
-            <path
-              d="M 60,-2 C 76,50 118,120 160,190 C 198,260 220,330 230,418 C 238,496 246,558 246,610 C 246,670 250,730 248,770 C 246,815 243,850 240,876"
-              fill="none"
-              stroke="#ffffff"
-              strokeWidth="1.2"
-              opacity="0.9"
-            />
-            {/* Perforated Tear-Line (laser-cut micro punch slits / pinholes) */}
-            <path
-              d="M 53,-2 C 69,50 111,120 153,190 C 191,260 213,330 223,418 C 231,496 239,558 239,610 C 239,670 243,730 241,770 C 239,815 236,850 233,876"
-              fill="none"
-              stroke="#524335"
-              strokeWidth="1.8"
-              strokeDasharray="1.5,4"
-              strokeLinecap="round"
-              opacity="0.75"
-            />
-            <path
-              d="M 54,-1 C 70,51 112,121 154,191 C 192,261 214,331 224,419 C 232,497 240,559 240,611 C 240,671 244,731 242,771 C 240,816 237,851 234,877"
-              fill="none"
-              stroke="#ffffff"
-              strokeWidth="0.8"
-              strokeDasharray="1.5,4"
-              strokeLinecap="round"
-              opacity="0.65"
-            />
-            {/* Artisan Wax-Thread Saddle-Stitch Line */}
-            <path
-              d="M 41,-2 C 57,50 99,120 141,190 C 179,260 201,330 211,418 C 219,496 227,558 227,610 C 227,670 231,730 229,770 C 227,815 224,850 221,876"
-              fill="none"
-              stroke="#23170c"
-              strokeWidth="2.6"
-              strokeDasharray="9,7"
-              strokeLinecap="round"
-              opacity="0.4"
-            />
-            <path
-              d="M 40,-3 C 56,49 98,119 140,189 C 178,259 200,329 210,417 C 218,495 226,557 226,609 C 226,669 230,729 228,769 C 226,814 223,849 220,875"
-              fill="none"
-              stroke="#9e5b28"
-              strokeWidth="2.1"
-              strokeDasharray="8.5,7.5"
-              strokeLinecap="round"
-              filter="url(#stitch-emboss)"
-            />
-            {/* Wax thread specular fiber highlights */}
-            <path
-              d="M 40,-3 C 56,49 98,119 140,189 C 178,259 200,329 210,417 C 218,495 226,557 226,609 C 226,669 230,729 228,769 C 226,814 223,849 220,875"
-              fill="none"
-              stroke="#f0cf98"
-              strokeWidth="1.2"
-              strokeDasharray="3,13"
-              strokeLinecap="round"
-              opacity="0.8"
-            />
-            {/* Needle punch holes */}
-            <path
-              d="M 40,-3 C 56,49 98,119 140,189 C 178,259 200,329 210,417 C 218,495 226,557 226,609 C 226,669 230,729 228,769 C 226,814 223,849 220,875"
-              fill="none"
-              stroke="#332415"
-              strokeWidth="2.8"
-              strokeDasharray="1.2,14.8"
-              strokeLinecap="round"
-              opacity="0.75"
-            />
-          </svg>
+            <HatchpenLogo size="xs" variant="compact" forceTheme="light" />
+          </Link>
 
-          {/* Layer 4: Top Navigation & Header */}
-          <header className="relative z-20 pt-[max(0.85rem,env(safe-area-inset-top,0px))] px-5 sm:px-6 flex items-center justify-between shrink-0">
-            {/* Logo: Official Inverted Hatchpen Brand Identity */}
-            <Link
-              to="/"
-              className="inline-flex items-center text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)] no-underline focus:outline-none"
-              aria-label="Hatchpen Home"
+          {/* Exception 2: Right mein hamburger */}
+          <button
+            type="button"
+            onClick={() => setMenuOpen(true)}
+            aria-label="Open Navigation Menu"
+            className="w-9 h-9 flex items-center justify-center rounded-full text-[#191d16] hover:bg-black/5 active:scale-95 transition-all focus:outline-none cursor-pointer"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeWidth="2.2"
+              viewBox="0 0 24 24"
             >
-              <HatchpenLogo size="sm" variant="inverted" />
-            </Link>
-
-            {/* Hamburger Icon -> opens mobile drawer */}
-            <button
-              type="button"
-              onClick={() => setMenuOpen(true)}
-              aria-label="Open Navigation Menu"
-              className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center bg-black/35 backdrop-blur-md text-white border border-white/10 shadow-sm focus:outline-none cursor-pointer active:scale-95 motion-reduce:transform-none motion-reduce:transition-none transition-transform"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2.2" viewBox="0 0 24 24">
-                <line x1="4" x2="20" y1="7" y2="7" />
-                <line x1="4" x2="20" y1="12" y2="12" />
-                <line x1="4" x2="20" y1="17" y2="17" />
-              </svg>
-            </button>
-          </header>
-
-          {/* Layer 5: Main Editorial Content Area (Proportionally centered in folio) */}
-          <main className="relative z-20 flex-1 px-5 sm:px-6 flex flex-col justify-center min-h-0">
-            <div className="w-full max-w-[250px] min-[380px]:max-w-[275px] flex flex-col space-y-3 min-[380px]:space-y-4 sm:space-y-5 my-auto py-2">
-              {/* Editorial Vertical Stack Headline - 100% Brand Matched (Outfit) */}
-              <h1 className="font-serif font-extrabold text-[35px] min-[380px]:text-[40px] sm:text-[44px] leading-[0.96] tracking-[-0.035em] text-[#161513] flex flex-col">
-                <span>A</span>
-                <span>quieter</span>
-                <span>place</span>
-                <span>for</span>
-                <span className="italic text-[#c84b25]">bolder</span>
-                <span>stories.</span>
-              </h1>
-
-              {/* Lavender Highlight Sub-text Pills */}
-              <div className="flex flex-col items-start space-y-1.5 font-sans">
-                <span className="bg-[#cec4db]/85 px-2.5 py-0.5 rounded text-[12.5px] min-[380px]:text-[13.5px] leading-snug font-medium text-[#222120] backdrop-blur-xs">
-                  Different worlds.
-                </span>
-                <span className="bg-[#cec4db]/85 px-2.5 py-0.5 rounded text-[12.5px] min-[380px]:text-[13.5px] leading-snug font-medium text-[#222120] backdrop-blur-xs">
-                  Different perspectives.
-                </span>
-                <span className="bg-[#cec4db]/85 px-2.5 py-0.5 rounded text-[12.5px] min-[380px]:text-[13.5px] leading-snug font-medium text-[#222120] backdrop-blur-xs">
-                  A fairer place for stories.
-                </span>
-              </div>
-
-              {/* Call to Action Section */}
-              <div className="pt-1 min-[380px]:pt-2">
-                <div className="flex items-center space-x-3.5">
-                  {/* Terracotta Circle Button with Arrow */}
-                  <button
-                    type="button"
-                    onClick={() => navigate({ to: '/discover' })}
-                    aria-label="Explore Hatchpen"
-                    className="w-[52px] h-[52px] min-[380px]:w-[56px] min-[380px]:h-[56px] rounded-full bg-[#c84b25] flex items-center justify-center text-white shadow-lg shadow-[#c84b25]/35 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer shrink-0 motion-reduce:transform-none motion-reduce:transition-none"
-                  >
-                    <svg className="w-5 h-5 min-[380px]:w-6 min-[380px]:h-6" fill="none" stroke="currentColor" strokeWidth="2.4" viewBox="0 0 24 24">
-                      <path d="M14 5l7 7m0 0l-7 7m7-7H3" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </button>
-
-                  {/* CTA Label */}
-                  <button
-                    type="button"
-                    onClick={() => navigate({ to: '/discover' })}
-                    className="flex flex-col justify-center text-left cursor-pointer bg-transparent border-0 p-0"
-                  >
-                    <span className="text-[16px] min-[380px]:text-[17px] font-medium leading-tight text-[#222120]">Explore</span>
-                    <span className="text-[16px] min-[380px]:text-[17px] font-medium leading-tight text-[#222120]">Hatchpen</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </main>
-
-          {/* Layer 6: Bottom Pagination Indicator (Safely inside cream folio) */}
-          <footer className="relative z-20 pb-[max(1rem,calc(env(safe-area-inset-bottom,0px)+0.5rem))] pt-1 px-5 sm:px-6 w-full shrink-0">
-            <div className="w-full max-w-[250px] min-[380px]:max-w-[275px] flex items-center justify-start space-x-2.5 min-[380px]:space-x-3 text-xs tracking-wider font-semibold text-[#5a554e]" aria-label="Story Slide Navigation">
-              {/* Active Slide: 01 */}
-              <div className="flex flex-col items-center">
-                <span className="text-[#1a1918] font-bold">01</span>
-                <span className="w-3.5 h-[1.5px] bg-[#c84b25] mt-0.5 rounded-full" />
-              </div>
-              <span className="text-stone-400 font-light text-[11px] pb-1">|</span>
-              {/* Inactive Slides */}
-              <button
-                type="button"
-                onClick={() => goToSlide(1)}
-                className="text-[#8e877e] hover:text-[#1a1918] transition-colors cursor-pointer pb-1 bg-transparent border-0"
-              >
-                02
-              </button>
-              <button
-                type="button"
-                onClick={() => goToSlide(2)}
-                className="text-[#8e877e] hover:text-[#1a1918] transition-colors cursor-pointer pb-1 bg-transparent border-0"
-              >
-                03
-              </button>
-              <button
-                type="button"
-                onClick={() => goToSlide(3)}
-                className="text-[#8e877e] hover:text-[#1a1918] transition-colors cursor-pointer pb-1 bg-transparent border-0"
-              >
-                04
-              </button>
-            </div>
-          </footer>
-        </div>
-      )}
-
-      {/* =====================================================================
-          SLIDE 1 (PAGE 02): "WHAT MOVES YOU TODAY?" - MOOD RIBBONS
-          ===================================================================== */}
-      {currentSlide === 1 && (
-        <div className="relative w-full h-full overflow-hidden flex flex-col justify-between bg-[#f6efe6]">
-          {/* Subtle parchment grain & radial gradients */}
-          <div
-            className="absolute inset-0 pointer-events-none z-0"
-            style={{
-              backgroundImage:
-                'radial-gradient(at 10% 20%, rgba(226, 214, 196, 0.45) 0px, transparent 50%), radial-gradient(at 90% 80%, rgba(216, 201, 180, 0.35) 0px, transparent 50%), radial-gradient(at 50% 50%, rgba(248, 243, 235, 0.6) 0px, transparent 80%)',
-            }}
-          />
-
-          {/* Background Botanical branch watercolor artwork top right */}
-          <div className="absolute -top-4 -right-6 w-52 sm:w-56 h-72 sm:h-80 pointer-events-none opacity-90 z-10" aria-hidden="true">
-            <svg className="w-full h-full drop-shadow-sm" fill="none" viewBox="0 0 200 320" xmlns="http://www.w3.org/2000/svg">
-              <path d="M165,300 C150,250 145,200 135,140 C130,105 140,70 145,15" stroke="#2e2722" strokeLinecap="round" strokeWidth="2.2" />
-              <path d="M142,175 C125,160 100,165 85,158" stroke="#3b332b" strokeLinecap="round" strokeWidth="1.6" />
-              <path d="M136,132 C148,118 165,115 178,110" stroke="#3b332b" strokeLinecap="round" strokeWidth="1.5" />
-              <path d="M140,92 C125,75 105,72 88,68" stroke="#3b332b" strokeLinecap="round" strokeWidth="1.4" />
-              <ellipse cx="146" cy="40" fill="#d5c8b7" fillOpacity="0.85" rx="14" ry="10" transform="rotate(-20 146 40)" />
-              <ellipse cx="160" cy="48" fill="#ded2c3" fillOpacity="0.8" rx="12" ry="9" transform="rotate(35 160 48)" />
-              <ellipse cx="152" cy="60" fill="#cfc2b1" fillOpacity="0.85" rx="13" ry="10" transform="rotate(85 152 60)" />
-              <ellipse cx="137" cy="55" fill="#dacdbd" fillOpacity="0.75" rx="12" ry="8" transform="rotate(-50 137 55)" />
-              <circle cx="148" cy="50" fill="#544c42" r="4.5" />
-              <ellipse cx="178" cy="80" fill="#786c5f" fillOpacity="0.9" rx="7" ry="5.5" transform="rotate(40 178 80)" />
-              <circle cx="177" cy="79" fill="#2b2621" r="2" />
-              <path d="M136,140 C120,135 110,142 105,155 C115,165 130,160 136,140 Z" fill="#464a3e" fillOpacity="0.9" />
-              <path d="M138,155 C148,162 165,165 172,158 C168,148 152,145 138,155 Z" fill="#585c4e" fillOpacity="0.85" />
-              <path d="M85,158 C72,152 62,159 58,170 C68,178 80,172 85,158 Z" fill="#3c4035" fillOpacity="0.88" />
-              <path d="M135,100 C118,92 108,100 102,112 C114,120 128,114 135,100 Z" fill="#505646" fillOpacity="0.9" />
-              <path d="M165,115 C178,118 190,126 195,135 C192,142 178,138 165,115 Z" fill="#626857" fillOpacity="0.8" />
-              <circle cx="95" cy="88" fill="#873527" fillOpacity="0.85" r="3.2" />
-              <circle cx="90" cy="95" fill="#a14232" fillOpacity="0.75" r="2.5" />
-              <circle cx="102" cy="98" fill="#5a221a" fillOpacity="0.85" r="2.8" />
+              <line x1="4" x2="20" y1="7" y2="7" />
+              <line x1="4" x2="20" y1="12" y2="12" />
+              <line x1="4" x2="20" y1="17" y2="17" />
             </svg>
-          </div>
-
-          {/* Background Botanical Branch accent bottom left */}
-          <div className="absolute bottom-40 -left-6 w-28 h-40 pointer-events-none opacity-85 z-10" aria-hidden="true">
-            <svg className="w-full h-full" fill="none" viewBox="0 0 100 160" xmlns="http://www.w3.org/2000/svg">
-              <path d="M0,130 C25,120 38,90 48,50 C52,30 55,10 60,0" stroke="#332d26" strokeLinecap="round" strokeWidth="1.8" />
-              <path d="M25,110 C40,105 55,112 60,120" stroke="#332d26" strokeWidth="1.2" />
-              <ellipse cx="62" cy="118" fill="#a44b36" fillOpacity="0.85" rx="6" ry="4" />
-              <ellipse cx="48" cy="85" fill="#933e2d" fillOpacity="0.85" rx="7" ry="4.5" transform="rotate(-30 48 85)" />
-              <ellipse cx="56" cy="50" fill="#7a3426" fillOpacity="0.9" rx="8" ry="5" transform="rotate(-20 56 50)" />
-              <circle cx="38" cy="92" fill="#b0523d" r="3" />
-              <circle cx="28" cy="100" fill="#843222" r="2.2" />
-            </svg>
-          </div>
-
-          {/* Top Navigation Row */}
-          <header className="relative z-30 pt-[max(0.85rem,env(safe-area-inset-top,0px))] px-5 sm:px-6 flex items-center justify-between shrink-0">
-            {/* Back Button -> returns to Slide 0 */}
-            <button
-              type="button"
-              onClick={() => goToSlide(0)}
-              aria-label="Back to Slide 01"
-              className="w-9 h-9 rounded-full flex items-center justify-center bg-black/5 hover:bg-black/10 text-[#191715] transition-colors cursor-pointer active:scale-95 motion-reduce:transform-none"
-            >
-              <svg className="w-5 h-5 stroke-[2]" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
-            </button>
-
-            {/* Step Indicator & Menu */}
-            <div className="flex items-center gap-3">
-              <div className="flex items-center text-[13px] font-sans tracking-tight font-medium text-[#191715] leading-none">
-                <span className="font-bold text-[#191715]">02</span>
-                <span className="mx-0.5 text-stone-400">/</span>
-                <span className="text-stone-500 font-normal">04</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setMenuOpen(true)}
-                aria-label="Open Navigation Menu"
-                className="w-9 h-9 rounded-full flex items-center justify-center bg-black/5 hover:bg-black/10 text-[#191715] transition-colors cursor-pointer active:scale-95 motion-reduce:transform-none"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2.2" viewBox="0 0 24 24">
-                  <line x1="4" x2="20" y1="7" y2="7" />
-                  <line x1="4" x2="20" y1="12" y2="12" />
-                  <line x1="4" x2="20" y1="17" y2="17" />
-                </svg>
-              </button>
-            </div>
-          </header>
-
-          {/* Main Headline Section - 100% Brand Typography (Outfit + Inter) */}
-          <div className="relative z-20 px-6 sm:px-7 flex-1 flex flex-col justify-center min-h-0 pt-6 min-[380px]:pt-10 pb-2">
-            <div className="max-w-[270px]">
-              <h1 className="font-serif font-extrabold text-[36px] min-[380px]:text-[40px] sm:text-[44px] leading-[1.02] tracking-[-0.03em] text-[#191715]">
-                What<br />moves<br />you today?
-              </h1>
-              <p className="mt-3 text-[#5c5650] text-[13px] min-[380px]:text-[13.5px] leading-relaxed font-sans font-normal">
-                Explore by feeling. Each mood opens a different side of storytelling.
-              </p>
-            </div>
-          </div>
-
-          {/* Mood Ribbon Slices Stack */}
-          <div className="relative w-full shrink-0 select-none pb-1 z-20" role="list" aria-label="Mood options">
-            {/* Slice 1: Melancholic */}
-            <div
-              role="button"
-              tabIndex={0}
-              aria-label="Select Melancholic mood"
-              onClick={() => navigate({ to: '/discover' })}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  navigate({ to: '/discover' })
-                }
-              }}
-              className="relative -mb-6 z-40 group cursor-pointer active:scale-[0.985] motion-reduce:transform-none transition-transform"
-            >
-              <div className="relative w-full h-[120px] min-[380px]:h-[126px] drop-shadow-[0_8px_18px_rgba(20,25,35,0.22)]">
-                <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 400 126">
-                  <defs>
-                    <clipPath id="wave1-path">
-                      <path d="M 0,42 C 45,62 105,62 165,32 C 225,2 295,-2 400,28 L 400,126 C 300,136 210,132 140,112 C 80,95 30,102 0,120 Z" />
-                    </clipPath>
-                    <radialGradient cx="72%" cy="42%" id="moonGlow" r="28%">
-                      <stop offset="0%" stopColor="#ffffea" stopOpacity="0.95" />
-                      <stop offset="35%" stopColor="#b6cde2" stopOpacity="0.5" />
-                      <stop offset="100%" stopColor="#0b1724" stopOpacity="0" />
-                    </radialGradient>
-                    <linearGradient id="nightSky" x1="0%" x2="100%" y1="0%" y2="100%">
-                      <stop offset="0%" stopColor="#07111c" />
-                      <stop offset="45%" stopColor="#14263b" />
-                      <stop offset="100%" stopColor="#08101a" />
-                    </linearGradient>
-                  </defs>
-                  <g clipPath="url(#wave1-path)">
-                    <rect fill="url(#nightSky)" height="126" width="400" />
-                    <circle cx="290" cy="48" fill="url(#moonGlow)" r="42" />
-                    <circle cx="290" cy="48" fill="#e8edf2" r="19" />
-                    <circle cx="286" cy="45" fill="#cad5e0" opacity="0.6" r="5" />
-                    <circle cx="294" cy="51" fill="#cad5e0" opacity="0.5" r="7" />
-                    <circle cx="297" cy="43" fill="#bcccd9" opacity="0.5" r="3.5" />
-                    <path d="M120,110 L160,78 L200,95 L245,65 L285,88 L340,68 L400,90 L400,126 L120,126 Z" fill="#0c1d2e" opacity="0.8" />
-                    <path d="M0,120 L30,95 L65,108 L110,82 L150,105 L210,84 L270,108 L340,94 L400,110 L400,126 L0,126 Z" fill="#04090f" />
-                    <ellipse cx="290" cy="115" fill="#a4c2db" opacity="0.35" rx="28" ry="4" />
-                    <ellipse cx="286" cy="120" fill="#d9e6f2" opacity="0.4" rx="16" ry="2" />
-                  </g>
-                  <path d="M 0,42 C 45,62 105,62 165,32 C 225,2 295,-2 400,28" fill="none" opacity="0.5" stroke="#685642" strokeWidth="0.75" />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-between px-6 min-[380px]:px-7 pt-4 pointer-events-none">
-                  <span className="font-serif text-[21px] min-[380px]:text-[23px] font-bold text-stone-100 tracking-wide drop-shadow-md">
-                    Melancholic
-                  </span>
-                  <div className="w-8 h-8 rounded-full border border-stone-300/40 bg-stone-900/30 backdrop-blur-sm flex items-center justify-center text-stone-200 transition-transform duration-200 group-hover:translate-x-0.5">
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24">
-                      <line x1="5" x2="19" y1="12" y2="12" />
-                      <polyline points="12 5 19 12 12 19" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Slice 2: Hopeful */}
-            <div
-              role="button"
-              tabIndex={0}
-              aria-label="Select Hopeful mood"
-              onClick={() => navigate({ to: '/discover' })}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  navigate({ to: '/discover' })
-                }
-              }}
-              className="relative -mb-6 z-30 group cursor-pointer active:scale-[0.985] motion-reduce:transform-none transition-transform"
-            >
-              <div className="relative w-full h-[120px] min-[380px]:h-[126px] drop-shadow-[0_8px_16px_rgba(40,25,15,0.2)]">
-                <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 400 126">
-                  <defs>
-                    <clipPath id="wave2-path">
-                      <path d="M 0,22 C 75,-3 175,10 255,34 C 315,52 368,48 400,30 L 400,126 C 335,145 265,140 180,112 C 110,88 50,96 0,118 Z" />
-                    </clipPath>
-                    <linearGradient id="sunsetGrad" x1="0%" x2="100%" y1="0%" y2="80%">
-                      <stop offset="0%" stopColor="#e08e53" />
-                      <stop offset="40%" stopColor="#f5ba78" />
-                      <stop offset="75%" stopColor="#df8a56" />
-                      <stop offset="100%" stopColor="#4e311f" />
-                    </linearGradient>
-                    <radialGradient cx="55%" cy="35%" id="sunHaze" r="45%">
-                      <stop offset="0%" stopColor="#ffeaaf" stopOpacity="0.8" />
-                      <stop offset="60%" stopColor="#e28a4c" stopOpacity="0.2" />
-                      <stop offset="100%" stopColor="#e28a4c" stopOpacity="0" />
-                    </radialGradient>
-                  </defs>
-                  <g clipPath="url(#wave2-path)">
-                    <rect fill="url(#sunsetGrad)" height="126" width="400" />
-                    <rect fill="url(#sunHaze)" height="126" width="400" />
-                    <ellipse cx="140" cy="50" fill="#f8cf9c" opacity="0.6" rx="55" ry="18" />
-                    <ellipse cx="230" cy="45" fill="#ffd8a6" opacity="0.7" rx="70" ry="22" />
-                    <ellipse cx="280" cy="55" fill="#f3af76" opacity="0.5" rx="45" ry="16" />
-                    <path d="M60,126 C110,80 180,95 240,78 C300,62 360,82 400,75 L400,126 Z" fill="#b06437" opacity="0.75" />
-                    <path d="M0,126 C40,95 100,105 170,98 C240,90 320,110 400,95 L400,126 Z" fill="#5c4328" />
-                    <path d="M0,115 C45,102 110,115 160,110 C210,105 280,120 360,112 L400,118 L400,126 L0,126 Z" fill="#2d2b1f" />
-                  </g>
-                  <path d="M 0,22 C 75,-3 175,10 255,34 C 315,52 368,48 400,30" fill="none" opacity="0.6" stroke="#e8c99e" strokeWidth="0.8" />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-between px-6 min-[380px]:px-7 pt-3.5 pointer-events-none">
-                  <span className="font-serif text-[21px] min-[380px]:text-[23px] font-bold text-stone-100 tracking-wide drop-shadow-md">
-                    Hopeful
-                  </span>
-                  <div className="w-8 h-8 rounded-full border border-stone-200/50 bg-stone-900/35 backdrop-blur-sm flex items-center justify-center text-stone-100 transition-transform duration-200 group-hover:translate-x-0.5">
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24">
-                      <line x1="5" x2="19" y1="12" y2="12" />
-                      <polyline points="12 5 19 12 12 19" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Slice 3: Dreamlike */}
-            <div
-              role="button"
-              tabIndex={0}
-              aria-label="Select Dreamlike mood"
-              onClick={() => navigate({ to: '/discover' })}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  navigate({ to: '/discover' })
-                }
-              }}
-              className="relative -mb-6 z-20 group cursor-pointer active:scale-[0.985] motion-reduce:transform-none transition-transform"
-            >
-              <div className="relative w-full h-[120px] min-[380px]:h-[126px] drop-shadow-[0_8px_16px_rgba(30,15,35,0.2)]">
-                <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 400 126">
-                  <defs>
-                    <clipPath id="wave3-path">
-                      <path d="M 0,22 C 75,5 150,2 230,22 C 295,38 355,35 400,18 L 400,112 C 340,132 250,132 170,110 C 90,88 40,96 0,116 Z" />
-                    </clipPath>
-                    <linearGradient id="dreamSky" x1="0%" x2="100%" y1="0%" y2="90%">
-                      <stop offset="0%" stopColor="#495579" />
-                      <stop offset="30%" stopColor="#736b92" />
-                      <stop offset="65%" stopColor="#c19ab7" />
-                      <stop offset="100%" stopColor="#e3a79d" />
-                    </linearGradient>
-                  </defs>
-                  <g clipPath="url(#wave3-path)">
-                    <rect fill="url(#dreamSky)" height="126" width="400" />
-                    <circle cx="270" cy="55" fill="#f8d6d6" opacity="0.65" r="38" />
-                    <circle cx="230" cy="62" fill="#eed0e2" opacity="0.75" r="30" />
-                    <circle cx="310" cy="68" fill="#fad7cb" opacity="0.6" r="32" />
-                    <circle cx="185" cy="70" fill="#b99ec2" opacity="0.7" r="28" />
-                    <path d="M0,126 L30,95 C60,80 90,85 120,98 C160,115 200,90 250,105 C300,120 360,100 400,115 L400,126 Z" fill="#3b3353" opacity="0.85" />
-                    <path d="M0,115 C45,100 80,118 120,112 C160,106 200,122 250,118 C300,114 360,125 400,120 L400,126 L0,126 Z" fill="#251f33" />
-                  </g>
-                  <path d="M 0,22 C 75,5 150,2 230,22 C 295,38 355,35 400,18" fill="none" opacity="0.55" stroke="#d5bad4" strokeWidth="0.8" />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-between px-6 min-[380px]:px-7 pt-3.5 pointer-events-none">
-                  <span className="font-serif text-[21px] min-[380px]:text-[23px] font-bold text-stone-100 tracking-wide drop-shadow-md">
-                    Dreamlike
-                  </span>
-                  <div className="w-8 h-8 rounded-full border border-stone-200/50 bg-stone-900/35 backdrop-blur-sm flex items-center justify-center text-stone-100 transition-transform duration-200 group-hover:translate-x-0.5">
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24">
-                      <line x1="5" x2="19" y1="12" y2="12" />
-                      <polyline points="12 5 19 12 12 19" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Slice 4: Unsettling */}
-            <div
-              role="button"
-              tabIndex={0}
-              aria-label="Select Unsettling mood"
-              onClick={() => navigate({ to: '/discover' })}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  navigate({ to: '/discover' })
-                }
-              }}
-              className="relative z-10 group cursor-pointer active:scale-[0.985] motion-reduce:transform-none transition-transform"
-            >
-              <div className="relative w-full h-[120px] min-[380px]:h-[126px]">
-                <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 400 126">
-                  <defs>
-                    <clipPath id="wave4-path">
-                      <path d="M 0,22 C 80,2 170,5 250,28 C 315,46 365,42 400,26 L 400,126 L 0,126 Z" />
-                    </clipPath>
-                    <linearGradient id="darkCrimson" x1="50%" x2="50%" y1="0%" y2="100%">
-                      <stop offset="0%" stopColor="#4a0f12" />
-                      <stop offset="35%" stopColor="#801c1c" />
-                      <stop offset="70%" stopColor="#3c0b0f" />
-                      <stop offset="100%" stopColor="#120406" />
-                    </linearGradient>
-                  </defs>
-                  <g clipPath="url(#wave4-path)">
-                    <rect fill="url(#darkCrimson)" height="126" width="400" />
-                    <ellipse cx="270" cy="50" fill="#a82323" opacity="0.5" rx="85" ry="35" />
-                    <ellipse cx="280" cy="65" fill="#ff4d4d" opacity="0.25" rx="45" ry="25" />
-                    <path d="M190,126 L195,65 M195,85 L180,68 M195,78 L208,62 M240,126 L245,55 M245,72 L230,55 M245,68 L260,50" stroke="#250508" strokeLinecap="round" strokeWidth="2.5" />
-                    <path d="M280,68 C278,68 274,73 273,82 C271,94 269,112 268,126 L292,126 C291,112 289,94 287,82 C286,73 282,68 280,68 Z" fill="#0d0203" />
-                    <circle cx="280" cy="66" fill="#0d0203" r="4.2" />
-                    <path d="M305,126 L312,45 M312,68 L295,50 M312,75 L332,58 M360,126 L365,58 M365,80 L350,65 M365,72 L380,55" stroke="#120204" strokeLinecap="round" strokeWidth="3" />
-                    <path d="M85,126 L92,55 M92,75 L75,60 M92,85 L108,70" stroke="#150305" strokeWidth="3" />
-                    <path d="M0,105 C40,95 80,112 130,100 C180,88 230,110 270,102 C310,95 360,115 400,105 L400,126 L0,126 Z" fill="#080102" />
-                  </g>
-                  <path d="M 0,22 C 80,2 170,5 250,28 C 315,46 365,42 400,26" fill="none" opacity="0.6" stroke="#993d3d" strokeWidth="0.8" />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-between px-6 min-[380px]:px-7 pt-4 pointer-events-none">
-                  <span className="font-serif text-[21px] min-[380px]:text-[23px] font-bold text-stone-100 tracking-wide drop-shadow-md">
-                    Unsettling
-                  </span>
-                  <div className="w-8 h-8 rounded-full border border-stone-200/50 bg-stone-900/35 backdrop-blur-sm flex items-center justify-center text-stone-100 transition-transform duration-200 group-hover:translate-x-0.5">
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24">
-                      <line x1="5" x2="19" y1="12" y2="12" />
-                      <polyline points="12 5 19 12 12 19" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Bottom Pagination Indicator */}
-          <footer className="relative z-20 pb-[max(0.75rem,calc(env(safe-area-inset-bottom,0px)+0.25rem))] w-full flex justify-center items-center shrink-0">
-            <div className="flex items-center space-x-3 text-xs tracking-wider font-semibold text-[#5a554e]" aria-label="Story Slide Navigation">
-              <button
-                type="button"
-                onClick={() => goToSlide(0)}
-                className="text-[#8e877e] hover:text-[#1a1918] transition-colors cursor-pointer pb-1 bg-transparent border-0"
-              >
-                01
-              </button>
-              <div className="flex flex-col items-center">
-                <span className="text-[#1a1918] font-bold">02</span>
-                <span className="w-3.5 h-[1.5px] bg-[#c84b25] mt-0.5 rounded-full" />
-              </div>
-              <span className="text-stone-400 font-light text-[11px] pb-1">|</span>
-              <button
-                type="button"
-                onClick={() => goToSlide(2)}
-                className="text-[#8e877e] hover:text-[#1a1918] transition-colors cursor-pointer pb-1 bg-transparent border-0"
-              >
-                03
-              </button>
-              <button
-                type="button"
-                onClick={() => goToSlide(3)}
-                className="text-[#8e877e] hover:text-[#1a1918] transition-colors cursor-pointer pb-1 bg-transparent border-0"
-              >
-                04
-              </button>
-            </div>
-          </footer>
+          </button>
         </div>
-      )}
+      </header>
 
       {/* =====================================================================
-          SLIDE 2 (PAGE 03): "EXPLORE GENRES." - ASYMMETRIC BENTO GRID
+          SECTION 1: HERO (SLIDE 01)
+          Precisely 100% of visible viewport (Header + Section = 100dvh).
+          Image ALWAYS centered.
+          On taller screens: Actions naturally shift to bottom.
           ===================================================================== */}
-      {currentSlide === 2 && (
-        <div className="relative w-full h-full overflow-hidden flex flex-col justify-between bg-[#0c0e11] text-[#fbf9f5]">
-          {/* Top Navigation Row */}
-          <header className="relative z-30 pt-[max(0.85rem,env(safe-area-inset-top,0px))] px-5 sm:px-6 flex items-center justify-between shrink-0">
-            {/* Back Button -> returns to Slide 01 */}
-            <button
-              type="button"
-              onClick={() => goToSlide(1)}
-              aria-label="Back to Slide 02"
-              className="w-9 h-9 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/15 text-white transition-colors cursor-pointer active:scale-95 motion-reduce:transform-none"
-            >
-              <svg className="w-5 h-5 stroke-[2]" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
-            </button>
-
-            {/* Step Indicator & Menu */}
-            <div className="flex items-center gap-3">
-              <div className="flex items-center text-[13px] font-sans tracking-tight font-medium text-white/90 leading-none">
-                <span className="font-bold text-white">03</span>
-                <span className="mx-0.5 text-stone-500">/</span>
-                <span className="text-stone-400 font-normal">04</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setMenuOpen(true)}
-                aria-label="Open Navigation Menu"
-                className="w-9 h-9 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/15 text-white transition-colors cursor-pointer active:scale-95 motion-reduce:transform-none"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2.2" viewBox="0 0 24 24">
-                  <line x1="4" x2="20" y1="7" y2="7" />
-                  <line x1="4" x2="20" y1="12" y2="12" />
-                  <line x1="4" x2="20" y1="17" y2="17" />
-                </svg>
-              </button>
-            </div>
-          </header>
-
-          {/* Scrollable / Flexible Bento Content View */}
-          <div className="flex-1 overflow-y-auto px-5 sm:px-6 pt-2 pb-3 scrollbar-none flex flex-col justify-between min-h-0">
-            {/* Hero Editorial Typography - 100% Brand Matched (Outfit + Inter) */}
-            <section className="mb-3 min-[380px]:mb-4 shrink-0">
-              <h1 className="font-serif font-extrabold text-[34px] min-[380px]:text-[38px] sm:text-[42px] leading-[1.05] tracking-tight text-white">
-                Explore<br />
-                <span className="text-[#df562c] italic">genres</span>.
-              </h1>
-              <p className="mt-1.5 font-sans text-[13px] min-[380px]:text-[13.5px] leading-snug text-neutral-400 font-normal">
-                Different worlds.<br />
-                Different perspectives.
-              </p>
-            </section>
-
-            {/* Asymmetric Genre Bento Grid (6 Cards) */}
-            <section className="grid grid-cols-2 gap-2.5 min-[380px]:gap-3 pb-2 my-auto">
-              {/* CARD 1: Literary Fiction */}
-              <article
-                onClick={() => navigate({ to: '/discover' })}
-                style={{
-                  borderRadius: '90px 75px 42px 70px',
-                  background: 'radial-gradient(circle at 75% 20%, #f4e9d6 0%, #d8c3a5 60%, #bca585 100%)',
-                }}
-                className="h-[128px] min-[380px]:h-[142px] min-[420px]:h-[155px] relative overflow-hidden shadow-lg p-3 min-[380px]:p-3.5 flex flex-col justify-end group cursor-pointer transition-transform duration-300 active:scale-[0.98]"
-              >
-                {/* Botanical Branch Illustration Silhouette */}
-                <div className="absolute inset-0 pointer-events-none opacity-85" aria-hidden="true">
-                  <svg className="w-full h-full text-[#382b20]" fill="currentColor" viewBox="0 0 200 240">
-                    <path d="M95,240 C95,210 105,170 110,130 C114,98 122,65 130,40 C131,37 128,35 126,38 C120,55 105,85 102,110 C98,135 90,185 88,240 Z" opacity="0.9" />
-                    <path d="M110,130 C125,120 145,105 160,85 C162,82 158,80 155,82 C140,95 125,110 112,122 Z" opacity="0.8" />
-                    <circle cx="160" cy="85" opacity="0.8" r="3.5" />
-                    <circle cx="152" cy="78" opacity="0.7" r="2" />
-                    <circle cx="140" cy="98" opacity="0.75" r="2.5" />
-                    <path d="M104,155 C88,140 70,128 50,118 C47,117 46,120 48,122 C65,132 80,145 98,160 Z" opacity="0.8" />
-                    <circle cx="50" cy="118" opacity="0.8" r="3" />
-                    <circle cx="62" cy="122" opacity="0.7" r="2" />
-                    <path d="M124,70 C140,58 152,42 165,22 C166,20 163,18 161,20 C149,36 138,50 124,64 Z" opacity="0.8" />
-                    <circle cx="165" cy="22" opacity="0.85" r="3" />
-                    <circle cx="150" cy="35" opacity="0.7" r="2.5" />
-                  </svg>
-                </div>
-                <div className="relative z-10 flex items-end justify-between">
-                  <h2 className="font-serif text-[17px] min-[380px]:text-[18px] leading-[20px] text-[#1c1712] font-bold tracking-tight">
-                    Literary<br />Fiction
-                  </h2>
-                  <div className="w-8 h-8 rounded-full bg-black/60 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/90 group-hover:scale-105 transition-transform">
-                    <svg className="w-3.5 h-3.5 stroke-[2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </div>
-                </div>
-              </article>
-
-              {/* CARD 2: Fantasy */}
-              <article
-                onClick={() => navigate({ to: '/discover' })}
-                style={{
-                  borderRadius: '88px 88px 24px 24px',
-                  background: 'radial-gradient(circle at 50% 10%, #203a5c 0%, #0d1b2a 55%, #050a10 100%)',
-                }}
-                className="h-[128px] min-[380px]:h-[142px] min-[420px]:h-[155px] relative overflow-hidden shadow-lg p-3 min-[380px]:p-3.5 flex flex-col justify-end group cursor-pointer transition-transform duration-300 active:scale-[0.98]"
-              >
-                {/* Citadel and Night Sky Illustration Backdrop */}
-                <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-                  <div className="absolute top-3 left-1/2 -translate-x-1/2 w-28 h-28 bg-blue-400/10 rounded-full blur-xl" />
-                  <div className="absolute top-6 left-6 w-1 h-1 bg-white/70 rounded-full" />
-                  <div className="absolute top-12 right-8 w-1 h-1 bg-white/50 rounded-full" />
-                  <div className="absolute top-4 right-14 w-0.5 h-0.5 bg-white/80 rounded-full" />
-                  <svg className="w-full h-full" fill="none" viewBox="0 0 180 220">
-                    <path d="M90 25 L102 65 L112 120 L135 150 L145 220 L35 220 L45 150 L68 120 L78 65 Z" fill="#09131d" />
-                    <path d="M90 25 L93 60 L104 110 L108 170 L115 220 L80 220 L83 170 L87 110 L89 60 Z" fill="#14263a" />
-                    <polygon fill="#070e16" points="90,15 87,40 93,40" />
-                    <polygon fill="#09131d" points="65,80 62,110 68,110" />
-                    <polygon fill="#09131d" points="115,80 112,110 118,110" />
-                    <circle cx="90" cy="110" fill="#f7b731" r="1.5" />
-                    <circle cx="92" cy="135" fill="#f7b731" r="1.5" />
-                    <circle cx="102" cy="150" fill="#e17055" r="1.5" />
-                  </svg>
-                  <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#050a10] via-[#050a10]/80 to-transparent" />
-                </div>
-                <div className="relative z-10 flex items-end justify-between">
-                  <h2 className="font-serif text-[17px] min-[380px]:text-[18px] leading-[20px] text-white font-bold tracking-tight pb-0.5">
-                    Fantasy
-                  </h2>
-                  <div className="w-8 h-8 rounded-full bg-black/60 backdrop-blur-md border border-white/20 flex items-center justify-center text-white/95 group-hover:scale-105 transition-transform">
-                    <svg className="w-3.5 h-3.5 stroke-[2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </div>
-                </div>
-              </article>
-
-              {/* CARD 3: Romance */}
-              <article
-                onClick={() => navigate({ to: '/discover' })}
-                style={{
-                  borderRadius: '80px 70px 24px 24px',
-                  background: 'radial-gradient(circle at 60% 40%, #ea5c30 0%, #872818 55%, #2a0a07 100%)',
-                }}
-                className="h-[128px] min-[380px]:h-[142px] min-[420px]:h-[155px] relative overflow-hidden shadow-lg p-3 min-[380px]:p-3.5 flex flex-col justify-end group cursor-pointer transition-transform duration-300 active:scale-[0.98]"
-              >
-                {/* Sun Disc and Crimson Botanical Flower Motif */}
-                <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-                  <div className="absolute top-5 left-8 w-20 h-20 rounded-full bg-[#f35728]/80 blur-[2px] opacity-90" />
-                  <div className="absolute bottom-0 inset-x-0 h-24 bg-[#1f0604] [clip-path:polygon(0_65%,35%_45%,70%_70%,100%_40%,100%_100%,0_100%)] opacity-95" />
-                  <svg className="absolute bottom-4 right-2 w-24 h-28" fill="none" viewBox="0 0 100 120">
-                    <path d="M42 120 C42 90 48 70 54 48" stroke="#100302" strokeLinecap="round" strokeWidth="2.5" />
-                    <ellipse cx="56" cy="38" fill="#db3a1b" rx="14" ry="11" transform="rotate(-15 56 38)" />
-                    <ellipse cx="48" cy="36" fill="#e84c2a" rx="13" ry="10" transform="rotate(20 48 36)" />
-                    <circle cx="53" cy="38" fill="#240502" r="4.5" />
-                    <circle cx="34" cy="74" fill="#bf2e13" r="3.5" />
-                    <path d="M34 74 L45 84" stroke="#100302" strokeWidth="1.5" />
-                  </svg>
-                  <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-[#120202] to-transparent" />
-                </div>
-                <div className="relative z-10 flex items-end justify-between">
-                  <h2 className="font-serif text-[17px] min-[380px]:text-[18px] leading-[20px] text-white font-bold tracking-tight pb-0.5">
-                    Romance
-                  </h2>
-                  <div className="w-8 h-8 rounded-full bg-black/60 backdrop-blur-md border border-white/20 flex items-center justify-center text-white/95 group-hover:scale-105 transition-transform">
-                    <svg className="w-3.5 h-3.5 stroke-[2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </div>
-                </div>
-              </article>
-
-              {/* CARD 4: Mystery */}
-              <article
-                onClick={() => navigate({ to: '/discover' })}
-                style={{
-                  borderRadius: '28px 28px 24px 24px',
-                  background: 'radial-gradient(circle at 50% 45%, #42464c 0%, #15181e 65%, #08090b 100%)',
-                }}
-                className="h-[128px] min-[380px]:h-[142px] min-[420px]:h-[155px] relative overflow-hidden shadow-lg p-3 min-[380px]:p-3.5 flex flex-col justify-end group cursor-pointer transition-transform duration-300 active:scale-[0.98]"
-              >
-                {/* Vaulted Gothic Arches Backdrop */}
-                <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-                  <svg className="w-full h-full" fill="none" viewBox="0 0 160 200">
-                    <path d="M62 135 C62 90 98 90 98 135 L98 150 L62 150 Z" fill="#b9bec6" opacity="0.85" />
-                    <path d="M40 180 C40 80 120 80 120 180 L140 180 C140 60 20 60 20 180 Z" fill="#1e2229" />
-                    <path d="M10 200 C10 40 150 40 150 200 L160 200 C160 25 0 25 0 200 Z" fill="#0d0f13" />
-                    <ellipse cx="80" cy="116" fill="#111317" rx="2.5" ry="3" />
-                    <path d="M76 122 L84 122 L83 144 L77 144 Z" fill="#111317" />
-                  </svg>
-                  <div className="absolute top-16 left-1/2 -translate-x-1/2 w-10 h-14 bg-white/35 blur-md" />
-                  <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-[#08090b] via-[#08090b]/80 to-transparent" />
-                </div>
-                <div className="relative z-10 flex items-end justify-between">
-                  <h2 className="font-serif text-[17px] min-[380px]:text-[18px] leading-[20px] text-white font-bold tracking-tight pb-0.5">
-                    Mystery
-                  </h2>
-                  <div className="w-8 h-8 rounded-full bg-black/60 backdrop-blur-md border border-white/20 flex items-center justify-center text-white/95 group-hover:scale-105 transition-transform">
-                    <svg className="w-3.5 h-3.5 stroke-[2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </div>
-                </div>
-              </article>
-
-              {/* CARD 5: Science Fiction */}
-              <article
-                onClick={() => navigate({ to: '/discover' })}
-                style={{
-                  borderRadius: '24px 24px 24px 50px',
-                  background: 'radial-gradient(circle at 90% 80%, #30587e 0%, #0c1825 50%, #02060b 100%)',
-                }}
-                className="h-[128px] min-[380px]:h-[142px] min-[420px]:h-[155px] relative overflow-hidden shadow-lg p-3 min-[380px]:p-3.5 flex flex-col justify-end group cursor-pointer transition-transform duration-300 active:scale-[0.98]"
-              >
-                {/* Cosmic Earth Planet Rim and Blazing Star Flare */}
-                <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-                  <div className="absolute top-5 left-10 w-0.5 h-0.5 bg-white/70 rounded-full" />
-                  <div className="absolute top-8 right-8 w-1 h-1 bg-white/80 rounded-full" />
-                  <div className="absolute top-16 right-5 w-0.5 h-0.5 bg-white/50 rounded-full" />
-                  <div className="absolute -bottom-16 -left-12 w-48 h-48 rounded-full border-[1.5px] border-[#93c5fd]/50 bg-gradient-to-tr from-[#02060b] via-[#091f37] to-[#1e486f] shadow-[0_0_25px_rgba(96,165,250,0.3)]" />
-                  <div className="absolute top-[70px] left-[60px] w-5 h-5 rounded-full bg-white blur-[2px] shadow-[0_0_16px_8px_rgba(255,255,255,0.7)]" />
-                  <div className="absolute top-[78px] left-[45px] w-12 h-[1px] bg-white blur-[0.5px] rotate-[-25deg]" />
-                  <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-[#02060b] via-[#02060b]/70 to-transparent" />
-                </div>
-                <div className="relative z-10 flex items-end justify-between">
-                  <h2 className="font-serif text-[17px] min-[380px]:text-[18px] leading-[20px] text-white font-bold tracking-tight">
-                    Science<br />Fiction
-                  </h2>
-                  <div className="w-8 h-8 rounded-full bg-black/60 backdrop-blur-md border border-white/20 flex items-center justify-center text-white/95 group-hover:scale-105 transition-transform">
-                    <svg className="w-3.5 h-3.5 stroke-[2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </div>
-                </div>
-              </article>
-
-              {/* CARD 6: Poetry */}
-              <article
-                onClick={() => navigate({ to: '/discover' })}
-                style={{
-                  borderRadius: '40px 75px 36px 36px',
-                  background: 'radial-gradient(circle at 50% 50%, #f5ece0 0%, #dfd3c1 70%, #ccbfa9 100%)',
-                }}
-                className="h-[128px] min-[380px]:h-[142px] min-[420px]:h-[155px] relative overflow-hidden shadow-lg p-3 min-[380px]:p-3.5 flex flex-col justify-end group cursor-pointer transition-transform duration-300 active:scale-[0.98]"
-              >
-                {/* Pressed Botanical Herb / Wildflower Ink Silhouette */}
-                <div className="absolute inset-0 pointer-events-none opacity-85" aria-hidden="true">
-                  <svg className="w-full h-full text-[#302820]" fill="currentColor" viewBox="0 0 180 220">
-                    <path d="M96 220 C96 160 92 110 88 40" stroke="#302820" strokeLinecap="round" strokeWidth="1.8" />
-                    <path d="M88 40 L88 20" stroke="#302820" strokeWidth="1.2" />
-                    <circle cx="88" cy="20" r="3" />
-                    <circle cx="83" cy="26" r="2.2" />
-                    <circle cx="94" cy="24" r="2.5" />
-                    <path d="M93 140 C80 120 62 105 52 80" fill="none" stroke="#302820" strokeLinecap="round" strokeWidth="1.5" />
-                    <circle cx="52" cy="80" r="3.2" />
-                    <circle cx="45" cy="86" r="2" />
-                    <circle cx="58" cy="74" r="2" />
-                    <path d="M91 100 C110 85 125 70 142 50" fill="none" stroke="#302820" strokeLinecap="round" strokeWidth="1.4" />
-                    <circle cx="142" cy="50" r="3" />
-                    <circle cx="135" cy="58" r="2" />
-                    <circle cx="148" cy="44" r="2" />
-                    <circle cx="74" cy="115" r="2" />
-                    <circle cx="118" cy="85" r="2.2" />
-                    <circle cx="68" cy="148" r="2" />
-                  </svg>
-                </div>
-                <div className="relative z-10 flex items-end justify-between">
-                  <h2 className="font-serif text-[17px] min-[380px]:text-[18px] leading-[20px] text-[#1f1914] font-bold tracking-tight pb-0.5">
-                    Poetry
-                  </h2>
-                  <div className="w-8 h-8 rounded-full bg-black/60 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/95 group-hover:scale-105 transition-transform">
-                    <svg className="w-3.5 h-3.5 stroke-[2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </div>
-                </div>
-              </article>
-            </section>
-          </div>
-
-          {/* Bottom Pagination Indicator */}
-          <footer className="relative z-20 pb-[max(0.75rem,calc(env(safe-area-inset-bottom,0px)+0.25rem))] w-full flex justify-center items-center shrink-0">
-            <div className="flex items-center space-x-3 text-xs tracking-wider font-semibold text-neutral-400" aria-label="Story Slide Navigation">
-              <button
-                type="button"
-                onClick={() => goToSlide(0)}
-                className="text-neutral-500 hover:text-white transition-colors cursor-pointer pb-1 bg-transparent border-0"
-              >
-                01
-              </button>
-              <button
-                type="button"
-                onClick={() => goToSlide(1)}
-                className="text-neutral-500 hover:text-white transition-colors cursor-pointer pb-1 bg-transparent border-0"
-              >
-                02
-              </button>
-              <div className="flex flex-col items-center">
-                <span className="text-white font-bold">03</span>
-                <span className="w-3.5 h-[1.5px] bg-[#df562c] mt-0.5 rounded-full" />
-              </div>
-              <span className="text-neutral-600 font-light text-[11px] pb-1">|</span>
-              <button
-                type="button"
-                onClick={() => goToSlide(3)}
-                className="text-neutral-500 hover:text-white transition-colors cursor-pointer pb-1 bg-transparent border-0"
-              >
-                04
-              </button>
-            </div>
-          </footer>
-        </div>
-      )}
-
-      {/* =====================================================================
-          SLIDE 3 (PAGE 04): "HAVE A STORY TO TELL?" - FINAL ONBOARDING SLIDE
-          ===================================================================== */}
-      {currentSlide === 3 && (
-        <div className="relative w-full h-full overflow-hidden flex flex-col justify-between bg-[#f8f6f0] text-[#1a1d1a]">
-          {/* Background Artwork Image & Seamless Gradient Overlay */}
-          <div className="absolute inset-0 z-0 pointer-events-none" aria-hidden="true">
+      <section className="h-[calc(100svh-3.5rem-env(safe-area-inset-top,0px))] max-h-[calc(100svh-3.5rem-env(safe-area-inset-top,0px))] w-full flex flex-col justify-between items-center px-6 pt-1 pb-4 max-w-md mx-auto overflow-hidden">
+        {/* Narrative Center Editorial Section — ALWAYS VERTICALLY CENTERED */}
+        <div className="flex-1 min-h-0 w-full flex flex-col items-center justify-center my-auto">
+          {/* Centered Image Container: scales flexibly between 220px and 45vh so it never causes overflow */}
+          <div className="relative w-full flex-1 min-h-0 max-h-[44vh] sm:max-h-[48vh] flex items-center justify-center my-auto">
             <img
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuDlpng-KXV8GmEMYKEe4TXw-e0UzzSLEQxmt1c69PqnD7KXiJCyuYK2TksE0HoF8S98Fz-jo2DZRQ354TOeqTyE9bKxy2FQkpP3L8IvGBSS04a5HHMqdBdDvZ6J9e9futwfz5RPzkjaQMMBmnwQQve2AxkI3uub9TO19Wqg2sAqns-THw7wvzcuoWomtMEBhGNNPtwB8JRRiYg5Z47rBBLbfK5mBYj1nxaP-i1O5ih_1ss5T7YikHMiMw"
-              alt="Luminous warm stone archway with ascending mossy steps, floating origami paper cranes and golden morning light"
-              className="w-full h-[58%] min-[380px]:h-[60%] sm:h-[62%] object-cover object-top"
-            />
-            {/* Atmospheric parchment gradient overlay fading down into warm cream */}
-            <div
-              className="absolute inset-0"
+              alt="Portrait of creative woman reading an open book"
+              className="w-auto h-full max-h-full max-w-full object-contain object-center pointer-events-none mx-auto"
+              src={screen01WomanImg}
               style={{
-                background:
-                  'linear-gradient(180deg, rgba(248, 246, 240, 0) 0%, rgba(248, 246, 240, 0.05) 30%, rgba(248, 246, 240, 0.6) 48%, rgba(248, 246, 240, 0.95) 60%, #f8f6f0 70%, #f8f6f0 100%)',
+                WebkitMaskImage: 'linear-gradient(black 78%, transparent 100%)',
+                maskImage: 'linear-gradient(black 78%, transparent 100%)',
               }}
             />
           </div>
+          <div className="w-full text-center px-4 pt-1 pb-1 shrink-0">
+            <h1 className="font-serif text-[26px] sm:text-[32px] text-[#161c14] leading-[1.18] tracking-tight mx-auto max-w-[320px]">
+              You haven’t met<br />your next <span className="italic font-normal">favourite</span> story.
+            </h1>
+          </div>
+        </div>
 
-          {/* Top Navigation Row */}
-          <header className="relative z-20 pt-[max(0.85rem,env(safe-area-inset-top,0px))] px-5 sm:px-6 flex items-center justify-between shrink-0">
-            {/* Back Button -> returns to Slide 03 / prev */}
+        {/* Bottom Action Module — Pins to bottom, sits safely above Safari browser bar */}
+        <div className="w-full shrink-0 flex flex-col items-center space-y-2.5 pt-1 pb-2">
+          <div className="w-full max-w-xs mx-auto">
             <button
               type="button"
-              onClick={() => goToSlide(2)}
-              aria-label="Back to Slide 03"
-              className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center bg-[#f8f6f0]/80 backdrop-blur-md text-[#1a1d1a] border border-white/60 shadow-sm active:scale-95 transition-all cursor-pointer"
+              onClick={scrollToSlide2}
+              className="w-full inline-flex items-center justify-center space-x-2.5 bg-[#1e241c] text-[#f7f5ef] px-8 py-3.5 rounded-full shadow-lg active:scale-95 transition-all duration-200 group hover:bg-[#2b3328] focus:outline-none cursor-pointer"
             >
-              <svg className="w-5 h-5 stroke-[2]" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
+              <span className="font-serif text-[17px] sm:text-[18px] font-medium text-[#f7f5ef] tracking-tight">
+                Begin your journey
+              </span>
+              <ArrowRight className="w-4 h-4 text-[#f7f5ef] transition-transform duration-200 group-hover:translate-x-1" />
             </button>
+          </div>
 
-            {/* Step Indicator & Menu */}
-            <div className="flex items-center gap-3">
-              <div className="flex items-center text-[13px] font-sans tracking-tight font-medium text-[#1a1d1a] leading-none px-3 py-2 rounded-full bg-[#f8f6f0]/80 backdrop-blur-md border border-white/60 shadow-sm">
-                <span className="font-bold text-[#1a1d1a]">04</span>
-                <span className="mx-0.5 text-stone-400">/</span>
-                <span className="text-stone-500 font-normal">04</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setMenuOpen(true)}
-                aria-label="Open Navigation Menu"
-                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center bg-[#f8f6f0]/80 backdrop-blur-md text-[#1a1d1a] border border-white/60 shadow-sm active:scale-95 transition-all cursor-pointer"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2.2" viewBox="0 0 24 24">
-                  <line x1="4" x2="20" y1="7" y2="7" />
-                  <line x1="4" x2="20" y1="12" y2="12" />
-                  <line x1="4" x2="20" y1="17" y2="17" />
-                </svg>
-              </button>
-            </div>
-          </header>
-
-          {/* Main Editorial Content & Action CTAs */}
-          <section className="relative z-20 flex-1 flex flex-col justify-end px-6 sm:px-7 pb-4 min-[380px]:pb-6">
-            {/* Headline & Subtitle - 100% Brand Matched (Outfit + Inter) */}
-            <div className="mb-6 min-[380px]:mb-7">
-              <h1 className="font-serif font-extrabold text-[36px] min-[380px]:text-[42px] sm:text-[46px] leading-[1.06] tracking-tight text-[#1a1d1a]">
-                Have a<br />
-                <span className="italic text-[#d35427]">story</span> to tell?
-              </h1>
-              <p className="mt-2.5 min-[380px]:mt-3 text-[14px] min-[380px]:text-[15.5px] leading-relaxed font-sans font-normal text-[#3d453b] max-w-[320px]">
-                Whether you're here to read or to write, there's a place for you at HatchPen.
-              </p>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex flex-col space-y-2.5 min-[380px]:space-y-3">
-              {/* Primary: Create account */}
-              <button
-                type="button"
-                onClick={onOpenAuth}
-                className="w-full h-[52px] min-[380px]:h-[56px] rounded-full flex items-center justify-center bg-[#d35427] hover:bg-[#be481e] text-white font-sans font-medium text-[16px] min-[380px]:text-[16.5px] shadow-[0_8px_24px_rgba(211,84,39,0.32)] active:scale-[0.99] transition-all cursor-pointer group"
-              >
-                <span className="mr-2">Create your account</span>
-                <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-0.5" />
-              </button>
-
-              {/* Secondary: Learn more */}
-              <button
-                type="button"
-                onClick={() => navigate({ to: '/discover' })}
-                className="w-full h-[50px] min-[380px]:h-[54px] rounded-full flex items-center justify-center bg-[#f0ece2] hover:bg-[#e8e2d4] border border-[#dfd9cb] text-[#2d332a] font-sans font-medium text-[15px] min-[380px]:text-[15.5px] active:scale-[0.99] transition-all cursor-pointer"
-              >
-                Learn more
-              </button>
-            </div>
-          </section>
-
-          {/* Bottom Pagination Indicator */}
-          <footer className="relative z-20 pb-[max(0.75rem,calc(env(safe-area-inset-bottom,0px)+0.25rem))] w-full flex justify-center items-center shrink-0">
-            <div className="flex items-center space-x-3 text-xs tracking-wider font-semibold text-[#5a554e]" aria-label="Story Slide Navigation">
-              <button
-                type="button"
-                onClick={() => goToSlide(0)}
-                className="text-[#8e877e] hover:text-[#1a1918] transition-colors cursor-pointer pb-1 bg-transparent border-0"
-              >
-                01
-              </button>
-              <button
-                type="button"
-                onClick={() => goToSlide(1)}
-                className="text-[#8e877e] hover:text-[#1a1918] transition-colors cursor-pointer pb-1 bg-transparent border-0"
-              >
-                02
-              </button>
-              <button
-                type="button"
-                onClick={() => goToSlide(2)}
-                className="text-[#8e877e] hover:text-[#1a1918] transition-colors cursor-pointer pb-1 bg-transparent border-0"
-              >
-                03
-              </button>
-              <span className="text-stone-400 font-light text-[11px] pb-1">|</span>
-              <div className="flex flex-col items-center">
-                <span className="text-[#1a1918] font-bold">04</span>
-                <span className="w-3.5 h-[1.5px] bg-[#d35427] mt-0.5 rounded-full" />
-              </div>
-            </div>
-          </footer>
+          <button
+            type="button"
+            onClick={scrollToSlide2}
+            className="flex flex-col items-center space-y-1 pt-0.5 pb-0.5 opacity-75 hover:opacity-100 transition-opacity cursor-pointer bg-transparent border-0"
+          >
+            <span className="font-sans text-xs tracking-wider text-[#545e4e]">
+              Scroll to explore
+            </span>
+            <svg
+              className="w-4 h-4 text-[#545e4e] animate-bounce"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              viewBox="0 0 24 24"
+            >
+              <path d="M19.5 8.25l-7.5 7.5-7.5-7.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
         </div>
-      )}
-    </motion.div>
-  </AnimatePresence>
+      </section>
 
       {/* =====================================================================
-          MOBILE DRAWER / MENU
+          SECTION 2: TONIGHT’S BLIND DATE (SLIDE 02)
+          "Blind Date with a Story" — Hatchpen Editorial Literary Aesthetic.
+          Warm book-cloth texture, refined serif typography, zero text flickering.
+          ===================================================================== */}
+      <section
+        id="serendipity-section"
+        className="relative h-[calc(100svh-3.5rem-env(safe-area-inset-top,0px))] max-h-[calc(100svh-3.5rem-env(safe-area-inset-top,0px))] flex flex-col justify-between items-center px-4 sm:px-6 py-2.5 max-w-md mx-auto w-full bg-white border-none overflow-hidden"
+      >
+
+
+        <AnimatePresence mode="wait">
+          {surpriseState === 'revealed' ? (
+            /* ============================================================
+               REVEALED STATE: Tonight's Fated Story Keepsake
+               Mini 3D Hardcover Book Jacket, Chapter Whisper, Literary Tags
+               ============================================================ */
+            <motion.div
+              key="revealed-card"
+              initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.94, y: 12 }}
+              animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
+              exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.94, y: -12 }}
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+              className="w-full flex-1 flex flex-col justify-center items-center my-auto min-h-0 px-2 py-1 max-w-sm relative z-20"
+            >
+              {/* Atmospheric Halo Glow Matching the Story's Mood */}
+              <div
+                className="absolute -inset-4 rounded-3xl blur-2xl opacity-35 pointer-events-none transition-all duration-700 -z-10"
+                style={{ backgroundColor: surprisedMood.glow || 'rgba(200, 75, 37, 0.18)' }}
+              />
+
+              <div className="w-full rounded-2xl bg-[#FAF7F2] border border-[#EAE4D8] shadow-[0_12px_36px_rgba(22,28,20,0.12),0_2px_6px_rgba(22,28,20,0.06)] p-4 sm:p-5 flex flex-col relative overflow-hidden">
+                {/* Top Header: Mood on Left, Cross Close Button on Right */}
+                <div className="flex items-center justify-between gap-2 pb-3 border-b border-[#EAE4D8]/80">
+                  <div className="inline-flex items-center gap-1.5 min-w-0 bg-[#EFE9DC] px-2.5 py-1 rounded-full border border-[#E4DEC9]/60">
+                    <span className="text-sm shrink-0">{surprisedMood.icon}</span>
+                    <span className="font-sans text-[11px] font-semibold text-[#55624e] uppercase tracking-wider">
+                      {surprisedMood.name}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    aria-label="Close story preview"
+                    onClick={() => {
+                      triggerHaptic(8)
+                      if (videoRef.current) {
+                        videoRef.current.pause()
+                        videoRef.current.currentTime = 0
+                      }
+                      setSurpriseState('idle')
+                    }}
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-[#717b6a] hover:text-[#161c14] hover:bg-[#EAE4D8]/70 active:scale-90 transition-all cursor-pointer border-0 bg-transparent"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Book Jacket + Story Details Row */}
+                <div className="flex items-center gap-3.5 pt-3.5 pb-2">
+                  {/* Mini 3D Hardcover Book Jacket */}
+                  <div className="relative shrink-0 w-[84px] h-[122px] sm:w-[92px] sm:h-[132px] rounded-r-md rounded-l-xs overflow-hidden shadow-[-4px_6px_18px_rgba(22,28,20,0.22),0_2px_4px_rgba(22,28,20,0.1)] border-r-2 border-b-2 border-[#E2DBCB]">
+                    <img
+                      src={surprisedMood.img}
+                      alt={surprisedMood.story.title}
+                      className="w-full h-full object-cover object-center"
+                      loading="eager"
+                      decoding="async"
+                    />
+                    {/* Spine Crease & Shadow */}
+                    <div className="absolute inset-y-0 left-0 w-[9px] bg-gradient-to-r from-black/35 via-white/20 to-transparent pointer-events-none border-r border-black/10" />
+                    {/* Soft Book Cover Gloss */}
+                    <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-white/25 pointer-events-none" />
+                    {/* Physical Paper Page Rim on Right */}
+                    <div className="absolute inset-y-0 right-0 w-[3px] bg-gradient-to-l from-[#ded8c4] to-[#f4efe1] pointer-events-none" />
+                  </div>
+
+                  {/* Story Metadata */}
+                  <div className="flex-1 min-w-0 flex flex-col justify-center">
+                    <span className="font-sans text-[10px] font-semibold text-[#717b6a] uppercase tracking-wider block mb-0.5 truncate">
+                      {surprisedMood.story.category}
+                    </span>
+                    <h3 className="font-serif text-[18px] sm:text-[20px] font-bold text-[#161c14] leading-[1.22] tracking-tight line-clamp-2">
+                      {surprisedMood.story.title}
+                    </h3>
+                    <p className="font-sans text-[12px] text-[#55624e] font-medium mt-0.5">
+                      by {surprisedMood.story.author}
+                    </p>
+                    <div className="flex items-center gap-2 mt-2 pt-1 border-t border-[#EAE4D8]/60 text-[10.5px] font-sans text-[#717b6a]">
+                      <span className="inline-flex items-center gap-1">
+                        <BookOpen className="w-3 h-3 text-[#c84b25]" />
+                        {surprisedMood.story.chapters}
+                      </span>
+                      <span>•</span>
+                      <span>~12 min read</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Whisper from Chapter 1 (The Hook) */}
+                <div className="my-2 p-2.5 rounded-xl bg-[#F4EFE6]/80 border border-[#E6DFCF] relative">
+                  <span className="font-sans text-[9.5px] font-semibold text-[#8b5a3c] uppercase tracking-wider block mb-1">
+                    Whisper from Chapter 1
+                  </span>
+                  <p className="italic font-serif text-[12.5px] sm:text-[13px] text-[#2c3527] leading-relaxed line-clamp-3">
+                    {surprisedMood.hook ? surprisedMood.hook : `“${surprisedMood.story.synopsis}”`}
+                  </p>
+                </div>
+
+                {/* Primary Card CTA */}
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic(14)
+                      navigate({
+                        to: '/discover',
+                        search: { genre: surprisedMood.genreSlug },
+                      })
+                    }}
+                    className="w-full inline-flex items-center justify-center space-x-2 bg-[#1e241c] text-[#f7f5ef] py-3.5 rounded-full shadow-md active:scale-95 transition-all text-[15px] font-serif font-medium cursor-pointer hover:bg-[#2b3328] group"
+                  >
+                    <span>Begin this story</span>
+                    <ArrowRight className="w-4 h-4 text-[#d48356] group-hover:translate-x-1 transition-transform" />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          ) : (
+            /* ============================================================
+               IDLE / FLIPPING STATE: 9:16 Book Image + Video Page Turn
+               ============================================================ */
+            <motion.div
+              key="idle-flipping-book"
+              initial={false}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="w-full flex-1 flex flex-col justify-center items-center my-auto min-h-0 pt-0 pb-1"
+            >
+              {/* Natural Book Container with 9:16 Vertical Ratio & Balanced Sizing */}
+              <div className="relative w-full flex items-center justify-center flex-1 min-h-0 max-h-[40vh] sm:max-h-[44vh] overflow-hidden scale-[1.08] sm:scale-[1.12] origin-center">
+                <div className="relative w-auto h-full max-h-full max-w-full aspect-[9/16] flex items-center justify-center">
+                  {/* Resting State Image (Exact Frame 0 of video, WebP + PNG fallback) */}
+                  <picture className="w-full h-full flex items-center justify-center">
+                    <source srcSet={bookIdleWebp} type="image/webp" />
+                    <img
+                      alt="Surprise with a random book"
+                      decoding="async"
+                      loading="eager"
+                      className={`w-full h-full object-contain object-center pointer-events-none mx-auto block transition-opacity duration-150 will-change-[opacity] ${
+                        surpriseState === 'flipping' ? 'opacity-0' : 'opacity-100'
+                      }`}
+                      src={bookIdleImg}
+                    />
+                  </picture>
+
+                  {/* Photorealistic Page-Turn Video (467KB trimmed, 60fps native GPU decode) */}
+                  <video
+                    ref={videoRef}
+                    src={animatedBookVideoOptimized}
+                    muted
+                    playsInline
+                    preload="auto"
+                    disablePictureInPicture
+                    disableRemotePlayback
+                    className={`absolute inset-0 w-full h-full object-contain object-center pointer-events-none transition-opacity duration-150 will-change-[opacity] ${
+                      surpriseState === 'flipping' ? 'opacity-100' : 'opacity-0'
+                    }`}
+                  />
+
+                  {/* Lightweight GPU-composited feathering overlays for seamless background blending */}
+                  <div className="pointer-events-none absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-white to-transparent z-10" />
+                  <div className="pointer-events-none absolute inset-y-0 right-0 w-3 bg-gradient-to-l from-white to-transparent z-10" />
+                  <div className="pointer-events-none absolute inset-x-0 top-0 h-4 bg-gradient-to-b from-white to-transparent z-10" />
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-4 bg-gradient-to-t from-white to-transparent z-10" />
+                </div>
+              </div>
+
+              {/* Surrounding Editorial Typography Below Image */}
+              <div className="w-full text-center px-4 pt-1.5 pb-1 shrink-0 relative z-20">
+                <span className="block font-sans text-[11px] font-semibold text-[#c84b25] uppercase tracking-[0.2em]">
+                  ✦ Curated by Fate
+                </span>
+                <h2 className="font-serif text-[26px] sm:text-[30px] text-[#161c14] leading-[1.18] tracking-tight mx-auto max-w-[320px] mt-0.5">
+                  Tonight’s Blind Date
+                </h2>
+                <p className="font-sans text-[13px] text-[#55624e] mt-1 tracking-normal max-w-xs mx-auto">
+                  Leave algorithms behind. Let serendipity choose your read.
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Bottom Action Module — Identical to Slide 01 Button & Down Icon */}
+        <div className="w-full shrink-0 flex flex-col items-center space-y-2.5 pt-1 pb-2">
+          {surpriseState !== 'revealed' && (
+            <div className="w-full max-w-xs mx-auto">
+              <button
+                type="button"
+                disabled={surpriseState === 'flipping'}
+                onClick={triggerSurprise}
+                className="w-full inline-flex items-center justify-center space-x-2.5 bg-[#1e241c] text-[#f7f5ef] px-8 py-3.5 rounded-full shadow-lg active:scale-95 transition-all duration-200 group hover:bg-[#2b3328] focus:outline-none cursor-pointer disabled:opacity-90 disabled:cursor-wait"
+              >
+                <span className="font-serif text-[17px] sm:text-[18px] font-medium text-[#f7f5ef] tracking-tight">
+                  {surpriseState === 'flipping' ? 'Turning pages...' : 'Surprise me'}
+                </span>
+                <ArrowRight className={`w-4 h-4 text-white transition-transform duration-200 ${
+                  surpriseState === 'flipping' ? 'translate-x-1' : 'group-hover:translate-x-1'
+                }`} />
+              </button>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={scrollToSlide3}
+            className="flex flex-col items-center space-y-1 pt-0.5 pb-0.5 opacity-75 hover:opacity-100 transition-opacity cursor-pointer bg-transparent border-0"
+          >
+            <span className="font-sans text-xs tracking-wider text-[#545e4e]">
+              Let me choose a mood
+            </span>
+            <svg
+              className="w-4 h-4 text-[#545e4e] animate-bounce"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              viewBox="0 0 24 24"
+            >
+              <path d="M19.5 8.25l-7.5 7.5-7.5-7.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
+      </section>
+
+      {/* =====================================================================
+          SECTION 3: 12-MOOD FEELINGS CAROUSEL / CURATED STORIES VIEW (SLIDE 03)
+          Instruction 1: Tap any mood slide to reveal 5 curated stories + Load more button
+          Instruction 2: Tabs pills ("Adventurous", "Melancholic", etc.) removed
+          Instruction 3: Monochrome black & white on bg-white matching Slide 01
+          Instruction 4: "Explore {mood_name}" button removed from dock
+          ===================================================================== */}
+      <section
+        id="feelings-carousel-section"
+        className="relative min-h-[calc(100svh-3.5rem-env(safe-area-inset-top,0px))] flex flex-col justify-between px-4 sm:px-6 py-4 max-w-md mx-auto w-full bg-white border-none overflow-hidden"
+      >
+        <div className="flex flex-col w-full select-none my-auto">
+          {/* Editorial Headline Section (App Serif) */}
+          <div className="flex flex-col pt-1 pb-2">
+            <h2 className="font-serif text-[28px] sm:text-[32px] text-[#191d16] font-normal leading-[1.15] tracking-tight whitespace-nowrap">
+              I’d Like to feel..
+            </h2>
+            <p className="font-sans text-[13.5px] text-[#55624e] mt-0.5 tracking-normal">
+              Swipe cards or tap to explore curated stories
+            </p>
+          </div>
+
+          {/* 3D Peek Card Deck (Tabs pills removed as requested) */}
+          <div className="relative w-full overflow-hidden py-2 flex items-center justify-center">
+            <div
+              className="relative flex items-center justify-center w-full touch-pan-y transition-transform duration-500 ease-out"
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            >
+              {/* Left Peek Card */}
+              <div
+                onClick={() => updateMood('prev')}
+                role="button"
+                tabIndex={0}
+                aria-label={`Previous: ${prevMood.name}`}
+                className="w-[72%] max-w-[250px] aspect-[9/15] rounded-[22px] overflow-hidden bg-neutral-100 shadow-sm shrink-0 -mr-16 scale-90 opacity-40 blur-[0.5px] cursor-pointer transition-all duration-300 relative select-none"
+              >
+                <img
+                  src={prevMood.img}
+                  alt={prevMood.name}
+                  className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent flex flex-col justify-end p-4">
+                  <span className="font-serif text-[18px] italic text-white font-normal tracking-wide text-center drop-shadow-sm">
+                    {prevMood.name}
+                  </span>
+                </div>
+              </div>
+
+              {/* Center Active Card: Tapping opens Curated Stories UI in an 80% bottom sheet */}
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  triggerHaptic(15)
+                  setSelectedMoodForStories(currentMood)
+                  setExtraStoriesCount(0)
+                  setActiveStoryIdx(0)
+                }}
+                aria-label={`Current: ${currentMood.name}. Tap to explore 5 stories.`}
+                className="relative z-20 w-[78%] max-w-[285px] aspect-[9/15] rounded-[26px] overflow-hidden shadow-2xl bg-neutral-900 shrink-0 cursor-pointer select-none group"
+              >
+                <AnimatePresence initial={false} custom={slideDirection} mode="popLayout">
+                  <motion.div
+                    key={currentMood.name}
+                    custom={slideDirection}
+                    variants={{
+                      enter: (dir: number) => ({
+                        x: dir > 0 ? 80 : -80,
+                        opacity: 0,
+                        scale: 0.92,
+                      }),
+                      center: {
+                        x: 0,
+                        opacity: 1,
+                        scale: 1,
+                        transition: {
+                          x: { type: 'spring', stiffness: 280, damping: 26 },
+                          opacity: { duration: 0.28 },
+                          scale: { duration: 0.3 },
+                        },
+                      },
+                      exit: (dir: number) => ({
+                        x: dir > 0 ? -80 : 80,
+                        opacity: 0,
+                        scale: 0.92,
+                        transition: {
+                          x: { type: 'spring', stiffness: 280, damping: 26 },
+                          opacity: { duration: 0.22 },
+                          scale: { duration: 0.26 },
+                        },
+                      }),
+                    }}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    className="absolute inset-0 w-full h-full"
+                  >
+                    <img
+                      src={currentMood.img}
+                      alt={currentMood.name}
+                      className="absolute inset-0 w-full h-full object-cover pointer-events-none transition-transform duration-700 ease-out group-hover:scale-105"
+                    />
+
+                    {/* Soft atmospheric gradient vignette */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#191d16] via-[#191d16]/45 to-transparent pointer-events-none" />
+
+                    {/* Bottom Label Overlay with Opening Hook */}
+                    <div className="absolute inset-x-0 bottom-0 z-20 pb-6 pt-12 flex flex-col items-center justify-end text-center bg-gradient-to-t from-[#191d16] via-[#191d16]/80 to-transparent px-4">
+                      <motion.p
+                        key={`hook-${currentMood.name}`}
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: 0.04 }}
+                        className="font-serif italic text-white/85 text-[12px] min-[380px]:text-[13px] leading-snug text-center drop-shadow-md mb-2 font-normal line-clamp-2 max-w-[230px]"
+                      >
+                        {currentMood.hook}
+                      </motion.p>
+
+                      <motion.h3
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.25, delay: 0.08 }}
+                        className="font-serif text-[26px] sm:text-[30px] italic font-normal text-white drop-shadow-sm tracking-wide"
+                      >
+                        {currentMood.name}
+                      </motion.h3>
+
+                      <motion.span
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.25, delay: 0.12 }}
+                        className="font-sans text-[11px] font-medium text-white/75 uppercase tracking-[0.2em] mt-0.5"
+                      >
+                        {currentMood.count} • Tap to view stories
+                      </motion.span>
+                    </div>
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+
+              {/* Right Peek Card */}
+              <div
+                onClick={() => updateMood('next')}
+                role="button"
+                tabIndex={0}
+                aria-label={`Next: ${nextMood.name}`}
+                className="w-[72%] max-w-[250px] aspect-[9/15] rounded-[22px] overflow-hidden bg-neutral-100 shadow-sm shrink-0 -ml-16 scale-90 opacity-40 blur-[0.5px] cursor-pointer transition-all duration-300 relative select-none"
+              >
+                <img
+                  src={nextMood.img}
+                  alt={nextMood.name}
+                  className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent flex flex-col justify-end p-4">
+                  <span className="font-serif text-[18px] italic text-white font-normal tracking-wide text-center drop-shadow-sm">
+                    {nextMood.name}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Controls Dock: Only Clean < 1 / 12 > controls ("Explore {mood}" removed as requested) */}
+          <div className="flex flex-col items-center justify-center mt-3">
+            <div className="inline-flex items-center bg-neutral-100 border border-neutral-200/70 rounded-full px-2 py-1 shadow-sm">
+              <button
+                type="button"
+                onClick={() => updateMood('prev')}
+                aria-label="Previous mood"
+                className="w-10 h-9 flex items-center justify-center text-[#191d16] hover:text-black active:scale-95 transition-all rounded-l-full cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+
+              <div className="px-3 text-[11.5px] font-sans font-medium text-neutral-600 tracking-wider select-none">
+                {currentIndex + 1} / {MOODS.length}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => updateMood('next')}
+                aria-label="Next mood"
+                className="w-10 h-9 flex items-center justify-center text-[#191d16] hover:text-black active:scale-95 transition-all rounded-r-full cursor-pointer"
+              >
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* =====================================================================
+          80% BOTTOM SHEET DRAWER: CURATED MOOD STORIES VIEW (live_instructions.md)
+          Appears from browser bottom, covering 80% screen area
+          ===================================================================== */}
+      <AnimatePresence>
+        {selectedMoodForStories && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center pointer-events-auto">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.22 }}
+              onClick={() => {
+                triggerHaptic(10)
+                setSelectedMoodForStories(null)
+              }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm cursor-pointer"
+              aria-label="Close sheet overlay"
+            />
+
+            {/* Bottom Sheet Modal (80% Height) */}
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 28, stiffness: 280 }}
+              drag="y"
+              dragConstraints={{ top: 0 }}
+              dragElastic={0.15}
+              onDragEnd={(_e, info) => {
+                if (info.offset.y > 80 || info.velocity.y > 400) {
+                  triggerHaptic(10)
+                  setSelectedMoodForStories(null)
+                }
+              }}
+              className="relative z-50 w-full max-w-md h-[80dvh] max-h-[80vh] min-h-[500px] bg-white rounded-t-[32px] shadow-[0_-16px_48px_rgba(0,0,0,0.35)] flex flex-col overflow-hidden border-t border-neutral-100"
+            >
+              {/* Pull handle indicator */}
+              <div className="pt-3 pb-1 flex justify-center shrink-0 cursor-grab active:cursor-grabbing touch-none">
+                <div className="w-12 h-1.5 bg-neutral-300 rounded-full" />
+              </div>
+
+              {/* Utility Bar */}
+              <div className="flex items-center justify-between px-4 sm:px-6 pt-1 pb-2 shrink-0 z-20 border-b border-neutral-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic(10)
+                    setSelectedMoodForStories(null)
+                  }}
+                  className="inline-flex items-center gap-1.5 text-xs font-sans font-medium text-neutral-600 hover:text-black py-1 px-2.5 rounded-full bg-neutral-100 hover:bg-neutral-200 active:scale-95 transition-all cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>All vibes</span>
+                </button>
+
+                <span className="font-sans text-[11px] uppercase tracking-wider text-neutral-500 font-semibold">
+                  Curated Selection
+                </span>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => triggerHaptic(12)}
+                    className="flex items-center gap-1 py-1 px-2.5 rounded-full bg-neutral-100 hover:bg-neutral-200 active:scale-95 transition-all text-neutral-800 text-[11.5px] font-medium cursor-pointer"
+                    aria-label="Save for later"
+                  >
+                    <Bookmark className="w-3.5 h-3.5" />
+                    <span className="hidden min-[380px]:inline">Save</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic(10)
+                      setSelectedMoodForStories(null)
+                    }}
+                    className="w-7 h-7 rounded-full bg-neutral-100 hover:bg-neutral-200 active:scale-95 transition-all flex items-center justify-center text-neutral-600 hover:text-black cursor-pointer"
+                    aria-label="Close sheet"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Sheet Scrollable / Flex Body */}
+              <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-2 flex flex-col justify-between select-none">
+                {/* Narrative Header */}
+                <div className="pt-2 pb-1 z-20 relative shrink-0">
+                  <h2 className="font-serif text-[26px] sm:text-[30px] text-[#191d16] leading-[1.08] tracking-tight">
+                    Stories<br />
+                    for your<br />
+                    kind of <span className="italic font-normal text-black">{selectedMoodForStories.name.toLowerCase()}.</span>
+                  </h2>
+                  <p className="font-sans text-[13px] text-neutral-600 mt-1 max-w-[280px]">
+                    A few handpicked reads based on what you love.
+                  </p>
+                </div>
+
+                {/* Hero Backdrop with Atmospheric Artwork & Story Reel */}
+                <div className="relative w-full z-10 flex flex-col justify-end pt-10 pb-2 my-auto">
+                  {/* Seamless white fade overlay at top */}
+                  <div className="absolute inset-0 z-10 pointer-events-none bg-gradient-to-b from-white via-white/40 to-transparent h-16" />
+
+                  {/* Mood illustration / photography image */}
+                  <div className="absolute inset-0 w-full h-full z-0 overflow-hidden">
+                    <img
+                      src={selectedMoodForStories.img}
+                      alt={selectedMoodForStories.name}
+                      className="w-full h-full object-cover object-center opacity-65 grayscale contrast-110 pointer-events-none"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-b from-white via-transparent to-white/90 pointer-events-none" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-white via-white/50 to-transparent pointer-events-none" />
+                  </div>
+
+                  {/* Recommended Story Cards Horizontal Carousel */}
+                  <div className="relative z-20 w-full pt-14">
+                    <div
+                      className="flex gap-2.5 px-1 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-2 no-scrollbar"
+                      style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}
+                    >
+                      {selectedMoodForStories.curatedStories
+                        .slice(0, 5 + extraStoriesCount)
+                        .map((story, sIdx) => {
+                          const isActiveCard = sIdx === activeStoryIdx
+                          return (
+                            <article
+                              key={story.id}
+                              onClick={() => {
+                                triggerHaptic(12)
+                                setActiveStoryIdx(sIdx)
+                                setSelectedMoodForStories(null)
+                                navigate({
+                                  to: '/discover',
+                                  search: { genre: selectedMoodForStories.genreSlug },
+                                })
+                              }}
+                              className={`flex-shrink-0 w-[142px] snap-center rounded-xl bg-[#191d16] text-white shadow-xl p-3 flex flex-col justify-between h-[126px] relative overflow-hidden group cursor-pointer active:scale-[0.98] transition-transform ${
+                                isActiveCard ? 'ring-2 ring-white/40 shadow-2xl scale-[1.02]' : ''
+                              }`}
+                            >
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-white/10 pointer-events-none" />
+                              <div className="relative z-10">
+                                <span className="inline-block w-1.5 h-1.5 rounded-full bg-white/70 mb-1.5" />
+                                <h3 className="font-serif text-[15px] leading-tight font-semibold text-white drop-shadow-sm line-clamp-2">
+                                  {story.title}
+                                </h3>
+                              </div>
+                              <div className="relative z-10 flex items-center justify-between mt-auto pt-1.5 border-t border-white/10">
+                                <span className="font-sans text-[10px] tracking-normal text-white/70 truncate pr-1">
+                                  {story.category} • {story.readTime}
+                                </span>
+                                <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0 text-white">
+                                  <ArrowRight className="w-3 h-3 text-white" />
+                                </div>
+                              </div>
+                            </article>
+                          )
+                        })}
+                    </div>
+
+                    {/* Pagination Indicators */}
+                    <div className="flex items-center justify-center gap-1.5 pt-2">
+                      {selectedMoodForStories.curatedStories.slice(0, 5).map((_, dotIdx) => (
+                        <span
+                          key={dotIdx}
+                          className={`h-1.5 rounded-full transition-all ${
+                            dotIdx === activeStoryIdx ? 'w-4 bg-[#191d16]' : 'w-1.5 bg-neutral-300'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Primary Bottom Call to Action: "Load more" */}
+                <div className="pt-2 pb-[max(1rem,env(safe-area-inset-bottom,0px))] z-20 flex flex-col items-center w-full shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic(12)
+                      if (extraStoriesCount < 3) {
+                        setExtraStoriesCount((prev) => prev + 2)
+                      } else {
+                        setSelectedMoodForStories(null)
+                        navigate({
+                          to: '/discover',
+                          search: { genre: selectedMoodForStories.genreSlug },
+                        })
+                      }
+                    }}
+                    className="w-full max-w-sm h-12 py-3 px-6 rounded-full bg-[#191d16] text-[#f7f5ef] hover:bg-[#2b3328] shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 group cursor-pointer"
+                  >
+                    <span className="font-serif text-[15px] font-medium tracking-tight">Load more</span>
+                    <ArrowRight className="w-4 h-4 text-[#f7f5ef] group-hover:translate-x-0.5 transition-transform" />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* =====================================================================
+          Mobile Drawer / Menu (Preserved with all actions intact)
           ===================================================================== */}
       <AnimatePresence>
         {menuOpen && (
@@ -1172,18 +1291,24 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
               initial={shouldReduceMotion ? { opacity: 0 } : { y: '100%' }}
               animate={shouldReduceMotion ? { opacity: 1 } : { y: 0 }}
               exit={shouldReduceMotion ? { opacity: 0 } : { y: '100%' }}
-              transition={shouldReduceMotion ? { duration: 0.01 } : { type: 'spring', damping: 28, stiffness: 280 }}
+              transition={
+                shouldReduceMotion
+                  ? { duration: 0.01 }
+                  : { type: 'spring', damping: 28, stiffness: 280 }
+              }
               className="w-full bg-[#1C1D21] border-t border-neutral-800 rounded-t-3xl p-6 space-y-4 text-white"
             >
               <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
                 <div className="flex items-center gap-2">
                   <HatchpenLogo size="xs" variant="inverted" />
-                  <span className="font-mono text-[11px] uppercase tracking-wider text-neutral-400">Menu</span>
+                  <span className="font-mono text-[11px] uppercase tracking-wider text-neutral-400">
+                    Menu
+                  </span>
                 </div>
                 <button
                   type="button"
                   onClick={() => setMenuOpen(false)}
-                  className="p-1 rounded-full text-neutral-400 hover:text-white"
+                  className="p-1 rounded-full text-neutral-400 hover:text-white cursor-pointer"
                 >
                   <X className="h-5 w-5" />
                 </button>

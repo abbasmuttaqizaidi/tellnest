@@ -11,17 +11,22 @@ export default function Footer() {
   const { categories } = useApp()
   const isReaderMode = routerState.location.pathname.startsWith('/read/')
   const isEditorMode = routerState.location.pathname.startsWith('/write/editor')
-  const currentPath = routerState.location.pathname
+  const pathname =
+    routerState.location.pathname ||
+    (typeof window !== 'undefined' ? window.location.pathname : '/')
   const search = (routerState.location.search || {}) as Record<string, any>
   const searchView = search?.view || (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') : undefined)
-  const isPublicHome = currentPath === '/' && (searchView === 'public' || (!isSignedIn && searchView !== 'signed-in'))
+  const isHomePage = pathname === '/' || pathname === '' || pathname === '/index.html'
+  const isPublicUser = !isSignedIn || searchView === 'public'
+  const isPublicHome = isHomePage && (searchView === 'public' || (!isSignedIn && searchView !== 'signed-in'))
+  const hideFooterOnMobile = isHomePage || isPublicUser || isPublicHome
 
   if (isReaderMode || isEditorMode) {
     return null
   }
 
   return (
-    <footer className={`${isPublicHome ? 'hidden md:block ' : ''}w-full border-t border-[var(--border-subtle)] bg-[var(--bg-canvas)] pt-12 pb-16 text-xs text-[var(--ink-muted)] ${isSignedIn ? 'mb-14 md:mb-0' : 'mb-0'} transition-colors`}>
+    <footer className={`${hideFooterOnMobile ? 'hidden md:block ' : ''}w-full border-t border-[var(--border-subtle)] bg-[var(--bg-canvas)] pt-12 pb-16 text-xs text-[var(--ink-muted)] ${isSignedIn ? 'mb-14 md:mb-0' : 'mb-0'} transition-colors`}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         
         {/* Top Grid */}

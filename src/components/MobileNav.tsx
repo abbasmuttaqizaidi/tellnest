@@ -12,12 +12,25 @@ export default function MobileNav() {
   const activeAvatar = customAvatarUrl || user?.imageUrl
   const currentPath = routerState.location.pathname
 
-  // Hide bottom nav in reader mode or editor mode so reading and writing are 100% distraction-free
-  if (currentPath.startsWith('/read/') || currentPath.startsWith('/write/editor')) {
+  const search = (routerState.location.search || {}) as Record<string, any>
+  const searchView = search?.view || (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') : undefined)
+
+  const pathname =
+    routerState.location.pathname ||
+    (typeof window !== 'undefined' ? window.location.pathname : '/')
+  const isHome = pathname === '/' || pathname === '' || pathname === '/index.html'
+
+  // 1. Strictly remove bottom nav on mobile home, public preview, reader, and editor modes
+  if (
+    isHome ||
+    searchView === 'public' ||
+    pathname.startsWith('/read/') ||
+    pathname.startsWith('/write/editor')
+  ) {
     return null
   }
 
-  // Hide bottom nav on mobile if user is not logged in
+  // 2. Strictly remove bottom nav for public users
   if (!isLoaded || !isSignedIn) {
     return null
   }

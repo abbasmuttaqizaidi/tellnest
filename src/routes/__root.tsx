@@ -1,4 +1,4 @@
-import { HeadContent, Scripts, createRootRoute, Link } from '@tanstack/react-router'
+import { HeadContent, Scripts, createRootRoute, Link, useRouterState } from '@tanstack/react-router'
 import { ClerkProvider } from '@clerk/tanstack-react-start'
 import Header from '../components/Header'
 import MobileNav from '../components/MobileNav'
@@ -56,7 +56,7 @@ export const Route = createRootRoute({
       },
       {
         name: 'viewport',
-        content: 'width=device-width, initial-scale=1',
+        content: 'width=device-width, initial-scale=1, viewport-fit=cover',
       },
       {
         title: 'Hatchpen — Writings. Beyond the Hype.',
@@ -164,7 +164,7 @@ export const Route = createRootRoute({
       },
       {
         rel: 'stylesheet',
-        href: 'https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Instrument+Serif:ital@0;1&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap',
+        href: 'https://fonts.googleapis.com/css2?family=Archivo+Narrow:ital,wght@0,400..700;1,400..700&family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&family=Caveat:wght@400;600;700&family=Instrument+Serif:ital@0;1&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap',
       },
       {
         rel: 'stylesheet',
@@ -227,6 +227,10 @@ export const Route = createRootRoute({
 })
 
 function RootDocument({ children }: { children: React.ReactNode }) {
+  const routerState = useRouterState()
+  const pathname = routerState.location.pathname
+  const isHomePage = pathname === '/' || pathname === ''
+
   const innerContent = (
     <AppProvider>
       <ClerkSync />
@@ -234,7 +238,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <PublicWriteModal />
       <UserOnboardingModal />
       <Header />
-      <main className="flex-1 w-full max-w-full overflow-x-hidden pb-16 md:pb-0 bg-[var(--bg-canvas)]">
+      <main className={`flex-1 w-full max-w-full overflow-x-hidden ${isHomePage ? 'pb-0' : 'pb-16 md:pb-0'} bg-[var(--bg-canvas)]`}>
         {children}
       </main>
       <Footer />

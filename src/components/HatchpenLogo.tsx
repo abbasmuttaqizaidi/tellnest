@@ -19,6 +19,8 @@ export interface HatchpenLogoProps {
   subtitle?: string
   /** Custom class for the wrapper */
   className?: string
+  /** Force specific color theme regardless of dark mode */
+  forceTheme?: 'light' | 'dark'
 }
 
 const sizeConfig = {
@@ -93,6 +95,7 @@ export function HatchpenLogo({
   showTagline = true,
   subtitle,
   className = '',
+  forceTheme,
 }: HatchpenLogoProps) {
   const conf = sizeConfig[size]
 
@@ -100,13 +103,27 @@ export function HatchpenLogo({
     return <HatchpenEmblem className={`${conf.icon} ${className}`} />
   }
 
-  if (variant === 'inverted' || invert) {
+  if (variant === 'inverted' || invert || forceTheme === 'dark') {
     return (
       <div className={`inline-flex items-center select-none ${className}`}>
         <img
           src="/hatchpen-logo-kit/svg/hatchpen-logo-white.svg"
           alt="Hatchpen"
           className={`hatchpen-brand-logo hatchpen-brand-logo--inverted ${conf.fullHeight} w-auto object-contain transition-all`}
+          loading="eager"
+          decoding="async"
+        />
+      </div>
+    )
+  }
+
+  if (forceTheme === 'light') {
+    return (
+      <div className={`inline-flex items-center select-none ${className}`}>
+        <img
+          src="/hatchpen-logo-kit/svg/hatchpen-logo-black.svg"
+          alt="Hatchpen"
+          className={`hatchpen-brand-logo ${conf.fullHeight} w-auto object-contain transition-all`}
           loading="eager"
           decoding="async"
         />
