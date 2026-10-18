@@ -345,6 +345,16 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
   const [extraStoriesCount, setExtraStoriesCount] = useState<number>(0)
   const [activeStoryIdx, setActiveStoryIdx] = useState<number>(0)
 
+  // Ensure page always starts at top (Slide 01) on reload or initial visit
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if ('scrollRestoration' in window.history) {
+        window.history.scrollRestoration = 'manual'
+      }
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+    }
+  }, [])
+
   // Prevent background scroll and support Escape key when 80% curated sheet is open
   useEffect(() => {
     if (selectedMoodForStories) {
@@ -415,6 +425,59 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
       }
     }
   }, [])
+
+  // Prevent background scrolling completely on all mobile & desktop browsers
+  useEffect(() => {
+    if (surpriseState === 'revealed') {
+      const scrollY = window.scrollY
+      const origBodyPosition = document.body.style.position
+      const origBodyTop = document.body.style.top
+      const origBodyWidth = document.body.style.width
+      const origBodyOverflow = document.body.style.overflow
+      const origBodyTouchAction = document.body.style.touchAction
+      const origHtmlOverflow = document.documentElement.style.overflow
+
+      document.body.style.position = 'fixed'
+      document.body.style.top = `-${scrollY}px`
+      document.body.style.width = '100%'
+      document.body.style.overflow = 'hidden'
+      document.body.style.touchAction = 'none'
+      document.documentElement.style.overflow = 'hidden'
+
+      const preventScroll = (e: Event) => {
+        e.preventDefault()
+      }
+
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          if (videoRef.current) {
+            videoRef.current.pause()
+            videoRef.current.currentTime = 0
+          }
+          setSurpriseState('idle')
+        }
+      }
+
+      window.addEventListener('touchmove', preventScroll, { passive: false })
+      window.addEventListener('wheel', preventScroll, { passive: false })
+      window.addEventListener('keydown', handleKeyDown)
+
+      return () => {
+        document.body.style.position = origBodyPosition
+        document.body.style.top = origBodyTop
+        document.body.style.width = origBodyWidth
+        document.body.style.overflow = origBodyOverflow
+        document.body.style.touchAction = origBodyTouchAction
+        document.documentElement.style.overflow = origHtmlOverflow
+
+        window.removeEventListener('touchmove', preventScroll)
+        window.removeEventListener('wheel', preventScroll)
+        window.removeEventListener('keydown', handleKeyDown)
+
+        window.scrollTo(0, scrollY)
+      }
+    }
+  }, [surpriseState])
 
   const triggerSurprise = useCallback(() => {
     triggerHaptic(20)
@@ -587,15 +650,15 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
       <section className="h-[calc(100svh-3.5rem-env(safe-area-inset-top,0px))] max-h-[calc(100svh-3.5rem-env(safe-area-inset-top,0px))] w-full flex flex-col justify-between items-center px-6 pt-1 pb-4 max-w-md mx-auto overflow-hidden">
         {/* Narrative Center Editorial Section — ALWAYS VERTICALLY CENTERED */}
         <div className="flex-1 min-h-0 w-full flex flex-col items-center justify-center my-auto">
-          {/* Centered Image Container: scales flexibly between 220px and 45vh so it never causes overflow */}
-          <div className="relative w-full flex-1 min-h-0 max-h-[44vh] sm:max-h-[48vh] flex items-center justify-center my-auto">
+          {/* Centered Image Container: increased size to fill vertical space prominently */}
+          <div className="relative w-full flex-1 min-h-0 max-h-[50vh] sm:max-h-[54vh] flex items-center justify-center my-auto scale-[1.14] sm:scale-[1.18] origin-center">
             <img
               alt="Portrait of creative woman reading an open book"
               className="w-auto h-full max-h-full max-w-full object-contain object-center pointer-events-none mx-auto"
               src={screen01WomanImg}
               style={{
-                WebkitMaskImage: 'linear-gradient(black 78%, transparent 100%)',
-                maskImage: 'linear-gradient(black 78%, transparent 100%)',
+                WebkitMaskImage: 'linear-gradient(black 76%, transparent 100%)',
+                maskImage: 'linear-gradient(black 76%, transparent 100%)',
               }}
             />
           </div>
@@ -653,208 +716,98 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
       >
 
 
-        <AnimatePresence mode="wait">
-          {surpriseState === 'revealed' ? (
-            /* ============================================================
-               REVEALED STATE: Tonight's Fated Story Keepsake
-               Mini 3D Hardcover Book Jacket, Chapter Whisper, Literary Tags
-               ============================================================ */
-            <motion.div
-              key="revealed-card"
-              initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.94, y: 12 }}
-              animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
-              exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.94, y: -12 }}
-              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-              className="w-full flex-1 flex flex-col justify-center items-center my-auto min-h-0 px-2 py-1 max-w-sm relative z-20"
-            >
-              {/* Atmospheric Halo Glow Matching the Story's Mood */}
-              <div
-                className="absolute -inset-4 rounded-3xl blur-2xl opacity-35 pointer-events-none transition-all duration-700 -z-10"
-                style={{ backgroundColor: surprisedMood.glow || 'rgba(200, 75, 37, 0.18)' }}
+        {/* ============================================================
+           BASE LAYER: 9:16 Book Image + Video Page Turn (Always in DOM)
+           When revealed, the open book remains visibly grounded on the table,
+           serving as the foundation from which the library bookmark emerges.
+           ============================================================ */}
+        <div
+          className={`w-full flex-1 flex flex-col justify-center items-center my-auto min-h-0 pt-0 pb-1 transition-all duration-500 ease-out ${
+            surpriseState === 'revealed'
+              ? 'scale-[1.02] blur-[0.5px] opacity-85 pointer-events-none select-none'
+              : 'scale-100 blur-0 opacity-100'
+          }`}
+        >
+          {/* Natural Book Container with 9:16 Vertical Ratio & Balanced Sizing */}
+          <div className="relative w-full flex items-center justify-center flex-1 min-h-0 max-h-[40vh] sm:max-h-[44vh] overflow-hidden scale-[1.08] sm:scale-[1.12] origin-center">
+            <div className="relative w-auto h-full max-h-full max-w-full aspect-[9/16] flex items-center justify-center">
+              {/* Resting State Image (Exact Frame 0 of video, WebP + PNG fallback) */}
+              <picture className="w-full h-full flex items-center justify-center">
+                <source srcSet={bookIdleWebp} type="image/webp" />
+                <img
+                  alt="Surprise with a random book"
+                  decoding="async"
+                  loading="eager"
+                  className={`w-full h-full object-contain object-center pointer-events-none mx-auto block transition-opacity duration-150 will-change-[opacity] ${
+                    surpriseState === 'flipping' ? 'opacity-0' : 'opacity-100'
+                  }`}
+                  src={bookIdleImg}
+                />
+              </picture>
+
+              {/* Photorealistic Page-Turn Video (467KB trimmed, 60fps native GPU decode) */}
+              <video
+                ref={videoRef}
+                src={animatedBookVideoOptimized}
+                muted
+                playsInline
+                preload="auto"
+                disablePictureInPicture
+                disableRemotePlayback
+                className={`absolute inset-0 w-full h-full object-contain object-center pointer-events-none transition-opacity duration-150 will-change-[opacity] ${
+                  surpriseState === 'flipping' ? 'opacity-100' : 'opacity-0'
+                }`}
               />
 
-              <div className="w-full rounded-2xl bg-[#FAF7F2] border border-[#EAE4D8] shadow-[0_12px_36px_rgba(22,28,20,0.12),0_2px_6px_rgba(22,28,20,0.06)] p-4 sm:p-5 flex flex-col relative overflow-hidden">
-                {/* Top Header: Mood on Left, Cross Close Button on Right */}
-                <div className="flex items-center justify-between gap-2 pb-3 border-b border-[#EAE4D8]/80">
-                  <div className="inline-flex items-center gap-1.5 min-w-0 bg-[#EFE9DC] px-2.5 py-1 rounded-full border border-[#E4DEC9]/60">
-                    <span className="text-sm shrink-0">{surprisedMood.icon}</span>
-                    <span className="font-sans text-[11px] font-semibold text-[#55624e] uppercase tracking-wider">
-                      {surprisedMood.name}
-                    </span>
-                  </div>
-
-                  <button
-                    type="button"
-                    aria-label="Close story preview"
-                    onClick={() => {
-                      triggerHaptic(8)
-                      if (videoRef.current) {
-                        videoRef.current.pause()
-                        videoRef.current.currentTime = 0
-                      }
-                      setSurpriseState('idle')
-                    }}
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-[#717b6a] hover:text-[#161c14] hover:bg-[#EAE4D8]/70 active:scale-90 transition-all cursor-pointer border-0 bg-transparent"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                {/* Book Jacket + Story Details Row */}
-                <div className="flex items-center gap-3.5 pt-3.5 pb-2">
-                  {/* Mini 3D Hardcover Book Jacket */}
-                  <div className="relative shrink-0 w-[84px] h-[122px] sm:w-[92px] sm:h-[132px] rounded-r-md rounded-l-xs overflow-hidden shadow-[-4px_6px_18px_rgba(22,28,20,0.22),0_2px_4px_rgba(22,28,20,0.1)] border-r-2 border-b-2 border-[#E2DBCB]">
-                    <img
-                      src={surprisedMood.img}
-                      alt={surprisedMood.story.title}
-                      className="w-full h-full object-cover object-center"
-                      loading="eager"
-                      decoding="async"
-                    />
-                    {/* Spine Crease & Shadow */}
-                    <div className="absolute inset-y-0 left-0 w-[9px] bg-gradient-to-r from-black/35 via-white/20 to-transparent pointer-events-none border-r border-black/10" />
-                    {/* Soft Book Cover Gloss */}
-                    <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-white/25 pointer-events-none" />
-                    {/* Physical Paper Page Rim on Right */}
-                    <div className="absolute inset-y-0 right-0 w-[3px] bg-gradient-to-l from-[#ded8c4] to-[#f4efe1] pointer-events-none" />
-                  </div>
-
-                  {/* Story Metadata */}
-                  <div className="flex-1 min-w-0 flex flex-col justify-center">
-                    <span className="font-sans text-[10px] font-semibold text-[#717b6a] uppercase tracking-wider block mb-0.5 truncate">
-                      {surprisedMood.story.category}
-                    </span>
-                    <h3 className="font-serif text-[18px] sm:text-[20px] font-bold text-[#161c14] leading-[1.22] tracking-tight line-clamp-2">
-                      {surprisedMood.story.title}
-                    </h3>
-                    <p className="font-sans text-[12px] text-[#55624e] font-medium mt-0.5">
-                      by {surprisedMood.story.author}
-                    </p>
-                    <div className="flex items-center gap-2 mt-2 pt-1 border-t border-[#EAE4D8]/60 text-[10.5px] font-sans text-[#717b6a]">
-                      <span className="inline-flex items-center gap-1">
-                        <BookOpen className="w-3 h-3 text-[#c84b25]" />
-                        {surprisedMood.story.chapters}
-                      </span>
-                      <span>•</span>
-                      <span>~12 min read</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Whisper from Chapter 1 (The Hook) */}
-                <div className="my-2 p-2.5 rounded-xl bg-[#F4EFE6]/80 border border-[#E6DFCF] relative">
-                  <span className="font-sans text-[9.5px] font-semibold text-[#8b5a3c] uppercase tracking-wider block mb-1">
-                    Whisper from Chapter 1
-                  </span>
-                  <p className="italic font-serif text-[12.5px] sm:text-[13px] text-[#2c3527] leading-relaxed line-clamp-3">
-                    {surprisedMood.hook ? surprisedMood.hook : `“${surprisedMood.story.synopsis}”`}
-                  </p>
-                </div>
-
-                {/* Primary Card CTA */}
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      triggerHaptic(14)
-                      navigate({
-                        to: '/discover',
-                        search: { genre: surprisedMood.genreSlug },
-                      })
-                    }}
-                    className="w-full inline-flex items-center justify-center space-x-2 bg-[#1e241c] text-[#f7f5ef] py-3.5 rounded-full shadow-md active:scale-95 transition-all text-[15px] font-serif font-medium cursor-pointer hover:bg-[#2b3328] group"
-                  >
-                    <span>Begin this story</span>
-                    <ArrowRight className="w-4 h-4 text-[#d48356] group-hover:translate-x-1 transition-transform" />
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          ) : (
-            /* ============================================================
-               IDLE / FLIPPING STATE: 9:16 Book Image + Video Page Turn
-               ============================================================ */
-            <motion.div
-              key="idle-flipping-book"
-              initial={false}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="w-full flex-1 flex flex-col justify-center items-center my-auto min-h-0 pt-0 pb-1"
-            >
-              {/* Natural Book Container with 9:16 Vertical Ratio & Balanced Sizing */}
-              <div className="relative w-full flex items-center justify-center flex-1 min-h-0 max-h-[40vh] sm:max-h-[44vh] overflow-hidden scale-[1.08] sm:scale-[1.12] origin-center">
-                <div className="relative w-auto h-full max-h-full max-w-full aspect-[9/16] flex items-center justify-center">
-                  {/* Resting State Image (Exact Frame 0 of video, WebP + PNG fallback) */}
-                  <picture className="w-full h-full flex items-center justify-center">
-                    <source srcSet={bookIdleWebp} type="image/webp" />
-                    <img
-                      alt="Surprise with a random book"
-                      decoding="async"
-                      loading="eager"
-                      className={`w-full h-full object-contain object-center pointer-events-none mx-auto block transition-opacity duration-150 will-change-[opacity] ${
-                        surpriseState === 'flipping' ? 'opacity-0' : 'opacity-100'
-                      }`}
-                      src={bookIdleImg}
-                    />
-                  </picture>
-
-                  {/* Photorealistic Page-Turn Video (467KB trimmed, 60fps native GPU decode) */}
-                  <video
-                    ref={videoRef}
-                    src={animatedBookVideoOptimized}
-                    muted
-                    playsInline
-                    preload="auto"
-                    disablePictureInPicture
-                    disableRemotePlayback
-                    className={`absolute inset-0 w-full h-full object-contain object-center pointer-events-none transition-opacity duration-150 will-change-[opacity] ${
-                      surpriseState === 'flipping' ? 'opacity-100' : 'opacity-0'
-                    }`}
-                  />
-
-                  {/* Lightweight GPU-composited feathering overlays for seamless background blending */}
-                  <div className="pointer-events-none absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-white to-transparent z-10" />
-                  <div className="pointer-events-none absolute inset-y-0 right-0 w-3 bg-gradient-to-l from-white to-transparent z-10" />
-                  <div className="pointer-events-none absolute inset-x-0 top-0 h-4 bg-gradient-to-b from-white to-transparent z-10" />
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-4 bg-gradient-to-t from-white to-transparent z-10" />
-                </div>
-              </div>
-
-              {/* Surrounding Editorial Typography Below Image */}
-              <div className="w-full text-center px-4 pt-1.5 pb-1 shrink-0 relative z-20">
-                <span className="block font-sans text-[11px] font-semibold text-[#c84b25] uppercase tracking-[0.2em]">
-                  ✦ Curated by Fate
-                </span>
-                <h2 className="font-serif text-[26px] sm:text-[30px] text-[#161c14] leading-[1.18] tracking-tight mx-auto max-w-[320px] mt-0.5">
-                  Tonight’s Blind Date
-                </h2>
-                <p className="font-sans text-[13px] text-[#55624e] mt-1 tracking-normal max-w-xs mx-auto">
-                  Leave algorithms behind. Let serendipity choose your read.
-                </p>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Bottom Action Module — Identical to Slide 01 Button & Down Icon */}
-        <div className="w-full shrink-0 flex flex-col items-center space-y-2.5 pt-1 pb-2">
-          {surpriseState !== 'revealed' && (
-            <div className="w-full max-w-xs mx-auto">
-              <button
-                type="button"
-                disabled={surpriseState === 'flipping'}
-                onClick={triggerSurprise}
-                className="w-full inline-flex items-center justify-center space-x-2.5 bg-[#1e241c] text-[#f7f5ef] px-8 py-3.5 rounded-full shadow-lg active:scale-95 transition-all duration-200 group hover:bg-[#2b3328] focus:outline-none cursor-pointer disabled:opacity-90 disabled:cursor-wait"
-              >
-                <span className="font-serif text-[17px] sm:text-[18px] font-medium text-[#f7f5ef] tracking-tight">
-                  {surpriseState === 'flipping' ? 'Turning pages...' : 'Surprise me'}
-                </span>
-                <ArrowRight className={`w-4 h-4 text-white transition-transform duration-200 ${
-                  surpriseState === 'flipping' ? 'translate-x-1' : 'group-hover:translate-x-1'
-                }`} />
-              </button>
+              {/* Lightweight GPU-composited feathering overlays for seamless background blending */}
+              <div className="pointer-events-none absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-white to-transparent z-10" />
+              <div className="pointer-events-none absolute inset-y-0 right-0 w-3 bg-gradient-to-l from-white to-transparent z-10" />
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-4 bg-gradient-to-b from-white to-transparent z-10" />
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-4 bg-gradient-to-t from-white to-transparent z-10" />
             </div>
-          )}
+          </div>
+
+          {/* Surrounding Editorial Typography Below Image */}
+          <div
+            className={`w-full text-center px-4 pt-1.5 pb-1 shrink-0 relative z-20 transition-opacity duration-300 ${
+              surpriseState === 'revealed' ? 'opacity-15' : 'opacity-100'
+            }`}
+          >
+            <span className="block font-sans text-[11px] font-semibold text-[#c84b25] uppercase tracking-[0.2em]">
+              ✦ Curated by Fate
+            </span>
+            <h2 className="font-serif text-[26px] sm:text-[30px] text-[#161c14] leading-[1.18] tracking-tight mx-auto max-w-[320px] mt-0.5">
+              Tonight’s Blind Date
+            </h2>
+            <p className="font-sans text-[13px] text-[#55624e] mt-1 tracking-normal max-w-xs mx-auto">
+              Leave algorithms behind. Let serendipity choose your read.
+            </p>
+          </div>
+        </div>
+
+        {/* Bottom Action Module — Pins to bottom */}
+        <div
+          className={`w-full shrink-0 flex flex-col items-center space-y-2.5 pt-1 pb-2 transition-all duration-300 ${
+            surpriseState === 'revealed' ? 'opacity-0 pointer-events-none' : 'opacity-100'
+          }`}
+        >
+          <div className="w-full max-w-xs mx-auto">
+            <button
+              type="button"
+              disabled={surpriseState === 'flipping'}
+              onClick={triggerSurprise}
+              className="w-full inline-flex items-center justify-center space-x-2.5 bg-[#1e241c] text-[#f7f5ef] px-8 py-3.5 rounded-full shadow-lg active:scale-95 transition-all duration-200 group hover:bg-[#2b3328] focus:outline-none cursor-pointer disabled:opacity-90 disabled:cursor-wait"
+            >
+              <span className="font-serif text-[17px] sm:text-[18px] font-medium text-[#f7f5ef] tracking-tight">
+                {surpriseState === 'flipping' ? 'Turning pages...' : 'Surprise me'}
+              </span>
+              <ArrowRight
+                className={`w-4 h-4 text-white transition-transform duration-200 ${
+                  surpriseState === 'flipping' ? 'translate-x-1' : 'group-hover:translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
 
           <button
             type="button"
@@ -875,6 +828,184 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
             </svg>
           </button>
         </div>
+
+        {/* ============================================================
+           DIRECTION 2: THE VINTAGE BOOKMARK / LIBRARY LENDING SLIP
+           Slides out from the open book's center crease like a tactile keepsake
+           ============================================================ */}
+        <AnimatePresence>
+          {surpriseState === 'revealed' && (
+            <div
+              onTouchMove={(e) => e.preventDefault()}
+              className="fixed inset-0 z-50 flex flex-col items-center justify-center p-4 touch-none overscroll-none select-none"
+            >
+              {/* Ultra-soft ambient backdrop catching outside taps to tuck bookmark back */}
+              <motion.div
+                onTouchMove={(e) => e.preventDefault()}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.25 }}
+                onClick={() => {
+                  triggerHaptic(8)
+                  if (videoRef.current) {
+                    videoRef.current.pause()
+                    videoRef.current.currentTime = 0
+                  }
+                  setSurpriseState('idle')
+                }}
+                className="absolute inset-0 bg-stone-900/20 backdrop-blur-[1.5px] cursor-pointer"
+              />
+
+              {/* Physical Bookmark Slip Container */}
+              <motion.div
+                initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 70, scale: 0.94 }}
+                animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+                exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 70, scale: 0.94 }}
+                transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+                className="relative z-50 w-full max-w-sm mx-auto flex flex-col items-center"
+              >
+                {/* Physical Crimson Bookmark Ribbon Tab peeking from top */}
+                <div className="relative z-10 -mb-2.5 flex items-center justify-center">
+                  <div className="w-5 h-5 bg-[#c84b25] rounded-t-sm shadow-[0_2px_6px_rgba(200,75,37,0.4)] flex items-center justify-center border-t border-x border-[#df643f]">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#FAF7F0]/80 shadow-inner" />
+                  </div>
+                </div>
+
+                {/* Atmospheric Ambient Glow */}
+                <div
+                  className="absolute -inset-4 rounded-3xl blur-2xl opacity-40 pointer-events-none transition-all duration-700 -z-10"
+                  style={{ backgroundColor: surprisedMood.glow || 'rgba(200, 75, 37, 0.25)' }}
+                />
+
+                {/* Tactile Library Card Body */}
+                <div className="w-full rounded-2xl bg-[#FAF6EE] border border-[#E5DEC9] shadow-[0_24px_50px_rgba(28,24,18,0.22),0_8px_20px_rgba(28,24,18,0.1)] p-4 sm:p-5 flex flex-col relative overflow-hidden">
+                  {/* Subtle Vintage Dashed Border Inset */}
+                  <div className="absolute inset-2.5 rounded-xl border border-dashed border-[#DCD3BD]/70 pointer-events-none" />
+
+                  {/* Top Header: Mood Badge on Left, Vintage Catalog Slip in Center, Cross Close Button on Right */}
+                  <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-[#EAE3D2] relative z-10">
+                    {/* Left: Mood Badge */}
+                    <div className="inline-flex items-center gap-1.5 min-w-0 bg-[#EFE8D8] px-2.5 py-1 rounded-full border border-[#DFD7C2]">
+                      <span className="text-sm shrink-0">{surprisedMood.icon}</span>
+                      <span className="font-sans text-[11px] font-semibold text-[#55624e] uppercase tracking-wider">
+                        {surprisedMood.name}
+                      </span>
+                    </div>
+
+                    {/* Center: Vintage Library Catalog Reference */}
+                    <span className="font-mono text-[9.5px] font-medium tracking-[0.18em] text-[#8b5a3c]/75 uppercase hidden xs:inline-block">
+                      FATE SLIP № {410 + surpriseIndex * 17}
+                    </span>
+
+                    {/* Right: Close X Button */}
+                    <button
+                      type="button"
+                      aria-label="Tuck bookmark back into book"
+                      onClick={() => {
+                        triggerHaptic(8)
+                        if (videoRef.current) {
+                          videoRef.current.pause()
+                          videoRef.current.currentTime = 0
+                        }
+                        setSurpriseState('idle')
+                      }}
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-[#717b6a] hover:text-[#161c14] bg-[#EFE8D8]/70 hover:bg-[#EAE1CB] active:scale-90 transition-all cursor-pointer border border-[#DFD7C2]"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Book Jacket + Story Details Row */}
+                  <div className="flex items-center gap-3.5 pt-3 pb-2 relative z-10">
+                    {/* Mini 3D Hardcover Book Jacket */}
+                    <div className="relative shrink-0 w-[84px] h-[122px] sm:w-[92px] sm:h-[132px] rounded-r-md rounded-l-xs overflow-hidden shadow-[-4px_6px_20px_rgba(22,28,20,0.28),0_2px_4px_rgba(22,28,20,0.12)] border-r-2 border-b-2 border-[#E2DBCB]">
+                      <img
+                        src={surprisedMood.img}
+                        alt={surprisedMood.story.title}
+                        className="w-full h-full object-cover object-center"
+                        loading="eager"
+                        decoding="async"
+                      />
+                      {/* Spine Crease & Shadow */}
+                      <div className="absolute inset-y-0 left-0 w-[9px] bg-gradient-to-r from-black/35 via-white/20 to-transparent pointer-events-none border-r border-black/10" />
+                      {/* Soft Book Cover Gloss */}
+                      <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-white/25 pointer-events-none" />
+                      {/* Physical Paper Page Rim on Right */}
+                      <div className="absolute inset-y-0 right-0 w-[3px] bg-gradient-to-l from-[#ded8c4] to-[#f4efe1] pointer-events-none" />
+                    </div>
+
+                    {/* Story Metadata */}
+                    <div className="flex-1 min-w-0 flex flex-col justify-center">
+                      <span className="font-sans text-[10px] font-semibold text-[#8b5a3c] uppercase tracking-wider block mb-0.5 truncate">
+                        {surprisedMood.story.category}
+                      </span>
+                      <h3 className="font-serif text-[18px] sm:text-[20px] font-bold text-[#161c14] leading-[1.22] tracking-tight line-clamp-2">
+                        {surprisedMood.story.title}
+                      </h3>
+                      <p className="font-sans text-[12px] text-[#55624e] font-medium mt-0.5">
+                        by {surprisedMood.story.author}
+                      </p>
+                      <div className="flex items-center gap-2 mt-2 pt-1 border-t border-[#EAE3D2] text-[10.5px] font-sans text-[#717b6a]">
+                        <span className="inline-flex items-center gap-1">
+                          <BookOpen className="w-3 h-3 text-[#c84b25]" />
+                          {surprisedMood.story.chapters}
+                        </span>
+                        <span>•</span>
+                        <span>~12 min read</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Whisper from Chapter 1 (The Hook) */}
+                  <div className="my-2 pl-3 border-l-2 border-[#c84b25] py-0.5 relative z-10">
+                    <span className="font-sans text-[9.5px] font-semibold text-[#8b5a3c] uppercase tracking-wider block mb-0.5">
+                      Whisper from Chapter 1
+                    </span>
+                    <p className="italic font-serif text-[12.5px] sm:text-[13px] text-[#2c3527] leading-relaxed line-clamp-3">
+                      {surprisedMood.hook ? surprisedMood.hook : `“${surprisedMood.story.synopsis}”`}
+                    </p>
+                  </div>
+
+                  {/* Primary Card CTA */}
+                  <div className="pt-2 relative z-10">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic(14)
+                        navigate({
+                          to: '/discover',
+                          search: { genre: surprisedMood.genreSlug },
+                        })
+                      }}
+                      className="w-full inline-flex items-center justify-center space-x-2 bg-[#1e241c] text-[#f7f5ef] py-3.5 rounded-full shadow-md active:scale-95 transition-all text-[15px] font-serif font-medium cursor-pointer hover:bg-[#2b3328] group"
+                    >
+                      <span>Begin this story</span>
+                      <ArrowRight className="w-4 h-4 text-[#d48356] group-hover:translate-x-1 transition-transform" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Tactile Tuck Back hint below card */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic(8)
+                    if (videoRef.current) {
+                      videoRef.current.pause()
+                      videoRef.current.currentTime = 0
+                    }
+                    setSurpriseState('idle')
+                  }}
+                  className="mt-3 text-[11.5px] font-sans font-medium text-[#717b6a] hover:text-[#161c14] transition-colors py-1 px-3 rounded-full hover:bg-black/5 active:scale-95 cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>Tuck bookmark into book</span>
+                  <span className="text-[10px]">✕</span>
+                </button>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </section>
 
       {/* =====================================================================
