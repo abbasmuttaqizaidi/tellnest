@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { X, Compass, PenLine, ChevronRight, ArrowLeft, ArrowRight, Dices, Sparkles, BookOpen, Bookmark } from 'lucide-react'
+import { X, Compass, PenLine, ChevronRight, ArrowLeft, ArrowRight, Dices, Sparkles, BookOpen, Bookmark, Search, Leaf } from 'lucide-react'
 import { HatchpenLogo } from './HatchpenLogo'
 
 // Hero Section Reader Portraits (Ambient Editorial Cross-Fade)
@@ -10,6 +10,8 @@ import screen02ManImg from '../assets/home-screen/screen02-man.webp'
 import screen01Woman2Img from '../assets/home-screen/screen01-woman-2.webp'
 import screen02Man2Img from '../assets/home-screen/screen02-man-2.webp'
 import screen01Woman3Img from '../assets/home-screen/1screen01-woman.webp'
+import sanctuaryWomanImg from '../assets/home-screen/sanctuary-woman.jpg'
+import genericImage from '../assets/home-screen/generic-image.webp'
 
 const HERO_PORTRAITS = [
   { src: screen01WomanImg, alt: 'Woman reading an open book engrossed in stories' },
@@ -692,32 +694,17 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
             <HatchpenLogo size="xs" variant="compact" forceTheme="light" />
           </Link>
 
-          {/* Top-right actions: Skip (Spec 1. Header) + Hamburger */}
-          <div className="flex items-center gap-2">
-            <Link
-              to="/discover"
-              className="font-sans text-[13px] font-medium text-[#55624e] hover:text-[#191d16] px-2.5 py-1 rounded-full hover:bg-black/5 transition-colors no-underline"
-            >
-              Skip
-            </Link>
+          {/* Top-right action: Join HatchPen */}
+          <div className="flex items-center">
             <button
               type="button"
-              onClick={() => setMenuOpen(true)}
-              aria-label="Open Navigation Menu"
-              className="w-9 h-9 flex items-center justify-center rounded-full text-[#191d16] hover:bg-black/5 active:scale-95 transition-all focus:outline-none cursor-pointer"
+              onClick={() => {
+                triggerHaptic(12)
+                onOpenAuth()
+              }}
+              className="inline-flex items-center justify-center rounded-full bg-[#18181B] text-white px-3.5 py-1.5 text-xs font-medium hover:bg-black/85 active:scale-95 transition-all shadow-xs cursor-pointer"
             >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeWidth="2.2"
-                viewBox="0 0 24 24"
-              >
-                <line x1="4" x2="20" y1="7" y2="7" />
-                <line x1="4" x2="20" y1="12" y2="12" />
-                <line x1="4" x2="20" y1="17" y2="17" />
-              </svg>
+              Join HatchPen
             </button>
           </div>
         </div>
@@ -729,44 +716,69 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
           Image ALWAYS centered.
           On taller screens: Actions naturally shift to bottom.
           ===================================================================== */}
-      <section className="h-[calc(100svh-3.5rem-env(safe-area-inset-top,0px))] max-h-[calc(100svh-3.5rem-env(safe-area-inset-top,0px))] w-full flex flex-col justify-between items-center px-6 pt-1 pb-4 max-w-md mx-auto overflow-hidden">
+      <section className="h-[calc(100svh-3.5rem-env(safe-area-inset-top,0px))] max-h-[calc(100svh-3.5rem-env(safe-area-inset-top,0px))] w-full flex flex-col justify-between items-center px-6 pt-0.5 pb-2 sm:pb-3 max-w-md mx-auto overflow-hidden">
         {/* Narrative Center Editorial Section — ALWAYS VERTICALLY CENTERED */}
         <div className="flex-1 min-h-0 w-full flex flex-col items-center justify-center my-auto">
-          {/* Centered Image Container: Ambient cross-fade with subtle breathing scale */}
-          <div className="relative w-full flex-1 min-h-[260px] max-h-[50vh] sm:max-h-[54vh] flex items-center justify-center my-auto scale-[1.14] sm:scale-[1.18] origin-center">
-            <AnimatePresence initial={false}>
-              <motion.div
-                key={heroPortraitIdx}
-                initial={{ opacity: 0, scale: 0.985 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 1.015 }}
-                transition={{
-                  opacity: { duration: 1.0, ease: [0.4, 0, 0.2, 1] },
-                  scale: { duration: 4.2, ease: 'easeOut' },
-                }}
-                className="absolute inset-0 flex items-center justify-center pointer-events-none will-change-[opacity,transform]"
-              >
-                <img
-                  alt={HERO_PORTRAITS[heroPortraitIdx].alt}
-                  className="w-auto h-full max-h-full max-w-full object-contain object-center pointer-events-none mx-auto block"
-                  src={HERO_PORTRAITS[heroPortraitIdx].src}
-                  loading="eager"
-                  decoding="async"
-                  style={{
-                    WebkitMaskImage: 'linear-gradient(to bottom, black 52%, rgba(0,0,0,0.6) 72%, transparent 88%)',
-                    maskImage: 'linear-gradient(to bottom, black 52%, rgba(0,0,0,0.6) 72%, transparent 88%)',
-                  }}
-                />
-              </motion.div>
-            </AnimatePresence>
+          {/* Centered Image Container: generic-image with seamless bottom fade */}
+          <div className="relative w-full flex-1 min-h-[170px] max-h-[38vh] sm:max-h-[45vh] flex items-center justify-center my-auto scale-[1.12] sm:scale-[1.22] origin-center">
+            <img
+              alt="Inclusive literary reading collage with hands holding an open vintage book"
+              className="w-auto h-full max-h-full max-w-full object-contain object-center pointer-events-none mx-auto block"
+              src={genericImage}
+              loading="eager"
+              decoding="async"
+              style={{
+                WebkitMaskImage: 'linear-gradient(to bottom, black 62%, rgba(0,0,0,0.6) 80%, transparent 95%)',
+                maskImage: 'linear-gradient(to bottom, black 62%, rgba(0,0,0,0.6) 80%, transparent 95%)',
+              }}
+            />
 
             {/* Seamless white feathering overlay across container bottom */}
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 sm:h-28 bg-gradient-to-t from-white via-white/80 to-transparent z-10" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 sm:h-20 bg-gradient-to-t from-white via-white/80 to-transparent z-10" />
           </div>
-          <div className="w-full text-center px-4 pt-1 pb-1 shrink-0">
-            <h1 className="font-serif text-[26px] sm:text-[32px] text-[#161c14] leading-[1.18] tracking-tight mx-auto max-w-[320px]">
-              You haven’t met<br />your next <span className="italic font-normal">favourite</span> story.
+          <div className="w-full text-center px-2 pt-0 pb-0.5 shrink-0">
+            <h1 className="font-serif text-[30px] sm:text-[38px] text-[#161c14] leading-[1.12] tracking-tight mx-auto max-w-sm">
+              <span>You haven’t met</span>
+              <br />
+              <span className="whitespace-nowrap">your next <span className="italic font-normal">favourite</span> story.</span>
             </h1>
+
+            {/* Editorial Value Highlights: Icon on left, Heading + Subheading stacked on right (Subheading under heading) */}
+            <div className="w-fit mx-auto mt-2 mb-0 flex flex-col gap-2.5 items-start">
+              {/* Item 1 */}
+              <div className="flex items-start gap-2.5 text-left">
+                {/* Left: Icon */}
+                <div className="w-5 h-5 rounded-full bg-[#18181B] text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
+                  <Search className="w-2.5 h-2.5 text-white" strokeWidth={2.5} />
+                </div>
+                {/* Right: Heading on top, Subheading directly beneath */}
+                <div className="flex flex-col">
+                  <h3 className="font-serif text-[13px] sm:text-[14px] font-semibold text-[#191d16] leading-tight">
+                    Beyond the hype
+                  </h3>
+                  <p className="font-sans text-[11px] sm:text-[11.5px] text-[#55624e] leading-snug mt-0.5 whitespace-nowrap">
+                    Discover gems left behind
+                  </p>
+                </div>
+              </div>
+
+              {/* Item 2 */}
+              <div className="flex items-start gap-2.5 text-left">
+                {/* Left: Icon */}
+                <div className="w-5 h-5 rounded-full bg-[#18181B] text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
+                  <Leaf className="w-2.5 h-2.5 text-white" strokeWidth={2.5} />
+                </div>
+                {/* Right: Heading on top, Subheading directly beneath */}
+                <div className="flex flex-col">
+                  <h3 className="font-serif text-[13px] sm:text-[14px] font-semibold text-[#191d16] leading-tight">
+                    A place for new voices
+                  </h3>
+                  <p className="font-sans text-[11px] sm:text-[11.5px] text-[#55624e] leading-snug mt-0.5 whitespace-nowrap">
+                    Where emerging writers thrive
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1177,11 +1189,85 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
           >
             <span>Surprise me instead</span>
           </button>
+        </div>
+      </section>
 
-          {/* Progress Indicator: 03 / 05 */}
-          <div className="font-sans text-[11px] font-medium tracking-[0.2em] text-[#717b6a] select-none pt-0.5">
-            03 / 05
+      {/* =====================================================================
+          SECTION 4: AUTHENTICATION / SANCTUARY FOR STORIES (FINAL ONBOARDING SLIDE)
+          Specification from live_instructions.md:
+          - Back button and "Serialized studio" pill removed
+          - Always the last screen
+          - Joyful woman portrait with seamless bottom fade
+          - "A sanctuary for your stories."
+          - "Join thousands of writers and readers discovering original serialized fiction every day."
+          - "Create an account" (Primary CTA) -> onOpenAuth()
+          - "Log in to your account" (Secondary CTA) -> onOpenAuth()
+          - Social: Apple & Google buttons -> onOpenAuth()
+          - "Explore library as a guest →" -> navigate({ to: '/discover' })
+          - Terms of Service & Privacy Policy legal footnote
+          ===================================================================== */}
+      <section
+        id="sanctuary-section"
+        className="relative min-h-[calc(100svh-3.5rem-env(safe-area-inset-top,0px))] flex flex-col justify-between items-center px-4 sm:px-6 pt-3 pb-6 max-w-md mx-auto w-full bg-white border-none overflow-hidden"
+      >
+        {/* Center Editorial Group */}
+        <div className="w-full flex-1 flex flex-col justify-center items-center my-auto min-h-0">
+          {/* Hero Visual: Cutout Portrait with Seamless Fade */}
+          <div className="relative w-full max-w-[290px] min-[390px]:max-w-[320px] mx-auto aspect-[4/5] flex items-center justify-center overflow-hidden">
+            <img
+              alt="Joyful young woman smiling warmly while reading an open book"
+              className="w-full h-full object-contain object-top select-none pointer-events-none"
+              src={sanctuaryWomanImg}
+              loading="eager"
+              decoding="async"
+              style={{
+                WebkitMaskImage: 'linear-gradient(to bottom, black 52%, rgba(0,0,0,0.6) 72%, transparent 88%)',
+                maskImage: 'linear-gradient(to bottom, black 52%, rgba(0,0,0,0.6) 72%, transparent 88%)',
+              }}
+            />
+            {/* Gradient Scrim for seamless blend into white surface */}
+            <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-white via-white/80 to-transparent pointer-events-none" />
           </div>
+
+          {/* Editorial Typography */}
+          <div className="flex flex-col text-center px-3 -mt-3 relative z-10">
+            <h2 className="font-serif text-[28px] sm:text-[32px] text-[#191d16] font-normal leading-tight tracking-tight">
+              A sanctuary for your <span className="italic font-normal">stories.</span>
+            </h2>
+            <p className="font-sans text-[13px] sm:text-[13.5px] text-[#55624e] mt-1.5 max-w-[280px] mx-auto leading-relaxed">
+              Join thousands of writers and readers discovering original serialized fiction every day.
+            </p>
+          </div>
+        </div>
+
+        {/* Interactive Auth Action Panel */}
+        <div className="w-full shrink-0 flex flex-col gap-2.5 pt-3 max-w-sm mx-auto">
+          {/* Primary CTA: Create Account */}
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic(15)
+              onOpenAuth()
+            }}
+            className="w-full h-12 rounded-full bg-[#1e241c] text-[#f7f5ef] font-sans text-[13px] font-semibold uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm active:scale-[0.985] hover:bg-[#2b3328] transition-all duration-150 cursor-pointer"
+            id="btn-signup"
+          >
+            <span>Create an account</span>
+            <ArrowRight className="w-4 h-4 text-[#f7f5ef]" />
+          </button>
+
+          {/* Secondary CTA: Sign In */}
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic(12)
+              onOpenAuth()
+            }}
+            className="w-full h-12 rounded-full bg-[#edefe4] hover:bg-[#e1e4d9] text-[#191d16] font-sans text-[13px] font-semibold uppercase tracking-wider flex items-center justify-center active:scale-[0.985] transition-all duration-150 cursor-pointer"
+            id="btn-signin"
+          >
+            Log in to your account
+          </button>
         </div>
       </section>
 
