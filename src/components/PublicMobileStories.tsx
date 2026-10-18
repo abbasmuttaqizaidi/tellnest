@@ -21,6 +21,11 @@ const HERO_PORTRAITS = [
   { src: screen01Woman3Img, alt: 'Reader finding inspiration between pages' },
 ]
 
+const SHUTTER_STATEMENTS = [
+  { text: 'Writings. Beyond the hype', icon: Search },
+  { text: 'Where new writers are heard.', icon: Leaf },
+]
+
 // 12 Curated Mood Artworks
 import adventurousMoodImg from '../assets/moods/adventurous.webp'
 import melancholicMoodImg from '../assets/moods/melancholic.webp'
@@ -387,6 +392,19 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
     return () => clearInterval(interval)
   }, [shouldReduceMotion])
 
+  // Section 1: Rolling Shutter Ticker (Swaps between the 2 statements)
+  const [shutterIdx, setShutterIdx] = useState(0)
+
+  useEffect(() => {
+    if (shouldReduceMotion) return
+
+    const interval = setInterval(() => {
+      setShutterIdx((prev) => (prev + 1) % SHUTTER_STATEMENTS.length)
+    }, 3200)
+
+    return () => clearInterval(interval)
+  }, [shouldReduceMotion])
+
   // Ensure page always starts at top (Slide 01) on reload or initial visit
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -716,11 +734,11 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
           Image ALWAYS centered.
           On taller screens: Actions naturally shift to bottom.
           ===================================================================== */}
-      <section className="h-[calc(100svh-3.5rem-env(safe-area-inset-top,0px))] max-h-[calc(100svh-3.5rem-env(safe-area-inset-top,0px))] w-full flex flex-col justify-between items-center px-6 pt-0.5 pb-2 sm:pb-3 max-w-md mx-auto overflow-hidden">
+      <section className="h-[calc(100svh-3.5rem-env(safe-area-inset-top,0px))] max-h-[calc(100svh-3.5rem-env(safe-area-inset-top,0px))] w-full flex flex-col justify-between items-center px-6 pt-2 sm:pt-3 pb-2 sm:pb-3 max-w-md mx-auto overflow-hidden">
         {/* Narrative Center Editorial Section — ALWAYS VERTICALLY CENTERED */}
-        <div className="flex-1 min-h-0 w-full flex flex-col items-center justify-center my-auto">
+        <div className="flex-1 min-h-0 w-full flex flex-col items-center justify-center">
           {/* Centered Image Container: generic-image with seamless bottom fade */}
-          <div className="relative w-full flex-1 min-h-[170px] max-h-[38vh] sm:max-h-[45vh] flex items-center justify-center my-auto scale-[1.12] sm:scale-[1.22] origin-center">
+          <div className="relative w-full flex-1 min-h-[160px] max-h-[46vh] flex items-center justify-center scale-[1.28] sm:scale-[1.34] origin-center mb-[15px]">
             <img
               alt="Inclusive literary reading collage with hands holding an open vintage book"
               className="w-auto h-full max-h-full max-w-full object-contain object-center pointer-events-none mx-auto block"
@@ -728,62 +746,52 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
               loading="eager"
               decoding="async"
               style={{
-                WebkitMaskImage: 'linear-gradient(to bottom, black 62%, rgba(0,0,0,0.6) 80%, transparent 95%)',
-                maskImage: 'linear-gradient(to bottom, black 62%, rgba(0,0,0,0.6) 80%, transparent 95%)',
+                WebkitMaskImage: 'linear-gradient(to bottom, black 58%, rgba(0,0,0,0.6) 75%, transparent 92%)',
+                maskImage: 'linear-gradient(to bottom, black 58%, rgba(0,0,0,0.6) 75%, transparent 92%)',
               }}
             />
 
             {/* Seamless white feathering overlay across container bottom */}
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 sm:h-20 bg-gradient-to-t from-white via-white/80 to-transparent z-10" />
           </div>
-          <div className="w-full text-center px-2 pt-0 pb-0.5 shrink-0">
+          <div className="w-full text-center px-2 pt-0 pb-0.5 shrink-0 relative z-20">
             <h1 className="font-serif text-[30px] sm:text-[38px] text-[#161c14] leading-[1.12] tracking-tight mx-auto max-w-sm">
               <span>You haven’t met</span>
               <br />
               <span className="whitespace-nowrap">your next <span className="italic font-normal">favourite</span> story.</span>
             </h1>
 
-            {/* Editorial Value Highlights: Icon on left, Heading + Subheading stacked on right (Subheading under heading) */}
-            <div className="w-fit mx-auto mt-2 mb-0 flex flex-col gap-2.5 items-start">
-              {/* Item 1 */}
-              <div className="flex items-start gap-2.5 text-left">
-                {/* Left: Icon */}
-                <div className="w-5 h-5 rounded-full bg-[#18181B] text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
-                  <Search className="w-2.5 h-2.5 text-white" strokeWidth={2.5} />
-                </div>
-                {/* Right: Heading on top, Subheading directly beneath */}
-                <div className="flex flex-col">
-                  <h3 className="font-serif text-[13px] sm:text-[14px] font-semibold text-[#191d16] leading-tight">
-                    Beyond the hype
-                  </h3>
-                  <p className="font-sans text-[11px] sm:text-[11.5px] text-[#55624e] leading-snug mt-0.5 whitespace-nowrap">
-                    Discover gems left behind
-                  </p>
-                </div>
-              </div>
-
-              {/* Item 2 */}
-              <div className="flex items-start gap-2.5 text-left">
-                {/* Left: Icon */}
-                <div className="w-5 h-5 rounded-full bg-[#18181B] text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
-                  <Leaf className="w-2.5 h-2.5 text-white" strokeWidth={2.5} />
-                </div>
-                {/* Right: Heading on top, Subheading directly beneath */}
-                <div className="flex flex-col">
-                  <h3 className="font-serif text-[13px] sm:text-[14px] font-semibold text-[#191d16] leading-tight">
-                    A place for new voices
-                  </h3>
-                  <p className="font-sans text-[11px] sm:text-[11.5px] text-[#55624e] leading-snug mt-0.5 whitespace-nowrap">
-                    Where emerging writers thrive
-                  </p>
-                </div>
-              </div>
+            {/* Shutter Effect Rolling Ticker: Loops smoothly between "Writings. Beyond the hype" & "Where new writers are heard." */}
+            <div className="w-full flex items-center justify-center mt-2.5 sm:mt-3 mb-1 h-8 overflow-hidden relative">
+              <AnimatePresence mode="popLayout" initial={false}>
+                <motion.div
+                  key={shutterIdx}
+                  initial={shouldReduceMotion ? { opacity: 0 } : { y: 24, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={shouldReduceMotion ? { opacity: 0 } : { y: -24, opacity: 0 }}
+                  transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+                  className="flex items-center justify-center gap-2 py-1"
+                >
+                  <div className="w-5 h-5 rounded-full bg-[#18181B] text-white flex items-center justify-center shrink-0 shadow-xs">
+                    {React.createElement(SHUTTER_STATEMENTS[shutterIdx].icon, {
+                      className: 'w-2.5 h-2.5 text-white',
+                      strokeWidth: 2.5,
+                    })}
+                  </div>
+                  <span className="font-serif text-[13.5px] sm:text-[14.5px] font-semibold text-[#191d16] tracking-tight whitespace-nowrap">
+                    {SHUTTER_STATEMENTS[shutterIdx].text}
+                  </span>
+                </motion.div>
+              </AnimatePresence>
             </div>
           </div>
         </div>
 
         {/* Bottom Action Module — Pins to bottom, sits safely above Safari browser bar */}
-        <div className="w-full shrink-0 flex flex-col items-center space-y-2.5 pt-1 pb-2">
+        <div
+          className="w-full shrink-0 flex flex-col items-center space-y-2 pt-1 pb-2.5"
+          style={{ marginTop: 'calc(-1 * clamp(0px, (100svh - 680px) * 0.28, 68px))' }}
+        >
           <div className="w-full max-w-xs mx-auto">
             <button
               type="button"
@@ -835,7 +843,7 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
            serving as the foundation from which the library bookmark emerges.
            ============================================================ */}
         <div
-          className={`w-full flex-1 flex flex-col justify-center items-center my-auto min-h-0 pt-0 pb-1 transition-all duration-300 ease-out ${
+          className={`w-full flex-1 flex flex-col justify-center items-center min-h-0 pt-0 pb-1 transition-all duration-300 ease-out ${
             surpriseState === 'revealed'
               ? 'filter blur-[5px] opacity-80 pointer-events-none select-none'
               : 'opacity-100 blur-0'
@@ -903,6 +911,7 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
           className={`w-full shrink-0 flex flex-col items-center space-y-2.5 pt-1 pb-2 transition-all duration-300 ${
             surpriseState === 'revealed' ? 'filter blur-[4px] opacity-40 pointer-events-none' : 'opacity-100 blur-0'
           }`}
+          style={{ marginTop: 'calc(-1 * clamp(0px, (100svh - 680px) * 0.20, 52px))' }}
         >
           <div className="w-full max-w-xs mx-auto">
             <button
@@ -1136,7 +1145,7 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
         className="relative h-[calc(100svh-3.5rem-env(safe-area-inset-top,0px))] max-h-[calc(100svh-3.5rem-env(safe-area-inset-top,0px))] flex flex-col justify-between items-center px-4 sm:px-6 py-2.5 max-w-md mx-auto w-full bg-white border-none overflow-hidden"
       >
         {/* Narrative Center Editorial Section — ALWAYS VERTICALLY CENTERED */}
-        <div className="w-full flex-1 flex flex-col justify-center items-center my-auto min-h-0 pt-0 pb-1">
+        <div className="w-full flex-1 flex flex-col justify-center items-center min-h-0 pt-0 pb-1">
           {/* Centered Doorway Visual Container: perfectly proportioned to Slide 01 & 02 */}
           <div className="relative w-full flex items-center justify-center flex-1 min-h-0 max-h-[50vh] sm:max-h-[54vh] overflow-hidden scale-[1.10] sm:scale-[1.16] origin-center">
             <img
@@ -1160,7 +1169,10 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
         </div>
 
         {/* Bottom Action Module — Pins to bottom */}
-        <div className="w-full shrink-0 flex flex-col items-center space-y-2.5 pt-1 pb-2">
+        <div
+          className="w-full shrink-0 flex flex-col items-center space-y-2.5 pt-1 pb-2"
+          style={{ marginTop: 'calc(-1 * clamp(0px, (100svh - 700px) * 0.35, 78px))' }}
+        >
           <div className="w-full max-w-xs mx-auto">
             <button
               type="button"
@@ -1211,7 +1223,7 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
         className="relative min-h-[calc(100svh-3.5rem-env(safe-area-inset-top,0px))] flex flex-col justify-between items-center px-4 sm:px-6 pt-3 pb-6 max-w-md mx-auto w-full bg-white border-none overflow-hidden"
       >
         {/* Center Editorial Group */}
-        <div className="w-full flex-1 flex flex-col justify-center items-center my-auto min-h-0">
+        <div className="w-full flex-1 flex flex-col justify-center items-center min-h-0">
           {/* Hero Visual: Cutout Portrait with Seamless Fade */}
           <div className="relative w-full max-w-[290px] min-[390px]:max-w-[320px] mx-auto aspect-[4/5] flex items-center justify-center overflow-hidden">
             <img
@@ -1241,7 +1253,10 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
         </div>
 
         {/* Interactive Auth Action Panel */}
-        <div className="w-full shrink-0 flex flex-col gap-2.5 pt-3 max-w-sm mx-auto">
+        <div
+          className="w-full shrink-0 flex flex-col gap-2.5 pt-3 max-w-sm mx-auto"
+          style={{ marginTop: 'calc(-1 * clamp(0px, (100svh - 720px) * 0.36, 78px))' }}
+        >
           {/* Primary CTA: Create Account */}
           <button
             type="button"
