@@ -20,6 +20,7 @@ import calmMoodImg from '../assets/moods/Calm.webp'
 import upliftingMoodImg from '../assets/moods/Uplifting.webp'
 import wittyMoodImg from '../assets/moods/witty.webp'
 import nostalgicMoodImg from '../assets/moods/Nostalgiac_or_Meloncholic.webp'
+import moodsVisualEntityImg from '../assets/moods/moods-visual-entity.webp'
 import surpriseRandomBookImg from '../assets/surprise-with-a-random-book/surprise-with-a-random-book.webp'
 import bookIdleImg from '../assets/surprise-with-a-random-book/book-idle-9x16.png'
 import bookIdleWebp from '../assets/surprise-with-a-random-book/book-idle-9x16.webp'
@@ -345,6 +346,11 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
   const [extraStoriesCount, setExtraStoriesCount] = useState<number>(0)
   const [activeStoryIdx, setActiveStoryIdx] = useState<number>(0)
 
+  // Section 3: Mood Discovery & Bottom Drawer States
+  const [isMoodDrawerOpen, setIsMoodDrawerOpen] = useState(false)
+  const [drawerStep, setDrawerStep] = useState<'selection' | 'loading' | 'stories'>('selection')
+  const [selectedDrawerMood, setSelectedDrawerMood] = useState<MoodItem>(() => MOODS[0])
+
   // Ensure page always starts at top (Slide 01) on reload or initial visit
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -355,21 +361,64 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
     }
   }, [])
 
-  // Prevent background scroll and support Escape key when 80% curated sheet is open
+  // Prevent background scroll and support Escape key when Mood Drawer is open
   useEffect(() => {
-    if (selectedMoodForStories) {
+    if (isMoodDrawerOpen) {
       const origOverflow = document.body.style.overflow
+      const origHtmlOverflow = document.documentElement.style.overflow
+      const origBodyOverscroll = document.body.style.overscrollBehavior
+      const origHtmlOverscroll = document.documentElement.style.overscrollBehavior
+
       document.body.style.overflow = 'hidden'
-      const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') setSelectedMoodForStories(null)
+      document.documentElement.style.overflow = 'hidden'
+      document.body.style.overscrollBehavior = 'none'
+      document.documentElement.style.overscrollBehavior = 'none'
+
+      const preventScroll = (e: Event) => {
+        const target = e.target as HTMLElement | null
+        if (target && target.closest('.overflow-y-auto, .overflow-x-auto')) {
+          return
+        }
+        e.preventDefault()
       }
+
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          setIsMoodDrawerOpen(false)
+        }
+      }
+
+      window.addEventListener('touchmove', preventScroll, { passive: false })
+      window.addEventListener('wheel', preventScroll, { passive: false })
       window.addEventListener('keydown', handleKeyDown)
+
       return () => {
         document.body.style.overflow = origOverflow
+        document.documentElement.style.overflow = origHtmlOverflow
+        document.body.style.overscrollBehavior = origBodyOverscroll
+        document.documentElement.style.overscrollBehavior = origHtmlOverscroll
+
+        window.removeEventListener('touchmove', preventScroll)
+        window.removeEventListener('wheel', preventScroll)
         window.removeEventListener('keydown', handleKeyDown)
       }
     }
-  }, [selectedMoodForStories])
+  }, [isMoodDrawerOpen])
+
+  const handleSelectMoodInDrawer = (mood: MoodItem) => {
+    triggerHaptic(15)
+    setSelectedDrawerMood(mood)
+    setDrawerStep('loading')
+
+    // Brief delightful loader delay then swipe left to stories
+    setTimeout(() => {
+      setSelectedMoodForStories(mood)
+      setExtraStoriesCount(0)
+      setActiveStoryIdx(0)
+      setDrawerStep('stories')
+      triggerHaptic(20)
+    }, 700)
+  }
 
   const touchStartX = useRef(0)
   const touchStartY = useRef(0)
@@ -426,23 +475,18 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
     }
   }, [])
 
-  // Prevent background scrolling completely on all mobile & desktop browsers
+  // Prevent background scrolling completely without changing position:fixed (eliminates top-scroll jump on close)
   useEffect(() => {
     if (surpriseState === 'revealed') {
-      const scrollY = window.scrollY
-      const origBodyPosition = document.body.style.position
-      const origBodyTop = document.body.style.top
-      const origBodyWidth = document.body.style.width
       const origBodyOverflow = document.body.style.overflow
-      const origBodyTouchAction = document.body.style.touchAction
       const origHtmlOverflow = document.documentElement.style.overflow
+      const origBodyOverscroll = document.body.style.overscrollBehavior
+      const origHtmlOverscroll = document.documentElement.style.overscrollBehavior
 
-      document.body.style.position = 'fixed'
-      document.body.style.top = `-${scrollY}px`
-      document.body.style.width = '100%'
       document.body.style.overflow = 'hidden'
-      document.body.style.touchAction = 'none'
       document.documentElement.style.overflow = 'hidden'
+      document.body.style.overscrollBehavior = 'none'
+      document.documentElement.style.overscrollBehavior = 'none'
 
       const preventScroll = (e: Event) => {
         e.preventDefault()
@@ -463,18 +507,14 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
       window.addEventListener('keydown', handleKeyDown)
 
       return () => {
-        document.body.style.position = origBodyPosition
-        document.body.style.top = origBodyTop
-        document.body.style.width = origBodyWidth
         document.body.style.overflow = origBodyOverflow
-        document.body.style.touchAction = origBodyTouchAction
         document.documentElement.style.overflow = origHtmlOverflow
+        document.body.style.overscrollBehavior = origBodyOverscroll
+        document.documentElement.style.overscrollBehavior = origHtmlOverscroll
 
         window.removeEventListener('touchmove', preventScroll)
         window.removeEventListener('wheel', preventScroll)
         window.removeEventListener('keydown', handleKeyDown)
-
-        window.scrollTo(0, scrollY)
       }
     }
   }, [surpriseState])
@@ -618,26 +658,34 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
             <HatchpenLogo size="xs" variant="compact" forceTheme="light" />
           </Link>
 
-          {/* Exception 2: Right mein hamburger */}
-          <button
-            type="button"
-            onClick={() => setMenuOpen(true)}
-            aria-label="Open Navigation Menu"
-            className="w-9 h-9 flex items-center justify-center rounded-full text-[#191d16] hover:bg-black/5 active:scale-95 transition-all focus:outline-none cursor-pointer"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeWidth="2.2"
-              viewBox="0 0 24 24"
+          {/* Top-right actions: Skip (Spec 1. Header) + Hamburger */}
+          <div className="flex items-center gap-2">
+            <Link
+              to="/discover"
+              className="font-sans text-[13px] font-medium text-[#55624e] hover:text-[#191d16] px-2.5 py-1 rounded-full hover:bg-black/5 transition-colors no-underline"
             >
-              <line x1="4" x2="20" y1="7" y2="7" />
-              <line x1="4" x2="20" y1="12" y2="12" />
-              <line x1="4" x2="20" y1="17" y2="17" />
-            </svg>
-          </button>
+              Skip
+            </Link>
+            <button
+              type="button"
+              onClick={() => setMenuOpen(true)}
+              aria-label="Open Navigation Menu"
+              className="w-9 h-9 flex items-center justify-center rounded-full text-[#191d16] hover:bg-black/5 active:scale-95 transition-all focus:outline-none cursor-pointer"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeWidth="2.2"
+                viewBox="0 0 24 24"
+              >
+                <line x1="4" x2="20" y1="7" y2="7" />
+                <line x1="4" x2="20" y1="12" y2="12" />
+                <line x1="4" x2="20" y1="17" y2="17" />
+              </svg>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -722,14 +770,14 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
            serving as the foundation from which the library bookmark emerges.
            ============================================================ */}
         <div
-          className={`w-full flex-1 flex flex-col justify-center items-center my-auto min-h-0 pt-0 pb-1 transition-all duration-500 ease-out ${
+          className={`w-full flex-1 flex flex-col justify-center items-center my-auto min-h-0 pt-0 pb-1 transition-all duration-300 ease-out ${
             surpriseState === 'revealed'
-              ? 'scale-[1.02] blur-[0.5px] opacity-85 pointer-events-none select-none'
-              : 'scale-100 blur-0 opacity-100'
+              ? 'filter blur-[5px] opacity-80 pointer-events-none select-none'
+              : 'opacity-100 blur-0'
           }`}
         >
           {/* Natural Book Container with 9:16 Vertical Ratio & Balanced Sizing */}
-          <div className="relative w-full flex items-center justify-center flex-1 min-h-0 max-h-[40vh] sm:max-h-[44vh] overflow-hidden scale-[1.08] sm:scale-[1.12] origin-center">
+          <div className="relative w-full flex items-center justify-center flex-1 min-h-0 max-h-[54vh] sm:max-h-[58vh] overflow-hidden scale-[1.40] sm:scale-[1.46] origin-center">
             <div className="relative w-auto h-full max-h-full max-w-full aspect-[9/16] flex items-center justify-center">
               {/* Resting State Image (Exact Frame 0 of video, WebP + PNG fallback) */}
               <picture className="w-full h-full flex items-center justify-center">
@@ -770,7 +818,7 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
           {/* Surrounding Editorial Typography Below Image */}
           <div
             className={`w-full text-center px-4 pt-1.5 pb-1 shrink-0 relative z-20 transition-opacity duration-300 ${
-              surpriseState === 'revealed' ? 'opacity-15' : 'opacity-100'
+              surpriseState === 'revealed' ? 'opacity-70 pointer-events-none' : 'opacity-100'
             }`}
           >
             <span className="block font-sans text-[11px] font-semibold text-[#c84b25] uppercase tracking-[0.2em]">
@@ -788,7 +836,7 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
         {/* Bottom Action Module — Pins to bottom */}
         <div
           className={`w-full shrink-0 flex flex-col items-center space-y-2.5 pt-1 pb-2 transition-all duration-300 ${
-            surpriseState === 'revealed' ? 'opacity-0 pointer-events-none' : 'opacity-100'
+            surpriseState === 'revealed' ? 'filter blur-[4px] opacity-40 pointer-events-none' : 'opacity-100 blur-0'
           }`}
         >
           <div className="w-full max-w-xs mx-auto">
@@ -854,7 +902,7 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
                   }
                   setSurpriseState('idle')
                 }}
-                className="absolute inset-0 bg-stone-900/20 backdrop-blur-[1.5px] cursor-pointer"
+                className="absolute inset-0 bg-white/40 backdrop-blur-md cursor-pointer"
               />
 
               {/* Physical Bookmark Slip Container */}
@@ -874,7 +922,7 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
 
                 {/* Atmospheric Ambient Glow */}
                 <div
-                  className="absolute -inset-4 rounded-3xl blur-2xl opacity-40 pointer-events-none transition-all duration-700 -z-10"
+                  className="absolute -inset-4 rounded-3xl blur-2xl opacity-25 pointer-events-none transition-all duration-700 -z-10"
                   style={{ backgroundColor: surprisedMood.glow || 'rgba(200, 75, 37, 0.25)' }}
                 />
 
@@ -1009,204 +1057,90 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
       </section>
 
       {/* =====================================================================
-          SECTION 3: 12-MOOD FEELINGS CAROUSEL / CURATED STORIES VIEW (SLIDE 03)
-          Instruction 1: Tap any mood slide to reveal 5 curated stories + Load more button
-          Instruction 2: Tabs pills ("Adventurous", "Melancholic", etc.) removed
-          Instruction 3: Monochrome black & white on bg-white matching Slide 01
-          Instruction 4: "Explore {mood_name}" button removed from dock
+          SECTION 3: MOOD DISCOVERY INTRODUCTION (SLIDE 03)
+          Spec: HatchPen — Onboarding Slide 03
+          - Visual entity: Magical doorway (moods-visual-entity.webp)
+          - Heading: What are you in the mood for?
+          - Supporting Text: Pick a feeling. Find your next story.
+          - Primary CTA: Choose a mood → (Opens Mood Selection Drawer)
+          - Secondary Action: Surprise me instead (Scrolls up to Slide 02)
+          - Progress Indicator: 03 / 05
           ===================================================================== */}
       <section
         id="feelings-carousel-section"
-        className="relative min-h-[calc(100svh-3.5rem-env(safe-area-inset-top,0px))] flex flex-col justify-between px-4 sm:px-6 py-4 max-w-md mx-auto w-full bg-white border-none overflow-hidden"
+        className="relative h-[calc(100svh-3.5rem-env(safe-area-inset-top,0px))] max-h-[calc(100svh-3.5rem-env(safe-area-inset-top,0px))] flex flex-col justify-between items-center px-4 sm:px-6 py-2.5 max-w-md mx-auto w-full bg-white border-none overflow-hidden"
       >
-        <div className="flex flex-col w-full select-none my-auto">
-          {/* Editorial Headline Section (App Serif) */}
-          <div className="flex flex-col pt-1 pb-2">
-            <h2 className="font-serif text-[28px] sm:text-[32px] text-[#191d16] font-normal leading-[1.15] tracking-tight whitespace-nowrap">
-              I’d Like to feel..
+        {/* Narrative Center Editorial Section — ALWAYS VERTICALLY CENTERED */}
+        <div className="w-full flex-1 flex flex-col justify-center items-center my-auto min-h-0 pt-0 pb-1">
+          {/* Centered Doorway Visual Container: perfectly proportioned to Slide 01 & 02 */}
+          <div className="relative w-full flex items-center justify-center flex-1 min-h-0 max-h-[50vh] sm:max-h-[54vh] overflow-hidden scale-[1.10] sm:scale-[1.16] origin-center">
+            <img
+              src={moodsVisualEntityImg}
+              alt="A magical doorway opening into an imaginative story world"
+              className="w-auto h-full max-h-full max-w-full object-contain object-center pointer-events-none mx-auto block"
+              loading="eager"
+              decoding="async"
+            />
+          </div>
+
+          {/* Surrounding Editorial Typography Below Image */}
+          <div className="w-full text-center px-4 pt-1.5 pb-1 shrink-0 relative z-20">
+            <h2 className="font-serif text-[26px] sm:text-[30px] text-[#161c14] leading-[1.18] tracking-tight mx-auto max-w-[320px]">
+              What are you in the mood for?
             </h2>
-            <p className="font-sans text-[13.5px] text-[#55624e] mt-0.5 tracking-normal">
-              Swipe cards or tap to explore curated stories
+            <p className="font-sans text-[13px] text-[#55624e] mt-1 tracking-normal max-w-xs mx-auto">
+              Pick a feeling. Find your next story.
             </p>
           </div>
+        </div>
 
-          {/* 3D Peek Card Deck (Tabs pills removed as requested) */}
-          <div className="relative w-full overflow-hidden py-2 flex items-center justify-center">
-            <div
-              className="relative flex items-center justify-center w-full touch-pan-y transition-transform duration-500 ease-out"
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
+        {/* Bottom Action Module — Pins to bottom */}
+        <div className="w-full shrink-0 flex flex-col items-center space-y-2.5 pt-1 pb-2">
+          <div className="w-full max-w-xs mx-auto">
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic(15)
+                setIsMoodDrawerOpen(true)
+                setDrawerStep('selection')
+              }}
+              className="w-full inline-flex items-center justify-center space-x-2.5 bg-[#1e241c] text-[#f7f5ef] px-8 py-3.5 rounded-full shadow-lg active:scale-95 transition-all duration-200 group hover:bg-[#2b3328] focus:outline-none cursor-pointer"
             >
-              {/* Left Peek Card */}
-              <div
-                onClick={() => updateMood('prev')}
-                role="button"
-                tabIndex={0}
-                aria-label={`Previous: ${prevMood.name}`}
-                className="w-[72%] max-w-[250px] aspect-[9/15] rounded-[22px] overflow-hidden bg-neutral-100 shadow-sm shrink-0 -mr-16 scale-90 opacity-40 blur-[0.5px] cursor-pointer transition-all duration-300 relative select-none"
-              >
-                <img
-                  src={prevMood.img}
-                  alt={prevMood.name}
-                  className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent flex flex-col justify-end p-4">
-                  <span className="font-serif text-[18px] italic text-white font-normal tracking-wide text-center drop-shadow-sm">
-                    {prevMood.name}
-                  </span>
-                </div>
-              </div>
-
-              {/* Center Active Card: Tapping opens Curated Stories UI in an 80% bottom sheet */}
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => {
-                  triggerHaptic(15)
-                  setSelectedMoodForStories(currentMood)
-                  setExtraStoriesCount(0)
-                  setActiveStoryIdx(0)
-                }}
-                aria-label={`Current: ${currentMood.name}. Tap to explore 5 stories.`}
-                className="relative z-20 w-[78%] max-w-[285px] aspect-[9/15] rounded-[26px] overflow-hidden shadow-2xl bg-neutral-900 shrink-0 cursor-pointer select-none group"
-              >
-                <AnimatePresence initial={false} custom={slideDirection} mode="popLayout">
-                  <motion.div
-                    key={currentMood.name}
-                    custom={slideDirection}
-                    variants={{
-                      enter: (dir: number) => ({
-                        x: dir > 0 ? 80 : -80,
-                        opacity: 0,
-                        scale: 0.92,
-                      }),
-                      center: {
-                        x: 0,
-                        opacity: 1,
-                        scale: 1,
-                        transition: {
-                          x: { type: 'spring', stiffness: 280, damping: 26 },
-                          opacity: { duration: 0.28 },
-                          scale: { duration: 0.3 },
-                        },
-                      },
-                      exit: (dir: number) => ({
-                        x: dir > 0 ? -80 : 80,
-                        opacity: 0,
-                        scale: 0.92,
-                        transition: {
-                          x: { type: 'spring', stiffness: 280, damping: 26 },
-                          opacity: { duration: 0.22 },
-                          scale: { duration: 0.26 },
-                        },
-                      }),
-                    }}
-                    initial="enter"
-                    animate="center"
-                    exit="exit"
-                    className="absolute inset-0 w-full h-full"
-                  >
-                    <img
-                      src={currentMood.img}
-                      alt={currentMood.name}
-                      className="absolute inset-0 w-full h-full object-cover pointer-events-none transition-transform duration-700 ease-out group-hover:scale-105"
-                    />
-
-                    {/* Soft atmospheric gradient vignette */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#191d16] via-[#191d16]/45 to-transparent pointer-events-none" />
-
-                    {/* Bottom Label Overlay with Opening Hook */}
-                    <div className="absolute inset-x-0 bottom-0 z-20 pb-6 pt-12 flex flex-col items-center justify-end text-center bg-gradient-to-t from-[#191d16] via-[#191d16]/80 to-transparent px-4">
-                      <motion.p
-                        key={`hook-${currentMood.name}`}
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3, delay: 0.04 }}
-                        className="font-serif italic text-white/85 text-[12px] min-[380px]:text-[13px] leading-snug text-center drop-shadow-md mb-2 font-normal line-clamp-2 max-w-[230px]"
-                      >
-                        {currentMood.hook}
-                      </motion.p>
-
-                      <motion.h3
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.25, delay: 0.08 }}
-                        className="font-serif text-[26px] sm:text-[30px] italic font-normal text-white drop-shadow-sm tracking-wide"
-                      >
-                        {currentMood.name}
-                      </motion.h3>
-
-                      <motion.span
-                        initial={{ opacity: 0, y: 4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.25, delay: 0.12 }}
-                        className="font-sans text-[11px] font-medium text-white/75 uppercase tracking-[0.2em] mt-0.5"
-                      >
-                        {currentMood.count} • Tap to view stories
-                      </motion.span>
-                    </div>
-                  </motion.div>
-                </AnimatePresence>
-              </div>
-
-              {/* Right Peek Card */}
-              <div
-                onClick={() => updateMood('next')}
-                role="button"
-                tabIndex={0}
-                aria-label={`Next: ${nextMood.name}`}
-                className="w-[72%] max-w-[250px] aspect-[9/15] rounded-[22px] overflow-hidden bg-neutral-100 shadow-sm shrink-0 -ml-16 scale-90 opacity-40 blur-[0.5px] cursor-pointer transition-all duration-300 relative select-none"
-              >
-                <img
-                  src={nextMood.img}
-                  alt={nextMood.name}
-                  className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent flex flex-col justify-end p-4">
-                  <span className="font-serif text-[18px] italic text-white font-normal tracking-wide text-center drop-shadow-sm">
-                    {nextMood.name}
-                  </span>
-                </div>
-              </div>
-            </div>
+              <span className="font-serif text-[17px] sm:text-[18px] font-medium text-[#f7f5ef] tracking-tight">
+                Choose a mood
+              </span>
+              <ArrowRight className="w-4 h-4 text-[#f7f5ef] transition-transform duration-200 group-hover:translate-x-1" />
+            </button>
           </div>
 
-          {/* Controls Dock: Only Clean < 1 / 12 > controls ("Explore {mood}" removed as requested) */}
-          <div className="flex flex-col items-center justify-center mt-3">
-            <div className="inline-flex items-center bg-neutral-100 border border-neutral-200/70 rounded-full px-2 py-1 shadow-sm">
-              <button
-                type="button"
-                onClick={() => updateMood('prev')}
-                aria-label="Previous mood"
-                className="w-10 h-9 flex items-center justify-center text-[#191d16] hover:text-black active:scale-95 transition-all rounded-l-full cursor-pointer"
-              >
-                <ArrowLeft className="w-4 h-4" />
-              </button>
+          {/* Secondary Action: Surprise me instead */}
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic(10)
+              scrollToSlide2()
+            }}
+            className="flex items-center gap-1 font-sans text-xs tracking-wider text-[#545e4e] hover:text-[#161c14] pt-0.5 pb-0.5 transition-colors cursor-pointer bg-transparent border-0"
+          >
+            <span>Surprise me instead</span>
+          </button>
 
-              <div className="px-3 text-[11.5px] font-sans font-medium text-neutral-600 tracking-wider select-none">
-                {currentIndex + 1} / {MOODS.length}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => updateMood('next')}
-                aria-label="Next mood"
-                className="w-10 h-9 flex items-center justify-center text-[#191d16] hover:text-black active:scale-95 transition-all rounded-r-full cursor-pointer"
-              >
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
+          {/* Progress Indicator: 03 / 05 */}
+          <div className="font-sans text-[11px] font-medium tracking-[0.2em] text-[#717b6a] select-none pt-0.5">
+            03 / 05
           </div>
         </div>
       </section>
 
       {/* =====================================================================
-          80% BOTTOM SHEET DRAWER: CURATED MOOD STORIES VIEW (live_instructions.md)
-          Appears from browser bottom, covering 80% screen area
+          MOOD SELECTION DRAWER (SLIDE 03 SPECIFICATION)
+          - Opens from bottom on tapping "Choose a mood →"
+          - Compact & minimal cards listing 12 moods
+          - Tap any mood: Loader shows, then UI swipes LEFT into Curated Stories view
+          - Curated stories view has "← All moods" to swipe back
           ===================================================================== */}
       <AnimatePresence>
-        {selectedMoodForStories && (
+        {isMoodDrawerOpen && (
           <div className="fixed inset-0 z-50 flex items-end justify-center pointer-events-auto">
             {/* Backdrop */}
             <motion.div
@@ -1216,13 +1150,13 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
               transition={{ duration: 0.22 }}
               onClick={() => {
                 triggerHaptic(10)
-                setSelectedMoodForStories(null)
+                setIsMoodDrawerOpen(false)
               }}
               className="fixed inset-0 bg-black/60 backdrop-blur-sm cursor-pointer"
               aria-label="Close sheet overlay"
             />
 
-            {/* Bottom Sheet Modal (80% Height) */}
+            {/* Bottom Sheet Modal (84% Height) */}
             <motion.div
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
@@ -1234,170 +1168,350 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
               onDragEnd={(_e, info) => {
                 if (info.offset.y > 80 || info.velocity.y > 400) {
                   triggerHaptic(10)
-                  setSelectedMoodForStories(null)
+                  setIsMoodDrawerOpen(false)
                 }
               }}
-              className="relative z-50 w-full max-w-md h-[80dvh] max-h-[80vh] min-h-[500px] bg-white rounded-t-[32px] shadow-[0_-16px_48px_rgba(0,0,0,0.35)] flex flex-col overflow-hidden border-t border-neutral-100"
+              className="relative z-50 w-full max-w-md h-[84dvh] max-h-[84vh] min-h-[520px] bg-white rounded-t-[32px] shadow-[0_-16px_48px_rgba(0,0,0,0.35)] flex flex-col overflow-hidden border-t border-neutral-100"
             >
               {/* Pull handle indicator */}
               <div className="pt-3 pb-1 flex justify-center shrink-0 cursor-grab active:cursor-grabbing touch-none">
                 <div className="w-12 h-1.5 bg-neutral-300 rounded-full" />
               </div>
 
-              {/* Utility Bar */}
-              <div className="flex items-center justify-between px-4 sm:px-6 pt-1 pb-2 shrink-0 z-20 border-b border-neutral-100">
-                <button
-                  type="button"
-                  onClick={() => {
-                    triggerHaptic(10)
-                    setSelectedMoodForStories(null)
-                  }}
-                  className="inline-flex items-center gap-1.5 text-xs font-sans font-medium text-neutral-600 hover:text-black py-1 px-2.5 rounded-full bg-neutral-100 hover:bg-neutral-200 active:scale-95 transition-all cursor-pointer"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>All vibes</span>
-                </button>
-
-                <span className="font-sans text-[11px] uppercase tracking-wider text-neutral-500 font-semibold">
-                  Curated Selection
-                </span>
-
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => triggerHaptic(12)}
-                    className="flex items-center gap-1 py-1 px-2.5 rounded-full bg-neutral-100 hover:bg-neutral-200 active:scale-95 transition-all text-neutral-800 text-[11.5px] font-medium cursor-pointer"
-                    aria-label="Save for later"
-                  >
-                    <Bookmark className="w-3.5 h-3.5" />
-                    <span className="hidden min-[380px]:inline">Save</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      triggerHaptic(10)
-                      setSelectedMoodForStories(null)
-                    }}
-                    className="w-7 h-7 rounded-full bg-neutral-100 hover:bg-neutral-200 active:scale-95 transition-all flex items-center justify-center text-neutral-600 hover:text-black cursor-pointer"
-                    aria-label="Close sheet"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Sheet Scrollable / Flex Body */}
-              <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-2 flex flex-col justify-between select-none">
-                {/* Narrative Header */}
-                <div className="pt-2 pb-1 z-20 relative shrink-0">
-                  <h2 className="font-serif text-[26px] sm:text-[30px] text-[#191d16] leading-[1.08] tracking-tight">
-                    Stories<br />
-                    for your<br />
-                    kind of <span className="italic font-normal text-black">{selectedMoodForStories.name.toLowerCase()}.</span>
-                  </h2>
-                  <p className="font-sans text-[13px] text-neutral-600 mt-1 max-w-[280px]">
-                    A few handpicked reads based on what you love.
-                  </p>
-                </div>
-
-                {/* Hero Backdrop with Atmospheric Artwork & Story Reel */}
-                <div className="relative w-full z-10 flex flex-col justify-end pt-10 pb-2 my-auto">
-                  {/* Seamless white fade overlay at top */}
-                  <div className="absolute inset-0 z-10 pointer-events-none bg-gradient-to-b from-white via-white/40 to-transparent h-16" />
-
-                  {/* Mood illustration / photography image */}
-                  <div className="absolute inset-0 w-full h-full z-0 overflow-hidden">
-                    <img
-                      src={selectedMoodForStories.img}
-                      alt={selectedMoodForStories.name}
-                      className="w-full h-full object-cover object-center opacity-65 grayscale contrast-110 pointer-events-none"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-b from-white via-transparent to-white/90 pointer-events-none" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-white via-white/50 to-transparent pointer-events-none" />
-                  </div>
-
-                  {/* Recommended Story Cards Horizontal Carousel */}
-                  <div className="relative z-20 w-full pt-14">
-                    <div
-                      className="flex gap-2.5 px-1 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-2 no-scrollbar"
-                      style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}
+              {/* Step Navigation / Animated Content */}
+              <div className="relative flex-1 min-h-0 w-full overflow-hidden flex flex-col">
+                <AnimatePresence mode="wait" initial={false}>
+                  {/* ============================================================
+                      STEP 1: MOOD SELECTION (12 Minimal & Compact Cards)
+                      ============================================================ */}
+                  {drawerStep === 'selection' && (
+                    <motion.div
+                      key="step-selection"
+                      initial={{ x: -40, opacity: 0 }}
+                      animate={{ x: 0, opacity: 1 }}
+                      exit={{ x: -80, opacity: 0 }}
+                      transition={{ duration: 0.24, ease: 'easeOut' }}
+                      className="flex-1 min-h-0 flex flex-col w-full h-full"
                     >
-                      {selectedMoodForStories.curatedStories
-                        .slice(0, 5 + extraStoriesCount)
-                        .map((story, sIdx) => {
-                          const isActiveCard = sIdx === activeStoryIdx
-                          return (
-                            <article
-                              key={story.id}
-                              onClick={() => {
-                                triggerHaptic(12)
-                                setActiveStoryIdx(sIdx)
-                                setSelectedMoodForStories(null)
+                      {/* Top Utility Bar */}
+                      <div className="flex items-center justify-between px-4 sm:px-6 pt-1 pb-2 shrink-0 border-b border-neutral-100">
+                        <span className="font-sans text-[11px] uppercase tracking-wider text-[#55624e] font-semibold">
+                          Choose a Feeling
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            triggerHaptic(10)
+                            setIsMoodDrawerOpen(false)
+                          }}
+                          className="w-7 h-7 rounded-full bg-neutral-100 hover:bg-neutral-200 active:scale-95 transition-all flex items-center justify-center text-neutral-600 hover:text-black cursor-pointer"
+                          aria-label="Close drawer"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* Header Narrative */}
+                      <div className="px-4 sm:px-6 pt-3 pb-2 shrink-0">
+                        <h3 className="font-serif text-[22px] sm:text-[24px] text-[#191d16] font-normal leading-tight">
+                          What are you in the mood for?
+                        </h3>
+                        <p className="font-sans text-[12.5px] text-[#55624e] mt-0.5">
+                          Choose a feeling. We'll find a story for you.
+                        </p>
+                      </div>
+
+                      {/* Scrollable Compact Grid of 12 Moods */}
+                      <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-2 no-scrollbar">
+                        <div className="grid grid-cols-2 gap-2 sm:gap-2.5 pb-2">
+                          {MOODS.map((mood) => {
+                            const isSelected = selectedDrawerMood?.name === mood.name
+                            return (
+                              <button
+                                key={mood.name}
+                                type="button"
+                                onClick={() => handleSelectMoodInDrawer(mood)}
+                                className={`relative text-left p-2.5 rounded-2xl border transition-all duration-150 flex items-center gap-2.5 group cursor-pointer active:scale-[0.97] ${
+                                  isSelected
+                                    ? 'bg-[#191d16] text-white border-[#191d16] shadow-sm'
+                                    : 'bg-[#faf8f5] hover:bg-neutral-100 text-[#191d16] border-neutral-200/70 hover:border-neutral-300'
+                                }`}
+                              >
+                                {/* Thumbnail Image */}
+                                <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 relative bg-neutral-200">
+                                  <img
+                                    src={mood.img}
+                                    alt={mood.name}
+                                    className="w-full h-full object-cover object-center pointer-events-none"
+                                    loading="lazy"
+                                  />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-1">
+                                    <span className="font-serif text-[14px] font-medium leading-tight truncate">
+                                      {mood.name}
+                                    </span>
+                                  </div>
+                                  <span
+                                    className={`block font-sans text-[10.5px] truncate mt-0.5 ${
+                                      isSelected ? 'text-white/75' : 'text-[#717b6a]'
+                                    }`}
+                                  >
+                                    {mood.count}
+                                  </span>
+                                </div>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Sticky Primary CTA at Bottom: "Find my story →" */}
+                      <div className="pt-2 pb-[max(1rem,env(safe-area-inset-bottom,0px))] px-4 sm:px-6 border-t border-neutral-100 bg-white/95 backdrop-blur-sm shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleSelectMoodInDrawer(selectedDrawerMood || MOODS[0])}
+                          className="w-full h-12 py-3 px-6 rounded-full bg-[#191d16] text-[#f7f5ef] hover:bg-[#2b3328] shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 group cursor-pointer"
+                        >
+                          <span className="font-serif text-[15px] font-medium tracking-tight">
+                            Find my story
+                          </span>
+                          <ArrowRight className="w-4 h-4 text-[#f7f5ef] group-hover:translate-x-0.5 transition-transform" />
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* ============================================================
+                      STEP 2: EDITORIAL LOADER (Shows briefly on mood tap)
+                      ============================================================ */}
+                  {drawerStep === 'loading' && (
+                    <motion.div
+                      key="step-loading"
+                      initial={{ x: 60, opacity: 0 }}
+                      animate={{ x: 0, opacity: 1 }}
+                      exit={{ x: -60, opacity: 0 }}
+                      transition={{ duration: 0.22, ease: 'easeOut' }}
+                      className="flex-1 min-h-0 flex flex-col items-center justify-center px-6 text-center select-none py-12"
+                    >
+                      {/* Atmospheric Glowing Backdrop with Mood Tone */}
+                      <div className="relative mb-5 flex items-center justify-center">
+                        <motion.div
+                          animate={{
+                            scale: [1, 1.25, 1],
+                            opacity: [0.35, 0.7, 0.35],
+                          }}
+                          transition={{
+                            duration: 1.8,
+                            repeat: Infinity,
+                            ease: 'easeInOut',
+                          }}
+                          className="w-20 h-20 rounded-full blur-xl"
+                          style={{
+                            backgroundColor: selectedDrawerMood?.glow || 'rgba(200, 75, 37, 0.25)',
+                          }}
+                        />
+                        <div className="relative w-16 h-16 rounded-2xl overflow-hidden shadow-lg border border-white/60">
+                          <img
+                            src={selectedDrawerMood?.img}
+                            alt={selectedDrawerMood?.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      </div>
+
+                      <span className="font-sans text-[11px] uppercase tracking-[0.2em] text-[#c84b25] font-semibold">
+                        Curating Reads
+                      </span>
+                      <h4 className="font-serif text-[22px] sm:text-[24px] text-[#191d16] font-normal mt-1 mb-1">
+                        Finding {selectedDrawerMood?.name.toLowerCase()} stories...
+                      </h4>
+                      <p className="font-sans text-[12.5px] text-[#55624e] max-w-[240px]">
+                        {selectedDrawerMood?.hook}
+                      </p>
+
+                      {/* Delicate spinner dots */}
+                      <div className="flex items-center gap-1.5 mt-5">
+                        <span className="w-2 h-2 rounded-full bg-[#191d16] animate-pulse" />
+                        <span className="w-2 h-2 rounded-full bg-[#191d16] animate-pulse delay-150" />
+                        <span className="w-2 h-2 rounded-full bg-[#191d16] animate-pulse delay-300" />
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* ============================================================
+                      STEP 3: CURATED STORIES VIEW (Swiped from left)
+                      ============================================================ */}
+                  {drawerStep === 'stories' && selectedDrawerMood && (
+                    <motion.div
+                      key="step-stories"
+                      initial={{ x: 80, opacity: 0 }}
+                      animate={{ x: 0, opacity: 1 }}
+                      exit={{ x: 80, opacity: 0 }}
+                      transition={{ duration: 0.26, ease: 'easeOut' }}
+                      className="flex-1 min-h-0 flex flex-col w-full h-full"
+                    >
+                      {/* Utility Bar with "← All moods" to swipe back */}
+                      <div className="flex items-center justify-between px-4 sm:px-6 pt-1 pb-2 shrink-0 z-20 border-b border-neutral-100">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            triggerHaptic(10)
+                            setDrawerStep('selection')
+                          }}
+                          className="inline-flex items-center gap-1.5 text-xs font-sans font-medium text-neutral-700 hover:text-black py-1 px-3 rounded-full bg-neutral-100 hover:bg-neutral-200 active:scale-95 transition-all cursor-pointer"
+                        >
+                          <ArrowLeft className="w-3.5 h-3.5" />
+                          <span>All moods</span>
+                        </button>
+
+                        <span className="font-sans text-[11px] uppercase tracking-wider text-neutral-500 font-semibold">
+                          Curated Selection
+                        </span>
+
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => triggerHaptic(12)}
+                            className="flex items-center gap-1 py-1 px-2.5 rounded-full bg-neutral-100 hover:bg-neutral-200 active:scale-95 transition-all text-neutral-800 text-[11.5px] font-medium cursor-pointer"
+                            aria-label="Save for later"
+                          >
+                            <Bookmark className="w-3.5 h-3.5" />
+                            <span className="hidden min-[380px]:inline">Save</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              triggerHaptic(10)
+                              setIsMoodDrawerOpen(false)
+                            }}
+                            className="w-7 h-7 rounded-full bg-neutral-100 hover:bg-neutral-200 active:scale-95 transition-all flex items-center justify-center text-neutral-600 hover:text-black cursor-pointer"
+                            aria-label="Close sheet"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Sheet Body */}
+                      <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-2 flex flex-col justify-between select-none">
+                        {/* Narrative Header */}
+                        <div className="pt-2 pb-1 z-20 relative shrink-0">
+                          <h2 className="font-serif text-[24px] sm:text-[28px] text-[#191d16] leading-[1.12] tracking-tight">
+                            Stories<br />
+                            for your<br />
+                            kind of{' '}
+                            <span className="italic font-normal text-black">
+                              {selectedDrawerMood.name.toLowerCase()}.
+                            </span>
+                          </h2>
+                          <p className="font-sans text-[12.5px] text-neutral-600 mt-1 max-w-[280px]">
+                            A few handpicked reads based on what you love.
+                          </p>
+                        </div>
+
+                        {/* Hero Backdrop with Atmospheric Artwork & Story Reel */}
+                        <div className="relative w-full z-10 flex flex-col justify-end pt-8 pb-2 my-auto">
+                          {/* Seamless white fade overlay at top */}
+                          <div className="absolute inset-0 z-10 pointer-events-none bg-gradient-to-b from-white via-white/40 to-transparent h-16" />
+
+                          {/* Mood illustration / photography image */}
+                          <div className="absolute inset-0 w-full h-full z-0 overflow-hidden">
+                            <img
+                              src={selectedDrawerMood.img}
+                              alt={selectedDrawerMood.name}
+                              className="w-full h-full object-cover object-center opacity-65 grayscale contrast-110 pointer-events-none"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-b from-white via-transparent to-white/90 pointer-events-none" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-white via-white/50 to-transparent pointer-events-none" />
+                          </div>
+
+                          {/* Recommended Story Cards Horizontal Carousel */}
+                          <div className="relative z-20 w-full pt-12">
+                            <div
+                              className="flex gap-2.5 px-1 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-2 no-scrollbar"
+                              style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}
+                            >
+                              {selectedDrawerMood.curatedStories
+                                .slice(0, 5 + extraStoriesCount)
+                                .map((story, sIdx) => {
+                                  const isActiveCard = sIdx === activeStoryIdx
+                                  return (
+                                    <article
+                                      key={story.id}
+                                      onClick={() => {
+                                        triggerHaptic(12)
+                                        setActiveStoryIdx(sIdx)
+                                        setIsMoodDrawerOpen(false)
+                                        navigate({
+                                          to: '/discover',
+                                          search: { genre: selectedDrawerMood.genreSlug },
+                                        })
+                                      }}
+                                      className={`flex-shrink-0 w-[142px] snap-center rounded-xl bg-[#191d16] text-white shadow-xl p-3 flex flex-col justify-between h-[126px] relative overflow-hidden group cursor-pointer active:scale-[0.98] transition-transform ${
+                                        isActiveCard ? 'ring-2 ring-white/40 shadow-2xl scale-[1.02]' : ''
+                                      }`}
+                                    >
+                                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-white/10 pointer-events-none" />
+                                      <div className="relative z-10">
+                                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-white/70 mb-1.5" />
+                                        <h3 className="font-serif text-[15px] leading-tight font-semibold text-white drop-shadow-sm line-clamp-2">
+                                          {story.title}
+                                        </h3>
+                                      </div>
+                                      <div className="relative z-10 flex items-center justify-between mt-auto pt-1.5 border-t border-white/10">
+                                        <span className="font-sans text-[10px] tracking-normal text-white/70 truncate pr-1">
+                                          {story.category} • {story.readTime}
+                                        </span>
+                                        <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0 text-white">
+                                          <ArrowRight className="w-3 h-3 text-white" />
+                                        </div>
+                                      </div>
+                                    </article>
+                                  )
+                                })}
+                            </div>
+
+                            {/* Pagination Indicators */}
+                            <div className="flex items-center justify-center gap-1.5 pt-2">
+                              {selectedDrawerMood.curatedStories.slice(0, 5).map((_, dotIdx) => (
+                                <span
+                                  key={dotIdx}
+                                  className={`h-1.5 rounded-full transition-all ${
+                                    dotIdx === activeStoryIdx ? 'w-4 bg-[#191d16]' : 'w-1.5 bg-neutral-300'
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Primary Bottom Call to Action: "Load more" */}
+                        <div className="pt-2 pb-[max(1rem,env(safe-area-inset-bottom,0px))] z-20 flex flex-col items-center w-full shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              triggerHaptic(12)
+                              if (extraStoriesCount < 3) {
+                                setExtraStoriesCount((prev) => prev + 2)
+                              } else {
+                                setIsMoodDrawerOpen(false)
                                 navigate({
                                   to: '/discover',
-                                  search: { genre: selectedMoodForStories.genreSlug },
+                                  search: { genre: selectedDrawerMood.genreSlug },
                                 })
-                              }}
-                              className={`flex-shrink-0 w-[142px] snap-center rounded-xl bg-[#191d16] text-white shadow-xl p-3 flex flex-col justify-between h-[126px] relative overflow-hidden group cursor-pointer active:scale-[0.98] transition-transform ${
-                                isActiveCard ? 'ring-2 ring-white/40 shadow-2xl scale-[1.02]' : ''
-                              }`}
-                            >
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-white/10 pointer-events-none" />
-                              <div className="relative z-10">
-                                <span className="inline-block w-1.5 h-1.5 rounded-full bg-white/70 mb-1.5" />
-                                <h3 className="font-serif text-[15px] leading-tight font-semibold text-white drop-shadow-sm line-clamp-2">
-                                  {story.title}
-                                </h3>
-                              </div>
-                              <div className="relative z-10 flex items-center justify-between mt-auto pt-1.5 border-t border-white/10">
-                                <span className="font-sans text-[10px] tracking-normal text-white/70 truncate pr-1">
-                                  {story.category} • {story.readTime}
-                                </span>
-                                <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0 text-white">
-                                  <ArrowRight className="w-3 h-3 text-white" />
-                                </div>
-                              </div>
-                            </article>
-                          )
-                        })}
-                    </div>
-
-                    {/* Pagination Indicators */}
-                    <div className="flex items-center justify-center gap-1.5 pt-2">
-                      {selectedMoodForStories.curatedStories.slice(0, 5).map((_, dotIdx) => (
-                        <span
-                          key={dotIdx}
-                          className={`h-1.5 rounded-full transition-all ${
-                            dotIdx === activeStoryIdx ? 'w-4 bg-[#191d16]' : 'w-1.5 bg-neutral-300'
-                          }`}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Primary Bottom Call to Action: "Load more" */}
-                <div className="pt-2 pb-[max(1rem,env(safe-area-inset-bottom,0px))] z-20 flex flex-col items-center w-full shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      triggerHaptic(12)
-                      if (extraStoriesCount < 3) {
-                        setExtraStoriesCount((prev) => prev + 2)
-                      } else {
-                        setSelectedMoodForStories(null)
-                        navigate({
-                          to: '/discover',
-                          search: { genre: selectedMoodForStories.genreSlug },
-                        })
-                      }
-                    }}
-                    className="w-full max-w-sm h-12 py-3 px-6 rounded-full bg-[#191d16] text-[#f7f5ef] hover:bg-[#2b3328] shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 group cursor-pointer"
-                  >
-                    <span className="font-serif text-[15px] font-medium tracking-tight">Load more</span>
-                    <ArrowRight className="w-4 h-4 text-[#f7f5ef] group-hover:translate-x-0.5 transition-transform" />
-                  </button>
-                </div>
+                              }
+                            }}
+                            className="w-full max-w-sm h-12 py-3 px-6 rounded-full bg-[#191d16] text-[#f7f5ef] hover:bg-[#2b3328] shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 group cursor-pointer"
+                          >
+                            <span className="font-serif text-[15px] font-medium tracking-tight">Load more</span>
+                            <ArrowRight className="w-4 h-4 text-[#f7f5ef] group-hover:translate-x-0.5 transition-transform" />
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </motion.div>
           </div>
