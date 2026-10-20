@@ -446,8 +446,6 @@ function DesignSystemShowcasePage() {
               { id: 'all', label: 'All Manuscripts', badge: 148 },
               { id: 'trending', label: 'Trending', badge: 24 },
               { id: 'rising', label: 'New & Rising' },
-              { id: 'recent', label: 'Recently Updated' },
-              { id: 'completed', label: 'Completed Works' },
             ]}
           />
           <p className="text-xs font-mono text-[var(--ink-muted)]">

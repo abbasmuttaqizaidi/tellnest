@@ -1086,6 +1086,7 @@ test('SQL & Application Parity: Created this week and published this week', asyn
   const appMapped = await executeGetPlatformWorks({
     queryRows: async () => [{ ...work, ...sqlRes }],
     getAuthState: async () => ({ userId: 'user-1' }),
+    refDate,
   })
   assert.equal(appMapped[0].new_this_week, true)
   assert.ok(appMapped[0].collection.includes('new_this_week'))
@@ -1118,6 +1119,7 @@ test('SQL & Application Parity: Created earlier (draft) but published this week'
   const appMapped = await executeGetPlatformWorks({
     queryRows: async () => [{ ...work, ...sqlRes }],
     getAuthState: async () => ({ userId: 'user-1' }),
+    refDate,
   })
   assert.equal(appMapped[0].new_this_week, true)
   assert.equal(isWorkNewThisWeek(appMapped[0], refDate), true)
@@ -1147,6 +1149,7 @@ test('SQL & Application Parity: Created this week but still a draft (null publis
   const appMapped = await executeGetPlatformWorks({
     queryRows: async () => [{ ...work, ...sqlRes }],
     getAuthState: async () => ({ userId: 'user-1' }),
+    refDate,
   })
   assert.equal(appMapped[0].new_this_week, false)
   assert.equal(isWorkNewThisWeek(appMapped[0], refDate), false)
@@ -1176,6 +1179,7 @@ test('SQL & Application Parity: Published before this week', async () => {
   const appMapped = await executeGetPlatformWorks({
     queryRows: async () => [{ ...work, ...sqlRes }],
     getAuthState: async () => ({ userId: 'user-1' }),
+    refDate,
   })
   assert.equal(appMapped[0].new_this_week, false)
   assert.equal(isWorkNewThisWeek(appMapped[0], refDate), false)
@@ -1205,6 +1209,7 @@ test('SQL & Application Parity: Exact UTC week-start boundary', async () => {
   const appMapped = await executeGetPlatformWorks({
     queryRows: async () => [{ ...work, ...sqlRes }],
     getAuthState: async () => ({ userId: 'user-1' }),
+    refDate,
   })
   assert.equal(appMapped[0].new_this_week, true)
   assert.equal(isWorkNewThisWeek(appMapped[0], refDate), true)
@@ -1234,6 +1239,7 @@ test('SQL & Application Parity: Exact next-week boundary (exclusive upper bound)
   const appMapped = await executeGetPlatformWorks({
     queryRows: async () => [{ ...work, ...sqlRes }],
     getAuthState: async () => ({ userId: 'user-1' }),
+    refDate,
   })
   assert.equal(appMapped[0].new_this_week, false)
   assert.equal(isWorkNewThisWeek(appMapped[0], refDate), false)
@@ -1270,6 +1276,7 @@ test('SQL & Application Parity: Republished stories retaining original published
   const appMapped = await executeGetPlatformWorks({
     queryRows: async () => [{ ...work, ...sqlRes }],
     getAuthState: async () => ({ userId: 'user-1' }),
+    refDate,
   })
   assert.equal(appMapped[0].new_this_week, false)
   assert.equal(isWorkNewThisWeek(appMapped[0], refDate), false)
@@ -1303,6 +1310,7 @@ test('SQL & Application Parity: Published story with null published_at preserves
   const appMapped = await executeGetPlatformWorks({
     queryRows: async () => [{ ...work, ...sqlRes }],
     getAuthState: async () => ({ userId: 'user-1' }),
+    refDate,
   })
   assert.equal(appMapped[0].new_this_week, false)
   assert.equal(appMapped[0].editorPick, true)

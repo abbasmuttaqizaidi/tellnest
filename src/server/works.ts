@@ -360,6 +360,7 @@ export interface PlatformWorksDependencies {
   getAuthState?: () => Promise<{ userId?: string | null } | null>
   createAdminClient?: () => any
   queryRows?: () => Promise<any[]>
+  refDate?: Date
 }
 
 /**
@@ -558,7 +559,7 @@ export async function executeGetPlatformWorks(
         const primaryGenre = mappedGenres[0] || { name: 'Literary Fiction', slug: 'literary-fiction' }
 
         // Calculate weekly publication flags from actual published_at timestamps (overriding view created_at logic)
-        const { startUtc, endUtc } = getUtcWeekBoundaries()
+        const { startUtc, endUtc } = getUtcWeekBoundaries(dependencies.refDate)
         const pubDateMs = row.published_at ? new Date(row.published_at).getTime() : 0
         const isNewThisWeek = pubDateMs >= startUtc.getTime() && pubDateMs < endUtc.getTime()
 
