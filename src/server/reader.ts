@@ -5,8 +5,11 @@ import {
   removeWorkFromLibrary,
   getReadingProgress,
   getAllUserReadingProgress,
-  updateReadingProgress,
 } from '../lib/supabase/queries/reader'
+import { saveReadingProgressAtomicCore } from './readingProgressCore.ts'
+import type { SaveProgressPayload } from '../lib/readingProgress/types.ts'
+
+export { saveReadingProgressAtomicCore }
 
 /**
  * Server Function: Get user's personal Library with strict pagination.
@@ -73,12 +76,9 @@ export const getAllUserReadingProgressServerFn = createServerFn({ method: 'GET' 
       const { createAdminClient } = await import('../lib/supabase/server')
       const admin = createAdminClient()
 
-      // Resolve profile id for the Clerk user id
-      const { data: profile } = await admin
-        .from('profiles')
-        .select('id')
-        .eq('clerk_user_id', data.userId)
-        .maybeSingle()
+      // Resolve profile id for the Clerk user id (with in-memory cache)
+      const { getCachedProfileByClerkId } = await import('./authors')
+      const profile = await getCachedProfileByClerkId(admin, data.userId)
 
       const targetUserId = profile?.id || data.userId
 
@@ -92,7 +92,16 @@ export const getAllUserReadingProgressServerFn = createServerFn({ method: 'GET' 
 
       const { data: records, error } = await admin
         .from('reading_progress')
-        .select('id, user_id, work_id, chapter_id, progress_percent, position, last_read_at')
+        .select(`
+          id,
+          user_id,
+          work_id,
+          chapter_id,
+          progress_percent,
+          position,
+          last_read_at,
+          chapter:chapters(id, chapter_number, title)
+        `)
         .eq('user_id', targetUserId)
         .order('last_read_at', { ascending: false })
 
@@ -100,7 +109,22 @@ export const getAllUserReadingProgressServerFn = createServerFn({ method: 'GET' 
         console.warn('[getAllUserReadingProgressServerFn] DB warning:', error.message)
         return []
       }
-      return (records || []).filter((r: any) => !authorWorkIds.has(r.work_id))
+      return (records || [])
+        .filter((r: any) => !authorWorkIds.has(r.work_id))
+        .map((r: any) => {
+          const ch = Array.isArray(r.chapter) ? r.chapter[0] : r.chapter
+          return {
+            id: r.id,
+            user_id: r.user_id,
+            work_id: r.work_id,
+            chapter_id: r.chapter_id,
+            progress_percent: Math.min(100, Math.max(0, Math.round(Number(r.progress_percent || 0)))),
+            position: r.position,
+            last_read_at: r.last_read_at,
+            chapter_number: ch?.chapter_number || null,
+            chapter_title: ch?.title || null,
+          }
+        })
     } catch (e: any) {
       console.warn('[getAllUserReadingProgressServerFn] Error:', e?.message || e)
       return []
@@ -108,118 +132,25 @@ export const getAllUserReadingProgressServerFn = createServerFn({ method: 'GET' 
   })
 
 /**
- * Server Function: Update reading progress coordinates.
+ * Server Function: Atomically save paragraph-based reading progress.
+ * Authenticated via Clerk server auth().
+ * Enforces monotonic whole-story progress_percent while allowing last_position to move backwards.
  */
-export const updateReadingProgressServerFn = createServerFn({ method: 'POST' })
-  .validator((params: {
-    userId: string
-    workId: string
-    chapterId: string
-    progressPercent: number
-    position?: string
-  }) => {
-    if (!params?.userId || !params?.workId || !params?.chapterId) {
-      throw new Error('userId, workId, and chapterId are required')
-    }
-    return {
-      ...params,
-      progressPercent: Math.min(100, Math.max(0, params.progressPercent)),
-    }
-  })
-  .handler(async ({ data }) => {
-    try {
-      const { createAdminClient } = await import('../lib/supabase/server')
-      const admin = createAdminClient()
-
-      // Resolve profile id for the Clerk user id
-      const { data: profile } = await admin
-        .from('profiles')
-        .select('id')
-        .eq('clerk_user_id', data.userId)
-        .maybeSingle()
-
-      const targetUserId = profile?.id || data.userId
-
-      // Check if work is a UUID (custom database work) or mock string
-      const isWorkUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.workId)
-      if (!isWorkUuid) {
-        // Mock data works (e.g. 'work-1') cannot be saved in PostgreSQL UUID columns - silently return
-        return null
-      }
-
-      // Check if user is the author of this work
-      const { data: workRecord } = await admin
-        .from('works')
-        .select('author_id')
-        .eq('id', data.workId)
-        .maybeSingle()
-
-      if (
-        workRecord &&
-        (workRecord.author_id === targetUserId || (profile?.id && workRecord.author_id === profile.id))
-      ) {
-        // Author reading their own work - remove any previous reading progress record and return null
-        await admin
-          .from('reading_progress')
-          .delete()
-          .eq('user_id', targetUserId)
-          .eq('work_id', data.workId)
-        return null
-      }
-
-      const { data: updated, error } = await admin
-        .from('reading_progress')
-        .upsert(
-          {
-            user_id: targetUserId,
-            work_id: data.workId,
-            chapter_id: data.chapterId,
-            progress_percent: Math.min(100, Math.max(0, data.progressPercent)),
-            position: data.position || null,
-            last_read_at: new Date().toISOString(),
-          },
-          { onConflict: 'user_id,work_id' }
-        )
-        .select('id, user_id, work_id, chapter_id, progress_percent, position, last_read_at')
-        .maybeSingle()
-
-      if (error) {
-        console.warn('[updateReadingProgressServerFn] DB warning:', error.message)
-        return null
-      }
-      return updated
-    } catch (e: any) {
-      console.warn('[updateReadingProgressServerFn] Error:', e?.message || e)
-      return null
-    }
-  })
-
-/**
- * Server Function: Record active reading heartbeat, progress, and chapter completion.
- * Protected: Strictly authenticates caller using Clerk server auth().
- */
-export const recordReadingHeartbeatServerFn = createServerFn({ method: 'POST' })
-  .validator((params: {
-    workId: string
-    chapterId: string
-    activeSecondsDelta: number
-    progressPercent: number
-    maxProgressPercent: number
-    endMarkerReached: boolean
-    isCompleted?: boolean
-  }) => {
+export const saveReadingProgressServerFn = createServerFn({ method: 'POST' })
+  .validator((params: SaveProgressPayload) => {
     if (!params?.workId || !params?.chapterId) {
       throw new Error('workId and chapterId are required')
     }
     return {
-      workId: params.workId.trim(),
-      chapterId: params.chapterId.trim(),
-      // Bound the delta per heartbeat (max 60 seconds per payload) to prevent client spoofing
-      activeSecondsDelta: Math.max(0, Math.min(60, Math.round(params.activeSecondsDelta || 0))),
-      progressPercent: Math.min(100, Math.max(0, Math.round(params.progressPercent || 0))),
-      maxProgressPercent: Math.min(100, Math.max(0, Math.round(params.maxProgressPercent || 0))),
-      endMarkerReached: Boolean(params.endMarkerReached),
-      isCompleted: Boolean(params.isCompleted),
+      workId: String(params.workId).trim(),
+      chapterId: String(params.chapterId).trim(),
+      batchId: String(params.batchId || '').trim(),
+      paragraphId: String(params.paragraphId || '').trim(),
+      orderIndex: Math.max(0, Math.round(Number(params.orderIndex) || 0)),
+      totalParagraphs: Math.max(0, Math.round(Number(params.totalParagraphs) || 0)),
+      lastPosition: typeof params.lastPosition === 'string'
+        ? params.lastPosition
+        : JSON.stringify(params.lastPosition || {}),
     }
   })
   .handler(async ({ data }) => {
@@ -230,14 +161,20 @@ export const recordReadingHeartbeatServerFn = createServerFn({ method: 'POST' })
       const clerkUserId = authState?.userId
 
       if (!clerkUserId) {
-        return { success: false, reason: 'unauthenticated' }
+        return { success: false, reason: 'unauthenticated', batchId: data.batchId }
       }
 
       // 2. Validate workId and chapterId format (only UUIDs can be stored in PostgreSQL)
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
       if (!uuidRegex.test(data.workId) || !uuidRegex.test(data.chapterId)) {
-        // Non-UUID mock data works - silently acknowledge without throwing
-        return { success: true, mocked: true }
+        // Non-UUID mock data works - acknowledge cleanly without database error
+        return {
+          success: true,
+          mocked: true,
+          batchId: data.batchId,
+          progressPercent: data.totalParagraphs > 0 ? (data.orderIndex / data.totalParagraphs) * 100 : 0,
+          lastPosition: data.lastPosition,
+        }
       }
 
       const { createAdminClient } = await import('../lib/supabase/server')
@@ -251,12 +188,12 @@ export const recordReadingHeartbeatServerFn = createServerFn({ method: 'POST' })
         .maybeSingle()
 
       if (!profile?.id) {
-        return { success: false, reason: 'profile_not_found' }
+        return { success: false, reason: 'profile_not_found', batchId: data.batchId }
       }
 
       const userId = profile.id
 
-      // 4. Authorship safeguard: Authors must not have reading progress or history recorded for their own works
+      // 4. Authorship safeguard: Authors must not have reading progress recorded for their own works
       const { data: workRecord } = await admin
         .from('works')
         .select('author_id')
@@ -264,69 +201,28 @@ export const recordReadingHeartbeatServerFn = createServerFn({ method: 'POST' })
         .maybeSingle()
 
       if (workRecord && workRecord.author_id === userId) {
-        return { success: true, own_work: true }
+        return { success: true, own_work: true, batchId: data.batchId }
       }
 
-      const now = new Date().toISOString()
-
-      // 5. Atomic Upsert for reading_progress (Cursor and position)
-      await admin
-        .from('reading_progress')
-        .upsert(
-          {
-            user_id: userId,
-            work_id: data.workId,
-            chapter_id: data.chapterId,
-            progress_percent: data.progressPercent,
-            last_read_at: now,
-          },
-          { onConflict: 'user_id,work_id' }
-        )
-
-      // 6. Reading History Session & Active Duration Tracking
-      // Find the most recent active reading_history entry for this user, work, and chapter (within the last 4 hours)
-      const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()
-      const { data: existingSession } = await admin
-        .from('reading_history')
-        .select('id, duration_seconds, completed_at')
-        .eq('user_id', userId)
-        .eq('work_id', data.workId)
-        .eq('chapter_id', data.chapterId)
-        .gte('last_read_at', fourHoursAgo)
-        .order('last_read_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      if (existingSession?.id) {
-        const nextDuration = (existingSession.duration_seconds || 0) + data.activeSecondsDelta
-        const shouldMarkCompleted = data.isCompleted || !!existingSession.completed_at
-
-        await admin
-          .from('reading_history')
-          .update({
-            duration_seconds: nextDuration,
-            last_read_at: now,
-            completed_at: shouldMarkCompleted ? (existingSession.completed_at || now) : null,
-          })
-          .eq('id', existingSession.id)
-      } else {
-        // Start a fresh reading session entry
-        await admin
-          .from('reading_history')
-          .insert({
-            user_id: userId,
-            work_id: data.workId,
-            chapter_id: data.chapterId,
-            duration_seconds: data.activeSecondsDelta,
-            started_at: now,
-            last_read_at: now,
-            completed_at: data.isCompleted ? now : null,
-          })
-      }
-
-      return { success: true }
+      // 5. Execute atomic PostgreSQL persistence
+      return await saveReadingProgressAtomicCore(admin, {
+        userId,
+        workId: data.workId,
+        chapterId: data.chapterId,
+        batchId: data.batchId,
+        paragraphId: data.paragraphId,
+        orderIndex: data.orderIndex,
+        totalParagraphs: data.totalParagraphs,
+        lastPosition: data.lastPosition,
+      })
     } catch (e: any) {
-      console.warn('[recordReadingHeartbeatServerFn] Error:', e?.message || e)
-      return { success: false, error: e?.message || 'internal_error' }
+      console.warn('[saveReadingProgressServerFn] Error:', e?.message || e)
+      return {
+        success: false,
+        batchId: data.batchId,
+        progressPercent: 0,
+        lastPosition: null,
+        error: e?.message || 'internal_error',
+      }
     }
   })

@@ -473,7 +473,7 @@ function WorkDetailPage() {
               <BookOpen className="h-4 w-4" />
               <span suppressHydrationWarning>
                 {progress
-                  ? `CONTINUE READING (Chapter ${progress.chapterNumber} • ${progress.progressPercent}%)`
+                  ? `CONTINUE READING (Chapter ${progress.chapterNumber || 1} • ${Math.min(100, Math.max(0, Math.round(Number(progress.progressPercent || 0))))}%)`
                   : 'START READING CHAPTER 01'}
               </span>
               <ArrowRight className="h-4 w-4" />

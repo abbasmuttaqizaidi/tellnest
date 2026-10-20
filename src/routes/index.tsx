@@ -85,6 +85,8 @@ export const Route = createFileRoute('/')({
   validateSearch: (search: Record<string, unknown>) => ({
     view: (search.view as string) || undefined,
   }),
+  staleTime: 60_000,
+  gcTime: 300_000,
   loader: async () => {
     const authUser = await getAuthUserServerFn()
     return {
@@ -150,23 +152,23 @@ function HomePage() {
     return <PublicHome />
   }
 
-  // 2. If server determined authenticated session, render LoggedInHome immediately.
-  if (loaderData?.isAuthenticated || loaderData?.authUser?.isAuthenticated) {
-    return <LoggedInHome />
-  }
-
-  // 3. If server was unauthenticated, but user signed in dynamically on client
-  if (isLoaded && isSignedIn) {
-    return <LoggedInHome />
-  }
-
-  // 4. Check for cached session indicator if present
+  // 2. Check for cached session indicator immediately on client (0ms instant resolution)
   if (typeof window !== 'undefined') {
     try {
       if (window.localStorage.getItem('hatchpen_has_session') === 'true' && !explicitlyLoggedOut) {
         return <LoggedInHome />
       }
     } catch {}
+  }
+
+  // 3. If server determined authenticated session, render LoggedInHome immediately.
+  if (loaderData?.isAuthenticated || loaderData?.authUser?.isAuthenticated) {
+    return <LoggedInHome />
+  }
+
+  // 4. If server was unauthenticated, but user signed in dynamically on client
+  if (isLoaded && isSignedIn) {
+    return <LoggedInHome />
   }
 
   // 5. Default for unauthenticated visitors
@@ -401,12 +403,12 @@ function PublicHome() {
         onOpenAuth={openAuthModal}
         onOpenWriteModal={openPublicWriteModal}
       />
-      <div className="hidden md:block w-full min-h-screen bg-[#FAF7F2] dark:bg-[#0E0F12] text-[#18181B] dark:text-[#F4F4F5] selection:bg-[#C85A32]/20 selection:text-[#C85A32]">
+      <div className="hidden md:block w-full min-h-screen bg-white dark:bg-[#0E0F12] text-[#18181B] dark:text-[#F4F4F5] selection:bg-[#C85A32]/20 selection:text-[#C85A32]">
       
       {/* =========================================================================
           1. HERO SECTION — Premium Editorial Composition (Full-Bleed Asymmetric)
           ========================================================================= */}
-      <section className="relative w-full overflow-hidden bg-[#F2EDE3] dark:bg-[#121316] text-[#201F1D] dark:text-[#F4F4F5] min-h-[580px] lg:min-h-[620px] xl:min-h-[660px] flex flex-col justify-between">
+      <section className="relative w-full overflow-hidden bg-white dark:bg-[#121316] text-[#201F1D] dark:text-[#F4F4F5] min-h-[580px] lg:min-h-[620px] xl:min-h-[660px] flex flex-col justify-between">
         
         {/* DESKTOP FULL-BLEED RIGHT VISUAL SCENE — CLEAN SINGLE ALPHA MASK */}
         <div className="hidden lg:block absolute inset-y-0 right-0 w-[58%] xl:w-[60%] h-full z-0 overflow-hidden pointer-events-none select-none">
@@ -1832,10 +1834,46 @@ function LoggedInHomeSkeleton() {
   )
 }
 
-/* ==========================================================================
-   LOGGED IN HOME PAGE — Personalized Reader Dashboard & Shelf Experience
-   Layout based on live_instructions.md using design-system components and theme tokens
-   ========================================================================== */
+function CurrentlyReadingSkeleton() {
+  return (
+    <section id="active-novel" className="w-full">
+      {/* Skeleton Card Container */}
+      <div className="relative overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3 sm:p-3.5 shadow-2xs animate-pulse">
+        <div className="flex items-center gap-3 sm:gap-4">
+          {/* Cover placeholder */}
+          <div className="w-24 sm:w-24 aspect-[2/3] rounded-lg bg-[var(--bg-subtle)] shrink-0 border border-[var(--border-subtle)]" />
+
+          {/* Details & Actions placeholder on the right */}
+          <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4">
+            <div className="flex-1 min-w-0 space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <div className="h-3.5 w-14 bg-[var(--bg-subtle)] rounded-md" />
+                <div className="h-3 w-24 bg-[var(--bg-subtle)]/70 rounded" />
+              </div>
+
+              <div className="h-4 sm:h-5 w-44 sm:w-56 bg-[var(--bg-subtle)] rounded-md" />
+
+              <div className="space-y-1 max-w-md pt-0.5">
+                <div className="flex items-center justify-between">
+                  <div className="h-2.5 w-24 bg-[var(--bg-subtle)] rounded" />
+                  <div className="h-2.5 w-10 bg-[var(--bg-subtle)] rounded" />
+                </div>
+                <div className="w-full h-1 bg-[var(--bg-subtle)] rounded-full overflow-hidden border border-[var(--border-subtle)]" />
+              </div>
+            </div>
+
+            {/* Action buttons placeholder */}
+            <div className="w-full sm:w-auto flex items-center gap-2">
+              <div className="flex-1 sm:flex-initial sm:w-32 h-8 bg-[var(--bg-subtle)] rounded-lg" />
+              <div className="h-8 w-8 bg-[var(--bg-subtle)] rounded-lg shrink-0" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 /* ==========================================================================
    LOGGED IN HOME PAGE — Personalized Reader Dashboard & Shelf Experience
    Layout based on live_instructions.md using design-system components and theme tokens
@@ -1859,8 +1897,27 @@ function LoggedInHome() {
 
   const [selectedHeroWorkId, setSelectedHeroWorkId] = useState<string | null>(null)
   const [isSwitchMenuOpen, setIsSwitchMenuOpen] = useState(false)
-  const [recommendationSignals, setRecommendationSignals] = useState<UserRecommendationSignals | null>(null)
-  const [isLoadingSignals, setIsLoadingSignals] = useState(true)
+  const [recommendationSignals, setRecommendationSignals] = useState<UserRecommendationSignals | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('hatchpen_cached_rec_signals')
+        return cached ? JSON.parse(cached) : null
+      } catch {
+        return null
+      }
+    }
+    return null
+  })
+  const [isLoadingSignals, setIsLoadingSignals] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        return !sessionStorage.getItem('hatchpen_cached_rec_signals')
+      } catch {
+        return true
+      }
+    }
+    return false
+  })
   const forYouCarouselRef = useRef<HTMLDivElement>(null)
 
   const scrollForYou = (direction: 'left' | 'right') => {
@@ -1877,12 +1934,16 @@ function LoggedInHome() {
         if (isMounted) {
           setRecommendationSignals(signals)
           setIsLoadingSignals(false)
+          if (signals && typeof window !== 'undefined') {
+            try {
+              sessionStorage.setItem('hatchpen_cached_rec_signals', JSON.stringify(signals))
+            } catch {}
+          }
         }
       })
       .catch((err) => {
         console.warn('[ForYou] Failed to load recommendation signals:', err?.message || err)
         if (isMounted) {
-          setRecommendationSignals(null)
           setIsLoadingSignals(false)
         }
       })
@@ -1899,17 +1960,31 @@ function LoggedInHome() {
   }, [savedWorkIds, recommendationSignals?.bookmarkedWorkIds])
 
   const forYouRecommendations = useMemo(() => {
-    if (!recommendationSignals || !user?.id) {
-      return []
+    const candidateWorks = allWorks.filter((w) => !isOwnWork(w.id))
+    if (candidateWorks.length === 0) return []
+
+    if (recommendationSignals && user?.id) {
+      const calculated = calculateForYouRecommendations({
+        candidateWorks,
+        readingHistory: recommendationSignals?.readingHistory || [],
+        userPreferences: recommendationSignals?.preferences || null,
+        bookmarkedWorkIds: mergedBookmarkedWorkIds,
+        currentUserId: user?.id,
+        currentUserProfileId: recommendationSignals?.profileId,
+      })
+      if (calculated.length > 0) {
+        return calculated
+      }
     }
-    return calculateForYouRecommendations({
-      candidateWorks: allWorks.filter((w) => !isOwnWork(w.id)),
-      readingHistory: recommendationSignals?.readingHistory || [],
-      userPreferences: recommendationSignals?.preferences || null,
-      bookmarkedWorkIds: mergedBookmarkedWorkIds,
-      currentUserId: user?.id,
-      currentUserProfileId: recommendationSignals?.profileId,
-    })
+
+    // Instant resilient fallback: show top curated or trending works without blocking with a skeleton
+    const featuredOrTrending = candidateWorks.filter((w) => w.featured || w.trending)
+    const fallbackList = featuredOrTrending.length >= 4 ? featuredOrTrending : candidateWorks
+    return fallbackList.slice(0, 8).map((w, index) => ({
+      work: w,
+      score: 100 - index,
+      explanation: 'Curated for you',
+    }))
   }, [allWorks, recommendationSignals, mergedBookmarkedWorkIds, user?.id, isOwnWork])
 
   // Dedicated New Voices: original qualifying stories from writers in first 5 calendar months
@@ -1917,13 +1992,27 @@ function LoggedInHome() {
     return filterAndOrderNewVoicesStories(allWorks, user?.id)
   }, [allWorks, user?.id])
 
-  // Books currently in-progress
+  // Books currently in-progress (sorted by most recently read)
   const inProgressList = useMemo(() => {
     return Object.values(readingProgress)
+      .sort((a, b) => {
+        const timeA = a.lastReadAt ? new Date(a.lastReadAt).getTime() : 0
+        const timeB = b.lastReadAt ? new Date(b.lastReadAt).getTime() : 0
+        return timeB - timeA
+      })
       .map((prog) => {
         const work = allWorks.find((w) => w.id === prog.workId)
         if (!work || isOwnWork(work.id)) return null
-        const currentChapter = work.chapters?.find((c) => c.id === prog.chapterId) || work.chapters?.[0]
+        const currentChapter =
+          work.chapters?.find((c) => c.id === prog.chapterId) ||
+          work.chapters?.find((c) => c.number === prog.chapterNumber) ||
+          (prog.chapterId
+            ? ({
+                id: prog.chapterId,
+                number: prog.chapterNumber || 1,
+                title: prog.chapterTitle || `Chapter ${prog.chapterNumber || 1}`,
+              } as any)
+            : work.chapters?.[0])
         return { work, progress: prog, currentChapter }
       })
       .filter(Boolean) as {
@@ -1950,11 +2039,21 @@ function LoggedInHome() {
     return inProgressList[0] || null
   }, [selectedHeroWorkId, inProgressList, allWorks, readingProgress])
 
-  const hasReadingHistory = inProgressList.length > 0
-  const activeWork = activeEntry?.work || allWorks.find((w) => w.featured) || allWorks[0]
-  const activeProgress = activeEntry?.progress || null
+  const hasReadingHistory = inProgressList.length > 0 || Object.keys(readingProgress).length > 0
+  const activeWork =
+    activeEntry?.work ||
+    (Object.keys(readingProgress).length > 0
+      ? allWorks.find((w) => w.id === Object.values(readingProgress)[0]?.workId)
+      : null) ||
+    allWorks.find((w) => w.featured) ||
+    allWorks[0]
+  const activeProgress = activeEntry?.progress || (activeWork ? readingProgress[activeWork.id] : null) || null
   const activeChapter = activeEntry?.currentChapter || activeWork?.chapters?.[0]
-  const progressPercent = activeProgress ? activeProgress.progressPercent : 0
+  const progressPercent = activeProgress ? Math.min(100, Math.max(0, Math.round(Number(activeProgress.progressPercent || 0)))) : 0
+
+  const isResolvingReadingSession =
+    (!isUserLoaded && Object.keys(readingProgress).length === 0) ||
+    (Object.keys(readingProgress).length > 0 && !activeWork)
 
   // Extract authentic excerpt or teaser quote from chapter content
   const activeQuoteExcerpt = useMemo(() => {
@@ -1987,8 +2086,8 @@ function LoggedInHome() {
   const isAuthor = writerWorks && writerWorks.length > 0
   const activeDraft = isAuthor ? writerWorks[0] : null
 
-  // Show localized dashboard skeleton while Clerk loads user profile
-  if (!isUserLoaded && !forcedView) {
+  // Only show localized dashboard skeleton if user is still loading AND works data is completely empty
+  if (!isUserLoaded && !forcedView && (!allWorks || allWorks.length === 0)) {
     return <LoggedInHomeSkeleton />
   }
 
@@ -2005,69 +2104,57 @@ function LoggedInHome() {
           SECTION 2: PICK UP WHERE YOU LEFT OFF (ASYMMETRIC PRIMARY HERO CARD)
           ========================================================================= */}
       {hasReadingHistory && activeWork ? (
-        <section id="active-novel" className="w-full space-y-3">
-          {/* Section Header with live status */}
-          <div className="flex items-center justify-between pb-2 border-b border-[var(--border-subtle)]">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-[var(--ink-primary)] animate-pulse" />
-              <h3 className="font-serif text-lg sm:text-xl font-bold text-[var(--ink-primary)] tracking-tight">
-                Currently Reading
-              </h3>
-            </div>
-            <div className="flex items-center gap-2.5 text-xs font-mono text-[var(--ink-muted)]">
-              {inProgressList.length > 1 && (
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setIsSwitchMenuOpen((prev) => !prev)}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] font-mono text-[11px] font-semibold cursor-pointer shadow-2xs transition-all"
-                  >
-                    <Clock className="h-3 w-3 text-[var(--ink-muted)]" />
-                    <span>Switch Book ({inProgressList.length})</span>
-                    <ChevronRight className={`h-2.5 w-2.5 transition-transform ${isSwitchMenuOpen ? 'rotate-90' : ''}`} />
-                  </button>
+        <section id="active-novel" className="w-full space-y-2">
+          {inProgressList.length > 1 && (
+            <div className="flex items-center justify-end pb-1">
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsSwitchMenuOpen((prev) => !prev)}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] font-mono text-[11px] font-semibold cursor-pointer shadow-2xs transition-all"
+                >
+                  <Clock className="h-3 w-3 text-[var(--ink-muted)]" />
+                  <span>Switch Book ({inProgressList.length})</span>
+                  <ChevronRight className={`h-2.5 w-2.5 transition-transform ${isSwitchMenuOpen ? 'rotate-90' : ''}`} />
+                </button>
 
-                  {isSwitchMenuOpen && (
-                    <div className="absolute right-0 top-full mt-1.5 w-64 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-strong)] shadow-xl p-1.5 z-50 space-y-1">
-                      <div className="px-2 py-1 font-mono text-[9px] uppercase tracking-wider text-[var(--ink-muted)]">
-                        Active Queue Folios
-                      </div>
-                      {inProgressList.map((item) => (
-                        <button
-                          key={item.work.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedHeroWorkId(item.work.id)
-                            setIsSwitchMenuOpen(false)
-                          }}
-                          className={`w-full flex items-center gap-2 p-1.5 rounded-lg text-left text-xs transition-colors cursor-pointer ${
-                            item.work.id === activeWork.id
-                              ? 'bg-[var(--bg-subtle)] font-semibold text-[var(--ink-primary)]'
-                              : 'hover:bg-[var(--bg-subtle)] text-[var(--ink-secondary)]'
-                          }`}
-                        >
-                          <img src={item.work.cover} alt={item.work.title} className="w-7 h-9 object-cover rounded shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="truncate font-serif text-xs">{item.work.title}</p>
-                            <p className="font-mono text-[9.5px] text-[var(--ink-muted)]">
-                              Ch. {item.currentChapter?.number || 1} • {item.progress.progressPercent}%
-                            </p>
-                          </div>
-                        </button>
-                      ))}
+                {isSwitchMenuOpen && (
+                  <div className="absolute right-0 top-full mt-1.5 w-64 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-strong)] shadow-xl p-1.5 z-50 space-y-1">
+                    <div className="px-2 py-1 font-mono text-[9px] uppercase tracking-wider text-[var(--ink-muted)]">
+                      Active Queue Folios
                     </div>
-                  )}
-                </div>
-              )}
-              <span className="inline-flex items-center gap-1 text-[var(--ink-primary)] font-semibold text-[11px] bg-[var(--bg-surface)] px-2 py-0.5 rounded-full border border-[var(--border-subtle)]">
-                Active Session
-              </span>
+                    {inProgressList.map((item) => (
+                      <button
+                        key={item.work.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedHeroWorkId(item.work.id)
+                          setIsSwitchMenuOpen(false)
+                        }}
+                        className={`w-full flex items-center gap-2 p-1.5 rounded-lg text-left text-xs transition-colors cursor-pointer ${
+                          item.work.id === activeWork.id
+                            ? 'bg-[var(--bg-subtle)] font-semibold text-[var(--ink-primary)]'
+                            : 'hover:bg-[var(--bg-subtle)] text-[var(--ink-secondary)]'
+                        }`}
+                      >
+                        <img src={item.work.cover} alt={item.work.title} className="w-7 h-9 object-cover rounded shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="truncate font-serif text-xs">{item.work.title}</p>
+                          <p className="font-mono text-[9.5px] text-[var(--ink-muted)]">
+                            Ch. {item.currentChapter?.number || 1} • {Math.min(100, Math.max(0, Math.round(Number(item.progress.progressPercent || 0))))}%
+                          </p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Compact Card Layout */}
-          <div className="relative overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3.5 sm:p-4 shadow-2xs">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5">
+          <div className="relative overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3 sm:p-3.5 shadow-2xs">
+            <div className="flex items-center gap-3 sm:gap-4">
               
               {/* Thumbnail Cover */}
               <Link
@@ -2076,7 +2163,7 @@ function LoggedInHome() {
                   workId: activeWorkSlug,
                   chapterId: activeChapter?.id || 'ch-1',
                 }}
-                className="relative w-20 sm:w-24 aspect-[2/3] rounded-lg overflow-hidden shadow-xs group no-underline border border-[var(--border-subtle)] bg-[var(--bg-subtle)] shrink-0"
+                className="relative w-24 sm:w-24 aspect-[2/3] rounded-lg overflow-hidden shadow-xs group no-underline border border-[var(--border-subtle)] bg-[var(--bg-subtle)] shrink-0"
               >
                 <img
                   src={activeWork.cover}
@@ -2085,90 +2172,78 @@ function LoggedInHome() {
                 />
               </Link>
 
-              {/* Middle Details & Progress */}
-              <div className="flex-1 min-w-0 space-y-2 w-full">
-                {/* Badges + Author row */}
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <Badge variant="subtle" size="sm">
-                    {activeWork.genre}
-                  </Badge>
-                  <span className="text-[var(--ink-muted)] font-serif text-xs">
-                    by <strong className="text-[var(--ink-primary)] font-medium">{activeWork.author.name}</strong>
-                  </span>
-                  <span className="text-[var(--ink-faint)] hidden md:inline">•</span>
-                  <span className="text-[var(--ink-muted)] font-mono text-[11px] hidden md:inline">
-                    Ch. {activeChapter?.number || 1} of {activeWork.chaptersCount}
-                  </span>
-                </div>
-
-                {/* Title */}
-                <Link
-                  to="/works/$workId"
-                  params={{ workId: activeWorkSlug }}
-                  className="block no-underline text-inherit group"
-                >
-                  <h4 className="font-serif text-lg sm:text-xl font-bold text-[var(--ink-primary)] tracking-tight truncate group-hover:underline">
-                    {activeWork.title}
-                  </h4>
-                </Link>
-
-                {/* Progress Bar + Stats Row */}
-                <div className="space-y-1.5 max-w-lg">
-                  <div className="flex items-center justify-between font-mono text-[11px] text-[var(--ink-muted)]">
-                    <span className="font-medium text-[var(--ink-primary)] truncate max-w-[200px] sm:max-w-xs">
-                      {activeChapter?.title ? `Ch. ${activeChapter.number}: ${activeChapter.title}` : `Chapter ${activeChapter?.number || 1}`}
+              {/* Right Side: Details & Actions */}
+              <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4">
+                {/* Story Info & Progress */}
+                <div className="flex-1 min-w-0 space-y-1 sm:space-y-1.5">
+                  {/* Badges + Author row */}
+                  <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                    <Badge variant="subtle" size="sm">
+                      {activeWork.genre}
+                    </Badge>
+                    <span className="text-[var(--ink-muted)] font-serif text-xs">
+                      by <strong className="text-[var(--ink-primary)] font-medium">{activeWork.author.name}</strong>
                     </span>
-                    <span className="shrink-0 font-semibold text-[var(--ink-primary)]">
-                      {progressPercent}% read
+                    <span className="text-[var(--ink-faint)] hidden md:inline">•</span>
+                    <span className="text-[var(--ink-muted)] font-mono text-[11px] hidden md:inline">
+                      Ch. {activeChapter?.number || 1} of {activeWork.chaptersCount}
                     </span>
                   </div>
 
-                  <div className="w-full h-1.5 bg-[var(--bg-subtle)] rounded-full overflow-hidden border border-[var(--border-subtle)]">
-                    <div
-                      className="h-full bg-[var(--ink-primary)] rounded-full transition-all duration-500"
-                      style={{ width: `${progressPercent}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons Right Column */}
-              <div className="flex sm:flex-col items-center sm:items-end gap-2 w-full sm:w-auto shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-[var(--border-subtle)]">
-                <Link
-                  to="/read/$workId/$chapterId"
-                  params={{
-                    workId: activeWorkSlug,
-                    chapterId: activeChapter?.id || 'ch-1',
-                  }}
-                  className="flex-1 sm:flex-initial no-underline w-full sm:w-auto"
-                >
-                  <button
-                    type="button"
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-xs font-semibold hover:opacity-90 transition-opacity shadow-2xs cursor-pointer"
-                  >
-                    <Play className="h-3 w-3 fill-current shrink-0" />
-                    <span>Resume Ch. {activeChapter?.number || 1}</span>
-                  </button>
-                </Link>
-
-                <div className="flex items-center gap-1.5 shrink-0">
+                  {/* Title */}
                   <Link
                     to="/works/$workId"
                     params={{ workId: activeWorkSlug }}
-                    className="no-underline"
+                    className="block no-underline text-inherit group"
+                  >
+                    <h4 className="font-serif text-base sm:text-lg font-bold text-[var(--ink-primary)] tracking-tight truncate group-hover:underline">
+                      {activeWork.title}
+                    </h4>
+                  </Link>
+
+                  {/* Progress Bar + Stats Row */}
+                  <div className="space-y-1 max-w-md">
+                    <div className="flex items-center justify-between font-mono text-[10.5px] text-[var(--ink-muted)]">
+                      <span className="font-medium text-[var(--ink-primary)] truncate max-w-[180px] sm:max-w-xs">
+                        {activeChapter?.title ? `Ch. ${activeChapter.number}: ${activeChapter.title}` : `Chapter ${activeChapter?.number || 1}`}
+                      </span>
+                      <span className="shrink-0 font-semibold text-[var(--ink-primary)]">
+                        {progressPercent}% read
+                      </span>
+                    </div>
+
+                    <div className="w-full h-1 bg-[var(--bg-subtle)] rounded-full overflow-hidden border border-[var(--border-subtle)]">
+                      <div
+                        className="h-full bg-[var(--ink-primary)] rounded-full transition-all duration-500"
+                        style={{ width: `${progressPercent}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="w-full sm:w-auto flex items-center gap-2">
+                  <Link
+                    to="/read/$workId/$chapterId"
+                    params={{
+                      workId: activeWorkSlug,
+                      chapterId: activeChapter?.id || 'ch-1',
+                    }}
+                    className="flex-1 sm:flex-initial no-underline"
                   >
                     <button
                       type="button"
-                      className="inline-flex items-center justify-center px-3 py-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] text-xs font-mono transition-colors cursor-pointer"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 h-8 rounded-lg bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-xs font-semibold hover:opacity-90 transition-opacity shadow-2xs cursor-pointer"
                     >
-                      <span>Chapters</span>
+                      <Play className="h-3 w-3 fill-current shrink-0" />
+                      <span>Resume Ch. {activeChapter?.number || 1}</span>
                     </button>
                   </Link>
 
                   <button
                     type="button"
                     onClick={() => toggleSaveWork(activeWork.id)}
-                    className={`inline-flex items-center justify-center p-1.5 rounded-lg border text-xs transition-colors cursor-pointer ${
+                    className={`h-8 w-8 inline-flex items-center justify-center rounded-lg border text-xs transition-colors cursor-pointer shrink-0 ${
                       isWorkSaved(activeWork.id)
                         ? 'border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)]'
                         : 'border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
@@ -2184,6 +2259,8 @@ function LoggedInHome() {
             </div>
           </div>
         </section>
+      ) : isResolvingReadingSession ? (
+        <CurrentlyReadingSkeleton />
       ) : (
         /* Compact First-Time Reader Onboarding Banner */
         <section id="active-novel" className="w-full">
@@ -2249,43 +2326,18 @@ function LoggedInHome() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => scrollForYou('left')}
-              className="w-8 h-8 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] flex items-center justify-center cursor-pointer transition-colors shadow-2xs"
-              aria-label="Previous recommendations"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => scrollForYou('right')}
-              className="w-8 h-8 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] flex items-center justify-center cursor-pointer transition-colors shadow-2xs"
-              aria-label="Next recommendations"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
+          {/* <div className="flex items-center">
             <Link
               to="/discover"
-              className="hidden sm:inline-flex font-mono text-xs font-semibold text-[var(--ink-primary)] hover:underline items-center gap-1 no-underline ml-2"
+              className="font-mono text-xs font-semibold text-[var(--ink-primary)] hover:underline inline-flex items-center gap-1 no-underline"
             >
               <span>Explore All</span>
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
-          </div>
+          </div> */}
         </div>
 
-        {isLoadingSignals ? (
-          <div className="flex items-stretch gap-3 sm:gap-3.5 overflow-hidden py-1">
-            {Array.from({ length: 6 }).map((_, idx) => (
-              <div
-                key={`foryou-skeleton-${idx}`}
-                className="w-[145px] sm:w-[160px] md:w-[170px] aspect-[2/3] shrink-0 rounded-xl bg-[var(--bg-subtle)] animate-pulse border border-[var(--border-subtle)]"
-              />
-            ))}
-          </div>
-        ) : forYouRecommendations.length > 0 ? (
+        {forYouRecommendations.length > 0 ? (
           <div
             ref={forYouCarouselRef}
             className="flex items-stretch gap-3 sm:gap-3.5 overflow-x-auto scroll-smooth py-1 px-0.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
@@ -2374,6 +2426,15 @@ function LoggedInHome() {
                 </div>
               )
             })}
+          </div>
+        ) : isLoadingSignals ? (
+          <div className="flex items-stretch gap-3 sm:gap-3.5 overflow-hidden py-1">
+            {Array.from({ length: 6 }).map((_, idx) => (
+              <div
+                key={`foryou-skeleton-${idx}`}
+                className="w-[145px] sm:w-[160px] md:w-[170px] aspect-[2/3] shrink-0 rounded-xl bg-[var(--bg-subtle)] animate-pulse border border-[var(--border-subtle)]"
+              />
+            ))}
           </div>
         ) : (
           <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-6 text-center space-y-2">

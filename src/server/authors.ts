@@ -2,7 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import {
   getPublicAuthor,
   getAuthorPublishedWorks,
-} from '../lib/supabase/queries/authors'
+} from '../lib/supabase/queries/authors.ts'
 
 /**
  * Server Function: Get an author's public profile.
@@ -30,7 +30,7 @@ export const getUserProfileServerFn = createServerFn({ method: 'GET' })
     return clerkUserId.trim()
   })
   .handler(async ({ data: clerkUserId }) => {
-    const { getUserProfileByClerkId } = await import('../lib/supabase/queries/authors')
+    const { getUserProfileByClerkId } = await import('../lib/supabase/queries/authors.ts')
     return await getUserProfileByClerkId(clerkUserId)
   })
 
@@ -67,7 +67,7 @@ export const syncClerkUserServerFn = createServerFn({ method: 'POST' })
     return params
   })
   .handler(async ({ data }) => {
-    const { syncClerkUserToProfile } = await import('../lib/supabase/queries/authors')
+    const { syncClerkUserToProfile } = await import('../lib/supabase/queries/authors.ts')
     return await syncClerkUserToProfile(data)
   })
 
@@ -86,6 +86,7 @@ export const saveUserOnboardingServerFn = createServerFn({ method: 'POST' })
     interests: Array<{ id: string; name: string }>
     genres: Array<{ id: string; name: string }>
     categories: Array<{ id: string; name: string }>
+    interestedInWriting?: boolean
   }) => {
     if (!params.clerkUserId) throw new Error('clerkUserId is required')
     if (!params.username) throw new Error('username is required')
@@ -95,10 +96,24 @@ export const saveUserOnboardingServerFn = createServerFn({ method: 'POST' })
     const { createAdminClient } = await import('../lib/supabase/server')
     const admin = createAdminClient()
 
+    // Query existing profile to preserve any existing preferences (e.g. reading settings)
+    const { data: existingProfile } = await admin
+      .from('profiles')
+      .select('id, preferences')
+      .eq('clerk_user_id', data.clerkUserId)
+      .maybeSingle()
+
+    const currentPrefs =
+      existingProfile?.preferences && typeof existingProfile.preferences === 'object'
+        ? existingProfile.preferences
+        : {}
+
     const preferencesPayload = {
+      ...currentPrefs,
       interests: data.interests,
       genres: data.genres,
       categories: data.categories,
+      interestedInWriting: Boolean(data.interestedInWriting),
       termsAccepted: data.termsAccepted,
       completedAt: new Date().toISOString(),
     }
@@ -130,6 +145,17 @@ export const saveUserOnboardingServerFn = createServerFn({ method: 'POST' })
     if (error) {
       console.error('[saveUserOnboardingServerFn] Error persisting onboarding profile:', error.message)
       throw new Error(error.message)
+    }
+
+    // Ensure user_preferences row is also initialized in database
+    if (profile?.id) {
+      try {
+        await admin
+          .from('user_preferences')
+          .upsert({ user_id: profile.id }, { onConflict: 'user_id', ignoreDuplicates: true })
+      } catch (prefErr) {
+        console.warn('[saveUserOnboardingServerFn] Non-blocking user_preferences init:', prefErr)
+      }
     }
 
     // Also update Clerk public metadata so Clerk token immediately reflects onboarding status
@@ -442,12 +468,7 @@ export const getUserFollowedAuthorIdsServerFn = createServerFn({ method: 'GET' }
     const { createAdminClient } = await import('../lib/supabase/server')
     const admin = createAdminClient()
 
-    const { data: profile } = await admin
-      .from('profiles')
-      .select('id')
-      .eq('clerk_user_id', clerkUserId)
-      .maybeSingle()
-
+    const profile = await getCachedProfileByClerkId(admin, clerkUserId)
     if (!profile?.id) return { followedAuthorIds: [] }
 
     const { data: records } = await admin
@@ -491,12 +512,7 @@ export const getUserNotificationsServerFn = createServerFn({ method: 'GET' })
     const { createAdminClient } = await import('../lib/supabase/server')
     const admin = createAdminClient()
 
-    const { data: profile } = await admin
-      .from('profiles')
-      .select('id')
-      .eq('clerk_user_id', clerkUserId)
-      .maybeSingle()
-
+    const profile = await getCachedProfileByClerkId(admin, clerkUserId)
     if (!profile?.id) return { notifications: [], profileId: null }
 
     const { data: dbNotifs, error } = await admin
@@ -584,4 +600,205 @@ export const markNotificationReadServerFn = createServerFn({ method: 'POST' })
 
     return { success: true }
   })
+
+// ============================================================================
+// PERFORMANCE OPTIMIZATION: Profile In-Memory Cache & Session Bootstrap
+// ============================================================================
+
+export interface UserSessionBootstrap {
+  profileId: string | null
+  profile: any
+  bookmarkIds: string[]
+  followedAuthorIds: string[]
+  notifications: any[]
+  readingProgress: any[]
+}
+
+const userProfileCache = new Map<string, { profile: any; timestamp: number }>()
+
+export async function getCachedProfileByClerkId(admin: any, clerkUserId: string) {
+  const cached = userProfileCache.get(clerkUserId)
+  if (cached && Date.now() - cached.timestamp < 60_000) {
+    return cached.profile
+  }
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('id, clerk_user_id, username, display_name, preferences, avatar_path')
+    .eq('clerk_user_id', clerkUserId)
+    .maybeSingle()
+  if (profile) {
+    userProfileCache.set(clerkUserId, { profile, timestamp: Date.now() })
+  }
+  return profile
+}
+
+export function invalidateProfileCache(clerkUserId: string) {
+  userProfileCache.delete(clerkUserId)
+}
+
+/**
+ * High-Performance Aggregated Session Bootstrap:
+ * Replaces 5 separate client roundtrips with 1 unified database query pipeline.
+ * Fetches profile, bookmarks, follows, notifications, and reading progress in parallel.
+ */
+export const getUserSessionBootstrapServerFn = createServerFn({ method: 'GET' })
+  .validator((clerkUserId: string) => {
+    if (!clerkUserId || typeof clerkUserId !== 'string') throw new Error('clerkUserId is required')
+    return clerkUserId.trim()
+  })
+  .handler(async ({ data: clerkUserId }): Promise<UserSessionBootstrap> => {
+    const { createAdminClient } = await import('../lib/supabase/server')
+    const admin = createAdminClient()
+
+    // 1. Resolve Profile once with 60s in-memory caching
+    const profile = await getCachedProfileByClerkId(admin, clerkUserId)
+    if (!profile?.id) {
+      return {
+        profileId: null,
+        profile: null,
+        bookmarkIds: [],
+        followedAuthorIds: [],
+        notifications: [],
+        readingProgress: [],
+      }
+    }
+
+    const profileId = profile.id
+
+    // 2. Concurrently fetch bookmarks, follows, notifications, reading progress
+    const [
+      bookmarksRes,
+      followsRes,
+      notifsRes,
+      authorWorksRes,
+      readingProgressRes,
+    ] = await Promise.all([
+      // Bookmarks
+      admin
+        .from('bookmarks')
+        .select('work_id, created_at')
+        .eq('user_id', profileId)
+        .order('created_at', { ascending: false }),
+
+      // Follows
+      admin
+        .from('follows')
+        .select(`
+          following_id,
+          following:profiles!follows_following_id_fkey(id, username, clerk_user_id)
+        `)
+        .eq('follower_id', profileId),
+
+      // Notifications
+      admin
+        .from('notifications')
+        .select(`
+          id,
+          type,
+          actor_id,
+          work_id,
+          chapter_id,
+          metadata,
+          read_at,
+          created_at,
+          actor:profiles!notifications_actor_id_fkey(id, username, display_name, avatar_path)
+        `)
+        .eq('user_id', profileId)
+        .order('created_at', { ascending: false })
+        .limit(50),
+
+      // Author's own works to exclude from reading progress
+      admin
+        .from('works')
+        .select('id')
+        .eq('author_id', profileId),
+
+      // Reading Progress
+      admin
+        .from('reading_progress')
+        .select(`
+          id,
+          user_id,
+          work_id,
+          chapter_id,
+          progress_percent,
+          position,
+          last_read_at,
+          chapter:chapters(id, chapter_number, title)
+        `)
+        .eq('user_id', profileId)
+        .order('last_read_at', { ascending: false }),
+    ])
+
+    // Format Bookmarks
+    const bookmarkIds = (bookmarksRes.data || []).map((b: any) => b.work_id)
+
+    // Format Follows
+    const followIds = new Set<string>()
+    for (const r of (followsRes.data || []) as any[]) {
+      if (r.following_id) followIds.add(r.following_id)
+      const targetProf = Array.isArray(r.following) ? r.following[0] : r.following
+      if (targetProf) {
+        if (targetProf.id) followIds.add(targetProf.id)
+        if (targetProf.username) followIds.add(targetProf.username.toLowerCase())
+        if (targetProf.clerk_user_id) {
+          followIds.add(targetProf.clerk_user_id)
+          if (targetProf.clerk_user_id.startsWith('static_')) {
+            followIds.add(targetProf.clerk_user_id.replace('static_', ''))
+          }
+        }
+      }
+    }
+
+    // Format Notifications
+    const notifications = (notifsRes.data || []).map((n: any) => {
+      const actor = Array.isArray(n.actor) ? n.actor[0] : n.actor
+      const meta = n.metadata || {}
+      let uiType: 'publish' | 'update' | 'comment' | 'milestone' = 'update'
+      if (n.type === 'new_chapter') uiType = 'publish'
+      else if (n.type === 'comment' || n.type === 'comment_reply') uiType = 'comment'
+      else if (n.type === 'milestone') uiType = 'milestone'
+
+      return {
+        id: n.id,
+        type: uiType,
+        workId: n.work_id,
+        chapterId: n.chapter_id,
+        actorName: actor?.display_name || actor?.username || 'An author',
+        actorAvatar: actor?.avatar_path || '/unisex-avatar.svg',
+        message: meta.message || (n.type === 'new_chapter' ? 'released a new chapter' : 'updated their story'),
+        timestamp: n.created_at,
+        isRead: Boolean(n.read_at),
+      }
+    })
+
+    // Format Reading Progress (filter own works and attach chapter details)
+    const authorWorkIds = new Set((authorWorksRes.data || []).map((w: any) => w.id))
+    const readingProgress = (readingProgressRes.data || [])
+      .filter((r: any) => !authorWorkIds.has(r.work_id))
+      .map((r: any) => {
+        const ch = Array.isArray(r.chapter) ? r.chapter[0] : r.chapter
+        return {
+          id: r.id,
+          user_id: r.user_id,
+          work_id: r.work_id,
+          chapter_id: r.chapter_id,
+          progress_percent: Math.min(100, Math.max(0, Math.round(Number(r.progress_percent || 0)))),
+          position: r.position,
+          last_read_at: r.last_read_at,
+          chapter_number: ch?.chapter_number || null,
+          chapter_title: ch?.title || null,
+        }
+      })
+
+    return {
+      profileId,
+      profile,
+      bookmarkIds,
+      followedAuthorIds: Array.from(followIds),
+      notifications,
+      readingProgress,
+    }
+  })
+
 

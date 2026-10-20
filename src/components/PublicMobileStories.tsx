@@ -1,8 +1,9 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { X, Compass, PenLine, ChevronRight, ArrowLeft, ArrowRight, Dices, Sparkles, BookOpen, Bookmark, Search, Leaf } from 'lucide-react'
+import { Home, X, Compass, PenLine, ChevronRight, ArrowLeft, ArrowRight, Dices, Sparkles, BookOpen, Bookmark, Search, Leaf, Menu } from 'lucide-react'
 import { HatchpenLogo } from './HatchpenLogo'
+import { Drawer } from '../design-system'
 
 // Hero Section Reader Portraits (Ambient Editorial Cross-Fade)
 import screen01WomanImg from '../assets/home-screen/screen01-woman.webp'
@@ -712,17 +713,28 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
             <HatchpenLogo size="xs" variant="compact" forceTheme="light" />
           </Link>
 
-          {/* Top-right action: Join HatchPen */}
-          <div className="flex items-center">
+          {/* Top-right action: Join HatchPen & Circular Hamburger Button */}
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => {
                 triggerHaptic(12)
                 onOpenAuth()
               }}
-              className="inline-flex items-center justify-center rounded-full bg-[#18181B] text-white px-3.5 py-1.5 text-xs font-medium hover:bg-black/85 active:scale-95 transition-all shadow-xs cursor-pointer"
+              className="inline-flex items-center justify-center rounded-full bg-[#18181B] text-white px-3 sm:px-3.5 py-1.5 text-xs font-medium hover:bg-black/85 active:scale-95 transition-all shadow-xs cursor-pointer"
             >
               Join HatchPen
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic(8)
+                setMenuOpen(true)
+              }}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-neutral-200 text-[#191d16] hover:bg-neutral-100 transition-colors cursor-pointer"
+              aria-label="Toggle mobile menu"
+            >
+              <Menu className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -1673,104 +1685,72 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
       </AnimatePresence>
 
       {/* =====================================================================
-          Mobile Drawer / Menu (Preserved with all actions intact)
+          Mobile Drawer / Menu (Right side slide-in using design-system Drawer)
           ===================================================================== */}
-      <AnimatePresence>
-        {menuOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex flex-col justify-end"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) setMenuOpen(false)
-            }}
-          >
-            <motion.div
-              initial={shouldReduceMotion ? { opacity: 0 } : { y: '100%' }}
-              animate={shouldReduceMotion ? { opacity: 1 } : { y: 0 }}
-              exit={shouldReduceMotion ? { opacity: 0 } : { y: '100%' }}
-              transition={
-                shouldReduceMotion
-                  ? { duration: 0.01 }
-                  : { type: 'spring', damping: 28, stiffness: 280 }
-              }
-              className="w-full bg-[#1C1D21] border-t border-neutral-800 rounded-t-3xl p-6 space-y-4 text-white"
+      <Drawer
+        isOpen={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        side="right"
+        title="Navigation"
+        className="w-[85vw] max-w-[320px]"
+      >
+        <div className="flex flex-col h-full space-y-3 text-[13px] font-medium">
+          <div className="space-y-0.5">
+            <Link
+              to="/discover"
+              onClick={() => setMenuOpen(false)}
+              className="flex items-center gap-2 py-1.5 px-2.5 rounded-lg text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
             >
-              <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
-                <div className="flex items-center gap-2">
-                  <HatchpenLogo size="xs" variant="inverted" />
-                  <span className="font-mono text-[11px] uppercase tracking-wider text-neutral-400">
-                    Menu
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setMenuOpen(false)}
-                  className="p-1 rounded-full text-neutral-400 hover:text-white cursor-pointer"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
+              <Compass className="h-4 w-4" />
+              <span>Explore Stories</span>
+            </Link>
 
-              <div className="space-y-2 text-sm font-medium">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMenuOpen(false)
-                    navigate({ to: '/discover' })
-                  }}
-                  className="w-full flex items-center justify-between py-2.5 px-3 rounded-xl bg-neutral-900/60 hover:bg-neutral-900 text-left cursor-pointer"
-                >
-                  <span className="flex items-center gap-2.5">
-                    <Compass className="h-4 w-4 text-[#c84b25]" />
-                    <span>Explore Stories</span>
-                  </span>
-                  <ChevronRight className="h-4 w-4 text-neutral-500" />
-                </button>
+            <Link
+              to="/search"
+              onClick={() => setMenuOpen(false)}
+              className="flex items-center gap-2 py-1.5 px-2.5 rounded-lg text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
+            >
+              <Search className="h-4 w-4" />
+              <span>Search</span>
+            </Link>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMenuOpen(false)
-                    onOpenWriteModal()
-                  }}
-                  className="w-full flex items-center justify-between py-2.5 px-3 rounded-xl bg-neutral-900/60 hover:bg-neutral-900 text-left cursor-pointer"
-                >
-                  <span className="flex items-center gap-2.5">
-                    <PenLine className="h-4 w-4 text-[#c84b25]" />
-                    <span>Write on HatchPen</span>
-                  </span>
-                  <ChevronRight className="h-4 w-4 text-neutral-500" />
-                </button>
-              </div>
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false)
+                onOpenWriteModal()
+              }}
+              className="flex items-center gap-2 w-full text-left py-1.5 px-2.5 rounded-lg text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] cursor-pointer transition-colors"
+            >
+              <PenLine className="h-4 w-4" />
+              <span>Write on HatchPen</span>
+            </button>
+          </div>
 
-              <div className="pt-2 flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMenuOpen(false)
-                    onOpenAuth()
-                  }}
-                  className="flex-1 py-3 rounded-xl bg-white text-black font-semibold text-xs text-center cursor-pointer"
-                >
-                  Log In
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMenuOpen(false)
-                    onOpenAuth()
-                  }}
-                  className="flex-1 py-3 rounded-xl bg-[#c84b25] text-white font-semibold text-xs text-center cursor-pointer"
-                >
-                  Join HatchPen
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          <div className="pt-2.5 border-t border-[var(--border-subtle)] mt-auto space-y-2">
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false)
+                onOpenAuth()
+              }}
+              className="w-full text-center py-2 px-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 font-semibold text-xs text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] cursor-pointer transition-colors"
+            >
+              Log In
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false)
+                onOpenAuth()
+              }}
+              className="w-full text-center py-2 px-2.5 rounded-lg bg-[#18181B] dark:bg-white text-white dark:text-[#18181B] font-semibold text-xs hover:opacity-90 cursor-pointer transition-opacity"
+            >
+              Join HatchPen
+            </button>
+          </div>
+        </div>
+      </Drawer>
     </div>
   )
 }

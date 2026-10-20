@@ -20,7 +20,19 @@ import {
 import { WORKS, getWorkSlug } from '../data/mockData'
 import { generateMeta } from '../lib/seo'
 import { getPublicWorkServerFn, trackStrictViewServerFn } from '../server/works'
-import { recordReadingHeartbeatServerFn } from '../server/reader'
+import { saveReadingProgressServerFn } from '../server/reader'
+import { useReadingProgressStore } from '../lib/readingProgress/readingProgressStore'
+import {
+  buildStoryParagraphMap,
+  parseChapterParagraphs,
+  extractParagraphTexts,
+} from '../lib/readingProgress/paragraphUtils'
+import {
+  clearAcknowledgedBatchFromStorage,
+  getPendingBatchFromStorage,
+} from '../lib/readingProgress/indexedDbRecovery'
+import { useParagraphVisibility } from '../lib/readingProgress/useParagraphVisibility'
+import type { ReadingPosition } from '../lib/readingProgress/types'
 import { getOptimizedImageUrl } from '../lib/cloudinary'
 import { ViewsBreakdownModal } from '../components/ViewsBreakdownModal'
 import { formatViewCount } from '../lib/utils'
@@ -236,6 +248,7 @@ function ReaderPage() {
     siteTheme,
     isWorkSaved,
     toggleSaveWork,
+    readingProgress,
     updateReadingProgress,
     isOwnWork,
     showToast
@@ -281,7 +294,6 @@ function ReaderPage() {
 
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [scrollProgress, setScrollProgress] = useState(0)
   const [commentsVisible, setCommentsVisible] = useState(false)
   const [bannerImageFailed, setBannerImageFailed] = useState(false)
   const [viewsModalOpen, setViewsModalOpen] = useState(false)
@@ -308,153 +320,213 @@ function ReaderPage() {
   const prevChapter = currentChapterIndex > 0 ? work?.chapters[currentChapterIndex - 1] : null
   const nextChapter = work && currentChapterIndex < work.chapters.length - 1 ? work.chapters[currentChapterIndex + 1] : null
 
-  // Reset banner state when navigating to another chapter
+  // Reset banner state and scroll to top when navigating to another chapter
   useEffect(() => {
     setBannerImageFailed(false)
-  }, [chapter?.id])
-
-  // =========================================================================
-  // RELIABLE ACTIVE READING BEHAVIOR TRACKING (Visibility, Heartbeat & Sentinel)
-  // =========================================================================
-  const maxProgressRef = useRef(0)
-  const currentScrollRef = useRef(0)
-  const accumulatedActiveSecondsRef = useRef(0)
-  const lastActiveTimestampRef = useRef<number | null>(null)
-  const isDocumentVisibleRef = useRef(typeof document !== 'undefined' ? document.visibilityState === 'visible' : true)
-  const endMarkerReachedRef = useRef(false)
-  const isCompletedRef = useRef(false)
-  const chapterEndSentinelRef = useRef<HTMLDivElement | null>(null)
-
-  // Track scroll progress for reading bar and track maximum scroll reached
-  useEffect(() => {
-    const handleScroll = () => {
-      const totalHeight = document.documentElement.scrollHeight - window.innerHeight
-      if (totalHeight > 0) {
-        const current = (window.scrollY / totalHeight) * 100
-        const bounded = Math.min(100, Math.max(0, current))
-        setScrollProgress(bounded)
-        currentScrollRef.current = Math.round(bounded)
-        maxProgressRef.current = Math.max(maxProgressRef.current, Math.round(bounded))
-      }
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'instant' })
     }
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
-
-  // 1. Observe stable Chapter-End Sentinel
-  useEffect(() => {
-    if (!chapterEndSentinelRef.current) return
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            endMarkerReachedRef.current = true
-            // Documented completion rule: Sentinel reached AND minimum active reading duration (>= 20 seconds)
-            if (accumulatedActiveSecondsRef.current >= 20 || (chapter?.readTimeMinutes && accumulatedActiveSecondsRef.current >= chapter.readTimeMinutes * 15)) {
-              isCompletedRef.current = true
-            }
-          }
-        }
-      },
-      { threshold: 0.1 }
-    )
-
-    observer.observe(chapterEndSentinelRef.current)
-    return () => observer.disconnect()
   }, [chapter?.id])
 
-  // 2. Active Reading Seconds Accumulator (Paused when tab hidden or blurred)
+  // Reading continuity: Resume from previous high-water mark prompt
+  const existingProg = readingProgress[work?.id || '']
+  const existingChapterPercent =
+    existingProg && chapter && existingProg.chapterId === chapter.id
+      ? existingProg.progressPercent || 0
+      : 0
+  const [resumePromptVisible, setResumePromptVisible] = useState(false)
+
+  // Show resume prompt on chapter load if user previously reached between 10% and 95%
   useEffect(() => {
+    if (existingChapterPercent >= 10 && existingChapterPercent < 95) {
+      setResumePromptVisible(true)
+    } else {
+      setResumePromptVisible(false)
+    }
+  }, [chapter?.id])
+
+  // =========================================================================
+  // PARAGRAPH-BASED READING PROGRESS SYSTEM (3-Second Visibility & Recovery)
+  // =========================================================================
+  const articleRef = useRef<HTMLElement | null>(null)
+
+  // 1. Deterministic Whole-Story Paragraph Map
+  const storyMap = useMemo(() => {
+    if (!work?.chapters || work.chapters.length === 0) return null
+    return buildStoryParagraphMap(work.chapters, work.id)
+  }, [work?.id, work?.chapters])
+
+  // 2. Ordered Paragraphs for Current Chapter with global story order indices
+  const currentChapterParagraphs = useMemo(() => {
+    if (!chapter?.content || !chapter?.id) return []
+    const startOrder = storyMap?.chapterOffsets[chapter.id]?.startOrderIndex ?? 1
+    return parseChapterParagraphs(chapter.content, chapter.id, startOrder)
+  }, [chapter?.id, chapter?.content, storyMap])
+
+  // Raw paragraph prose strings for inline Markdown rendering
+  const rawParagraphTexts = useMemo(() => {
+    return extractParagraphTexts(chapter?.content || '')
+  }, [chapter?.content])
+
+  // 3. Zustand In-Memory State
+  const progressPercent = useReadingProgressStore((s) => s.progressPercent)
+  const lastPosition = useReadingProgressStore((s) => s.lastPosition)
+
+  // 4. Three-Second Visibility Eligibility Observer
+  useParagraphVisibility(currentChapterParagraphs, articleRef)
+
+  // 5. Atomic Save Dispatcher: Flushes pending eligible batch to server
+  const flushPendingSave = async () => {
     if (!work || !chapter || isOwnWork(work.id)) return
+    const state = useReadingProgressStore.getState()
+    const batch = state.pendingBatch
 
-    // Reset session trackers on chapter change
-    accumulatedActiveSecondsRef.current = 0
-    maxProgressRef.current = 0
-    currentScrollRef.current = 0
-    endMarkerReachedRef.current = false
-    isCompletedRef.current = false
-    lastActiveTimestampRef.current = Date.now()
-    isDocumentVisibleRef.current = typeof document !== 'undefined' ? document.visibilityState === 'visible' : true
+    // If there are no pending changes, do NOT make an unnecessary save request
+    if (!batch || state.isSyncing) return
 
-    const handleVisibilityChange = () => {
-      const isVisible = document.visibilityState === 'visible'
-      isDocumentVisibleRef.current = isVisible
+    state.setSyncing(true)
+    try {
+      const res = await saveReadingProgressServerFn({
+        data: {
+          workId: batch.workId,
+          chapterId: batch.chapterId,
+          batchId: batch.batchId,
+          paragraphId: batch.lastPosition.paragraphId,
+          orderIndex: batch.highestOrderIndex,
+          totalParagraphs: batch.totalParagraphs,
+          lastPosition: JSON.stringify(batch.lastPosition),
+          clientTimestamp: batch.lastPosition.timestamp || batch.createdAt,
+        },
+      })
 
-      if (isVisible) {
-        lastActiveTimestampRef.current = Date.now()
+      if (res?.success) {
+        // Acknowledge ONLY the confirmed batch; newer pending changes remain untouched
+        const wasExactCleared = useReadingProgressStore.getState().acknowledgeBatch(batch.batchId)
+        await clearAcknowledgedBatchFromStorage(batch.workId, batch.batchId)
+
+        updateReadingProgress(work.id, {
+          chapterId: batch.chapterId,
+          chapterNumber: chapter.number,
+          chapterTitle: chapter.title,
+          progressPercent: res.progressPercent,
+          position: JSON.stringify(batch.lastPosition),
+        })
+
+        // If newer changes arrived while this batch was in-flight, flush them immediately
+        if (!wasExactCleared && useReadingProgressStore.getState().pendingBatch) {
+          flushPendingSave()
+        }
       } else {
-        // Tab backgrounded: commit accumulated slice up to now, pause, and immediately flush to server
-        if (lastActiveTimestampRef.current) {
-          const deltaSeconds = Math.min(60, Math.max(0, Math.floor((Date.now() - lastActiveTimestampRef.current) / 1000)))
-          accumulatedActiveSecondsRef.current += deltaSeconds
-          lastActiveTimestampRef.current = null
+        useReadingProgressStore.getState().setSyncing(false)
+        // Data remains in IndexedDB for retry
+      }
+    } catch {
+      useReadingProgressStore.getState().setSyncing(false)
+      // Data remains in IndexedDB for retry
+    }
+  }
+
+  // 6. Initialization & Recovery Flow: Reconciles server progress with local IndexedDB
+  useEffect(() => {
+    if (!work || !chapter || !storyMap) return
+    let isMounted = true
+
+    const initAndRecover = async () => {
+      // Check local recovery layer for pending data from previous crash/exit
+      const recoveredBatch = await getPendingBatchFromStorage(work.id)
+
+      const existingProg = readingProgress[work.id]
+      let initialHighest = 0
+      let initialLastPos: ReadingPosition | null = null
+      let initialPercent = 0
+
+      if (existingProg) {
+        initialPercent = existingProg.progressPercent || 0
+        if (existingProg.position) {
+          try {
+            const parsed = JSON.parse(existingProg.position)
+            if (parsed && typeof parsed.orderIndex === 'number') {
+              initialLastPos = parsed
+              initialHighest = parsed.orderIndex
+            }
+          } catch {}
         }
-        flushHeartbeat()
-      }
-    }
-
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-
-    // Flush heartbeat helper (sends active seconds delta since last flush)
-    let lastFlushedActiveSeconds = 0
-
-    const flushHeartbeat = () => {
-      // Calculate current slice if visible
-      if (isDocumentVisibleRef.current && lastActiveTimestampRef.current) {
-        const deltaNow = Math.min(30, Math.max(0, Math.floor((Date.now() - lastActiveTimestampRef.current) / 1000)))
-        accumulatedActiveSecondsRef.current += deltaNow
-        lastActiveTimestampRef.current = Date.now()
       }
 
-      const totalActive = accumulatedActiveSecondsRef.current
-      const deltaToSend = Math.max(0, totalActive - lastFlushedActiveSeconds)
-
-      if (deltaToSend > 0 || endMarkerReachedRef.current) {
-        lastFlushedActiveSeconds = totalActive
-
-        // Verify completion rule before sending
-        const meetsCompletion = endMarkerReachedRef.current && (totalActive >= 25 || (chapter.readTimeMinutes ? totalActive >= chapter.readTimeMinutes * 15 : false))
-        if (meetsCompletion) {
-          isCompletedRef.current = true
+      // Reconcile: If local unpersisted batch has higher/newer progress, adopt it
+      if (recoveredBatch) {
+        if (recoveredBatch.highestOrderIndex > initialHighest) {
+          initialHighest = recoveredBatch.highestOrderIndex
         }
+        if (recoveredBatch.progressPercent > initialPercent) {
+          initialPercent = recoveredBatch.progressPercent
+        }
+        if (recoveredBatch.lastPosition) {
+          initialLastPos = recoveredBatch.lastPosition
+        }
+      }
 
-        recordReadingHeartbeatServerFn({
-          data: {
-            workId: work.id,
-            chapterId: chapter.id,
-            activeSecondsDelta: deltaToSend,
-            progressPercent: currentScrollRef.current,
-            maxProgressPercent: Math.max(currentScrollRef.current, maxProgressRef.current),
-            endMarkerReached: endMarkerReachedRef.current,
-            isCompleted: isCompletedRef.current,
-          },
-        }).catch(() => {})
+      if (isMounted) {
+        useReadingProgressStore.getState().initStory({
+          workId: work.id,
+          chapterId: chapter.id,
+          totalParagraphs: storyMap.totalParagraphs,
+          initialHighestOrderIndex: initialHighest,
+          initialLastPosition: initialLastPos,
+          initialProgressPercent: initialPercent,
+        })
+
+        // If an unacknowledged recovered batch exists, enqueue it and attempt save
+        if (recoveredBatch) {
+          useReadingProgressStore.getState().setPendingBatch(recoveredBatch)
+          flushPendingSave()
+        }
       }
     }
 
-    // Incremental heartbeat timer: fires every 15 seconds
-    const heartbeatTimer = setInterval(flushHeartbeat, 15000)
-
-    // Best-effort flush on tab close / navigation
-    const handleBeforeUnload = () => {
-      flushHeartbeat()
-    }
-    window.addEventListener('beforeunload', handleBeforeUnload)
+    initAndRecover()
 
     return () => {
-      clearInterval(heartbeatTimer)
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-      window.removeEventListener('beforeunload', handleBeforeUnload)
-      flushHeartbeat()
+      isMounted = false
+      // Route change / chapter navigation trigger: flush pending eligible changes
+      flushPendingSave()
     }
-  }, [work?.id, chapter?.id, isOwnWork])
+  }, [work?.id, chapter?.id, storyMap])
 
-  // Strict Zero-Duplicate View Tracking (Book, Chapter, and implicit Act)
+  // 7. Save Triggers: Tab visibility, window blur, pagehide, and beforeunload
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        flushPendingSave()
+      }
+    }
+
+    const handleBlur = () => {
+      flushPendingSave()
+    }
+
+    const handlePageExit = () => {
+      flushPendingSave()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibility)
+    window.addEventListener('blur', handleBlur)
+    window.addEventListener('pagehide', handlePageExit)
+    window.addEventListener('beforeunload', handlePageExit)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility)
+      window.removeEventListener('blur', handleBlur)
+      window.removeEventListener('pagehide', handlePageExit)
+      window.removeEventListener('beforeunload', handlePageExit)
+    }
+  }, [work?.id, chapter?.id])
+
+  // 8. Strict Zero-Duplicate View Tracking (Book, Chapter, and implicit Act)
   useEffect(() => {
     if (!work || !chapter) return
     if (typeof window === 'undefined') return
 
-    // Get or initialize persistent unique visitor key
     let viewerKey = localStorage.getItem('hatchpen_viewer_uuid') || localStorage.getItem('tellnest_viewer_uuid')
     if (!viewerKey) {
       viewerKey = 'v-' + Math.random().toString(36).substring(2) + Date.now().toString(36)
@@ -462,7 +534,6 @@ function ReaderPage() {
       localStorage.setItem('tellnest_viewer_uuid', viewerKey)
     }
 
-    // Call server function to record deduplicated view
     trackStrictViewServerFn({
       data: {
         viewerKey,
@@ -471,19 +542,6 @@ function ReaderPage() {
       },
     }).catch(() => {})
   }, [work?.id, chapter?.id])
-
-  // Update progress in context
-  useEffect(() => {
-    if (work && chapter) {
-      if (isOwnWork(work.id)) return
-      updateReadingProgress(work.id, {
-        chapterId: chapter.id,
-        chapterNumber: chapter.number,
-        chapterTitle: chapter.title,
-        progressPercent: Math.round(scrollProgress)
-      })
-    }
-  }, [work, chapter, Math.floor(scrollProgress / 10), isOwnWork])
 
   // SEO Canonical URL Enforcement:
   // If user accesses reading route with raw UUID, auto-update URL bar to canonical slug
@@ -642,11 +700,7 @@ function ReaderPage() {
     return 'font-editorial font-serif'
   }, [readerSettings.fontFamily])
 
-  const paragraphs = chapter.content
-    .split(/\r?\n\s*\r?\n/)
-    .map((p) => p.trim())
-    .filter(Boolean)
-
+  const paragraphs = rawParagraphTexts
   const canonicalSlug = getWorkSlug(work)
 
   return (
@@ -655,10 +709,10 @@ function ReaderPage() {
     >
       {/* Sticky Subtle Reading Header */}
       <header className="sticky top-0 z-30 w-full border-b border-[var(--border-subtle)] bg-[var(--bg-canvas)]/95 backdrop-blur-md transition-colors">
-        {/* Scroll Progress Bar at very top */}
+        {/* Whole-Story Progress Bar at very top */}
         <div
           className="h-0.5 bg-[var(--ink-primary)] transition-all duration-75"
-          style={{ width: `${scrollProgress}%` }}
+          style={{ width: `${progressPercent}%` }}
         />
 
         <div className="mx-auto flex h-10 max-w-4xl items-center justify-between px-3 sm:px-4">
@@ -676,40 +730,43 @@ function ReaderPage() {
           {/* Center: Current Chapter Index indicator */}
           <div className="text-center font-mono text-[11px] text-[var(--ink-muted)] truncate max-w-[200px] sm:max-w-none">
             <span className="font-semibold text-[var(--ink-primary)]">Ch. {chapter.number}</span>
-            <span className="hidden md:inline text-[var(--ink-faint)]"> / {work.chaptersCount} • {Math.round(scrollProgress)}% read</span>
+            <span className="hidden md:inline text-[var(--ink-faint)]"> / {work.chaptersCount} • {Math.round(progressPercent)}% read</span>
           </div>
 
           {/* Right: Minimal Reader Controls */}
-          <div className="flex items-center gap-0.5">
+          <div className="flex items-center gap-1">
             {/* Table of Chapters Drawer Trigger */}
             <button
               onClick={() => setDrawerOpen(true)}
-              className="flex h-7 w-7 items-center justify-center rounded text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
-              title="Chapter Index"
+              className="flex h-9 w-9 sm:h-7 sm:w-7 items-center justify-center rounded text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0"
+              title="Chapter Index (Shortcut: 'T')"
+              aria-label="Open Chapter Index Drawer"
             >
-              <ListFilter className="h-3.5 w-3.5" />
+              <ListFilter className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
             </button>
 
             {/* Reading Typography Settings Trigger */}
             <button
               onClick={() => setSettingsOpen(true)}
-              className="flex h-7 w-7 items-center justify-center rounded text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+              className="flex h-9 w-9 sm:h-7 sm:w-7 items-center justify-center rounded text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0"
               title="Typography & Display Settings"
+              aria-label="Open typography and display settings"
             >
-              <Type className="h-3.5 w-3.5" />
+              <Type className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
             </button>
 
             {/* Save Work Bookmark Toggle */}
             <button
               onClick={() => toggleSaveWork(work.id)}
-              className={`flex h-7 w-7 items-center justify-center rounded transition-colors cursor-pointer ${
+              className={`flex h-9 w-9 sm:h-7 sm:w-7 items-center justify-center rounded transition-colors cursor-pointer min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 ${
                 saved
                   ? 'text-[var(--ink-primary)]'
                   : 'text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)]'
               }`}
               title={saved ? 'Remove from Library' : 'Save Work'}
+              aria-label={saved ? 'Remove work from library' : 'Save work to library'}
             >
-              <Bookmark className={`h-3.5 w-3.5 ${saved ? 'fill-current' : ''}`} />
+              <Bookmark className={`h-4 w-4 sm:h-3.5 sm:w-3.5 ${saved ? 'fill-current' : ''}`} />
             </button>
           </div>
         </div>
@@ -748,7 +805,7 @@ function ReaderPage() {
         {/* Work & Chapter Title Header - Ultra-Compact Layout */}
         <div className="pb-2.5 mb-4 sm:pb-3 sm:mb-5 border-b border-[var(--border-subtle)] space-y-1">
           {/* Top Breadcrumb & Metadata Line */}
-          <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-[var(--ink-muted)]">
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-[11px] font-mono text-[var(--ink-muted)]">
             <div className="flex items-center gap-1.5 truncate">
               {(!chapter.bannerImage || bannerImageFailed) && (
                 <>
@@ -765,7 +822,7 @@ function ReaderPage() {
               <span className="font-semibold text-[var(--ink-primary)]">Ch. {chapter.number}</span>
             </div>
 
-            <div className="flex items-center gap-2 text-[10px] text-[var(--ink-faint)] shrink-0">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-[var(--ink-faint)]">
               <Link
                 to="/author/$authorId"
                 params={{ authorId: work.author.id }}
@@ -780,37 +837,23 @@ function ReaderPage() {
             </div>
           </div>
 
-          {/* Chapter Title Row with Views and Bookmark Action on the Right */}
+          {/* Chapter Title Row with Readership Views Count */}
           <div className="flex items-start justify-between gap-4 pt-0.5">
-            <h1 className="font-serif text-xl sm:text-2xl font-bold text-[var(--ink-primary)] leading-tight tracking-tight flex-1">
+            <h1 className="font-serif text-xl sm:text-2xl font-bold text-[var(--ink-primary)] leading-tight tracking-tight flex-1 break-words">
               {chapter.title}
             </h1>
 
-            {/* Right side: Views Count & Save Bookmark */}
-            <div className="flex items-center gap-2.5 shrink-0 pt-0.5">
-              {/* Views Count Badge - Clickable to open Breakdown Modal */}
+            {/* Right side: Views Count Badge - Clickable to open Breakdown Modal */}
+            <div className="flex items-center shrink-0 pt-0.5">
               <button
                 type="button"
                 onClick={() => setViewsModalOpen(true)}
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--bg-subtle)] hover:bg-[var(--bg-surface)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] text-[11px] font-mono border border-[var(--border-subtle)] hover:border-[var(--border-strong)] transition-all cursor-pointer shadow-2xs group"
                 title={`${formatViewCount(work.totalReads, false)} views • Click to view breakdown`}
+                aria-label="View readership breakdown"
               >
                 <Eye className="h-3.5 w-3.5 text-[var(--ink-muted)] group-hover:text-[var(--ink-primary)] transition-colors" />
                 <span className="font-semibold">{formatViewCount(work.totalReads, true)}</span>
-              </button>
-
-              {/* Bookmark / Saved Icon Button */}
-              <button
-                onClick={() => toggleSaveWork(work.id)}
-                className={`flex h-7.5 items-center gap-1.5 px-2.5 rounded-md border text-[11px] font-mono transition-all cursor-pointer ${
-                  saved
-                    ? 'border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--bg-canvas)] shadow-xs font-medium'
-                    : 'border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:border-[var(--ink-muted)]'
-                }`}
-                title={saved ? 'Saved in your library (click to remove)' : 'Save to your library'}
-              >
-                <Bookmark className={`h-3.5 w-3.5 ${saved ? 'fill-current' : ''}`} />
-                <span className="hidden sm:inline">{saved ? 'Saved' : 'Save'}</span>
               </button>
             </div>
           </div>
@@ -822,54 +865,161 @@ function ReaderPage() {
           )}
         </div>
 
+        {/* Optional "Resume Reading" Prompt for Readers Returning Mid-Chapter */}
+        {resumePromptVisible && existingChapterPercent > 0 && (
+          <div className="mb-6 p-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/80 backdrop-blur-xs flex items-center justify-between gap-3 text-xs font-mono text-[var(--ink-secondary)] animate-in fade-in">
+            <div className="flex items-center gap-2 truncate">
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--ink-primary)] shrink-0" />
+              <span className="truncate">
+                You previously read to {existingChapterPercent}%.
+              </span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setResumePromptVisible(false)
+                  // 1. First attempt: paragraph-level position restoration
+                  let restoredToParagraph = false
+                  if (lastPosition?.paragraphId) {
+                    const targetEl = document.getElementById(lastPosition.paragraphId)
+                    if (targetEl) {
+                      const elTop = targetEl.getBoundingClientRect().top + window.scrollY
+                      window.scrollTo({ top: Math.max(0, elTop - 80), behavior: 'smooth' })
+                      restoredToParagraph = true
+                    }
+                  } else if (existingProg?.position && articleRef.current) {
+                    try {
+                      const posMeta = JSON.parse(existingProg.position)
+                      if (posMeta.paragraphId) {
+                        const targetEl = document.getElementById(posMeta.paragraphId)
+                        if (targetEl) {
+                          const elTop = targetEl.getBoundingClientRect().top + window.scrollY
+                          window.scrollTo({ top: Math.max(0, elTop - 80), behavior: 'smooth' })
+                          restoredToParagraph = true
+                        }
+                      } else if (typeof posMeta.p === 'number') {
+                        const targetEl = articleRef.current.querySelector(`[data-paragraph-index="${posMeta.p}"]`)
+                        if (targetEl) {
+                          const elTop = targetEl.getBoundingClientRect().top + window.scrollY
+                          window.scrollTo({ top: Math.max(0, elTop - 80), behavior: 'smooth' })
+                          restoredToParagraph = true
+                        }
+                      }
+                    } catch {}
+                  }
+
+                  // 2. Fallback: percentage-based scroll restoration
+                  if (!restoredToParagraph && articleRef.current) {
+                    const rect = articleRef.current.getBoundingClientRect()
+                    const articleTop = window.scrollY + rect.top
+                    const articleHeight = rect.height || articleRef.current.offsetHeight
+                    const maxScroll = articleTop + articleHeight - window.innerHeight
+                    if (maxScroll > 0) {
+                      const targetY = (existingChapterPercent / 100) * maxScroll
+                      window.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' })
+                    }
+                  }
+                }}
+                className="font-semibold text-[var(--ink-primary)] hover:underline cursor-pointer"
+              >
+                Resume →
+              </button>
+              <button
+                type="button"
+                onClick={() => setResumePromptVisible(false)}
+                className="text-[var(--ink-muted)] hover:text-[var(--ink-primary)] cursor-pointer px-1"
+                title="Dismiss"
+                aria-label="Dismiss resume prompt"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Narrative Prose */}
         <article
+          ref={articleRef}
           style={{ lineHeight: activeLineHeight }}
-          className={`${fontClass} ${sizeClasses} text-[var(--ink-secondary)] select-text`}
+          className={`${fontClass} ${sizeClasses} text-[var(--ink-secondary)] select-text break-words`}
         >
-          {paragraphs.length === 0 ? (
+          {currentChapterParagraphs.length === 0 ? (
             <div className="py-12 text-center text-[var(--ink-muted)] italic font-serif">
               This chapter has no narrative prose content yet.
             </div>
           ) : (
-            paragraphs.map((p, idx) => (
+            currentChapterParagraphs.map((pInfo, idx) => (
               <p
-                key={idx}
+                key={pInfo.id}
+                id={pInfo.id}
+                data-paragraph-id={pInfo.id}
+                data-paragraph-order={pInfo.orderIndex}
+                data-paragraph-index={idx}
                 style={{
                   marginBottom: activeParagraphGap,
                   lineHeight: activeLineHeight,
                 }}
-                className={`whitespace-pre-line ${
+                className={`whitespace-pre-line break-words ${
                   idx === 0 && readerSettings.fontFamily === 'serif'
                     ? 'first-letter:font-serif first-letter:text-4xl first-letter:float-left first-letter:pr-2.5 first-letter:leading-none first-letter:text-[var(--ink-primary)] first-letter:font-bold'
                     : ''
                 }`}
               >
-                {renderChapterParagraph(p)}
+                {renderChapterParagraph(paragraphs[idx] || '')}
               </p>
             ))
           )}
         </article>
 
-        {/* Stable Chapter-End Observer Sentinel */}
-        <div ref={chapterEndSentinelRef} className="h-1 w-full pointer-events-none opacity-0" aria-hidden="true" />
-
         {/* End of Chapter Ornament */}
-        <div className="py-16 text-center">
+        <div className="py-12 sm:py-16 text-center">
           <div className="inline-flex items-center gap-3 text-[var(--border-strong)]">
             <span className="h-px w-12 bg-current" />
             <span className="font-serif text-sm italic text-[var(--ink-muted)]">§</span>
             <span className="h-px w-12 bg-current" />
           </div>
+          {progressPercent >= 100 && (
+            <div className="mt-4 flex justify-center">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[11px] font-mono text-[var(--ink-muted)] animate-in fade-in duration-300">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                <span>Story Completed (100%)</span>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Chapter Navigation Controls */}
+        {/* Chapter Navigation Controls (Next Chapter prioritized on mobile) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 py-8 border-y border-[var(--border-subtle)] font-sans">
+          {/* Next Chapter Card (order-1 on mobile, right on desktop) */}
+          {nextChapter ? (
+            <Link
+              to="/read/$workId/$chapterId"
+              params={{ workId: canonicalSlug, chapterId: nextChapter.id }}
+              className="order-1 sm:order-2 group flex flex-col items-start sm:items-end sm:text-right p-4 rounded-lg border border-[var(--ink-primary)] sm:border-[var(--border-subtle)] bg-[var(--bg-subtle)]/50 sm:bg-[var(--bg-surface)] hover:border-[var(--ink-primary)] transition-all no-underline text-inherit shadow-2xs hover:shadow-xs"
+              aria-label={`Advance to Next Chapter: ${nextChapter.number}. ${nextChapter.title}`}
+            >
+              <span className="flex items-center gap-1 text-[11px] font-mono text-[var(--ink-muted)]">
+                Next Chapter
+                <ChevronRight className="h-3 w-3" />
+              </span>
+              <span className="mt-1 font-serif text-sm sm:text-base font-semibold text-[var(--ink-primary)] group-hover:underline truncate w-full">
+                {nextChapter.number}. {nextChapter.title}
+              </span>
+            </Link>
+          ) : (
+            <div className="order-1 sm:order-2 p-4 rounded-lg border border-dashed border-[var(--border-subtle)] text-left sm:text-right">
+              <span className="text-[11px] font-mono text-[var(--ink-muted)]">You have caught up to latest release</span>
+            </div>
+          )}
+
+          {/* Previous Chapter Card (order-2 on mobile, left on desktop) */}
           {prevChapter ? (
             <Link
               to="/read/$workId/$chapterId"
               params={{ workId: canonicalSlug, chapterId: prevChapter.id }}
-              className="group flex flex-col p-4 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:border-[var(--ink-primary)] transition-all no-underline text-inherit"
+              className="order-2 sm:order-1 group flex flex-col p-4 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:border-[var(--ink-primary)] transition-all no-underline text-inherit"
+              aria-label={`Go to Previous Chapter: ${prevChapter.number}. ${prevChapter.title}`}
             >
               <span className="flex items-center gap-1 text-[11px] font-mono text-[var(--ink-muted)]">
                 <ChevronLeft className="h-3 w-3" />
@@ -880,28 +1030,8 @@ function ReaderPage() {
               </span>
             </Link>
           ) : (
-            <div className="p-4 rounded-lg border border-dashed border-[var(--border-subtle)] opacity-40">
+            <div className="order-2 sm:order-1 p-4 rounded-lg border border-dashed border-[var(--border-subtle)] opacity-40">
               <span className="text-[11px] font-mono text-[var(--ink-muted)]">Beginning of Manuscript</span>
-            </div>
-          )}
-
-          {nextChapter ? (
-            <Link
-              to="/read/$workId/$chapterId"
-              params={{ workId: canonicalSlug, chapterId: nextChapter.id }}
-              className="group flex flex-col items-end text-right p-4 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:border-[var(--ink-primary)] transition-all no-underline text-inherit"
-            >
-              <span className="flex items-center gap-1 text-[11px] font-mono text-[var(--ink-muted)]">
-                Next Chapter
-                <ChevronRight className="h-3 w-3" />
-              </span>
-              <span className="mt-1 font-serif text-sm sm:text-base font-semibold text-[var(--ink-primary)] group-hover:underline truncate">
-                {nextChapter.number}. {nextChapter.title}
-              </span>
-            </Link>
-          ) : (
-            <div className="p-4 rounded-lg border border-dashed border-[var(--border-subtle)] text-right">
-              <span className="text-[11px] font-mono text-[var(--ink-muted)]">You have caught up to latest release</span>
             </div>
           )}
         </div>
@@ -967,8 +1097,9 @@ function ReaderPage() {
           <button
             type="button"
             onClick={() => setDrawerOpen(true)}
-            className="flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] border border-[var(--border-strong)] shadow-lg hover:shadow-xl transition-all duration-200 cursor-pointer group active:scale-95"
+            className="flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] border border-[var(--border-strong)] shadow-lg hover:shadow-xl transition-all duration-200 cursor-pointer group active:scale-95 min-h-[44px] min-w-[44px]"
             title="Chapter Index (Shortcut: 'T')"
+            aria-label="Open Chapter Index Drawer"
           >
             <ListFilter className="h-4 w-4 text-[var(--ink-muted)] group-hover:text-[var(--ink-primary)] transition-colors" />
             <span className="font-mono text-xs font-semibold hidden sm:inline">Index</span>

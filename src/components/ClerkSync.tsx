@@ -14,6 +14,22 @@ export function ClerkSync() {
   const lastSyncedIdRef = useRef<string | null>(null)
 
   useEffect(() => {
+    if (isUserLoaded) {
+      if (isSignedIn) {
+        try {
+          localStorage.setItem('hatchpen_has_session', 'true')
+          document.cookie = 'hatchpen_has_session=true; path=/; max-age=31536000; SameSite=Lax'
+        } catch {}
+      } else {
+        try {
+          localStorage.removeItem('hatchpen_has_session')
+          document.cookie = 'hatchpen_has_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
+        } catch {}
+      }
+    }
+  }, [isUserLoaded, isSignedIn])
+
+  useEffect(() => {
     if (!isUserLoaded || !isSignedIn || !user) return
 
     // Avoid redundant syncs within the same session

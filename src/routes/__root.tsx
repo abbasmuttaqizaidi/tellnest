@@ -9,6 +9,7 @@ import { AuthModal } from '../components/AuthModal'
 import { PublicWriteModal } from '../components/PublicWriteModal'
 import { UserOnboardingModal } from '../components/UserOnboardingModal'
 import { AppProvider } from '../context/AppContext'
+import { getAuthUserServerFn } from '../server/auth'
 
 import appCss from '../styles.css?url'
 
@@ -17,7 +18,7 @@ const CLERK_PUBLISHABLE_KEY =
   (typeof process !== 'undefined' && process.env?.VITE_CLERK_PUBLISHABLE_KEY) ||
   'pk_test_aW52aXRpbmctYm9hLTg5NDIuY2xlcmsuYWNjb3VudHMuZGV2JA'
 
-const THEME_INIT_SCRIPT = `(function(){try{var root=document.documentElement;var saved=window.localStorage.getItem('theme')||'light';var prefersDark=window.matchMedia('(prefers-color-scheme: dark)').matches;var resolved=saved==='auto'?(prefersDark?'dark':'light'):saved;root.classList.remove('light','dark','theme-sepia','theme-linen','theme-sage','theme-paper');root.classList.add(resolved);if(resolved==='linen'||resolved==='sepia')root.classList.add('theme-sepia','theme-linen');else if(resolved==='sage')root.classList.add('theme-sage');else if(resolved==='paper')root.classList.add('theme-paper');root.setAttribute('data-theme',resolved);root.style.colorScheme=resolved==='dark'?'dark':'light';}catch(e){}})();`
+const THEME_INIT_SCRIPT = `(function(){try{var root=document.documentElement;var saved=window.localStorage.getItem('theme')||'light';if(saved==='sage'||saved==='linen'||saved==='theme-sage'||saved==='theme-linen'){saved='light';window.localStorage.setItem('theme','light');}var prefersDark=window.matchMedia('(prefers-color-scheme: dark)').matches;var resolved=saved==='auto'?(prefersDark?'dark':'light'):saved;root.classList.remove('light','dark','theme-sepia','theme-linen','theme-sage','theme-paper');root.classList.add(resolved);if(resolved==='paper')root.classList.add('theme-paper');root.setAttribute('data-theme',resolved);root.style.colorScheme=resolved==='dark'?'dark':'light';}catch(e){}})();`
 
 const GLOBAL_JSON_LD = JSON.stringify({
   '@context': 'https://schema.org',
@@ -49,6 +50,22 @@ const GLOBAL_JSON_LD = JSON.stringify({
 })
 
 export const Route = createRootRoute({
+  staleTime: 60_000,
+  gcTime: 300_000,
+  loader: async () => {
+    try {
+      const authUser = await getAuthUserServerFn()
+      return {
+        authUser,
+        isAuthenticated: Boolean(authUser?.isAuthenticated),
+      }
+    } catch {
+      return {
+        authUser: null,
+        isAuthenticated: false,
+      }
+    }
+  },
   head: () => ({
     meta: [
       {
@@ -228,6 +245,7 @@ export const Route = createRootRoute({
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   const routerState = useRouterState()
+  const rootData = Route.useLoaderData()
   const pathname = routerState.location.pathname
   const isHomePage = pathname === '/' || pathname === ''
 
@@ -237,8 +255,8 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <AuthModal />
       <PublicWriteModal />
       <UserOnboardingModal />
-      <Header />
-      <main className={`flex-1 w-full max-w-full overflow-x-hidden ${isHomePage ? 'pb-0' : 'pb-16 md:pb-0'} bg-[var(--bg-canvas)]`}>
+      <Header serverAuthenticated={Boolean(rootData?.isAuthenticated)} />
+      <main className={`flex-1 w-full max-w-full overflow-x-hidden ${rootData?.isAuthenticated ? 'pb-14 md:pb-0' : isHomePage ? 'pb-0' : 'pb-14 md:pb-0'} bg-[var(--bg-canvas)]`}>
         {children}
       </main>
       <Footer />
@@ -295,7 +313,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <head>
         <HeadContent />
       </head>
-      <body className="min-h-screen flex flex-col font-sans antialiased text-[var(--ink-secondary)] bg-[var(--bg-canvas)] transition-colors duration-150 overflow-x-hidden w-full max-w-full">
+      <body className="min-h-screen flex flex-col font-sans antialiased text-[var(--ink-secondary)] bg-[var(--bg-canvas)] overflow-x-hidden w-full max-w-full">
         {bodyContent}
         <Scripts />
       </body>

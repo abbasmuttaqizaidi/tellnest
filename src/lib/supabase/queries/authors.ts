@@ -1,5 +1,5 @@
-import { supabase } from '../client'
-import { createAdminClient } from '../server'
+import { supabase } from '../client.ts'
+import { createAdminClient } from '../server.ts'
 import type { Database } from '../types'
 
 export type ProfileRow = Database['public']['Tables']['profiles']['Row']

@@ -32,10 +32,10 @@ import {
   getUserNotificationsServerFn,
   markNotificationReadServerFn,
   getUserProfileServerFn,
+  getUserSessionBootstrapServerFn,
 } from '../server/authors'
 import {
   getAllUserReadingProgressServerFn,
-  updateReadingProgressServerFn,
 } from '../server/reader'
 import { supabase } from '../lib/supabase/client'
 import { useUser } from '@clerk/react'
@@ -56,6 +56,7 @@ export interface ReadingProgress {
   chapterNumber: number
   chapterTitle: string
   progressPercent: number
+  position?: string | null
   lastReadAt: string
 }
 
@@ -71,7 +72,7 @@ interface AppContextType {
   toggleSaveWork: (workId: string) => void
   isWorkSaved: (workId: string) => boolean
   readingProgress: Record<string, ReadingProgress>
-  updateReadingProgress: (workId: string, progress: Partial<ReadingProgress>) => void
+  updateReadingProgress: (workId: string, progress: Partial<ReadingProgress>, options?: { immediate?: boolean }) => void
   isOwnWork: (workId: string) => boolean
 
   // Authors
@@ -174,19 +175,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const { user, isSignedIn, isLoaded: isUserLoaded } = useUser()
 
-  // Bookmarks are connected strictly to DB for authenticated users (no localStorage)
-  const [savedWorkIds, setSavedWorkIds] = useState<string[]>([])
-  const [followedAuthorIds, setFollowedAuthorIds] = useState<string[]>([])
-  const [userProfileId, setUserProfileId] = useState<string | null>(null)
-  const [readingProgress, setReadingProgress] = useState<Record<string, ReadingProgress>>(() => {
+  // Bookmarks are connected to DB with instant localStorage caching for zero-latency shelf render
+  const [savedWorkIds, setSavedWorkIds] = useState<string[]>(() => {
     if (typeof window !== 'undefined') {
       try {
-        const stored = localStorage.getItem('hatchpen_reading_progress')
+        const stored = localStorage.getItem('hatchpen_cached_bookmarks')
         if (stored) return JSON.parse(stored)
       } catch (e) {}
     }
-    return {}
+    return []
   })
+  const [followedAuthorIds, setFollowedAuthorIds] = useState<string[]>([])
+  const [userProfileId, setUserProfileId] = useState<string | null>(null)
+  const [readingProgress, setReadingProgress] = useState<Record<string, ReadingProgress>>({})
+
+  // Ensure reading progress is not stored in browser storage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('hatchpen_reading_progress')
+        localStorage.removeItem('tellnest_reading_progress')
+      } catch (e) {}
+    }
+  }, [])
   const [writerWorks, setWriterWorks] = useState<WriterWorkSummary[]>([])
   const [isWriterWorksLoading, setIsWriterWorksLoading] = useState(false)
   const [writerTotalReads, setWriterTotalReads] = useState(0)
@@ -197,6 +208,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     let base = [...WORKS]
     if (typeof window !== 'undefined') {
       try {
+        const cachedPlatform = localStorage.getItem('hatchpen_cached_platform_works')
+        if (cachedPlatform) {
+          const list: Work[] = JSON.parse(cachedPlatform)
+          if (Array.isArray(list) && list.length > 0) {
+            for (const item of list) {
+              const idx = base.findIndex((w) => w.id === item.id)
+              if (idx >= 0) {
+                base[idx] = { ...base[idx], ...item }
+              } else {
+                base.unshift(item)
+              }
+            }
+          }
+        }
         const stored = localStorage.getItem('hatchpen_admin_posted_works')
         if (stored) {
           const list: Work[] = JSON.parse(stored)
@@ -255,23 +280,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               continue
             }
 
-            // Find corresponding work to match chapter details if present
-            const matchedWork = allWorks.find((w) => w.id === item.work_id)
-            const matchedChapter = matchedWork?.chapters?.find((c) => c.id === item.chapter_id)
+            const chNum = (item as any).chapter_number || matchedChapter?.number || 1
+            const chTitle = (item as any).chapter_title || matchedChapter?.title || `Chapter ${chNum}`
 
             merged[item.work_id] = {
               workId: item.work_id,
               chapterId: item.chapter_id || matchedWork?.chapters?.[0]?.id || 'ch-1',
-              chapterNumber: matchedChapter?.number || 1,
-              chapterTitle: matchedChapter?.title || 'Chapter 1',
-              progressPercent: item.progress_percent || 0,
-              lastReadAt: item.last_read_at ? new Date(item.last_read_at).toLocaleDateString() : 'Just now',
+              chapterNumber: chNum,
+              chapterTitle: chTitle,
+              progressPercent: Math.min(100, Math.max(0, Math.round(Number(item.progress_percent || 0)))),
+              lastReadAt: item.last_read_at || new Date().toISOString(),
             }
-          }
-          if (typeof window !== 'undefined') {
-            try {
-              localStorage.setItem('hatchpen_reading_progress', JSON.stringify(merged))
-            } catch (e) {}
           }
           return merged
         })
@@ -281,24 +300,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isSignedIn, user?.id, allWorks, isOwnWork])
 
-  useEffect(() => {
-    if (isUserLoaded && isSignedIn && user?.id) {
-      reloadUserReadingProgressFromDb()
-    }
-  }, [isUserLoaded, isSignedIn, user?.id, reloadUserReadingProgressFromDb])
-
   const worksRequestSeqRef = React.useRef(0)
 
   // Fetch works from Database (works_with_collections view) and sync into allWorks
   const reloadWorksFromDb = React.useCallback(async () => {
     const seq = ++worksRequestSeqRef.current
     try {
-      setIsWorksLoading(true)
+      setIsWorksLoading((loading) => (allWorks.length === 0 ? true : loading))
       const dbWorks = await getPlatformWorksServerFn()
       if (seq !== worksRequestSeqRef.current) {
         return
       }
       if (Array.isArray(dbWorks) && dbWorks.length > 0) {
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('hatchpen_cached_platform_works', JSON.stringify(dbWorks))
+          } catch (e) {}
+        }
         setAllWorks((prev) => {
           let updated = [...prev]
           for (const dbW of dbWorks) {
@@ -357,6 +375,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     reloadWorksFromDb()
   }, [reloadWorksFromDb, isSignedIn])
 
+  // Auto-enrich reading progress metadata (chapter numbers/titles) when allWorks finishes hydrating from DB
+  useEffect(() => {
+    if (allWorks.length === 0) return
+    setReadingProgress((prev) => {
+      let changed = false
+      const updated = { ...prev }
+      for (const [workId, prog] of Object.entries(updated)) {
+        const work = allWorks.find((w) => w.id === workId)
+        if (work && work.chapters && work.chapters.length > 0) {
+          const ch = work.chapters.find((c) => c.id === prog.chapterId)
+          if (ch) {
+            if (prog.chapterNumber !== ch.number || prog.chapterTitle !== ch.title) {
+              updated[workId] = {
+                ...prog,
+                chapterNumber: ch.number,
+                chapterTitle: ch.title,
+              }
+              changed = true
+            }
+          }
+        }
+      }
+      return changed ? updated : prev
+    })
+  }, [allWorks])
+
   // Fetch writer works directly from Database for authenticated writer
   const reloadWriterWorksFromDb = React.useCallback(async () => {
     if (!isSignedIn || !user?.id) {
@@ -402,30 +446,57 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     let isMounted = true
     async function loadUserData() {
       try {
-        const [bookmarksRes, followsRes, notifsRes, profileRes] = await Promise.all([
-          getUserBookmarksServerFn({ data: user!.id }),
-          getUserFollowedAuthorIdsServerFn({ data: user!.id }),
-          getUserNotificationsServerFn({ data: user!.id }),
-          getUserProfileServerFn({ data: user!.id }),
-        ])
+        const bootstrap = await getUserSessionBootstrapServerFn({ data: user!.id })
         if (isMounted) {
-          if (bookmarksRes && Array.isArray(bookmarksRes.bookmarkIds)) {
-            setSavedWorkIds(bookmarksRes.bookmarkIds)
+          if (bootstrap.profileId) {
+            setUserProfileId(bootstrap.profileId)
           }
-          if (followsRes && Array.isArray(followsRes.followedAuthorIds)) {
-            setFollowedAuthorIds(followsRes.followedAuthorIds)
-          }
-          if (notifsRes) {
-            if (notifsRes.profileId) {
-              setUserProfileId(notifsRes.profileId)
-            }
-            if (Array.isArray(notifsRes.notifications)) {
-              setNotifications(notifsRes.notifications)
+
+          if (Array.isArray(bootstrap.bookmarkIds)) {
+            setSavedWorkIds(bootstrap.bookmarkIds)
+            if (typeof window !== 'undefined') {
+              try {
+                localStorage.setItem('hatchpen_cached_bookmarks', JSON.stringify(bootstrap.bookmarkIds))
+              } catch (e) {}
             }
           }
+
+          if (Array.isArray(bootstrap.followedAuthorIds)) {
+            setFollowedAuthorIds(bootstrap.followedAuthorIds)
+          }
+
+          if (Array.isArray(bootstrap.notifications)) {
+            setNotifications(bootstrap.notifications)
+          }
+
+          // Hydrate user reading progress directly from bootstrap in 1 unified roundtrip
+          if (Array.isArray(bootstrap.readingProgress) && bootstrap.readingProgress.length > 0) {
+            setReadingProgress((prev) => {
+              const merged = { ...prev }
+              for (const item of bootstrap.readingProgress) {
+                if (!item.work_id || isOwnWork(item.work_id)) {
+                  delete merged[item.work_id]
+                  continue
+                }
+                const chNum = (item as any).chapter_number || matchedChapter?.number || 1
+                const chTitle = (item as any).chapter_title || matchedChapter?.title || `Chapter ${chNum}`
+                merged[item.work_id] = {
+                  workId: item.work_id,
+                  chapterId: item.chapter_id || matchedWork?.chapters?.[0]?.id || 'ch-1',
+                  chapterNumber: chNum,
+                  chapterTitle: chTitle,
+                  progressPercent: Math.min(100, Math.max(0, Math.round(Number(item.progress_percent || 0)))),
+                  lastReadAt: item.last_read_at || new Date().toISOString(),
+                }
+              }
+              return merged
+            })
+          }
+
           // Hydrate user reading preferences & atmosphere theme from DB
-          if (profileRes?.preferences?.reading) {
-            const r = profileRes.preferences.reading
+          const profile = bootstrap.profile
+          if (profile?.preferences?.reading) {
+            const r = profile.preferences.reading
             const partial: Partial<ReaderSettings> = {}
             if (r.fontSize) partial.fontSize = r.fontSize
             if (r.fontFamily) partial.fontFamily = r.fontFamily
@@ -436,13 +507,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
             if (r.atmosphereTone) {
               setSiteTheme(r.atmosphereTone === 'obsidian' ? 'dark' : r.atmosphereTone)
-            } else if (r.theme) {
-              setSiteTheme(r.theme === 'dark' ? 'dark' : r.theme === 'sepia' ? 'linen' : 'sage')
             }
           }
 
-          if (profileRes?.preferences?.readerUx && typeof window !== 'undefined') {
-            const ux = profileRes.preferences.readerUx
+          if (profile?.preferences?.readerUx && typeof window !== 'undefined') {
+            const ux = profile.preferences.readerUx
             if (typeof ux.inlineMarginalia === 'boolean') {
               localStorage.setItem('relay_reader_inline_marginalia', String(ux.inlineMarginalia))
             }
@@ -463,7 +532,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => {
       isMounted = false
     }
-  }, [user?.id, isSignedIn, isUserLoaded])
+  }, [user?.id, isSignedIn, isUserLoaded, allWorks, isOwnWork])
 
   // Automatically purge any own works from readingProgress whenever writerWorks or allWorks updates
   useEffect(() => {
@@ -482,11 +551,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (isOwnWork(wId)) {
           delete next[wId]
         }
-      }
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem('hatchpen_reading_progress', JSON.stringify(next))
-        } catch (e) {}
       }
       return next
     })
@@ -805,73 +869,54 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return followedAuthorIds.some((id) => id.toLowerCase().trim() === clean)
   }
 
-  const updateReadingProgress = (workId: string, progress: Partial<ReadingProgress>) => {
+  const updateReadingProgress = (workId: string, progress: Partial<ReadingProgress>, options?: { immediate?: boolean }) => {
     // If user is reading their own book, do not track reading progress!
     if (isOwnWork(workId)) {
       setReadingProgress((prev) => {
         if (!prev[workId]) return prev
         const next = { ...prev }
         delete next[workId]
-        if (typeof window !== 'undefined') {
-          try {
-            localStorage.setItem('hatchpen_reading_progress', JSON.stringify(next))
-          } catch (e) {}
-        }
         return next
       })
       return
     }
 
+    const nowIso = new Date().toISOString()
+    const safePercent = typeof progress.progressPercent === 'number'
+      ? Math.min(100, Math.max(0, Math.round(progress.progressPercent)))
+      : undefined
+
+    let highWaterPercent = safePercent
+
     setReadingProgress(prev => {
+      const existing = prev[workId]
+
+      // High-water mark rule:
+      // If we are updating the SAME chapter, NEVER downgrade the reading percentage!
+      let resolvedPercent = safePercent
+      if (existing && progress.chapterId && existing.chapterId === progress.chapterId && safePercent !== undefined) {
+        resolvedPercent = Math.max(existing.progressPercent || 0, safePercent)
+      }
+      highWaterPercent = resolvedPercent
+
       const next = {
         ...prev,
         [workId]: {
-          ...(prev[workId] || {
+          ...(existing || {
             workId,
             chapterId: 'ch-1',
             chapterNumber: 1,
             chapterTitle: 'Chapter 1',
             progressPercent: 0,
-            lastReadAt: 'Just now'
+            lastReadAt: nowIso
           }),
           ...progress,
-          lastReadAt: 'Just now'
+          ...(resolvedPercent !== undefined ? { progressPercent: resolvedPercent } : {}),
+          lastReadAt: nowIso
         }
-      }
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem('hatchpen_reading_progress', JSON.stringify(next))
-        } catch (e) {}
       }
       return next
     })
-
-    // If user is authenticated, also sync dynamically to Supabase Database with debounce (1.5s)
-    if (isSignedIn && user?.id && progress.chapterId && typeof progress.progressPercent === 'number') {
-      const syncKey = `${user.id}_${workId}`
-      if ((window as any).__progressSyncTimers?.[syncKey]) {
-        clearTimeout((window as any).__progressSyncTimers[syncKey])
-      }
-      if (!(window as any).__progressSyncTimers) {
-        ;(window as any).__progressSyncTimers = {}
-      }
-
-      const chapterIdToSync = progress.chapterId
-      const percentToSync = progress.progressPercent
-
-      ;(window as any).__progressSyncTimers[syncKey] = setTimeout(() => {
-        updateReadingProgressServerFn({
-          data: {
-            userId: user.id,
-            workId,
-            chapterId: chapterIdToSync,
-            progressPercent: percentToSync,
-          },
-        }).catch((err) => {
-          console.warn('[AppContext] Failed to sync reading progress to DB:', err)
-        })
-      }, 1500)
-    }
   }
 
   const addWriterWork = (workData: Omit<WriterWorkSummary, 'id' | 'lastUpdated' | 'totalReads' | 'totalSaves'>) => {

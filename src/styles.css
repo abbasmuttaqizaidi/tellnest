@@ -14,12 +14,13 @@
 }
 
 :root {
-  /* Warm Literary Paper Canvas (Live_instructions.md #fbfaf7 palette) */
-  --bg-canvas: #fbfaf7;
+  /* Pure White Canvas */
+  --bg-canvas: #ffffff;
   --bg-surface: #ffffff;
-  --bg-subtle: #f4f2ec;
-  --border-subtle: #e6e3da;
-  --border-strong: #d3cfc4;
+  --bg-subtle: #f8fafc;
+  --bg-elevated: #ffffff;
+  --border-subtle: #f1f5f9;
+  --border-strong: #e2e8f0;
   --ink-primary: #191c1e;
   --ink-secondary: #2d3133;
   --ink-muted: #575f6e;
@@ -28,12 +29,12 @@
   --accent-contrast: #ffffff;
 
   /* Live Instructions Theme Palette Tokens */
-  --color-surface-container-low: #f2f4f6;
-  --color-surface-container: #eceef0;
-  --color-surface-container-high: #e6e8ea;
-  --color-surface-container-highest: #e0e3e5;
+  --color-surface-container-low: #f8fafc;
+  --color-surface-container: #f1f5f9;
+  --color-surface-container-high: #e2e8f0;
+  --color-surface-container-highest: #cbd5e1;
   --color-surface-container-lowest: #ffffff;
-  --color-surface: #f7f9fb;
+  --color-surface: #ffffff;
   --color-on-surface: #191c1e;
   --color-on-surface-variant: #45474b;
   --color-secondary: #575f6e;
@@ -63,6 +64,7 @@
   --bg-canvas: #090D14;
   --bg-surface: #111722;
   --bg-subtle: #172030;
+  --bg-elevated: #161f2e;
   --border-subtle: #1E293B;
   --border-strong: #334155;
   --ink-primary: #F8FAFC;

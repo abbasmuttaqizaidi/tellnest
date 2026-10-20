@@ -60,17 +60,9 @@ export async function executeGetUserRecommendationSignals(
 
   const admin = await adminClientFactory()
 
-  // 2. Resolve internal profile UUID and onboarding preferences
-  const { data: profile, error: profileErr } = await admin
-    .from('profiles')
-    .select('id, preferences')
-    .eq('clerk_user_id', clerkUserId)
-    .maybeSingle()
-
-  if (profileErr) {
-    console.warn('[executeGetUserRecommendationSignals] Profile query error:', profileErr.message)
-    throw new Error(`Database error resolving profile: ${profileErr.message}`)
-  }
+  // 2. Resolve internal profile UUID and onboarding preferences (with in-memory cache)
+  const { getCachedProfileByClerkId } = await import('./authors.ts')
+  const profile = await getCachedProfileByClerkId(admin, clerkUserId)
 
   if (!profile?.id) {
     return {
@@ -81,30 +73,29 @@ export async function executeGetUserRecommendationSignals(
     }
   }
 
-  // 3. Query user's bookmarked work IDs
-  const { data: bookmarks, error: bookmarkErr } = await admin
-    .from('bookmarks')
-    .select('work_id')
-    .eq('user_id', profile.id)
+  // 3 & 4. Query user bookmarks and recent reading history (past 30 days) concurrently
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+  const [
+    { data: bookmarks, error: bookmarkErr },
+    { data: historyRows, error: historyErr },
+  ] = await Promise.all([
+    admin.from('bookmarks').select('work_id').eq('user_id', profile.id),
+    admin
+      .from('reading_history')
+      .select('work_id, chapter_id, duration_seconds, last_read_at')
+      .eq('user_id', profile.id)
+      .gte('last_read_at', thirtyDaysAgo)
+      .order('last_read_at', { ascending: false }),
+  ])
 
   if (bookmarkErr) {
     console.warn('[executeGetUserRecommendationSignals] Bookmarks query error:', bookmarkErr.message)
   }
-
-  const bookmarkedWorkIds = (bookmarks || []).map((b: any) => b.work_id)
-
-  // 4. Query user's recent active reading history (past 30 days)
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-  const { data: historyRows, error: historyErr } = await admin
-    .from('reading_history')
-    .select('work_id, chapter_id, duration_seconds, last_read_at')
-    .eq('user_id', profile.id)
-    .gte('last_read_at', thirtyDaysAgo)
-    .order('last_read_at', { ascending: false })
-
   if (historyErr) {
     console.warn('[executeGetUserRecommendationSignals] History query error:', historyErr.message)
   }
+
+  const bookmarkedWorkIds = (bookmarks || []).map((b: any) => b.work_id)
 
   const readingHistory: ReadingSessionRecord[] = (historyRows || []).map((row: any) => ({
     workId: row.work_id,

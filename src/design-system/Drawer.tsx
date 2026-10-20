@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'motion/react'
 import { X } from 'lucide-react'
 import { cn } from '../lib/utils'
@@ -11,6 +12,8 @@ export interface DrawerProps {
   title?: string
   children: React.ReactNode
   className?: string
+  bodyClassName?: string
+  headerClassName?: string
 }
 
 export const Drawer: React.FC<DrawerProps> = ({
@@ -20,7 +23,15 @@ export const Drawer: React.FC<DrawerProps> = ({
   title,
   children,
   className,
+  bodyClassName,
+  headerClassName,
 }) => {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) onClose()
@@ -29,6 +40,20 @@ export const Drawer: React.FC<DrawerProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, onClose])
 
+  // Lock background scroll when drawer is open
+  useEffect(() => {
+    if (isOpen) {
+      const originalBodyOverflow = document.body.style.overflow
+      const originalHtmlOverflow = document.documentElement.style.overflow
+      document.body.style.overflow = 'hidden'
+      document.documentElement.style.overflow = 'hidden'
+      return () => {
+        document.body.style.overflow = originalBodyOverflow
+        document.documentElement.style.overflow = originalHtmlOverflow
+      }
+    }
+  }, [isOpen])
+
   const initialAnimation = {
     right: { x: '100%' },
     left: { x: '-100%' },
@@ -36,12 +61,12 @@ export const Drawer: React.FC<DrawerProps> = ({
   }[side]
 
   const sideClasses = {
-    right: 'inset-y-0 right-0 w-full max-w-md border-l',
-    left: 'inset-y-0 left-0 w-full max-w-md border-r',
-    bottom: 'inset-x-0 bottom-0 max-h-[85vh] rounded-t-2xl border-t',
+    right: 'inset-y-0 right-0 w-full max-w-md border-l rounded-l-2xl sm:rounded-l-3xl overflow-hidden',
+    left: 'inset-y-0 left-0 w-full max-w-md border-r rounded-r-2xl sm:rounded-r-3xl overflow-hidden',
+    bottom: 'inset-x-0 bottom-0 max-h-[85vh] rounded-t-2xl sm:rounded-t-3xl border-t overflow-hidden',
   }[side]
 
-  return (
+  const drawerContent = (
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-50">
@@ -68,7 +93,7 @@ export const Drawer: React.FC<DrawerProps> = ({
             )}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-subtle)]">
+            <div className={cn('flex items-center justify-between px-4 py-3 sm:px-5 sm:py-3.5 border-b border-[var(--border-subtle)]', headerClassName)}>
               {title ? (
                 <h3 className="font-serif text-base font-semibold text-[var(--ink-primary)]">
                   {title}
@@ -79,17 +104,23 @@ export const Drawer: React.FC<DrawerProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded p-1 text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
+                className="rounded-full p-1.5 text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             {/* Scrollable Body */}
-            <div className="flex-1 overflow-y-auto p-6">{children}</div>
+            <div className={cn('flex-1 overflow-y-auto p-3.5 sm:p-4', bodyClassName)}>{children}</div>
           </motion.div>
         </div>
       )}
     </AnimatePresence>
   )
+
+  if (!mounted || typeof document === 'undefined') {
+    return null
+  }
+
+  return createPortal(drawerContent, document.body)
 }

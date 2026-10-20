@@ -11,7 +11,11 @@ export interface ModalProps {
   description?: string
   size?: 'sm' | 'md' | 'lg' | 'xl'
   children: React.ReactNode
+  footer?: React.ReactNode
   className?: string
+  bodyClassName?: string
+  showCloseButton?: boolean
+  closeOnBackdropClick?: boolean
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -21,17 +25,51 @@ export const Modal: React.FC<ModalProps> = ({
   description,
   size = 'md',
   children,
+  footer,
   className,
+  bodyClassName,
+  showCloseButton = true,
+  closeOnBackdropClick = true,
 }) => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
+      if (e.key === 'Escape' && isOpen && closeOnBackdropClick) {
         onClose()
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, onClose])
+  }, [isOpen, onClose, closeOnBackdropClick])
+
+  // Lock background scroll on both desktop (html + body + wheel) and mobile
+  useEffect(() => {
+    if (!isOpen) return
+
+    const originalBodyOverflow = document.body.style.overflow
+    const originalHtmlOverflow = document.documentElement.style.overflow
+
+    document.body.style.overflow = 'hidden'
+    document.documentElement.style.overflow = 'hidden'
+
+    // Prevent background wheel and touch scrolling on desktop and mobile outside scrollable modal
+    const preventBackdropScroll = (e: WheelEvent | TouchEvent) => {
+      const target = e.target as HTMLElement | null
+      if (target?.closest('.modal-scrollable-content')) {
+        return
+      }
+      e.preventDefault()
+    }
+
+    window.addEventListener('wheel', preventBackdropScroll, { passive: false })
+    window.addEventListener('touchmove', preventBackdropScroll, { passive: false })
+
+    return () => {
+      document.body.style.overflow = originalBodyOverflow
+      document.documentElement.style.overflow = originalHtmlOverflow
+      window.removeEventListener('wheel', preventBackdropScroll)
+      window.removeEventListener('touchmove', preventBackdropScroll)
+    }
+  }, [isOpen])
 
   const sizeClasses = {
     sm: 'max-w-sm',
@@ -43,14 +81,14 @@ export const Modal: React.FC<ModalProps> = ({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            onClick={onClose}
+            onClick={closeOnBackdropClick ? onClose : undefined}
             className="fixed inset-0 bg-black/50 backdrop-blur-xs"
           />
 
@@ -61,39 +99,50 @@ export const Modal: React.FC<ModalProps> = ({
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={SPRINGS.smooth}
             className={cn(
-              'relative w-full rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-6 shadow-2xl space-y-4 font-sans',
+              'relative w-full rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-2xl flex flex-col font-sans overflow-hidden',
               sizeClasses,
               className
             )}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
+            {/* Compact Header */}
             {(title || description) && (
-              <div className="flex items-start justify-between pb-3 border-b border-[var(--border-subtle)] gap-4">
-                <div>
+              <div className="flex items-start justify-between px-4 pt-3.5 pb-2.5 sm:px-5 sm:pt-4 sm:pb-3 border-b border-[var(--border-subtle)] gap-3 shrink-0 bg-[var(--bg-surface)]">
+                <div className="min-w-0 flex-1">
                   {title && (
-                    <h3 className="font-serif text-lg font-semibold text-[var(--ink-primary)]">
+                    <h3 className="font-serif text-base sm:text-lg font-semibold text-[var(--ink-primary)] leading-tight">
                       {title}
                     </h3>
                   )}
                   {description && (
-                    <p className="text-xs text-[var(--ink-muted)] mt-0.5">
+                    <p className="text-[11px] sm:text-xs text-[var(--ink-muted)] mt-0.5 leading-snug">
                       {description}
                     </p>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="rounded p-1 text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+                {showCloseButton && (
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="rounded p-1 text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer shrink-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             )}
 
-            {/* Content */}
-            <div>{children}</div>
+            {/* Scrollable Content */}
+            <div className={cn('flex-1 overflow-y-auto px-4 py-3 sm:px-5 sm:py-3.5 custom-scrollbar overscroll-contain modal-scrollable-content', bodyClassName)}>
+              {children}
+            </div>
+
+            {/* Sticky Footer */}
+            {footer && (
+              <div className="px-4 py-3 sm:px-5 sm:py-3 border-t border-[var(--border-subtle)] bg-[var(--bg-surface)] shrink-0">
+                {footer}
+              </div>
+            )}
           </motion.div>
         </div>
       )}

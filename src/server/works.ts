@@ -323,6 +323,7 @@ export const publishWorkServerFn = createServerFn({ method: 'POST' })
   })
   .handler(async ({ data }) => {
     const published = await publishWork(data.workId, data.authorProfileId, data.visibility || 'public')
+    clearPlatformWorksCache()
 
     // Optional background non-blocking invocation to content-moderation edge function
     const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
@@ -347,6 +348,13 @@ export const publishWorkServerFn = createServerFn({ method: 'POST' })
 
     return published
   })
+
+const platformWorksCache = new Map<string, { data: any[]; timestamp: number }>()
+const PLATFORM_WORKS_CACHE_TTL_MS = 30_000 // 30 seconds server-side cache
+
+export function clearPlatformWorksCache() {
+  platformWorksCache.clear()
+}
 
 export interface PlatformWorksDependencies {
   getAuthState?: () => Promise<{ userId?: string | null } | null>
@@ -379,6 +387,14 @@ export async function executeGetPlatformWorks(
   }
 
   const isAuthenticated = Boolean(authState?.userId)
+  const cacheKey = isAuthenticated ? 'auth' : 'anon'
+
+  if (!dependencies.queryRows) {
+    const cached = platformWorksCache.get(cacheKey)
+    if (cached && Date.now() - cached.timestamp < PLATFORM_WORKS_CACHE_TTL_MS) {
+      return cached.data
+    }
+  }
 
   let admin: any = null
   if (!dependencies.queryRows) {
@@ -633,6 +649,12 @@ export async function executeGetPlatformWorks(
           chapters: row.chapters || [],
         }
       })
+
+      if (!dependencies.queryRows) {
+        platformWorksCache.set(cacheKey, { data: mappedResult, timestamp: Date.now() })
+      }
+
+      return mappedResult
     } catch (err: any) {
       console.warn('[executeGetPlatformWorks] Fallback / error fetching DB works:', err?.message)
       return []
@@ -810,12 +832,9 @@ export const getUserBookmarksServerFn = createServerFn({ method: 'GET' })
     const { createAdminClient } = await import('../lib/supabase/server')
     const admin = createAdminClient()
 
-    // 1. Resolve user profile ID from Clerk user ID
-    const { data: profile } = await admin
-      .from('profiles')
-      .select('id')
-      .eq('clerk_user_id', clerkUserId)
-      .maybeSingle()
+    // 1. Resolve user profile ID from Clerk user ID (with in-memory cache)
+    const { getCachedProfileByClerkId } = await import('./authors')
+    const profile = await getCachedProfileByClerkId(admin, clerkUserId)
 
     if (!profile?.id) {
       return { bookmarkIds: [] }

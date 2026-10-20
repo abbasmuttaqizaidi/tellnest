@@ -28,9 +28,14 @@ export const Route = createFileRoute('/library')({
 function LibraryPage() {
   const { allWorks, savedWorkIds, toggleSaveWork, readingProgress, writerWorks, isOwnWork } = useApp()
 
-  // In-progress reading items ("Currently Reading")
+  // In-progress reading items ("Currently Reading", sorted by most recent)
   const continueReadingItems = useMemo(() => {
     return Object.values(readingProgress)
+      .sort((a, b) => {
+        const timeA = a.lastReadAt ? new Date(a.lastReadAt).getTime() : 0
+        const timeB = b.lastReadAt ? new Date(b.lastReadAt).getTime() : 0
+        return timeB - timeA
+      })
       .map((prog) => {
         const work = allWorks.find((w) => w.id === prog.workId)
         return work && !isOwnWork(work.id) ? { work, progress: prog } : null
@@ -82,6 +87,7 @@ function LibraryPage() {
             (() => {
               const { work, progress } = activeFocusItem
               const workSlug = getWorkSlug(work)
+              const safePercent = Math.min(100, Math.max(0, Math.round(Number(progress.progressPercent || 0))))
               return (
                 <div className="flex flex-col md:flex-row items-center md:items-center gap-8 md:gap-10 lg:gap-14">
                   {/* Book Jacket Presentation with Realistic Physical Binding Shadows */}
@@ -138,11 +144,11 @@ function LibraryPage() {
                       <div className="w-full h-[2px] bg-[var(--bg-subtle)] rounded-full overflow-hidden">
                         <div
                           className="h-full bg-[var(--ink-primary)] rounded-full transition-all duration-700"
-                          style={{ width: `${progress.progressPercent}%` }}
+                          style={{ width: `${safePercent}%` }}
                         />
                       </div>
                       <div className="flex items-center justify-between text-[var(--ink-muted)] font-mono text-[11px] sm:text-xs">
-                        <span>{progress.progressPercent}% completed</span>
+                        <span>{safePercent}% completed</span>
                         <span className="w-1 h-1 rounded-full bg-[var(--border-strong)]" />
                         <span className="truncate max-w-[160px] sm:max-w-none">
                           {progress.chapterTitle || `Chapter ${progress.chapterNumber}`}
@@ -237,7 +243,7 @@ function LibraryPage() {
                           </h4>
                         </Link>
                         <p className="text-[11px] text-[var(--ink-muted)] truncate font-serif italic">
-                          Ch. {progress.chapterNumber} • {progress.progressPercent}%
+                          Ch. {progress.chapterNumber || 1} • {Math.min(100, Math.max(0, Math.round(Number(progress.progressPercent || 0))))}%
                         </p>
                       </div>
                       <Link
