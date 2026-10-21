@@ -72,6 +72,7 @@ interface AppContextType {
   toggleSaveWork: (workId: string) => void
   isWorkSaved: (workId: string) => boolean
   readingProgress: Record<string, ReadingProgress>
+  isReadingProgressLoading: boolean
   updateReadingProgress: (workId: string, progress: Partial<ReadingProgress>, options?: { immediate?: boolean }) => void
   isOwnWork: (workId: string) => boolean
 
@@ -132,6 +133,14 @@ interface AppContextType {
   openPublicWriteModal: () => void
   closePublicWriteModal: () => void
 
+  // Mobile Navigation Drawer
+  mobileDrawerOpen: boolean
+  setMobileDrawerOpen: (open: boolean) => void
+
+  // Scroll state for Nav / Header scroll experiment
+  isHeaderScrolled: boolean
+  setIsHeaderScrolled: (scrolled: boolean) => void
+
   // Admin work injection & Database Sync
   addAdminPostedWork: (work: Work) => void
   addAdminPostedChapter: (workId: string, chapter: Chapter) => void
@@ -188,6 +197,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [followedAuthorIds, setFollowedAuthorIds] = useState<string[]>([])
   const [userProfileId, setUserProfileId] = useState<string | null>(null)
   const [readingProgress, setReadingProgress] = useState<Record<string, ReadingProgress>>({})
+  const [isReadingProgressLoading, setIsReadingProgressLoading] = useState(true)
 
   // Ensure reading progress is not stored in browser storage
   useEffect(() => {
@@ -267,8 +277,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Fetch user reading progress directly from Database for authenticated reader
   const reloadUserReadingProgressFromDb = React.useCallback(async () => {
-    if (!isSignedIn || !user?.id) return
+    if (!isSignedIn || !user?.id) {
+      setIsReadingProgressLoading(false)
+      return
+    }
     try {
+      setIsReadingProgressLoading(true)
       const dbProgressList = await getAllUserReadingProgressServerFn({ data: { userId: user.id } })
       if (Array.isArray(dbProgressList) && dbProgressList.length > 0) {
         setReadingProgress((prev) => {
@@ -297,6 +311,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (err) {
       console.warn('[AppContext] Failed to load reading progress from DB:', err)
+    } finally {
+      setIsReadingProgressLoading(false)
     }
   }, [isSignedIn, user?.id, allWorks, isOwnWork])
 
@@ -437,14 +453,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     if (!isSignedIn || !user?.id) {
       setSavedWorkIds([])
+      setReadingProgress({})
+      setIsReadingProgressLoading(false)
       setFollowedAuthorIds([])
       setNotifications([])
       setUserProfileId(null)
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.removeItem('hatchpen_cached_bookmarks')
+        } catch (e) {}
+      }
       return
     }
 
     let isMounted = true
     async function loadUserData() {
+      setIsReadingProgressLoading(true)
       try {
         const bootstrap = await getUserSessionBootstrapServerFn({ data: user!.id })
         if (isMounted) {
@@ -525,6 +549,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (err) {
         console.warn('[AppContext] Failed to load user data from DB:', err)
+      } finally {
+        if (isMounted) {
+          setIsReadingProgressLoading(false)
+        }
       }
     }
 
@@ -710,6 +738,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isPublicWriteModalOpen, setIsPublicWriteModalOpen] = useState(false)
   const openPublicWriteModal = () => setIsPublicWriteModalOpen(true)
   const closePublicWriteModal = () => setIsPublicWriteModalOpen(false)
+
+  // Mobile Navigation Drawer
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
+
+  // Scroll state for Nav / Header experiment
+  const [isHeaderScrolled, setIsHeaderScrolled] = useState(false)
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -1519,6 +1553,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         toggleSaveWork,
         isWorkSaved,
         readingProgress,
+        isReadingProgressLoading,
         updateReadingProgress,
         isOwnWork,
         followedAuthorIds,
@@ -1560,6 +1595,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         isPublicWriteModalOpen,
         openPublicWriteModal,
         closePublicWriteModal,
+        mobileDrawerOpen,
+        setMobileDrawerOpen,
+        isHeaderScrolled,
+        setIsHeaderScrolled,
         addAdminPostedWork,
         addAdminPostedChapter,
         reloadWorksFromDb

@@ -1,0 +1,1136 @@
+import { Link } from '@tanstack/react-router'
+import { useState, useMemo, useEffect, useRef } from 'react'
+import { useApp } from '../../context/AppContext'
+import { getWorkSlug } from '../../data/mockData'
+import { OptimizedImage } from '../OptimizedImage'
+import {
+  Button,
+  Badge,
+} from '../../design-system'
+import { UnisexAvatar } from '../UnisexAvatar'
+import { RouteHeader } from '../RouteHeader'
+import { useUser } from '@clerk/react'
+import {
+  BookOpen,
+  Bookmark,
+  Play,
+  Clock,
+  Compass,
+  PenLine,
+  Feather,
+  Flame,
+  Users,
+  ChevronRight,
+  Search,
+  Star,
+  Eye,
+} from 'lucide-react'
+import { formatViewCount } from '../../lib/utils'
+import {
+  getUserRecommendationSignalsServerFn,
+  type UserRecommendationSignals,
+} from '../../server/recommendations'
+import type { UserSessionBootstrap } from '../../server/authors'
+import { calculateForYouRecommendations } from '../../lib/recommendations/engine'
+import { filterAndOrderNewVoicesStories } from '../../lib/recommendations/newVoices'
+import { NewVoicesOpportunityModal } from '../NewVoicesOpportunityModal'
+
+import {
+  CurrentlyReadingSkeleton,
+  LoggedInHomeSkeleton,
+} from './HomeSkeletons'
+
+export { CurrentlyReadingSkeleton, LoggedInHomeSkeleton }
+
+export interface HomeLoaderData {
+  authUser: {
+    userId: string | null
+    isAuthenticated: boolean
+  }
+  initialBootstrap: UserSessionBootstrap | null
+  initialRecSignals: UserRecommendationSignals | null
+}
+
+export interface LoggedInHomeProps {
+  forcedView?: string
+  loaderData?: HomeLoaderData
+}
+
+/* ==========================================================================
+   LOGGED IN HOME PAGE — Personalized Reader Dashboard & Shelf Experience
+   ========================================================================== */
+export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomeProps) {
+  const { user, isLoaded: isUserLoaded } = useUser()
+  const {
+    allWorks,
+    readingProgress: contextReadingProgress,
+    isReadingProgressLoading,
+    savedWorkIds,
+    toggleSaveWork,
+    isWorkSaved,
+    writerWorks,
+    isOwnWork,
+  } = useApp()
+
+  // Optimization 2: Pre-hydrate reading progress from server loaderData if context is still bootstrapping
+  const readingProgress = useMemo(() => {
+    if (Object.keys(contextReadingProgress).length > 0) {
+      return contextReadingProgress
+    }
+    const preloaded = loaderData?.initialBootstrap?.readingProgress
+    if (Array.isArray(preloaded) && preloaded.length > 0) {
+      const normalized: Record<string, any> = {}
+      for (const item of preloaded) {
+        if (!item.work_id || isOwnWork(item.work_id)) continue
+        const matchedWork = allWorks.find((w) => w.id === item.work_id)
+        const matchedChapter = matchedWork?.chapters?.find((c) => c.id === item.chapter_id)
+        const chNum = (item as any).chapter_number || matchedChapter?.number || 1
+        const chTitle = (item as any).chapter_title || matchedChapter?.title || `Chapter ${chNum}`
+        normalized[item.work_id] = {
+          workId: item.work_id,
+          chapterId: item.chapter_id || matchedWork?.chapters?.[0]?.id || 'ch-1',
+          chapterNumber: chNum,
+          chapterTitle: chTitle,
+          progressPercent: Math.min(100, Math.max(0, Math.round(Number(item.progress_percent || 0)))),
+          lastReadAt: item.last_read_at || new Date().toISOString(),
+        }
+      }
+      return normalized
+    }
+    return contextReadingProgress
+  }, [contextReadingProgress, loaderData?.initialBootstrap?.readingProgress, allWorks, isOwnWork])
+
+  const [selectedHeroWorkId, setSelectedHeroWorkId] = useState<string | null>(null)
+  const [isSwitchMenuOpen, setIsSwitchMenuOpen] = useState(false)
+
+  // Optimization 2: Initialize recommendation signals immediately from route loaderData without waiting for client roundtrip
+  const [recommendationSignals, setRecommendationSignals] = useState<UserRecommendationSignals | null>(() => {
+    if (loaderData?.initialRecSignals) {
+      return loaderData.initialRecSignals
+    }
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem('hatchpen_cached_rec_signals')
+        return cached ? JSON.parse(cached) : null
+      } catch {
+        return null
+      }
+    }
+    return null
+  })
+
+  const [isLoadingSignals, setIsLoadingSignals] = useState<boolean>(() => {
+    if (loaderData?.initialRecSignals) {
+      return false
+    }
+    if (typeof window !== 'undefined') {
+      try {
+        return !sessionStorage.getItem('hatchpen_cached_rec_signals')
+      } catch {
+        return true
+      }
+    }
+    return false
+  })
+
+  const forYouCarouselRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    // If loaderData already supplied recommendation signals, avoid redundant client fetch
+    if (loaderData?.initialRecSignals && recommendationSignals) {
+      return
+    }
+    let isMounted = true
+    getUserRecommendationSignalsServerFn()
+      .then((signals) => {
+        if (isMounted) {
+          setRecommendationSignals(signals)
+          setIsLoadingSignals(false)
+          if (signals && typeof window !== 'undefined') {
+            try {
+              sessionStorage.setItem('hatchpen_cached_rec_signals', JSON.stringify(signals))
+            } catch {}
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn('[ForYou] Failed to load recommendation signals:', err?.message || err)
+        if (isMounted) {
+          setIsLoadingSignals(false)
+        }
+      })
+    return () => {
+      isMounted = false
+    }
+  }, [user?.id, loaderData?.initialRecSignals])
+
+  const mergedBookmarkedWorkIds = useMemo(() => {
+    const set = new Set<string>()
+    for (const id of savedWorkIds) set.add(id)
+    for (const id of (recommendationSignals?.bookmarkedWorkIds || [])) set.add(id)
+    return Array.from(set)
+  }, [savedWorkIds, recommendationSignals?.bookmarkedWorkIds])
+
+  const forYouRecommendations = useMemo(() => {
+    const candidateWorks = allWorks.filter((w) => !isOwnWork(w.id))
+    if (candidateWorks.length === 0) return []
+
+    if (recommendationSignals && user?.id) {
+      const calculated = calculateForYouRecommendations({
+        candidateWorks,
+        readingHistory: recommendationSignals?.readingHistory || [],
+        userPreferences: recommendationSignals?.preferences || null,
+        bookmarkedWorkIds: mergedBookmarkedWorkIds,
+        excludeBookmarked: false,
+        currentUserId: user?.id,
+        currentUserProfileId: recommendationSignals?.profileId,
+      })
+      if (calculated.length > 0) {
+        return calculated
+      }
+    }
+
+    // Instant resilient fallback: show top curated or trending works without blocking with a skeleton
+    const featuredOrTrending = candidateWorks.filter((w) => w.featured || w.trending)
+    const fallbackList = featuredOrTrending.length >= 4 ? featuredOrTrending : candidateWorks
+    return fallbackList.slice(0, 8).map((w, index) => ({
+      work: w,
+      score: 100 - index,
+      explanation: 'Curated for you',
+    }))
+  }, [allWorks, recommendationSignals, mergedBookmarkedWorkIds, user?.id, isOwnWork])
+
+  // Dedicated New Voices: original qualifying stories from writers in first 5 calendar months
+  const newVoicesWorks = useMemo(() => {
+    return filterAndOrderNewVoicesStories(allWorks, user?.id)
+  }, [allWorks, user?.id])
+
+  // Books currently in-progress (sorted by most recently read)
+  const inProgressList = useMemo(() => {
+    return Object.values(readingProgress)
+      .sort((a, b) => {
+        const timeA = a.lastReadAt ? new Date(a.lastReadAt).getTime() : 0
+        const timeB = b.lastReadAt ? new Date(b.lastReadAt).getTime() : 0
+        return timeB - timeA
+      })
+      .map((prog) => {
+        const work = allWorks.find((w) => w.id === prog.workId)
+        if (!work || isOwnWork(work.id)) return null
+        const currentChapter =
+          work.chapters?.find((c) => c.id === prog.chapterId) ||
+          work.chapters?.find((c) => c.number === prog.chapterNumber) ||
+          (prog.chapterId
+            ? ({
+                id: prog.chapterId,
+                number: prog.chapterNumber || 1,
+                title: prog.chapterTitle || `Chapter ${prog.chapterNumber || 1}`,
+              } as any)
+            : work.chapters?.[0])
+        return { work, progress: prog, currentChapter }
+      })
+      .filter(Boolean) as {
+        work: (typeof allWorks)[0]
+        progress: (typeof readingProgress)[string]
+        currentChapter: (typeof allWorks)[0]['chapters'][0] | undefined
+      }
+  }, [allWorks, readingProgress, isOwnWork])
+
+  // Focal book resolution: allows dynamic switching between user's active in-progress books
+  const activeEntry = useMemo(() => {
+    if (selectedHeroWorkId) {
+      const match = inProgressList.find((item) => item.work.id === selectedHeroWorkId)
+      if (match) return match
+      const fallbackWork = allWorks.find((w) => w.id === selectedHeroWorkId)
+      if (fallbackWork) {
+        return {
+          work: fallbackWork,
+          progress: readingProgress[fallbackWork.id] || { progressPercent: 0, chapterNumber: 1, chapterId: fallbackWork.chapters?.[0]?.id || 'ch-1' },
+          currentChapter: fallbackWork.chapters?.[0],
+        }
+      }
+    }
+    return inProgressList[0] || null
+  }, [selectedHeroWorkId, inProgressList, allWorks, readingProgress])
+
+  const hasReadingHistory = inProgressList.length > 0 || Object.keys(readingProgress).length > 0
+  const activeWork =
+    activeEntry?.work ||
+    (Object.keys(readingProgress).length > 0
+      ? allWorks.find((w) => w.id === Object.values(readingProgress)[0]?.workId)
+      : null) ||
+    allWorks.find((w) => w.featured) ||
+    allWorks[0]
+  const activeProgress = activeEntry?.progress || (activeWork ? readingProgress[activeWork.id] : null) || null
+  const activeChapter = activeEntry?.currentChapter || activeWork?.chapters?.[0]
+  const progressPercent = activeProgress ? Math.min(100, Math.max(0, Math.round(Number(activeProgress.progressPercent || 0)))) : 0
+
+  // If server preloaded bootstrap is available, user session is already resolved
+  const hasPreloadedBootstrap = Boolean(loaderData?.initialBootstrap)
+  const isResolvingReadingSession =
+    !isUserLoaded ||
+    (isReadingProgressLoading && !hasPreloadedBootstrap) ||
+    (Object.keys(readingProgress).length > 0 && !activeWork)
+
+  // Saved manuscripts from shelf
+  const savedWorks = useMemo(() => {
+    return allWorks.filter((w) => savedWorkIds.includes(w.id))
+  }, [allWorks, savedWorkIds])
+
+  const [activeLeaderboardGenre, setActiveLeaderboardGenre] = useState<string>('all')
+
+  // Trending & community ranked serials
+  const trendingSerials = useMemo(() => {
+    let list = allWorks.filter((w) => w.trending || w.featured || w.totalReads > 50000)
+    if (activeLeaderboardGenre !== 'all') {
+      list = list.filter((w) => w.genre?.toLowerCase().includes(activeLeaderboardGenre.toLowerCase()))
+    }
+    return list.slice(0, 3)
+  }, [allWorks, activeLeaderboardGenre])
+
+  // Writer atelier adaptive states
+  const isAuthor = writerWorks && writerWorks.length > 0
+  const activeDraft = isAuthor ? writerWorks[0] : null
+
+  // Only show localized dashboard skeleton if user is still loading AND works data is completely empty
+  if (!isUserLoaded && !forcedView && (!allWorks || allWorks.length === 0)) {
+    return <LoggedInHomeSkeleton />
+  }
+
+  const activeWorkSlug = activeWork ? getWorkSlug(activeWork) : ''
+
+  return (
+    <div className="min-h-screen pb-12">
+      {/* Consistent Route Header with + New button */}
+      <RouteHeader
+        title="Home"
+        subtitle="Stories curated for your day"
+      />
+
+      <div className="logged-in-home-container px-3 sm:px-6 lg:px-8 max-w-7xl mx-auto pt-3 sm:pt-6 space-y-3 sm:space-y-5">
+        {/* 5-Month In-App Opportunity Modal */}
+        <NewVoicesOpportunityModal />
+
+      {/* =========================================================================
+          SECTION 2: PICK UP WHERE YOU LEFT OFF (ASYMMETRIC PRIMARY HERO CARD)
+          ========================================================================= */}
+      {hasReadingHistory && activeWork ? (
+        <section id="active-novel" className="w-full space-y-2">
+          {inProgressList.length > 1 && (
+            <div className="flex items-center justify-end pb-1">
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsSwitchMenuOpen((prev) => !prev)}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] font-mono text-[11px] font-semibold cursor-pointer shadow-2xs transition-all"
+                >
+                  <Clock className="h-3 w-3 text-[var(--ink-muted)]" />
+                  <span>Switch Book ({inProgressList.length})</span>
+                  <ChevronRight className={`h-2.5 w-2.5 transition-transform ${isSwitchMenuOpen ? 'rotate-90' : ''}`} />
+                </button>
+
+                {isSwitchMenuOpen && (
+                  <div className="absolute right-0 top-full mt-1.5 w-64 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-strong)] shadow-xl p-1.5 z-50 space-y-1">
+                    <div className="px-2 py-1 font-mono text-[9px] uppercase tracking-wider text-[var(--ink-muted)]">
+                      Active Queue Folios
+                    </div>
+                    {inProgressList.map((item) => (
+                      <button
+                        key={item.work.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedHeroWorkId(item.work.id)
+                          setIsSwitchMenuOpen(false)
+                        }}
+                        className={`w-full flex items-center gap-2 p-1.5 rounded-lg text-left text-xs transition-colors cursor-pointer ${
+                          item.work.id === activeWork.id
+                            ? 'bg-[var(--bg-subtle)] font-semibold text-[var(--ink-primary)]'
+                            : 'hover:bg-[var(--bg-subtle)] text-[var(--ink-secondary)]'
+                        }`}
+                      >
+                        <img src={item.work.cover} alt={item.work.title} className="w-7 h-9 object-cover rounded shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="truncate font-serif text-xs">{item.work.title}</p>
+                          <p className="font-mono text-[9.5px] text-[var(--ink-muted)]">
+                            Ch. {item.currentChapter?.number || 1} • {Math.min(100, Math.max(0, Math.round(Number(item.progress.progressPercent || 0))))}%
+                          </p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Compact Card Layout */}
+          <div className="relative overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3 sm:p-3.5 shadow-2xs">
+            <div className="flex items-center gap-3 sm:gap-4">
+              
+              {/* Thumbnail Cover with Optimization hints */}
+              <Link
+                to="/read/$workId/$chapterId"
+                params={{
+                  workId: activeWorkSlug,
+                  chapterId: activeChapter?.id || 'ch-1',
+                }}
+                preload="intent"
+                className="relative w-24 sm:w-24 aspect-[2/3] rounded-lg overflow-hidden shadow-xs group no-underline border border-[var(--border-subtle)] bg-[var(--bg-subtle)] shrink-0"
+              >
+                <img
+                  src={activeWork.cover}
+                  alt={activeWork.title}
+                  loading="eager"
+                  decoding="async"
+                  width={96}
+                  height={144}
+                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                />
+              </Link>
+
+              {/* Right Side: Details & Actions */}
+              <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4">
+                {/* Story Info & Progress */}
+                <div className="flex-1 min-w-0 space-y-1 sm:space-y-1.5">
+                  {/* Badges + Author row */}
+                  <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                    <Badge variant="subtle" size="sm">
+                      {activeWork.genre}
+                    </Badge>
+                    <span className="text-[var(--ink-muted)] font-serif text-xs">
+                      by <strong className="text-[var(--ink-primary)] font-medium">{activeWork.author.name}</strong>
+                    </span>
+                    <span className="text-[var(--ink-faint)] hidden md:inline">•</span>
+                    <span className="text-[var(--ink-muted)] font-mono text-[11px] hidden md:inline">
+                      Ch. {activeChapter?.number || 1} of {activeWork.chaptersCount}
+                    </span>
+                  </div>
+
+                  {/* Title */}
+                  <Link
+                    to="/works/$workId"
+                    params={{ workId: activeWorkSlug }}
+                    className="block no-underline text-inherit group"
+                  >
+                    <h4 className="font-serif text-base sm:text-lg font-bold text-[var(--ink-primary)] tracking-tight truncate group-hover:underline">
+                      {activeWork.title}
+                    </h4>
+                  </Link>
+
+                  {/* Progress Bar + Stats Row */}
+                  <div className="space-y-1 max-w-md">
+                    <div className="flex items-center justify-between font-mono text-[10.5px] text-[var(--ink-muted)]">
+                      <span className="font-medium text-[var(--ink-primary)] truncate max-w-[180px] sm:max-w-xs">
+                        {activeChapter?.title ? `Ch. ${activeChapter.number}: ${activeChapter.title}` : `Chapter ${activeChapter?.number || 1}`}
+                      </span>
+                      <span className="shrink-0 font-semibold text-[var(--ink-primary)]">
+                        {progressPercent}% read
+                      </span>
+                    </div>
+
+                    <div className="w-full h-1 bg-[var(--bg-subtle)] rounded-full overflow-hidden border border-[var(--border-subtle)]">
+                      <div
+                        className="h-full bg-[var(--ink-primary)] rounded-full transition-all duration-500"
+                        style={{ width: `${progressPercent}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="w-full sm:w-auto flex items-center gap-2">
+                  <Link
+                    to="/read/$workId/$chapterId"
+                    params={{
+                      workId: activeWorkSlug,
+                      chapterId: activeChapter?.id || 'ch-1',
+                    }}
+                    preload="intent"
+                    className="flex-1 sm:flex-initial no-underline"
+                  >
+                    <button
+                      type="button"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 h-8 rounded-lg bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-xs font-semibold hover:opacity-90 transition-opacity shadow-2xs cursor-pointer"
+                    >
+                      <Play className="h-3 w-3 fill-current shrink-0" />
+                      <span>Resume Ch. {activeChapter?.number || 1}</span>
+                    </button>
+                  </Link>
+
+                  <button
+                    type="button"
+                    onClick={() => toggleSaveWork(activeWork.id)}
+                    className={`h-8 w-8 inline-flex items-center justify-center rounded-lg border text-xs transition-colors cursor-pointer shrink-0 ${
+                      isWorkSaved(activeWork.id)
+                        ? 'border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)]'
+                        : 'border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
+                    }`}
+                    title={isWorkSaved(activeWork.id) ? 'Saved in library' : 'Save to library'}
+                    aria-label="Bookmark story"
+                  >
+                    <Bookmark className={`h-3.5 w-3.5 ${isWorkSaved(activeWork.id) ? 'fill-current' : ''}`} />
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </section>
+      ) : isResolvingReadingSession ? (
+        <CurrentlyReadingSkeleton />
+      ) : (
+        /* Compact First-Time Reader Onboarding Banner */
+        <section id="active-novel" className="w-full">
+          <div className="relative overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 sm:p-5 shadow-2xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className="h-10 w-10 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-subtle)] flex items-center justify-center shrink-0 text-[var(--ink-primary)]">
+                  <BookOpen className="h-4 w-4" />
+                </div>
+                <div className="space-y-0.5 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-serif text-sm sm:text-base font-semibold text-[var(--ink-primary)] tracking-tight">
+                      Read Your First Story
+                    </span>
+                    <span className="font-mono text-[10px] text-[var(--ink-faint)] uppercase tracking-wider hidden sm:inline-block">
+                      • Empty Shelf
+                    </span>
+                  </div>
+                  <p className="font-sans text-xs text-[var(--ink-secondary)]">
+                    Explore original serials below. When you open any chapter, your progress and reading session will appear here.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-center">
+                <Link
+                  to="/discover"
+                  className="no-underline"
+                >
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    leftIcon={<Compass className="h-3.5 w-3.5 shrink-0" />}
+                  >
+                    Browse Stories
+                  </Button>
+                </Link>
+
+                <a
+                  href="#trending-serials"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] font-mono text-[11px] font-medium cursor-pointer shadow-2xs transition-colors no-underline"
+                >
+                  <Flame className="h-3 w-3 text-amber-500" />
+                  <span>Trending ↓</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* =========================================================================
+          SECTION: FOR YOU RECOMMENDATIONS (PERSONALIZED ADAPTIVE DISCOVERY)
+          ========================================================================= */}
+      <section id="for-you" className="w-full space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-3 border-b border-[var(--border-subtle)]">
+          <div className="space-y-1">
+            <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] tracking-tight">
+              Recommended For You
+            </h3>
+            <p className="font-serif text-xs sm:text-sm text-[var(--ink-secondary)]">
+              Personalized based on your reading sessions and literary interests.
+            </p>
+          </div>
+        </div>
+
+        {forYouRecommendations.length > 0 ? (
+          <div
+            ref={forYouCarouselRef}
+            className="flex items-stretch gap-3 sm:gap-3.5 overflow-x-auto scroll-smooth py-1 px-0.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+            style={{ scrollSnapType: 'x mandatory' }}
+          >
+            {forYouRecommendations.map(({ work }) => {
+              const wSlug = getWorkSlug(work)
+              const saved = isWorkSaved(work.id)
+              return (
+                <div
+                  key={work.id}
+                  style={{ scrollSnapAlign: 'start' }}
+                  className="w-[145px] sm:w-[160px] md:w-[170px] shrink-0 flex flex-col justify-between rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-xs hover:shadow-md transition-all duration-300 overflow-hidden group"
+                >
+                  {/* Cover with badge */}
+                  <div className="relative aspect-[2/3] w-full overflow-hidden bg-[var(--bg-subtle)]">
+                    <Link
+                      to="/works/$workId"
+                      params={{ workId: wSlug }}
+                      className="block w-full h-full no-underline"
+                    >
+                      <OptimizedImage
+                        src={work.cover}
+                        alt={work.title}
+                        width={200}
+                        height={300}
+                        containerClassName="w-full h-full"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    </Link>
+
+                    {/* Bookmark Pill Button */}
+                    <button
+                      type="button"
+                      onClick={() => toggleSaveWork(work.id)}
+                      className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 backdrop-blur-md text-white flex items-center justify-center hover:bg-black transition-colors cursor-pointer z-10"
+                      title={saved ? 'Remove Bookmark' : 'Save to Shelf'}
+                    >
+                      <Bookmark className={`h-3 w-3 ${saved ? 'fill-amber-400 text-amber-400' : ''}`} />
+                    </button>
+
+                    {/* Chapter count */}
+                    <div className="absolute bottom-1.5 left-1.5 bg-black/75 text-white font-mono text-[8px] px-1.5 py-0.5 rounded backdrop-blur-2xs">
+                      {work.chaptersCount} Ch
+                    </div>
+                  </div>
+
+                  {/* Card Content */}
+                  <div className="p-2.5 sm:p-3 flex-1 flex flex-col justify-between space-y-2">
+                    <div className="space-y-1">
+                      <Link
+                        to="/works/$workId"
+                        params={{ workId: wSlug }}
+                        className="block no-underline text-inherit group-hover:underline"
+                      >
+                        <h4 className="font-serif text-xs sm:text-[13px] font-bold text-[var(--ink-primary)] leading-tight line-clamp-1">
+                          {work.title}
+                        </h4>
+                      </Link>
+
+                      <div className="flex items-center justify-between font-mono text-[10px] text-[var(--ink-muted)]">
+                        <span className="truncate">{work.author.name}</span>
+                        <span className="shrink-0 text-[9px] text-[var(--ink-faint)]">
+                          {work.genre}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="pt-1.5 border-t border-[var(--border-subtle)] flex items-center justify-between text-[10px] font-mono">
+                      <span className="text-[9px] text-[var(--ink-faint)]">
+                        {formatViewCount(work.totalReads, true)} reads
+                      </span>
+
+                      <Link
+                        to="/read/$workId/$chapterId"
+                        params={{
+                          workId: wSlug,
+                          chapterId: work.chapters?.[0]?.id || 'ch-1',
+                        }}
+                        preload="intent"
+                        className="inline-flex items-center gap-0.5 font-mono text-[9px] uppercase font-semibold text-[var(--ink-primary)] hover:underline no-underline"
+                      >
+                        Read →
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        ) : isLoadingSignals ? (
+          <div className="flex items-stretch gap-3 sm:gap-3.5 overflow-hidden py-1">
+            {Array.from({ length: 6 }).map((_, idx) => (
+              <div
+                key={`foryou-skeleton-${idx}`}
+                className="w-[145px] sm:w-[160px] md:w-[170px] aspect-[2/3] shrink-0 rounded-xl bg-[var(--bg-subtle)] animate-pulse border border-[var(--border-subtle)]"
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-6 text-center space-y-2">
+            <p className="font-serif text-sm text-[var(--ink-secondary)]">
+              No new recommendations available at the moment. All eligible candidates have either been saved or completed.
+            </p>
+            <Link
+              to="/discover"
+              className="inline-flex items-center gap-1.5 font-mono text-xs font-semibold text-[var(--ink-primary)] hover:underline no-underline"
+            >
+              Browse Full Catalog →
+            </Link>
+          </div>
+        )}
+      </section>
+
+      {/* =========================================================================
+          SECTION: NEW VOICES (AUTHENTICATED FIVE-MONTH DISCOVERY SHOWCASE)
+          ========================================================================= */}
+      <section id="new-voices" className="w-full space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-3 border-b border-[var(--border-subtle)]">
+          <div className="space-y-1">
+            <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] tracking-tight">
+              New Voices Showcase
+            </h3>
+            <p className="font-serif text-xs sm:text-sm text-[var(--ink-secondary)]">
+              Fresh original stories published by writers in their first five calendar months on Hatchpen.
+            </p>
+          </div>
+
+          <Link
+            to="/write"
+            className="font-mono text-xs font-semibold text-[var(--ink-primary)] hover:underline flex items-center gap-1 no-underline"
+          >
+            <span>Start Your Story</span>
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+
+        {newVoicesWorks.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
+            {newVoicesWorks.map((work) => {
+              const wSlug = getWorkSlug(work)
+              const saved = isWorkSaved(work.id)
+              const pubDate = work.publishedAt
+              return (
+                <div
+                  key={work.id}
+                  className="rounded-2xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-xs hover:shadow-md transition-all duration-300 flex flex-col overflow-hidden group"
+                >
+                  {/* Cover with badge */}
+                  <div className="relative aspect-[2/3] overflow-hidden bg-[var(--bg-subtle)]">
+                    <Link
+                      to="/works/$workId"
+                      params={{ workId: wSlug }}
+                      className="block w-full h-full no-underline"
+                    >
+                      <OptimizedImage
+                        src={work.cover}
+                        alt={work.title}
+                        width={260}
+                        height={390}
+                        containerClassName="w-full h-full"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    </Link>
+
+                    {/* Bookmark Pill Button */}
+                    <button
+                      type="button"
+                      onClick={() => toggleSaveWork(work.id)}
+                      className="absolute top-2.5 right-2.5 w-8 h-8 rounded-full bg-black/60 backdrop-blur-md text-white flex items-center justify-center hover:bg-black transition-colors cursor-pointer z-10"
+                      title={saved ? 'Remove Bookmark' : 'Save to Shelf'}
+                    >
+                      <Bookmark className={`h-3.5 w-3.5 ${saved ? 'fill-amber-400 text-amber-400' : ''}`} />
+                    </button>
+
+                    {/* Chapter count */}
+                    <div className="absolute bottom-2 left-2 bg-black/75 text-white font-mono text-[9px] px-1.5 py-0.5 rounded backdrop-blur-2xs">
+                      {work.chaptersCount} Ch
+                    </div>
+                  </div>
+
+                  {/* Card Content */}
+                  <div className="p-3.5 flex-1 flex flex-col justify-between space-y-2.5">
+                    <div className="space-y-1.5">
+                      <Link
+                        to="/works/$workId"
+                        params={{ workId: wSlug }}
+                        className="block no-underline text-inherit group-hover:underline"
+                      >
+                        <h4 className="font-serif text-sm font-bold text-[var(--ink-primary)] leading-snug line-clamp-1">
+                          {work.title}
+                        </h4>
+                      </Link>
+
+                      <div className="flex items-center justify-between font-mono text-[11px] text-[var(--ink-muted)]">
+                        <span className="truncate">{work.author.name}</span>
+                        <span className="shrink-0 text-[10px] text-[var(--ink-faint)]">
+                          {work.genre}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-[var(--border-subtle)] flex items-center justify-between">
+                      <span className="font-mono text-[10px] text-[var(--ink-faint)] truncate">
+                        {pubDate ? new Date(pubDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Debut'}
+                      </span>
+
+                      <Link
+                        to="/read/$workId/$chapterId"
+                        params={{
+                          workId: wSlug,
+                          chapterId: work.chapters?.[0]?.id || 'ch-1',
+                        }}
+                        preload="intent"
+                        className="inline-flex items-center gap-1 font-mono text-[10px] uppercase font-semibold text-[var(--ink-primary)] hover:underline no-underline"
+                      >
+                        Read Ch 1 →
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-8 text-center space-y-3">
+            <div className="mx-auto w-10 h-10 rounded-full bg-[var(--bg-subtle)] text-black dark:text-white flex items-center justify-center">
+              <Feather className="h-5 w-5" />
+            </div>
+            <div className="space-y-1">
+              <h4 className="font-serif text-base font-semibold text-[var(--ink-primary)]">
+                No Debuts Currently Active
+              </h4>
+              <p className="font-serif text-xs sm:text-sm text-[var(--ink-secondary)] max-w-lg mx-auto">
+                Writers in their first five calendar months on Hatchpen can publish original manuscripts to be showcased here. Ready to release your first chapter?
+              </p>
+            </div>
+            <div className="pt-2">
+              <Link
+                to="/write"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[var(--ink-primary)] text-[var(--bg-canvas)] font-mono text-xs font-semibold hover:opacity-90 transition-opacity no-underline shadow-xs"
+              >
+                <PenLine className="h-3.5 w-3.5" />
+                <span>Draft a Story in Studio</span>
+              </Link>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* =========================================================================
+          SECTION 3: TRENDING & COMMUNITY RANKINGS (LEADERBOARDS BENTO GRID)
+          ========================================================================= */}
+      <section id="trending-serials" className="w-full space-y-5">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-3 border-b border-[var(--border-subtle)]">
+          <div>
+            <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] tracking-tight">
+              Trending Serials Today
+            </h3>
+          </div>
+
+          {/* Genre Filters */}
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none font-mono text-xs">
+            {[
+              { id: 'all', label: 'All Genres' },
+              { id: 'romance', label: 'Romance' },
+              { id: 'speculative', label: 'Speculative' },
+              { id: 'historical', label: 'Historical' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveLeaderboardGenre(tab.id)}
+                className={`px-3 py-1.5 rounded-full transition-all cursor-pointer whitespace-nowrap text-xs font-mono ${
+                  activeLeaderboardGenre === tab.id
+                    ? 'bg-[var(--ink-primary)] text-[var(--bg-canvas)] font-semibold shadow-xs'
+                    : 'bg-[var(--bg-surface)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)] border border-[var(--border-subtle)]'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Leaderboard Bento Grid: 3 Rich Serials */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {trendingSerials.map((work, idx) => {
+            const wSlug = getWorkSlug(work)
+            const saved = isWorkSaved(work.id)
+            return (
+              <div
+                key={work.id}
+                className="rounded-2xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-xs hover:shadow-md transition-all duration-300 flex flex-col overflow-hidden group"
+              >
+                {/* Visual Cover Header */}
+                <div className="relative h-60 sm:h-64 overflow-hidden bg-[var(--bg-subtle)]">
+                  <img
+                    src={work.cover}
+                    alt={work.title}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent pointer-events-none" />
+
+                  {/* Rank Pill */}
+                  <div className="absolute top-3 left-3 bg-black/75 text-white backdrop-blur-md px-2.5 py-1 rounded font-mono text-[11px] uppercase tracking-wider flex items-center gap-1 border border-white/20 shadow-xs">
+                    <span className="font-bold text-amber-400">#{idx + 1}</span>
+                    <span>in {work.genre}</span>
+                  </div>
+
+                  {/* Bookmark Button */}
+                  <button
+                    type="button"
+                    onClick={() => toggleSaveWork(work.id)}
+                    className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/60 backdrop-blur-md text-white flex items-center justify-center hover:bg-black transition-colors cursor-pointer"
+                    title={saved ? 'Remove Bookmark' : 'Save to Library'}
+                  >
+                    <Bookmark className={`h-4 w-4 ${saved ? 'fill-amber-400 text-amber-400' : ''}`} />
+                  </button>
+
+                  {/* Title & Season Info */}
+                  <div className="absolute bottom-3 left-4 right-4 text-white">
+                    <span className="font-mono text-[10px] tracking-wider uppercase text-white/80">
+                      Season 1 • {work.chaptersCount} Chapters
+                    </span>
+                    <h4 className="font-serif text-lg font-bold text-white leading-snug line-clamp-1 mt-0.5">
+                      {work.title}
+                    </h4>
+                  </div>
+                </div>
+
+                {/* Card Content & Metrics */}
+                <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-4">
+                  <p className="font-serif text-xs sm:text-sm text-[var(--ink-secondary)] line-clamp-2 leading-relaxed">
+                    {work.synopsis}
+                  </p>
+
+                  <div className="space-y-3 pt-2 border-t border-[var(--border-subtle)]">
+                    {/* Metrics Bar */}
+                    <div className="flex items-center justify-between text-[var(--ink-muted)] font-mono text-[11px] bg-[var(--bg-canvas)] px-3 py-1.5 rounded-lg border border-[var(--border-subtle)]">
+                      <span className="flex items-center gap-1">
+                        <Eye className="h-3 w-3 text-[var(--ink-faint)]" />
+                        {formatViewCount(work.totalReads, true)} Reads
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Bookmark className="h-3 w-3 text-red-500" />
+                        {Math.round(work.totalReads * 0.08).toLocaleString()} Saves
+                      </span>
+                      <span className="flex items-center gap-1 font-semibold text-[var(--ink-primary)]">
+                        <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
+                        4.94
+                      </span>
+                    </div>
+
+                    {/* Author & Action */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full overflow-hidden bg-[var(--bg-subtle)] border border-[var(--border-subtle)]">
+                          <UnisexAvatar
+                            src={work.author.avatar}
+                            name={work.author.name}
+                            size="sm"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <span className="font-mono text-xs text-[var(--ink-primary)] font-medium">
+                          {work.author.name}
+                        </span>
+                      </div>
+
+                      <Link
+                        to="/read/$workId/$chapterId"
+                        params={{
+                          workId: wSlug,
+                          chapterId: work.chapters?.[0]?.id || 'ch-1',
+                        }}
+                        preload="intent"
+                        className="inline-flex items-center gap-1 font-mono text-[11px] uppercase font-semibold text-[var(--ink-primary)] hover:underline no-underline"
+                      >
+                        Read Part 1 →
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </section>
+
+      {/* =========================================================================
+          SECTION 4: READING SHELF
+          ========================================================================= */}
+      <section id="saved-shelf" className="w-full space-y-5">
+        <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
+          <div>
+            <h3 className="font-serif text-xl sm:text-2xl font-bold text-[var(--ink-primary)]">
+              Your Reading Shelf
+            </h3>
+          </div>
+
+          <Link
+            to="/library"
+            className="font-mono text-xs font-semibold text-[var(--ink-primary)] hover:underline flex items-center gap-1 no-underline"
+          >
+            <span>Open Full Atelier Library</span>
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+
+        {/* Dynamic & Aesthetic Reading Shelf Grid */}
+        {savedWorks.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-4">
+            {savedWorks.map((work) => {
+              const wSlug = getWorkSlug(work)
+              return (
+                <Link
+                  key={work.id}
+                  to="/works/$workId"
+                  params={{ workId: wSlug }}
+                  className="group block cursor-pointer no-underline text-inherit"
+                >
+                  <div className="relative aspect-[2/3] rounded-xl overflow-hidden shadow-xs group-hover:shadow-md transition-all duration-300 mb-2 border border-[var(--border-subtle)] bg-[var(--bg-subtle)]">
+                    <OptimizedImage
+                      src={work.cover}
+                      alt={work.title}
+                      width={200}
+                      height={300}
+                      containerClassName="w-full h-full"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                    <div className="absolute top-2 left-2 bg-black/75 text-white font-mono text-[9px] px-1.5 py-0.5 rounded backdrop-blur-2xs">
+                      {work.chaptersCount} Ch
+                    </div>
+                  </div>
+                  <h5 className="font-serif text-xs sm:text-sm font-semibold text-[var(--ink-primary)] leading-snug line-clamp-1 group-hover:underline">
+                    {work.title}
+                  </h5>
+                  <span className="font-mono text-[10px] text-[var(--ink-muted)] block mt-0.5 truncate">
+                    {work.author.name}
+                  </span>
+                </Link>
+              )
+            })}
+
+            {/* Aesthetic Empty Shelf Slots */}
+            {savedWorks.length < 6 &&
+              Array.from({ length: Math.max(0, 6 - savedWorks.length) }).map((_, idx) => (
+                <Link
+                  key={`empty-slot-${idx}`}
+                  to="/discover"
+                  className="hidden xl:flex aspect-[2/3] rounded-xl border border-dashed border-[var(--border-subtle)]/70 bg-[var(--bg-surface)]/30 hover:bg-[var(--bg-surface)]/70 hover:border-[var(--border-subtle)] transition-all flex-col items-center justify-center text-center p-3 cursor-pointer group no-underline text-inherit"
+                >
+                  <div className="w-8 h-8 rounded-full border border-dashed border-[var(--border-subtle)] flex items-center justify-center text-[var(--ink-faint)] group-hover:text-[var(--ink-muted)] mb-1.5 transition-colors">
+                    <span className="text-base font-light">+</span>
+                  </div>
+                  <span className="font-mono text-[11px] text-[var(--ink-faint)] group-hover:text-[var(--ink-muted)] transition-colors">
+                    Add Book
+                  </span>
+                </Link>
+              ))}
+
+            {/* Action Card to Discover More */}
+            <Link
+              to="/discover"
+              className="aspect-[2/3] rounded-xl bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] border border-dashed border-[var(--border-strong)] flex flex-col items-center justify-center text-center p-3 transition-colors cursor-pointer group no-underline text-inherit"
+            >
+              <div className="w-10 h-10 rounded-full bg-[var(--bg-canvas)] border border-[var(--border-subtle)] flex items-center justify-center text-[var(--ink-primary)] mb-2 shadow-2xs group-hover:scale-110 transition-transform">
+                <Search className="h-4 w-4" />
+              </div>
+              <span className="font-mono text-xs font-semibold text-[var(--ink-primary)]">
+                Browse More
+              </span>
+              <span className="font-mono text-[10px] text-[var(--ink-muted)] mt-0.5">
+                Explore Catalog
+              </span>
+            </Link>
+          </div>
+        ) : (
+          /* Honest, Authentic Empty State connected to Database */
+          <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-6 sm:p-8 text-center space-y-3">
+            <div className="w-10 h-10 rounded-full bg-[var(--bg-canvas)] border border-[var(--border-subtle)] flex items-center justify-center mx-auto text-black dark:text-white">
+              <Bookmark className="h-4 w-4" />
+            </div>
+            <div className="max-w-md mx-auto space-y-1">
+              <h4 className="font-serif text-base sm:text-lg font-semibold text-[var(--ink-primary)]">
+                No stories saved to your shelf yet
+              </h4>
+              <p className="font-serif text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed">
+                Bookmark any story while browsing or reading. Your saved stories are stored directly in your account database and will appear right here.
+              </p>
+            </div>
+            <div className="pt-2">
+              <Link
+                to="/discover"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[var(--ink-primary)] text-[var(--bg-canvas)] font-mono text-xs font-semibold hover:opacity-90 transition-opacity no-underline shadow-xs"
+              >
+                <Search className="h-3.5 w-3.5" />
+                <span>Explore Stories to Save</span>
+              </Link>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* =========================================================================
+          SECTION 5: WRITER'S ATELIER / PUBLISH YOUR NOVEL SPOTLIGHT (ADAPTIVE BANNER)
+          ========================================================================= */}
+      <section id="author-atelier" className="w-full pb-8">
+        <div className="bg-[var(--ink-primary)] text-[var(--bg-canvas)] rounded-2xl p-6 sm:p-8 lg:p-10 shadow-lg relative overflow-hidden">
+          {/* Ambient Decorative Watermark */}
+          <div className="absolute right-0 bottom-0 opacity-5 pointer-events-none transform translate-x-10 translate-y-10">
+            <Feather className="w-96 h-96 text-current" />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center relative z-10">
+            <div className="lg:col-span-8 space-y-3">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/10 rounded-full font-mono text-[10px] uppercase tracking-wider text-amber-200">
+                <PenLine className="h-3 w-3" />
+                <span>
+                  {isAuthor ? "Author Atelier • Your Writing Desk" : "Writer's Atelier • Serial Publishing Studio"}
+                </span>
+              </div>
+
+              <h3 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-white leading-tight">
+                {isAuthor && activeDraft
+                  ? `Ready to continue writing “${activeDraft.title}”?`
+                  : 'Have a world to craft? Over 3.2M readers are looking for fresh chapters.'}
+              </h3>
+
+              <p className="font-serif text-xs sm:text-sm text-white/80 max-w-2xl leading-relaxed">
+                {isAuthor
+                  ? 'Access your serial editor, publish scheduled drops, review comments, and analyze reader retention metrics.'
+                  : 'Publish serialized chapters on your schedule, build loyal subscriber circles, and access granular reader retention graphs chapter by chapter.'}
+              </p>
+
+              <div className="flex flex-wrap items-center gap-6 pt-2 font-mono text-xs text-white/90">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="h-4 w-4 text-amber-300" />
+                  <span>
+                    {isAuthor && activeDraft ? (
+                      <>Active Manuscript: <strong className="text-white font-semibold">{activeDraft.title}</strong> ({activeDraft.chaptersCount} Ch.)</>
+                    ) : (
+                      <>Draft in Progress: <strong className="text-white font-semibold">“The Pale Cartography”</strong></>
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-amber-300" />
+                  <span>
+                    {isAuthor ? (
+                      <>Active Readers: <strong className="text-white font-semibold">{formatViewCount(activeDraft?.totalReads || 0, true)} Reads</strong></>
+                    ) : (
+                      <>Active Atelier Audience: <strong className="text-white font-semibold">14,240 Followers</strong></>
+                    )}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="lg:col-span-4 flex flex-col sm:flex-row lg:flex-col items-stretch lg:items-end justify-center gap-3">
+              <Link to={isAuthor && activeDraft ? `/write/manage/${activeDraft.id}` : "/write/new"} className="no-underline">
+                <Button
+                  variant="primary"
+                  size="md"
+                  className="w-full sm:w-auto bg-white text-black hover:bg-neutral-200 border-white font-mono text-xs font-semibold"
+                  leftIcon={<PenLine className="h-4 w-4 shrink-0" />}
+                >
+                  {isAuthor ? 'Open Studio Workspace' : 'Open Writing Studio'}
+                </Button>
+              </Link>
+
+              <Link
+                to="/write"
+                className="inline-flex items-center justify-center gap-1.5 text-white/80 hover:text-white font-mono text-xs py-1 transition-colors no-underline text-center"
+              >
+                <span>View Author Studio &amp; Analytics</span>
+                <ChevronRight className="h-3 w-3" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      </div>
+    </div>
+  )
+}

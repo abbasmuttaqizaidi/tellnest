@@ -3,6 +3,8 @@ import { getOptimizedImageUrl } from '../lib/image'
 
 export interface UnisexAvatarProps {
   src?: string | null
+  avatarPath?: string | null
+  seed?: string | null
   alt?: string
   name?: string | null
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | number
@@ -19,6 +21,9 @@ export interface UnisexAvatarProps {
  */
 export function isDefaultOrInitialAvatar(url?: string | null): boolean {
   if (!url) return true
+
+  // Custom data URL or Supabase storage is always a valid custom avatar
+  if (url.startsWith('data:image/') || url.includes('author-avatars') || url.includes('/storage/v1/object/public/')) return false
 
   // 1. Unsplash female stock photo previously used as hardcoded fallback
   if (url.includes('photo-1534528741775-53994a69daeb')) return true
@@ -92,6 +97,8 @@ export function UnisexAvatarIcon({ className = 'h-full w-full' }: { className?: 
  */
 export function UnisexAvatar({
   src,
+  avatarPath,
+  seed,
   alt = 'User avatar',
   name,
   size = 'md',
@@ -108,12 +115,13 @@ export function UnisexAvatar({
   const sizeStyle = typeof size === 'number' ? { width: size, height: size } : undefined
   const roundedClass = shape === 'circle' ? 'rounded-full' : 'rounded-lg'
 
-  // If user explicitly has no custom image (e.g. Clerk hasImage === false),
-  // or image src is an auto-generated initial placeholder, treat as empty so unisex avatar icon shows
-  const isInitialOrPlaceholder = isDefaultOrInitialAvatar(src)
+  const effectiveSrc = src || avatarPath
+  const isInitialOrPlaceholder = isDefaultOrInitialAvatar(effectiveSrc)
   const isExplicitlyNoImage = hasImage === false || forceUnisex
-  const validSrc = !imageError && src && !isInitialOrPlaceholder && !isExplicitlyNoImage ? src : null
-  const optimizedSrc = validSrc ? getOptimizedImageUrl(validSrc, { width: 160, height: 160, quality: 85 }) : null
+  const validSrc = !imageError && effectiveSrc && !isInitialOrPlaceholder && !isExplicitlyNoImage ? effectiveSrc : null
+  const optimizedSrc = validSrc && !validSrc.startsWith('data:image/')
+    ? getOptimizedImageUrl(validSrc, { width: 160, height: 160, quality: 85 })
+    : validSrc
 
   return (
     <div

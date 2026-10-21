@@ -11,6 +11,12 @@
   --font-newsreader: "Newsreader", Georgia, serif;
   --font-reading: "Source Serif 4", Georgia, serif;
   --font-narrow: "Archivo Narrow", "Inter", sans-serif;
+
+  --color-foreground: var(--ink-primary);
+  --color-muted-foreground: var(--ink-muted);
+  --color-muted: var(--bg-subtle);
+  --color-background: var(--bg-canvas);
+  --color-border: var(--border-subtle);
 }
 
 :root {
@@ -151,15 +157,19 @@
 }
 
 html,
-body,
+body {
+  min-height: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
 #app {
   min-height: 100%;
   max-width: 100%;
-  overflow-x: hidden;
 }
 
 html {
-  overflow-x: hidden;
+  overflow-x: clip;
   scroll-behavior: smooth;
 }
 
@@ -170,7 +180,7 @@ body {
   background-color: var(--bg-canvas);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overflow-x: hidden;
+  overflow-x: clip;
   width: 100%;
   position: relative;
 }

@@ -70,7 +70,7 @@ function GenreTemplatePage() {
   }, [allWorks, slug, selectedStatus, sortBy, searchQuery])
 
   return (
-    <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+    <div className="min-h-screen py-3 sm:py-7 px-3 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-3 sm:space-y-5">
       
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-xs font-mono text-[var(--ink-muted)] mb-8">

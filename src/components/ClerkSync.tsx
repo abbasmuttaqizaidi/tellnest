@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useUser, useAuth } from '@clerk/react'
+import { useRouter } from '@tanstack/react-router'
 import { syncClerkUserServerFn } from '../server/authors'
 import { createClerkSupabaseClient } from '../lib/supabase/client'
 
@@ -11,7 +12,9 @@ import { createClerkSupabaseClient } from '../lib/supabase/client'
 export function ClerkSync() {
   const { user, isLoaded: isUserLoaded, isSignedIn } = useUser()
   const { getToken } = useAuth()
+  const router = useRouter()
   const lastSyncedIdRef = useRef<string | null>(null)
+  const prevSignedInRef = useRef<boolean | null>(null)
 
   useEffect(() => {
     if (isUserLoaded) {
@@ -26,8 +29,13 @@ export function ClerkSync() {
           document.cookie = 'hatchpen_has_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
         } catch {}
       }
+
+      if (prevSignedInRef.current !== null && prevSignedInRef.current !== isSignedIn) {
+        router.invalidate()
+      }
+      prevSignedInRef.current = isSignedIn
     }
-  }, [isUserLoaded, isSignedIn])
+  }, [isUserLoaded, isSignedIn, router])
 
   useEffect(() => {
     if (!isUserLoaded || !isSignedIn || !user) return

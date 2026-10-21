@@ -25,6 +25,7 @@ import {
 import { useUser, useClerk } from '@clerk/react'
 import { motion } from 'motion/react'
 import { ProtectedRoute } from '../components/ProtectedRoute'
+import { RouteHeader } from '../components/RouteHeader'
 import { useApp } from '../context/AppContext'
 import {
   Modal,
@@ -50,13 +51,19 @@ export const Route = createFileRoute('/profile')({
       noindex: true,
     }),
   component: () => (
-    <ProtectedRoute
-      title="Profile & Settings"
-      description="Sign in to manage your public persona, reading comfort, and alert cadence."
-      featureBadge="Account Preferences"
-    >
-      <UserProfileAndSettingsPage />
-    </ProtectedRoute>
+    <div className="min-h-screen pb-12">
+      <RouteHeader
+        title="Profile"
+        subtitle="Manage your public persona & preferences"
+      />
+      <ProtectedRoute
+        title="Profile & Settings"
+        description="Sign in to manage your public persona, reading comfort, and alert cadence."
+        featureBadge="Account Preferences"
+      >
+        <UserProfileAndSettingsPage />
+      </ProtectedRoute>
+    </div>
   ),
 })
 
@@ -619,8 +626,8 @@ export function UserProfileAndSettingsPage() {
         {/* =========================================================================
             TOP EDITORIAL HEADER & BREADCRUMB (Matching live_instructions.md)
             ========================================================================= */}
-        <section className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-6 pb-2">
-          <div className="flex items-center gap-2 mb-2 font-mono text-xs">
+        <section className="max-w-7xl mx-auto w-full px-3 sm:px-6 lg:px-8 pt-2 sm:pt-7 pb-2">
+          <div className="hidden md:flex items-center gap-2 mb-2 font-mono text-xs">
             <span className="uppercase tracking-widest text-[var(--color-outline)] font-medium">Account</span>
             <span className="text-[var(--color-outline)] text-xs">/</span>
             <span className="uppercase tracking-wider text-[var(--color-primary)] font-semibold">
@@ -628,17 +635,17 @@ export function UserProfileAndSettingsPage() {
             </span>
           </div>
 
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h1 className="font-serif text-3xl sm:text-4xl text-[var(--color-on-surface)] tracking-tight font-normal">
+          <div className="flex items-center justify-between gap-4">
+            <div className="hidden md:block">
+              <h1 className="font-serif text-2xl sm:text-3xl font-semibold text-[var(--color-on-surface)] tracking-tight leading-tight">
                 Profile & Settings
               </h1>
-              <p className="text-xs sm:text-sm text-[var(--color-on-surface-variant)] mt-1 font-serif italic">
-                Manage your public persona, reading comfort, and alert cadence.
+              <p className="text-xs sm:text-sm text-[var(--color-on-surface-variant)] mt-1">
+                Manage your account settings
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 w-full md:w-auto justify-end">
               <Button
                 variant="primary"
                 size="sm"

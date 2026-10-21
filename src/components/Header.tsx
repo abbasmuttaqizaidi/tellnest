@@ -44,9 +44,11 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
     genres,
     showToast,
     savedWorkIds,
+    isHeaderScrolled,
+    mobileDrawerOpen,
+    setMobileDrawerOpen,
   } = useApp()
   const activeAvatar = customAvatarUrl || user?.imageUrl
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const userMenuRef = useRef<HTMLDivElement>(null)
 
@@ -125,11 +127,16 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
 
   React.useEffect(() => {
     const handleScroll = () => {
-      setHasScrolled(window.scrollY > 15)
+      const top = window.scrollY || document.documentElement.scrollTop || 0
+      setHasScrolled((prev) => {
+        if (!prev && top > 35) return true
+        if (prev && top < 15) return false
+        return prev
+      })
     }
     handleScroll()
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
+    window.addEventListener('scroll', handleScroll, { passive: true, capture: true })
+    return () => window.removeEventListener('scroll', handleScroll, { capture: true })
   }, [])
 
   if (isReaderMode || isEditorMode) {
@@ -143,11 +150,9 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
   //    - Scrolled state: frosted white/black glass (bg-white/95 dark:bg-black/95) with subtle elevation shadow
   const headerClasses = isPublicHome
     ? hasScrolled
-      ? 'hidden md:block fixed top-0 left-0 right-0 z-40 w-full border-b border-[#D7CFC3]/50 dark:border-neutral-800 bg-[#F2EDE3]/90 dark:bg-[#121316]/90 backdrop-blur-md shadow-xs transition-all duration-200'
-      : 'hidden md:block absolute top-0 left-0 right-0 z-40 w-full border-b border-transparent bg-transparent transition-all duration-200'
-    : hasScrolled
-      ? 'sticky top-0 z-40 w-full border-b border-neutral-200/90 dark:border-neutral-800 bg-white/95 dark:bg-black/95 backdrop-blur-md shadow-[0_1px_3px_0_rgba(0,0,0,0.04)] dark:shadow-[0_1px_3px_0_rgba(0,0,0,0.4)] transition-all duration-200'
-      : 'sticky top-0 z-40 w-full border-b border-neutral-200/60 dark:border-neutral-800/60 bg-white/90 dark:bg-black/90 backdrop-blur-sm transition-all duration-200'
+      ? 'hidden md:block fixed top-0 left-0 right-0 z-40 w-full border-b border-[#D7CFC3]/50 dark:border-neutral-800 bg-[#F2EDE3]/90 dark:bg-[#121316]/90 backdrop-blur-md shadow-xs transition-all duration-300'
+      : 'hidden md:block absolute top-0 left-0 right-0 z-40 w-full border-b border-transparent bg-transparent transition-all duration-300'
+    : 'relative md:sticky top-0 z-30 w-full border-b border-neutral-200/60 dark:border-neutral-800/60 bg-white/95 dark:bg-black/95 backdrop-blur-md shadow-xs'
 
   return (
     <>
@@ -418,16 +423,19 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
                       className="hidden md:flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
                     >
                       <Settings className="h-3.5 w-3.5 text-[var(--ink-muted)]" />
-                      <span>Preferences & Settings</span>
+                      <span>Settings</span>
                     </Link>
                     <button
                       type="button"
                       onClick={() => {
                         if (typeof window !== 'undefined') {
                           localStorage.removeItem('relay_auth_hint')
+                          localStorage.removeItem('hatchpen_has_session')
+                          localStorage.removeItem('hatchpen_cached_bookmarks')
+                          document.cookie = 'hatchpen_has_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
                         }
                         setUserMenuOpen(false)
-                        signOut()
+                        signOut({ redirectUrl: '/' })
                       }}
                       className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-xs text-rose-600 dark:text-rose-400 hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
                     >
@@ -460,11 +468,11 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
 
           {/* Mobile Navigation Hamburger */}
           <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            onClick={() => setMobileDrawerOpen(!mobileDrawerOpen)}
             className="md:hidden flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
             aria-label="Toggle mobile menu"
           >
-            {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+            {mobileDrawerOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
           </button>
         </div>
       </div>
@@ -472,8 +480,8 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
 
     {/* Mobile Right Navigation Drawer */}
     <Drawer
-      isOpen={mobileMenuOpen}
-      onClose={() => setMobileMenuOpen(false)}
+      isOpen={mobileDrawerOpen}
+      onClose={() => setMobileDrawerOpen(false)}
       side="right"
       title="Navigation"
       className="w-[85vw] max-w-[320px]"
@@ -498,11 +506,74 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
           )}
 
           <div className="space-y-0.5">
+            <Link
+              to="/"
+              onClick={() => setMobileDrawerOpen(false)}
+              className="flex items-center gap-2 py-1.5 px-2.5 rounded-lg text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
+            >
+              <Home className="h-4 w-4" />
+              <span>Home</span>
+            </Link>
+
+            <Link
+              to="/discover"
+              onClick={() => setMobileDrawerOpen(false)}
+              className="flex items-center gap-2 py-1.5 px-2.5 rounded-lg text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
+            >
+              <Compass className="h-4 w-4" />
+              <span>Discover</span>
+            </Link>
+
+            {isSignedIn && (
+              <Link
+                to="/following"
+                onClick={() => setMobileDrawerOpen(false)}
+                className="flex items-center gap-2 py-1.5 px-2.5 rounded-lg text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
+              >
+                <Users className="h-4 w-4" />
+                <span>Following</span>
+              </Link>
+            )}
+
+            <Link
+              to="/library"
+              onClick={() => setMobileDrawerOpen(false)}
+              className="flex items-center gap-2 py-1.5 px-2.5 rounded-lg text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
+            >
+              <Bookmark className="h-4 w-4" />
+              <span>Library</span>
+            </Link>
+
+            {isSignedIn && (
+              <Link
+                to="/notifications"
+                onClick={() => setMobileDrawerOpen(false)}
+                className="flex items-center gap-2 py-1.5 px-2.5 rounded-lg text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
+              >
+                <Bell className="h-4 w-4" />
+                <span className="flex-1">Notifications</span>
+                {unreadNotificationCount > 0 && (
+                  <span className="text-[10px] font-mono font-semibold bg-rose-500 text-white px-1.5 py-0.5 rounded-full">
+                    {unreadNotificationCount}
+                  </span>
+                )}
+              </Link>
+            )}
+
+            <Link
+              to="/settings"
+              onClick={() => setMobileDrawerOpen(false)}
+              className="flex items-center gap-2 py-1.5 px-2.5 rounded-lg text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors font-medium"
+            >
+              <Settings className="h-4 w-4" />
+              <span>Settings</span>
+            </Link>
+
             {!isSignedIn && (
               <button
                 type="button"
                 onClick={() => {
-                  setMobileMenuOpen(false)
+                  setMobileDrawerOpen(false)
                   openPublicWriteModal()
                 }}
                 className="flex items-center gap-2 w-full text-left py-1.5 px-2.5 rounded-lg text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] cursor-pointer transition-colors"
@@ -510,33 +581,6 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
                 <PenLine className="h-4 w-4" />
                 <span>Write</span>
               </button>
-            )}
-
-            {isSignedIn && (
-              <>
-                <Link
-                  to="/following"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-2 py-1.5 px-2.5 rounded-lg text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
-                >
-                  <Users className="h-4 w-4" />
-                  <span>Following</span>
-                </Link>
-
-                <Link
-                  to="/notifications"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-2 py-1.5 px-2.5 rounded-lg text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
-                >
-                  <Bell className="h-4 w-4" />
-                  <span className="flex-1">Notifications</span>
-                  {unreadNotificationCount > 0 && (
-                    <span className="text-[10px] font-mono font-semibold bg-rose-500 text-white px-1.5 py-0.5 rounded-full">
-                      {unreadNotificationCount}
-                    </span>
-                  )}
-                </Link>
-              </>
             )}
           </div>
 
@@ -548,7 +592,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
               </p>
               <Link
                 to="/write"
-                onClick={() => setMobileMenuOpen(false)}
+                onClick={() => setMobileDrawerOpen(false)}
                 className="flex items-center gap-2 py-1.5 px-2.5 rounded-lg text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
               >
                 <PenLine className="h-4 w-4 text-[var(--ink-muted)]" />
@@ -556,7 +600,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
               </Link>
               <Link
                 to="/write/new"
-                onClick={() => setMobileMenuOpen(false)}
+                onClick={() => setMobileDrawerOpen(false)}
                 className="flex items-center gap-2 py-1.5 px-2.5 rounded-lg text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
               >
                 <Plus className="h-4 w-4 text-[var(--ink-muted)]" />
@@ -586,7 +630,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
               <button
                 type="button"
                 onClick={() => {
-                  setMobileMenuOpen(false)
+                  setMobileDrawerOpen(false)
                   openAuthModal()
                 }}
                 className="w-full text-left py-1.5 px-2.5 font-semibold text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] rounded-lg transition-colors cursor-pointer"
@@ -599,9 +643,12 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
                 onClick={() => {
                   if (typeof window !== 'undefined') {
                     localStorage.removeItem('relay_auth_hint')
+                    localStorage.removeItem('hatchpen_has_session')
+                    localStorage.removeItem('hatchpen_cached_bookmarks')
+                    document.cookie = 'hatchpen_has_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
                   }
-                  setMobileMenuOpen(false)
-                  signOut()
+                  setMobileDrawerOpen(false)
+                  signOut({ redirectUrl: '/' })
                 }}
                 className="w-full text-left py-1.5 px-2.5 font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-2 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
               >

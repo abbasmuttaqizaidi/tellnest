@@ -27,13 +27,12 @@ export function ProtectedRoute({
   const { isSignedIn, isLoaded } = useUser()
   const { openAuthModal } = useApp()
 
-  // 1. HatchPen Branded Loader while Clerk hydrates session
+  // 1. Clean minimal loader while Clerk hydrates session
   if (!isLoaded) {
     return (
       <TellnestLoader
         variant="page"
-        message="Verifying literary credentials..."
-        submessage="HatchPen Private Folio"
+        message="Loading..."
       />
     )
   }

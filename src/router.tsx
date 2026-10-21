@@ -6,9 +6,9 @@ export function getRouter() {
     routeTree,
     scrollRestoration: false,
     defaultPreload: 'intent',
-    defaultPreloadDelay: 50,
-    defaultPreloadStaleTime: 60_000,
-    defaultStaleTime: 60_000,
+    defaultPreloadDelay: 0,
+    defaultPreloadStaleTime: 300_000,
+    defaultStaleTime: 300_000,
   })
 
   return router

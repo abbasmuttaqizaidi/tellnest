@@ -46,6 +46,13 @@ import {
   FeatureTour,
   ListStack,
   SpotlightCard,
+  Breadcrumb2,
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
 } from '../design-system'
 import { HatchpenLogo, HatchpenEmblem } from '../components/HatchpenLogo'
 import DesignSystemSidebar from '../components/DesignSystemSidebar'
@@ -68,6 +75,7 @@ import {
   Terminal,
   RefreshCw,
   Compass,
+  ChevronDown,
 } from 'lucide-react'
 
 import { generateMeta } from '../lib/seo'
@@ -427,6 +435,75 @@ function DesignSystemShowcasePage() {
           <Badge variant="draft">Draft Mode</Badge>
           <Badge variant="subtle">Chapter 18</Badge>
           <Badge variant="outline">Poetry • 12k Words</Badge>
+        </div>
+      </section>
+
+      {/* SECTION: BREADCRUMBS (WATERMELON UI BREADCRUMB 2) */}
+      <section id="sec-breadcrumbs" className="scroll-mt-24 space-y-4">
+        <div className="border-b border-[var(--border-subtle)] pb-2 flex items-center justify-between">
+          <h2 className="font-serif text-2xl font-semibold text-[var(--ink-primary)]">
+            Breadcrumbs (Watermelon UI)
+          </h2>
+          <span className="font-mono text-xs text-[var(--ink-muted)]">Watermelon Breadcrumb 2</span>
+        </div>
+
+        {/* 1. Official Watermelon UI Breadcrumb 2 Canonical Demo */}
+        <div className="p-6 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-serif text-base font-semibold text-[var(--ink-primary)]">
+              Watermelon UI Breadcrumb 2 (Canonical Demo)
+            </h3>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--ink-muted)]">
+              &lt;Breadcrumb2 /&gt;
+            </span>
+          </div>
+
+          <div className="p-4 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] flex items-center">
+            <Breadcrumb2
+              segments={[
+                { label: 'Portal', href: '#' },
+                { label: 'Orders', href: '#' },
+                { label: 'Shipment Status', current: true },
+              ]}
+            />
+          </div>
+          <p className="text-xs font-mono text-[var(--ink-muted)]">
+            Canonical Watermelon UI Breadcrumb 2 with root icon, muted separators, and underlined active target.
+          </p>
+        </div>
+
+        {/* 2. HatchPen Active Navigation Route Header Breadcrumb Variant */}
+        <div className="p-6 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-serif text-base font-semibold text-[var(--ink-primary)]">
+              HatchPen Active Navigation Variant
+            </h3>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+              Interactive Root
+            </span>
+          </div>
+
+          <div className="p-4 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] flex items-center">
+            <Breadcrumb>
+              <BreadcrumbList className="px-1 py-1">
+                <BreadcrumbItem>
+                  <span className="flex items-center gap-2 font-medium text-black dark:text-white">
+                    <LayoutGrid className="size-3.5 text-black dark:text-white" />
+                    <span className="underline underline-offset-4">HatchPen</span>
+                  </span>
+                </BreadcrumbItem>
+                <BreadcrumbItem>
+                  <BreadcrumbSeparator className="text-muted-foreground/70">/</BreadcrumbSeparator>
+                  <BreadcrumbPage className="font-medium text-muted-foreground">
+                    Discover
+                  </BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+          </div>
+          <p className="text-xs font-mono text-[var(--ink-muted)]">
+            Used across route headers with Left ChevronDown dropdown trigger and distinct amber active page.
+          </p>
         </div>
       </section>
 

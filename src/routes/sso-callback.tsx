@@ -21,6 +21,12 @@ export default function SSOCallbackPage() {
   useEffect(() => {
     // Once Clerk completes session establishment, immediately navigate to home
     if (isLoaded && isSignedIn) {
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('hatchpen_has_session', 'true')
+          document.cookie = 'hatchpen_has_session=true; path=/; max-age=31536000; SameSite=Lax'
+        } catch {}
+      }
       navigate({ to: '/' })
     }
   }, [isLoaded, isSignedIn, navigate])

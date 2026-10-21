@@ -150,3 +150,52 @@ export async function optimizeAvatarImage(file: File, maxDimension = 300, qualit
     reader.readAsDataURL(file)
   })
 }
+
+/**
+ * Converts a portrait file into an optimized WebP Data URL for local display and database storage.
+ */
+export async function convertFileToOptimizedDataUrl(file: File, maxDimension = 300, quality = 0.85): Promise<string> {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return ''
+  }
+
+  return new Promise((resolve) => {
+    const img = new Image()
+    const reader = new FileReader()
+
+    reader.onload = (e) => {
+      img.src = e.target?.result as string
+    }
+    reader.onerror = () => resolve('')
+
+    img.onload = () => {
+      try {
+        const size = Math.min(img.width, img.height)
+        const sx = (img.width - size) / 2
+        const sy = (img.height - size) / 2
+
+        const targetDim = Math.min(size, maxDimension)
+        const canvas = document.createElement('canvas')
+        canvas.width = targetDim
+        canvas.height = targetDim
+
+        const ctx = canvas.getContext('2d')
+        if (!ctx) {
+          resolve(img.src)
+          return
+        }
+
+        ctx.imageSmoothingEnabled = true
+        ctx.imageSmoothingQuality = 'high'
+        ctx.drawImage(img, sx, sy, size, size, 0, 0, targetDim, targetDim)
+
+        resolve(canvas.toDataURL('image/webp', quality))
+      } catch {
+        resolve(img.src)
+      }
+    }
+
+    img.onerror = () => resolve('')
+    reader.readAsDataURL(file)
+  })
+}

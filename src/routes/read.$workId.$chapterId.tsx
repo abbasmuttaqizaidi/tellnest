@@ -561,7 +561,7 @@ function ReaderPage() {
   if (!work && isWorksLoading) {
     return (
       <div className="py-24 px-4 max-w-xl mx-auto flex flex-col items-center justify-center">
-        <TellnestLoader message="Retrieving manuscript folio & chapter..." />
+        <TellnestLoader message="Loading chapter..." />
       </div>
     )
   }

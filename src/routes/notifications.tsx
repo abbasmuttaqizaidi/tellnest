@@ -6,6 +6,7 @@ import { FilterDisclosure } from '../design-system'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { Bell, Check, CheckCheck, BookOpen, MessageSquare, Sparkles, Clock } from 'lucide-react'
 import { generateMeta } from '../lib/seo'
+import { RouteHeader } from '../components/RouteHeader'
 
 export const Route = createFileRoute('/notifications')({
   head: () =>
@@ -45,35 +46,26 @@ function NotificationsPage() {
   }, [notifications, filter])
 
   return (
-    <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-      
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-[var(--border-subtle)] gap-4 mb-8">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1">
-            <Bell className="h-3.5 w-3.5" />
-            <span>Activity Ledger</span>
-          </div>
-          <h1 className="font-serif text-3xl font-semibold text-[var(--ink-primary)]">
-            Notifications
-          </h1>
-          <p className="mt-1 text-xs sm:text-sm text-[var(--ink-muted)]">
-            Updates from followed writers, responses to your reflections, and publishing notices.
-          </p>
-        </div>
+    <div className="min-h-screen pb-12">
+      {/* Header with RouteHeader */}
+      <RouteHeader
+        title="Notifications"
+        subtitle="Updates on your manuscripts"
+        rightExtra={
+          unreadNotificationCount > 0 && (
+            <button
+              onClick={markAllNotificationsRead}
+              className="inline-flex items-center gap-1.5 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-1.5 text-xs font-mono text-[var(--ink-secondary)] hover:border-[var(--border-strong)] transition-colors self-start sm:self-auto shadow-xs cursor-pointer"
+            >
+              <CheckCheck className="h-3.5 w-3.5" />
+              <span>Mark all read</span>
+            </button>
+          )
+        }
+      />
 
-        {unreadNotificationCount > 0 && (
-          <button
-            onClick={markAllNotificationsRead}
-            className="inline-flex items-center gap-1.5 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-1.5 text-xs font-mono text-[var(--ink-secondary)] hover:border-[var(--border-strong)] transition-colors self-start sm:self-auto shadow-xs"
-          >
-            <CheckCheck className="h-3.5 w-3.5" />
-            <span>Mark all read</span>
-          </button>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      <div className="px-3 sm:px-6 lg:px-8 max-w-7xl mx-auto pt-3 sm:pt-6 space-y-3 sm:space-y-5">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
         {/* Main Feed Column */}
         <div className="lg:col-span-8 space-y-6">
@@ -194,6 +186,7 @@ function NotificationsPage() {
           </div>
         </aside>
 
+      </div>
       </div>
     </div>
   )

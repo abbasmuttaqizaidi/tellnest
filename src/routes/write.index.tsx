@@ -21,6 +21,7 @@ import {
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { generateMeta } from '../lib/seo'
 import { formatViewCount } from '../lib/utils'
+import { RouteHeader } from '../components/RouteHeader'
 
 export const Route = createFileRoute('/write/')({
   head: () =>
@@ -137,54 +138,38 @@ function WriterDashboardPage() {
   const activeDraftsCount = writerDraftsCount ?? writerWorks.filter((w) => w.status === 'Draft').length
 
   return (
-    <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-      
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-8 border-b border-[var(--border-subtle)] gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1">
-            <PenLine className="h-3.5 w-3.5" />
-            <span>Creator Studio</span>
+    <div className="min-h-screen pb-12">
+      {/* Top Header with RouteHeader */}
+      <RouteHeader
+        title="Writer Dashboard"
+        subtitle="Manage and craft manuscripts"
+        rightExtra={
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              to="/library"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] px-3 py-1.5 text-xs font-medium text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] transition-colors no-underline shadow-2xs"
+            >
+              <Bookmark className="h-3.5 w-3.5 text-[var(--ink-muted)]" />
+              <span>Reading Shelf</span>
+            </Link>
+            <ActivitiesCard
+              size="sm"
+              align="right"
+              displayMode="popover"
+              title="Studio Activity"
+              subtitle="Recent milestones & alerts"
+              activities={studioActivities}
+              className="w-56 sm:w-64"
+              onAction={() => navigate({ to: '/notifications' })}
+            />
           </div>
-          <h1 className="font-serif text-3xl sm:text-4xl font-semibold text-[var(--ink-primary)]">
-            Writer Dashboard
-          </h1>
-          <p className="mt-1 text-xs sm:text-sm text-[var(--ink-muted)]">
-            Manage your serialized manuscripts, review readership analytics, and craft new chapters.
-          </p>
-        </div>
+        }
+      />
 
-        {/* Header Action Cluster */}
-        <div className="flex flex-wrap items-center gap-3 self-start sm:self-auto">
-          <Link
-            to="/library"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] px-3.5 py-2 text-xs font-medium text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] transition-colors no-underline shadow-2xs"
-          >
-            <Bookmark className="h-3.5 w-3.5 text-[var(--ink-muted)]" />
-            <span>Reading Shelf</span>
-          </Link>
-          <ActivitiesCard
-            size="sm"
-            align="right"
-            displayMode="popover"
-            title="Studio Activity"
-            subtitle="Recent milestones & alerts"
-            activities={studioActivities}
-            className="w-56 sm:w-64"
-            onAction={() => navigate({ to: '/notifications' })}
-          />
-          <Link
-            to="/write/new"
-            className="inline-flex items-center gap-2 rounded-lg border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-4 py-2 sm:px-5 sm:py-2.5 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 transition-opacity no-underline shadow-xs shrink-0"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Create New Work</span>
-          </Link>
-        </div>
-      </div>
+      <div className="px-3 sm:px-6 lg:px-8 max-w-7xl mx-auto pt-3 sm:pt-6 space-y-3 sm:space-y-5">
 
       {/* Writer Studio Quick Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 my-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 pt-1">
         <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4">
           <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--ink-muted)]">
             Published Works
@@ -371,6 +356,7 @@ function WriterDashboardPage() {
         </div>
       )}
 
+      </div>
     </div>
   )
 }

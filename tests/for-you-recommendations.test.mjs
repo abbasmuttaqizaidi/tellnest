@@ -89,6 +89,7 @@ test('Taste Shift: Prioritizes verified active reading genre over static onboard
     readingHistory,
     userPreferences,
     bookmarkedWorkIds: ['past-thriller-1', 'past-thriller-2'], // Past works already bookmarked
+    excludeBookmarked: true,
   })
 
   assert.ok(results.length >= 2, 'Should return candidate recommendations')
@@ -198,18 +199,29 @@ test('Exclusion Rule: Reader own works are strictly excluded', () => {
   assert.ok(resultIds.includes('other-work-1'), 'Other author work should be included')
 })
 
-test('Exclusion Rule: Bookmarked/Saved works are strictly excluded', () => {
+test('Retention Rule: Bookmarked/Saved works remain in recommendations by default (not removed on save)', () => {
   const savedWork = createMockWork({ id: 'work-already-saved' })
   const unsavedWork = createMockWork({ id: 'work-not-saved' })
 
+  // Default behavior: bookmarked works remain visible in recommendations so saving doesn't remove them
   const results = calculateForYouRecommendations({
     candidateWorks: [savedWork, unsavedWork],
     bookmarkedWorkIds: ['work-already-saved'],
   })
 
   const resultIds = results.map((r) => r.work.id)
-  assert.ok(!resultIds.includes('work-already-saved'), 'Bookmarked works must not appear in recommendations')
-  assert.ok(resultIds.includes('work-not-saved'), 'Unsaved work should appear')
+  assert.ok(resultIds.includes('work-already-saved'), 'Bookmarked works must remain in recommendations')
+  assert.ok(resultIds.includes('work-not-saved'), 'Unsaved work should also appear')
+
+  // When excludeBookmarked: true is explicitly requested, it is excluded
+  const excludedResults = calculateForYouRecommendations({
+    candidateWorks: [savedWork, unsavedWork],
+    bookmarkedWorkIds: ['work-already-saved'],
+    excludeBookmarked: true,
+  })
+  const excludedResultIds = excludedResults.map((r) => r.work.id)
+  assert.ok(!excludedResultIds.includes('work-already-saved'), 'Must exclude when excludeBookmarked is true')
+  assert.ok(excludedResultIds.includes('work-not-saved'), 'Unsaved work should appear')
 })
 
 test('Eligibility Rule: Drafts, unlisted, cancelled works, and works with 0 chapters are excluded', () => {
@@ -315,7 +327,7 @@ test('Multi-Genre Matching: Database stories with multiple genres match reader p
   assert.match(results[0].explanationLabel, /Cyberpunk|General Fiction/i)
 })
 
-test('Merged Bookmark Exclusions: Story bookmarked on either client or server is excluded', () => {
+test('Merged Bookmark Retention: Story bookmarked on either client or server is retained in recommendations unless excludeBookmarked is true', () => {
   const clientBookmarkedWork = createMockWork({ id: 'client-saved-work' })
   const serverBookmarkedWork = createMockWork({ id: 'server-saved-work' })
   const unbookmarkedWork = createMockWork({ id: 'unbookmarked-work' })
@@ -331,8 +343,8 @@ test('Merged Bookmark Exclusions: Story bookmarked on either client or server is
   })
 
   const resultIds = results.map((r) => r.work.id)
-  assert.ok(!resultIds.includes('client-saved-work'), 'Client-bookmarked story must be excluded')
-  assert.ok(!resultIds.includes('server-saved-work'), 'Server-bookmarked story must be excluded')
+  assert.ok(resultIds.includes('client-saved-work'), 'Client-bookmarked story must be retained in recommendations')
+  assert.ok(resultIds.includes('server-saved-work'), 'Server-bookmarked story must be retained in recommendations')
   assert.ok(resultIds.includes('unbookmarked-work'), 'Unbookmarked story should be included')
 })
 

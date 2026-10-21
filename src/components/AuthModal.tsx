@@ -23,6 +23,12 @@ export function AuthModal() {
   // Automatically close modal when user successfully signs in
   useEffect(() => {
     if (isSignedIn && isAuthModalOpen) {
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('hatchpen_has_session', 'true')
+          document.cookie = 'hatchpen_has_session=true; path=/; max-age=31536000; SameSite=Lax'
+        } catch {}
+      }
       closeAuthModal()
     }
   }, [isSignedIn, isAuthModalOpen, closeAuthModal])

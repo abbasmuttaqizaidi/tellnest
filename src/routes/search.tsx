@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { generateMeta } from '../lib/seo'
+import { RouteHeader } from '../components/RouteHeader'
 
 export const Route = createFileRoute('/search')({
   head: () =>
@@ -350,94 +351,101 @@ function SearchPage() {
 
   // --- MAIN RENDER WRAPPER WITH ANIMATEPRESENCE FOR SEAMLESS PINCH & REVEAL ---
   return (
-    <AnimatePresence mode="wait">
-      {/* 1. RECOMMENDATIONS RESULT SHELF (Slide up with stagger) */}
-      {isQuestionnaireSubmitted && !submittedQuery ? (
-        <motion.div
-          key="questionnaire-results"
-          variants={resultsSlideUpVariants}
-          initial="hidden"
-          animate="visible"
-          exit={{ opacity: 0, y: 20 }}
-          className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto"
-        >
-          {/* Minimal Editorial Card Header */}
-          <motion.div 
-            variants={cardItemVariants}
-            className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-6 sm:p-8 mb-8 shadow-xs"
+    <div className="min-h-screen pb-12">
+      <RouteHeader
+        title="Search"
+        subtitle="Find stories and authors"
+      />
+
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-2 sm:pt-4 space-y-3 sm:space-y-5">
+        <AnimatePresence mode="wait">
+        {/* 1. RECOMMENDATIONS RESULT SHELF (Slide up with stagger) */}
+        {isQuestionnaireSubmitted && !submittedQuery ? (
+          <motion.div
+            key="questionnaire-results"
+            variants={resultsSlideUpVariants}
+            initial="hidden"
+            animate="visible"
+            exit={{ opacity: 0, y: 20 }}
+            className="w-full space-y-3 sm:space-y-5"
           >
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <span className="text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)]">
-                  Reading Recommendations
-                </span>
-                <h1 className="text-xl sm:text-2xl font-semibold text-[var(--ink-primary)] mt-1">
-                  {QUESTIONS_CONFIG[0].options?.find(o => o.id === selectedMood)?.title || 'Curated Mood'}
-                </h1>
-                <p className="text-sm text-[var(--ink-secondary)] mt-1">
-                  Format: <span className="font-medium text-[var(--ink-primary)]">
-                    {selectedFormat === 'all' ? 'All Formats' : categories.find(c => c.slug === selectedFormat)?.name || selectedFormat}
-                  </span> • Genre: <span className="font-medium text-[var(--ink-primary)]">
-                    {selectedReadingGenre === 'all' ? 'All Genres' : genres.find(g => g.slug === selectedReadingGenre)?.name || selectedReadingGenre}
+            {/* Minimal Editorial Card Header */}
+            <motion.div 
+              variants={cardItemVariants}
+              className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-6 sm:p-8 mb-8 shadow-xs"
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <span className="text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)]">
+                    Reading Recommendations
                   </span>
-                </p>
-              </div>
+                  <h1 className="text-xl sm:text-2xl font-semibold text-[var(--ink-primary)] mt-1">
+                    {QUESTIONS_CONFIG[0].options?.find(o => o.id === selectedMood)?.title || 'Curated Mood'}
+                  </h1>
+                  <p className="text-sm text-[var(--ink-secondary)] mt-1">
+                    Format: <span className="font-medium text-[var(--ink-primary)]">
+                      {selectedFormat === 'all' ? 'All Formats' : categories.find(c => c.slug === selectedFormat)?.name || selectedFormat}
+                    </span> • Genre: <span className="font-medium text-[var(--ink-primary)]">
+                      {selectedReadingGenre === 'all' ? 'All Genres' : genres.find(g => g.slug === selectedReadingGenre)?.name || selectedReadingGenre}
+                    </span>
+                  </p>
+                </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsQuestionnaireSubmitted(false)
-                    setIsQuestionnaireOpen(true)
-                    setCurrentStepIndex(0)
-                  }}
-                  className="px-3.5 py-2 rounded-lg border border-[var(--border-subtle)] text-xs font-mono text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
-                >
-                  Change Answers
-                </button>
-                <button
-                  type="button"
-                  onClick={handleClear}
-                  className="px-3.5 py-2 rounded-lg bg-[var(--ink-primary)] text-[var(--bg-canvas)] text-xs font-mono hover:opacity-90 transition-opacity"
-                >
-                  Back to Search
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsQuestionnaireSubmitted(false)
+                      setIsQuestionnaireOpen(true)
+                      setCurrentStepIndex(0)
+                    }}
+                    className="px-3.5 py-2 rounded-lg border border-[var(--border-subtle)] text-xs font-mono text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
+                  >
+                    Change Answers
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleClear}
+                    className="px-3.5 py-2 rounded-lg bg-[var(--ink-primary)] text-[var(--bg-canvas)] text-xs font-mono hover:opacity-90 transition-opacity"
+                  >
+                    Back to Search
+                  </button>
+                </div>
               </div>
-            </div>
+            </motion.div>
+
+            {recommendedWorks.length === 0 ? (
+              <EmptyState
+                type="no-search"
+                customTitle="No exact matches found"
+                customDescription="Try choosing broader options to see more recommendations."
+                actionLabel="Try Again"
+                onAction={() => {
+                  setIsQuestionnaireSubmitted(false)
+                  setIsQuestionnaireOpen(true)
+                  setCurrentStepIndex(0)
+                }}
+              />
+            ) : (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-medium text-[var(--ink-primary)]">
+                    Suggested Manuscripts ({recommendedWorks.length})
+                  </h2>
+                  <span className="text-xs font-mono text-[var(--ink-muted)]">
+                    Filtered to your mindset
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
+                  {recommendedWorks.map(work => (
+                    <motion.div key={work.id} variants={cardItemVariants}>
+                      <WorkCard work={work} layout="portrait" />
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            )}
           </motion.div>
-
-          {recommendedWorks.length === 0 ? (
-            <EmptyState
-              type="no-search"
-              customTitle="No exact matches found"
-              customDescription="Try choosing broader options to see more recommendations."
-              actionLabel="Try Again"
-              onAction={() => {
-                setIsQuestionnaireSubmitted(false)
-                setIsQuestionnaireOpen(true)
-                setCurrentStepIndex(0)
-              }}
-            />
-          ) : (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-base font-medium text-[var(--ink-primary)]">
-                  Suggested Manuscripts ({recommendedWorks.length})
-                </h2>
-                <span className="text-xs font-mono text-[var(--ink-muted)]">
-                  Filtered to your mindset
-                </span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {recommendedWorks.map(work => (
-                  <motion.div key={work.id} variants={cardItemVariants}>
-                    <WorkCard work={work} layout="portrait" />
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-          )}
-        </motion.div>
       ) : isQuestionnaireOpen ? (
         /* 2. QUESTIONNAIRE MODAL (With Pinch-into-the-screen Exit) */
         <div 
@@ -645,7 +653,7 @@ function SearchPage() {
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.98 }}
           transition={{ duration: 0.25 }}
-          className="min-h-[calc(100vh-10rem)] flex flex-col justify-center items-center py-10 px-4 sm:px-6 lg:px-8 max-w-2xl mx-auto w-full"
+          className="min-h-[calc(100vh-14rem)] flex flex-col justify-center items-center py-6 sm:py-10 px-4 sm:px-6 lg:px-8 max-w-2xl mx-auto w-full"
         >
           <div className="w-full text-center flex flex-col items-center">
             
@@ -738,9 +746,9 @@ function SearchPage() {
 
             {/* Editorial Header */}
             <div className="mb-6">
-              <h1 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-[var(--ink-primary)]">
+              <h2 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-[var(--ink-primary)]">
                 Discover Stories & Manuscripts
-              </h1>
+              </h2>
               <p className="text-xs sm:text-sm text-[var(--ink-muted)] mt-1.5 font-serif italic">
                 Search through independent literature, serialized novels, essays & authors
               </p>
@@ -825,10 +833,10 @@ function SearchPage() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="min-h-screen py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto"
+          className="w-full space-y-3 sm:space-y-5"
         >
           {/* Top Search Refinement Bar */}
-          <div className="max-w-2xl mx-auto mb-8">
+          <div className="max-w-2xl mx-auto pt-2 pb-4">
             <OmniSearch
               expandMode="responsive"
               size="md"
@@ -920,7 +928,7 @@ function SearchPage() {
                     <h3 className="font-serif text-lg font-semibold text-[var(--ink-primary)] mb-4">
                       Manuscripts & Serials
                     </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
                       {matchingWorks.map((work) => (
                         <WorkCard key={work.id} work={work} layout="portrait" />
                       ))}
@@ -967,6 +975,8 @@ function SearchPage() {
         </motion.div>
       )}
     </AnimatePresence>
+      </div>
+    </div>
   )
 }
 

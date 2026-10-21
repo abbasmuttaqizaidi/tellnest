@@ -1,7 +1,6 @@
 import { HeadContent, Scripts, createRootRoute, Link, useRouterState } from '@tanstack/react-router'
 import { ClerkProvider } from '@clerk/tanstack-react-start'
 import Header from '../components/Header'
-import MobileNav from '../components/MobileNav'
 import Footer from '../components/Footer'
 import Toast from '../components/Toast'
 import { ClerkSync } from '../components/ClerkSync'
@@ -256,11 +255,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <PublicWriteModal />
       <UserOnboardingModal />
       <Header serverAuthenticated={Boolean(rootData?.isAuthenticated)} />
-      <main className={`flex-1 w-full max-w-full overflow-x-hidden ${rootData?.isAuthenticated ? 'pb-14 md:pb-0' : isHomePage ? 'pb-0' : 'pb-14 md:pb-0'} bg-[var(--bg-canvas)]`}>
+      <main className="flex-1 w-full max-w-full bg-[var(--bg-canvas)]">
         {children}
       </main>
       <Footer />
-      <MobileNav />
       <Toast />
     </AppProvider>
   )
@@ -313,7 +311,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <head>
         <HeadContent />
       </head>
-      <body className="min-h-screen flex flex-col font-sans antialiased text-[var(--ink-secondary)] bg-[var(--bg-canvas)] overflow-x-hidden w-full max-w-full">
+      <body className="min-h-screen flex flex-col font-sans antialiased text-[var(--ink-secondary)] bg-[var(--bg-canvas)] overflow-x-clip w-full max-w-full">
         {bodyContent}
         <Scripts />
       </body>

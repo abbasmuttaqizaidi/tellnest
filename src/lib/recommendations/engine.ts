@@ -62,6 +62,7 @@ export function isWorkEligibleForRecommendations(
     currentUserId?: string | null
     currentUserProfileId?: string | null
     bookmarkedWorkIds?: string[]
+    excludeBookmarked?: boolean
   }
 ): boolean {
   if (!work) return false
@@ -86,8 +87,10 @@ export function isWorkEligibleForRecommendations(
     if (options.currentUserProfileId && authorId === options.currentUserProfileId) return false
   }
 
-  // 4. Bookmark exclusion: Already saved manuscripts must never be recommended in "For You"
-  if (options.bookmarkedWorkIds && options.bookmarkedWorkIds.includes(work.id)) {
+  // 4. Bookmark exclusion: Bookmarked/saved manuscripts are NOT excluded from recommendations
+  // (unless explicitly requested with options.excludeBookmarked === true).
+  // This guarantees that saving/bookmarking a story from Recommended does not cause it to disappear.
+  if (options.excludeBookmarked && options.bookmarkedWorkIds && options.bookmarkedWorkIds.includes(work.id)) {
     return false
   }
 
@@ -173,12 +176,19 @@ export function calculateForYouRecommendations(params: {
   readingHistory?: ReadingSessionRecord[]
   userPreferences?: UserPreferencesPayload | null
   bookmarkedWorkIds?: string[]
+  excludeBookmarked?: boolean
   currentUserId?: string | null
   currentUserProfileId?: string | null
   config?: ForYouConfig
 }): RecommendedWorkItem[] {
   const config = params.config || FOR_YOU_CONFIG
-  const { candidateWorks, readingHistory = [], userPreferences, bookmarkedWorkIds = [] } = params
+  const {
+    candidateWorks,
+    readingHistory = [],
+    userPreferences,
+    bookmarkedWorkIds = [],
+    excludeBookmarked = false,
+  } = params
 
   // 1. Filter candidates strictly by eligibility
   const eligibleCandidates = candidateWorks.filter((w) =>
@@ -186,6 +196,7 @@ export function calculateForYouRecommendations(params: {
       currentUserId: params.currentUserId,
       currentUserProfileId: params.currentUserProfileId,
       bookmarkedWorkIds,
+      excludeBookmarked,
     })
   )
 

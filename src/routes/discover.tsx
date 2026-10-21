@@ -9,6 +9,7 @@ import EmptyState from '../components/EmptyState'
 import { AnimatedTabs, Button, FilterDisclosure, Drawer, Modal } from '../design-system'
 import { generateMeta } from '../lib/seo'
 import { filterAndSortWorks } from '../lib/discover/filters'
+import { RouteHeader } from '../components/RouteHeader'
 
 export const Route = createFileRoute('/discover')({
   head: () =>
@@ -193,42 +194,16 @@ function DiscoverPage() {
   }, [selectedCategory, selectedGenre, selectedStatus])
 
   return (
-    <div className="min-h-screen py-3 sm:py-7 px-3 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-3 sm:space-y-5">
+    <div className="min-h-screen pb-12">
       
-      {/* ── MOBILE HEADER (Compact: Title + Count + Search in one row) ── */}
-      <div className="flex md:hidden items-center justify-between gap-2.5 pb-2 border-b border-[var(--border-subtle)]">
-        <div>
-          <h1 className="font-serif text-lg font-bold text-[var(--ink-primary)] leading-tight">
-            Discover
-          </h1>
-          <span className="font-mono text-[10px] text-[var(--ink-muted)]">
-            {filteredWorks.length} manuscripts
-          </span>
-        </div>
+      {/* ── UNIFIED ROUTE HEADER (2 Parts: Left Title+Subtitle, Right Center-Aligned + New Button) ── */}
+      <RouteHeader
+        title="Discover"
+        subtitle="Explore curated stories and manuscripts"
+      />
 
-        <div className="relative flex-1 max-w-[210px]">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--ink-muted)] pointer-events-none" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search manuscripts..."
-            className="w-full pl-7.5 pr-6 py-1 text-xs rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--ink-primary)] placeholder:text-[var(--ink-muted)] focus:outline-none focus:border-[var(--ink-primary)] transition-colors"
-          />
-          {searchTerm && (
-            <button
-              type="button"
-              onClick={() => setSearchTerm('')}
-              aria-label="Clear search"
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--ink-muted)] hover:text-[var(--ink-primary)] cursor-pointer"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* ── MOBILE FILTER BAR: Flipkart Filter Trigger Button + Quick Collection Pills ── */}
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-2 sm:pt-4 space-y-3 sm:space-y-5">
+        {/* ── MOBILE FILTER BAR: Flipkart Filter Trigger Button + Quick Collection Pills ── */}
       <div className="flex md:hidden items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
         {/* Flipkart Filter Trigger Button with Count Badge */}
         <button
@@ -315,39 +290,6 @@ function DiscoverPage() {
         </div>
       )}
 
-      {/* ── DESKTOP HEADER WITH SEARCH (Preserved for md+ screens) ── */}
-      <div className="hidden md:flex pb-4 border-b border-[var(--border-subtle)] flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="font-serif text-2xl sm:text-3xl font-semibold text-[var(--ink-primary)]">
-            Discover Manuscripts
-          </h1>
-          <p className="mt-0.5 text-xs text-[var(--ink-muted)]">
-            Explore original fiction, serials, essays, poetry, and memoirs curated by readers and editors.
-          </p>
-        </div>
-
-        {/* Search Input connected to searchTerm */}
-        <div className="relative w-full sm:w-72 shrink-0">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--ink-muted)] pointer-events-none" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search titles, authors, synopsis, tags..."
-            className="w-full pl-8.5 pr-7 py-1.5 text-xs rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--ink-primary)] placeholder:text-[var(--ink-muted)] focus:outline-none focus:border-[var(--ink-primary)] transition-colors"
-          />
-          {searchTerm && (
-            <button
-              type="button"
-              onClick={() => setSearchTerm('')}
-              aria-label="Clear search"
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--ink-muted)] hover:text-[var(--ink-primary)] cursor-pointer"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          )}
-        </div>
-      </div>
 
       {/* ── DESKTOP NAVIGATION & FILTER BAR (Preserved for md+ screens) ── */}
       <div className="hidden md:block py-2.5 border-b border-[var(--border-subtle)] space-y-2">
@@ -362,8 +304,29 @@ function DiscoverPage() {
             />
           </div>
 
-          {/* Flipkart Filter Trigger Button on Desktop */}
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Search + Flipkart Filter Trigger Button on Desktop */}
+          <div className="flex items-center gap-2.5 shrink-0">
+            <div className="relative w-52 lg:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--ink-muted)] pointer-events-none" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search manuscripts..."
+                className="w-full pl-8.5 pr-7 py-1 text-xs rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--ink-primary)] placeholder:text-[var(--ink-muted)] focus:outline-none focus:border-[var(--ink-primary)] transition-colors"
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm('')}
+                  aria-label="Clear search"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--ink-muted)] hover:text-[var(--ink-primary)] cursor-pointer"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+
             <button
               type="button"
               onClick={openFilterModal}
@@ -743,7 +706,7 @@ function DiscoverPage() {
       ) : (
         <div
           data-testid="discover-works-grid"
-          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5"
+          className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5"
         >
           {filteredWorks.map((work) => (
             <WorkCard key={work.id} work={work} layout="portrait" />
@@ -751,6 +714,7 @@ function DiscoverPage() {
         </div>
       )}
 
+      </div>
     </div>
   )
 }

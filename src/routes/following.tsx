@@ -7,6 +7,7 @@ import { FilterDisclosure, AnimatedSearch } from '../design-system'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { Users, BookOpen, Clock, Sparkles, ArrowRight, UserCheck } from 'lucide-react'
 import { generateMeta } from '../lib/seo'
+import { RouteHeader } from '../components/RouteHeader'
 
 export const Route = createFileRoute('/following')({
   head: () =>
@@ -61,23 +62,15 @@ function FollowingPage() {
   }, [isAuthorFollowed, followedAuthorIds, selectedType, selectedAuthor, searchQuery])
 
   return (
-    <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-      
+    <div className="min-h-screen pb-12">
       {/* Header */}
-      <div className="pb-8 border-b border-[var(--border-subtle)] mb-8">
-        <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1">
-          <Users className="h-3.5 w-3.5" />
-          <span>Dispatches from Writers</span>
-        </div>
-        <h1 className="font-serif text-3xl sm:text-4xl font-semibold text-[var(--ink-primary)]">
-          Following Dispatches
-        </h1>
-        <p className="mt-1 text-xs sm:text-sm text-[var(--ink-muted)]">
-          A calm, chronological record of new chapters and published manuscripts from writers you follow.
-        </p>
-      </div>
+      <RouteHeader
+        title="Following Dispatches"
+        subtitle="Updates from followed writers"
+      />
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+      <div className="px-3 sm:px-6 lg:px-8 max-w-7xl mx-auto pt-3 sm:pt-6 space-y-3 sm:space-y-5">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
         
         {/* Main Feed Column */}
         <div className="lg:col-span-8 space-y-6">
@@ -264,6 +257,7 @@ function FollowingPage() {
           </div>
         </div>
 
+      </div>
       </div>
     </div>
   )

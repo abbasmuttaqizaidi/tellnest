@@ -238,7 +238,7 @@ function WorkDetailPage() {
   if (!work && isWorksLoading) {
     return (
       <div className="py-24 px-4 max-w-2xl mx-auto flex flex-col items-center justify-center">
-        <TellnestLoader message="Retrieving manuscript folio..." />
+        <TellnestLoader message="Loading story..." />
       </div>
     )
   }

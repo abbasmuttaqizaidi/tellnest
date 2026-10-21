@@ -54,6 +54,7 @@ export const NAVIGATION_CATEGORIES: NavCategory[] = [
     title: 'Navigation & Disclosure',
     icon: Compass,
     items: [
+      { id: 'sec-breadcrumbs', title: 'Breadcrumbs (Watermelon)', badge: 'Breadcrumb 2' },
       { id: 'sec-tabs', title: 'Animated Tabs', badge: 'Continuous' },
       { id: 'sec-accordion', title: 'Card Accordion', badge: 'Split' },
       { id: 'sec-filter', title: 'Filter Disclosure', badge: 'Fluid' }
