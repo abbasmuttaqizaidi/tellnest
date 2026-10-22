@@ -578,6 +578,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
                     <Link
                       to="/works/$workId"
                       params={{ workId: wSlug }}
+                      preload="intent"
                       className="block w-full h-full no-underline"
                     >
                       <OptimizedImage
@@ -612,6 +613,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
                       <Link
                         to="/works/$workId"
                         params={{ workId: wSlug }}
+                        preload="intent"
                         className="block no-underline text-inherit group-hover:underline"
                       >
                         <h4 className="font-serif text-xs sm:text-[13px] font-bold text-[var(--ink-primary)] leading-tight line-clamp-1">
@@ -676,7 +678,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
       {/* =========================================================================
           SECTION: NEW VOICES (AUTHENTICATED FIVE-MONTH DISCOVERY SHOWCASE)
           ========================================================================= */}
-      <section id="new-voices" className="w-full space-y-5">
+      <section id="new-voices" className="w-full space-y-5" style={{ contentVisibility: 'auto', containIntrinsicSize: '650px' }}>
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-3 border-b border-[var(--border-subtle)]">
           <div className="space-y-1">
             <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] tracking-tight">
@@ -689,6 +691,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
 
           <Link
             to="/write"
+            preload="intent"
             className="font-mono text-xs font-semibold text-[var(--ink-primary)] hover:underline flex items-center gap-1 no-underline"
           >
             <span>Start Your Story</span>
@@ -712,6 +715,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
                     <Link
                       to="/works/$workId"
                       params={{ workId: wSlug }}
+                      preload="intent"
                       className="block w-full h-full no-underline"
                     >
                       <OptimizedImage
@@ -746,6 +750,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
                       <Link
                         to="/works/$workId"
                         params={{ workId: wSlug }}
+                        preload="intent"
                         className="block no-underline text-inherit group-hover:underline"
                       >
                         <h4 className="font-serif text-sm font-bold text-[var(--ink-primary)] leading-snug line-clamp-1">
@@ -812,7 +817,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
       {/* =========================================================================
           SECTION 3: TRENDING & COMMUNITY RANKINGS (LEADERBOARDS BENTO GRID)
           ========================================================================= */}
-      <section id="trending-serials" className="w-full space-y-5">
+      <section id="trending-serials" className="w-full space-y-5" style={{ contentVisibility: 'auto', containIntrinsicSize: '650px' }}>
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-3 border-b border-[var(--border-subtle)]">
           <div>
             <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] tracking-tight">
@@ -954,7 +959,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
       {/* =========================================================================
           SECTION 4: READING SHELF
           ========================================================================= */}
-      <section id="saved-shelf" className="w-full space-y-5">
+      <section id="saved-shelf" className="w-full space-y-5" style={{ contentVisibility: 'auto', containIntrinsicSize: '450px' }}>
         <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
           <div>
             <h3 className="font-serif text-xl sm:text-2xl font-bold text-[var(--ink-primary)]">
@@ -964,6 +969,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
 
           <Link
             to="/library"
+            preload="intent"
             className="font-mono text-xs font-semibold text-[var(--ink-primary)] hover:underline flex items-center gap-1 no-underline"
           >
             <span>Open Full Atelier Library</span>
@@ -981,6 +987,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
                   key={work.id}
                   to="/works/$workId"
                   params={{ workId: wSlug }}
+                  preload="intent"
                   className="group block cursor-pointer no-underline text-inherit"
                 >
                   <div className="relative aspect-[2/3] rounded-xl overflow-hidden shadow-xs group-hover:shadow-md transition-all duration-300 mb-2 border border-[var(--border-subtle)] bg-[var(--bg-subtle)]">
@@ -1069,7 +1076,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
       {/* =========================================================================
           SECTION 5: WRITER'S ATELIER / PUBLISH YOUR NOVEL SPOTLIGHT (ADAPTIVE BANNER)
           ========================================================================= */}
-      <section id="author-atelier" className="w-full pb-8">
+      <section id="author-atelier" className="w-full pb-8" style={{ contentVisibility: 'auto', containIntrinsicSize: '350px' }}>
         <div className="bg-[var(--ink-primary)] text-[var(--bg-canvas)] rounded-2xl p-6 sm:p-8 lg:p-10 shadow-lg relative overflow-hidden">
           {/* Ambient Decorative Watermark */}
           <div className="absolute right-0 bottom-0 opacity-5 pointer-events-none transform translate-x-10 translate-y-10">

@@ -576,7 +576,7 @@ export default function PublicHome() {
       {/* =========================================================================
           3. THREE PRINCIPLES SECTION
           ========================================================================= */}
-      <section className="py-16 sm:py-20 lg:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="py-16 sm:py-20 lg:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" style={{ contentVisibility: 'auto', containIntrinsicSize: '600px' }}>
         <div className="text-center max-w-2xl mx-auto mb-12 sm:mb-16">
           <span className="text-[11px] sm:text-[12px] font-bold tracking-[0.2em] uppercase text-[#B94F37] mb-3 block">
             HOW WE DO THINGS DIFFERENTLY
@@ -669,7 +669,7 @@ export default function PublicHome() {
       {/* =========================================================================
           5. COMMUNITY VOICE & FINAL CTA
           ========================================================================= */}
-      <section className="py-16 sm:py-24 border-t border-[#D7CFC3]/50 dark:border-neutral-800">
+      <section className="py-16 sm:py-24 border-t border-[#D7CFC3]/50 dark:border-neutral-800" style={{ contentVisibility: 'auto', containIntrinsicSize: '400px' }}>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F8ECE8] text-[#B94F37] text-xs font-bold uppercase tracking-wider mb-6">
             <Shield className="w-3.5 h-3.5" />

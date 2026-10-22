@@ -68,6 +68,8 @@ export interface OmniSearchProps {
   iconButtonClassName?: string
   /** Custom class for the expanded container */
   expandedClassName?: string
+  /** Custom slot rendered on the left of the input (e.g. mode dropdown) */
+  leftSlot?: React.ReactNode
 }
 
 export const OmniSearch: FC<OmniSearchProps> = ({
@@ -89,6 +91,7 @@ export const OmniSearch: FC<OmniSearchProps> = ({
   activeScope: controlledScope,
   defaultScope,
   onScopeChange,
+  leftSlot,
   placeholders = [
     "Search 'The Silent Meridian'...",
     "Search 'Baltic Fog telemetry'...",
@@ -370,8 +373,13 @@ export const OmniSearch: FC<OmniSearchProps> = ({
               className="flex items-center w-full min-w-0 h-full gap-2"
             >
             
-            {/* OPTIONAL SCOPE DROPDOWN (Split-Pill compound partition) */}
-            {hasScopes && scopes && scopes.length > 0 ? (
+            {/* OPTIONAL LEFT ATTACHED SLOT (e.g. Mode Dropdown with Submenu) */}
+            {leftSlot ? (
+              <div className="relative flex items-center flex-shrink-0 z-50">
+                {leftSlot}
+                <div className="h-4 w-px bg-[var(--border-subtle)] mx-1" />
+              </div>
+            ) : hasScopes && scopes && scopes.length > 0 ? (
               <div ref={scopeRef} className={cn('relative flex items-center flex-shrink-0', scopeDropdownOpen && 'z-50')}>
                 <button
                   type="button"

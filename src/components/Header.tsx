@@ -161,7 +161,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
         
         {/* Left: Brand Identity */}
         <div className="flex items-center gap-4 lg:gap-8 flex-shrink-0">
-          <Link to="/" className="group flex items-center text-inherit no-underline flex-shrink-0">
+          <Link to="/" preload="intent" className="group flex items-center text-inherit no-underline flex-shrink-0">
             <HatchpenLogo
               size="sm"
               variant="full"
@@ -175,6 +175,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
               {isSignedIn && (
                 <Link
                   to="/"
+                  preload="intent"
                   className={`px-3 py-1.5 rounded transition-colors hover:text-[var(--ink-primary)] ${
                     isHomePage ? 'text-[var(--ink-primary)] font-semibold' : ''
                   }`}
@@ -184,6 +185,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
               )}
               <Link
                 to="/discover"
+                preload="intent"
                 className={`px-3 py-1.5 rounded transition-colors hover:text-[var(--ink-primary)] ${
                   currentPath.startsWith('/discover') ? 'text-[var(--ink-primary)] font-semibold' : ''
                 }`}
@@ -191,24 +193,20 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
                 Discover
               </Link>
               <Link
-                to={isSignedIn ? "/write" : "#"}
-                onClick={(e) => {
-                  if (!isSignedIn) {
-                    e.preventDefault()
-                    openPublicWriteModal()
-                  }
-                }}
+                to="/search"
+                preload="intent"
                 className={`px-3 py-1.5 rounded transition-colors hover:text-[var(--ink-primary)] ${
-                  currentPath.startsWith('/write') ? 'text-[var(--ink-primary)] font-semibold' : ''
+                  currentPath.startsWith('/search') ? 'text-[var(--ink-primary)] font-semibold' : ''
                 }`}
               >
-                Write
+                Search
               </Link>
 
               {isSignedIn && (
                 <>
                   <Link
                     to="/library"
+                    preload="intent"
                     className={`px-3 py-1.5 rounded transition-colors hover:text-[var(--ink-primary)] inline-flex items-center gap-1.5 ${
                       currentPath.startsWith('/library') ? 'text-[var(--ink-primary)] font-semibold' : ''
                     }`}
@@ -223,6 +221,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
                   </Link>
                   <Link
                     to="/following"
+                    preload="intent"
                     className={`px-3 py-1.5 rounded transition-colors hover:text-[var(--ink-primary)] ${
                       currentPath.startsWith('/following') ? 'text-[var(--ink-primary)] font-semibold' : ''
                     }`}
@@ -253,14 +252,15 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
                 onSubmit={(q) => {
                   const trimmed = q.trim()
                   if (!trimmed) return
-                  if (trimmed.length < 5) {
-                    showToast('Please enter at least 5 letters to search.')
+                  if (trimmed.length < 2) {
+                    showToast('Please enter at least 2 letters to search.')
                     return
                   }
                   navigate({
                     to: '/search',
                     search: {
                       q: trimmed,
+                      type: 'stories',
                     } as any,
                   })
                   setIsNavSearchOpen(false)
@@ -268,10 +268,10 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
                 shortcut={false}
                 showShortcut={false}
                 placeholders={[
-                  "Search manuscripts...",
+                  "Search stories & manuscripts...",
                   "Search 'A Winter in Kyoto'...",
-                  "Search 'Elena Vance'...",
-                  "Search by theme or tag...",
+                  "Search 'The Cold Perimeter'...",
+                  "Search by title or premise...",
                 ]}
               />
             </div>
@@ -281,6 +281,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
           {isSignedIn && (
             <Link
               to="/write"
+              preload="intent"
               className={`${isNavSearchOpen ? 'hidden xl:inline-flex' : 'hidden sm:inline-flex'} items-center gap-1.5 rounded border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-3 py-1.5 text-xs font-medium text-[var(--accent-contrast)] hover:opacity-90 transition-opacity flex-shrink-0`}
             >
               <PenLine className="h-3.5 w-3.5" />
@@ -292,6 +293,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
           {isSignedIn && (
             <Link
               to="/notifications"
+              preload="intent"
               className={`${isNavSearchOpen ? 'hidden md:flex' : 'hidden sm:flex'} relative h-8 w-8 items-center justify-center rounded border border-transparent text-[var(--ink-muted)] hover:border-[var(--border-subtle)] hover:text-[var(--ink-primary)] transition-colors flex-shrink-0`}
               title="Notifications"
             >
@@ -362,6 +364,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
                     </p>
                     <Link
                       to="/write"
+                      preload="intent"
                       onClick={() => setUserMenuOpen(false)}
                       className="flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
                     >
@@ -370,6 +373,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
                     </Link>
                     <Link
                       to="/write/new"
+                      preload="intent"
                       onClick={() => setUserMenuOpen(false)}
                       className="flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
                     >
@@ -387,6 +391,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
                     </p>
                     <Link
                       to="/library"
+                      preload="intent"
                       onClick={() => setUserMenuOpen(false)}
                       className="flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
                     >
@@ -395,6 +400,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
                     </Link>
                     <Link
                       to="/following"
+                      preload="intent"
                       onClick={() => setUserMenuOpen(false)}
                       className="flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
                     >
@@ -409,6 +415,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
                   <div className="py-1">
                     <Link
                       to="/profile"
+                      preload="intent"
                       onClick={() => setUserMenuOpen(false)}
                       className="hidden md:flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
                     >
@@ -419,6 +426,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
                     </Link>
                     <Link
                       to="/settings"
+                      preload="intent"
                       onClick={() => setUserMenuOpen(false)}
                       className="hidden md:flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
                     >
@@ -508,6 +516,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
           <div className="space-y-0.5">
             <Link
               to="/"
+              preload="intent"
               onClick={() => setMobileDrawerOpen(false)}
               className="flex items-center gap-2 py-1.5 px-2.5 rounded-lg text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
             >
@@ -517,6 +526,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
 
             <Link
               to="/discover"
+              preload="intent"
               onClick={() => setMobileDrawerOpen(false)}
               className="flex items-center gap-2 py-1.5 px-2.5 rounded-lg text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
             >
@@ -527,6 +537,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
             {isSignedIn && (
               <Link
                 to="/following"
+                preload="intent"
                 onClick={() => setMobileDrawerOpen(false)}
                 className="flex items-center gap-2 py-1.5 px-2.5 rounded-lg text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
               >
@@ -537,6 +548,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
 
             <Link
               to="/library"
+              preload="intent"
               onClick={() => setMobileDrawerOpen(false)}
               className="flex items-center gap-2 py-1.5 px-2.5 rounded-lg text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
             >
@@ -547,6 +559,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
             {isSignedIn && (
               <Link
                 to="/notifications"
+                preload="intent"
                 onClick={() => setMobileDrawerOpen(false)}
                 className="flex items-center gap-2 py-1.5 px-2.5 rounded-lg text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
               >
@@ -562,6 +575,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
 
             <Link
               to="/settings"
+              preload="intent"
               onClick={() => setMobileDrawerOpen(false)}
               className="flex items-center gap-2 py-1.5 px-2.5 rounded-lg text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors font-medium"
             >
@@ -592,6 +606,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
               </p>
               <Link
                 to="/write"
+                preload="intent"
                 onClick={() => setMobileDrawerOpen(false)}
                 className="flex items-center gap-2 py-1.5 px-2.5 rounded-lg text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
               >
@@ -600,6 +615,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
               </Link>
               <Link
                 to="/write/new"
+                preload="intent"
                 onClick={() => setMobileDrawerOpen(false)}
                 className="flex items-center gap-2 py-1.5 px-2.5 rounded-lg text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
               >

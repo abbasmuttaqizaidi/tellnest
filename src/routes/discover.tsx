@@ -12,6 +12,9 @@ import { filterAndSortWorks } from '../lib/discover/filters'
 import { RouteHeader } from '../components/RouteHeader'
 
 export const Route = createFileRoute('/discover')({
+  // In-Memory SWR (Desktop & Mobile): Keeps data fresh in RAM for 30s; instant 0ms navigation
+  staleTime: 30_000,
+  gcTime: 1000 * 60 * 5,
   head: () =>
     generateMeta({
       title: 'Discover Serialized Fiction & Literature',

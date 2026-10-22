@@ -38,6 +38,9 @@ export interface LibrarySearch {
 }
 
 export const Route = createFileRoute('/library')({
+  // In-Memory SWR (Desktop & Mobile): Keeps shelf data fresh in RAM for 30s; instant 0ms navigation
+  staleTime: 30_000,
+  gcTime: 1000 * 60 * 5,
   validateSearch: (search: Record<string, unknown>): LibrarySearch => ({
     preview: search.preview ? String(search.preview).replace(/['"]/g, '') : undefined,
   }),
@@ -392,6 +395,7 @@ function LibraryPage({ isPreview = false }: { isPreview?: boolean }) {
                     <Link
                       to="/read/$workId/$chapterId"
                       params={{ workId: workSlug, chapterId: progress.chapterId }}
+                      preload="intent"
                       aria-label={`Open ${work.title} reader`}
                       className="block h-full w-full focus:outline-none no-underline"
                     >
@@ -430,6 +434,7 @@ function LibraryPage({ isPreview = false }: { isPreview?: boolean }) {
                       <Link
                         to="/works/$workId"
                         params={{ workId: workSlug }}
+                        preload="intent"
                         className="no-underline text-inherit hover:underline block"
                       >
                         <h2 className="font-serif text-sm sm:text-base md:text-lg lg:text-xl font-bold text-[var(--ink-primary)] tracking-tight truncate leading-snug">
@@ -467,6 +472,7 @@ function LibraryPage({ isPreview = false }: { isPreview?: boolean }) {
                       <Link
                         to="/read/$workId/$chapterId"
                         params={{ workId: workSlug, chapterId: progress.chapterId }}
+                        preload="intent"
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-medium text-xs hover:opacity-90 active:scale-95 transition-all shadow-2xs no-underline"
                       >
                         <Play className="h-3 w-3 fill-current" />
@@ -476,6 +482,7 @@ function LibraryPage({ isPreview = false }: { isPreview?: boolean }) {
                       <Link
                         to="/works/$workId"
                         params={{ workId: workSlug }}
+                        preload="intent"
                         className="px-2.5 py-1.5 rounded-lg border border-[var(--border-strong)] hover:bg-[var(--bg-surface)] text-xs font-medium text-[var(--ink-primary)] transition-colors no-underline"
                       >
                         Chapters →
@@ -555,6 +562,7 @@ function LibraryPage({ isPreview = false }: { isPreview?: boolean }) {
                             <Link
                               to="/read/$workId/$chapterId"
                               params={{ workId: workSlug, chapterId: progress.chapterId }}
+                              preload="intent"
                               onClick={(e) => e.stopPropagation()}
                               className="h-6 w-6 rounded-full border border-[var(--border-subtle)] hover:border-[var(--border-strong)] hover:bg-[var(--ink-primary)] hover:text-[var(--accent-contrast)] flex items-center justify-center text-[var(--ink-muted)] transition-all shrink-0"
                               title="Jump straight to reading"
@@ -695,6 +703,7 @@ function LibraryPage({ isPreview = false }: { isPreview?: boolean }) {
                 ) : (
                   <Link
                     to="/discover"
+                    preload="intent"
                     className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-xs font-semibold hover:opacity-90 transition-opacity no-underline shadow-xs"
                   >
                     <Compass className="h-3.5 w-3.5" />
@@ -740,6 +749,7 @@ function LibraryPage({ isPreview = false }: { isPreview?: boolean }) {
                             ? { workId: workSlug, chapterId: progress.chapterId }
                             : ({ workId: workSlug } as any)
                         }
+                        preload="intent"
                         className="shrink-0 w-14 sm:w-16 aspect-[3/4] rounded-sm overflow-hidden shadow-xs border border-[var(--border-subtle)] relative block"
                       >
                         <div className="absolute inset-y-0 left-0 w-2 bg-gradient-to-r from-black/35 via-black/15 to-transparent z-10 pointer-events-none" />
@@ -759,6 +769,7 @@ function LibraryPage({ isPreview = false }: { isPreview?: boolean }) {
                         <Link
                           to="/works/$workId"
                           params={{ workId: workSlug }}
+                          preload="intent"
                           className="block no-underline text-inherit"
                         >
                           <h4 className="font-serif text-sm font-bold leading-tight text-[var(--ink-primary)] line-clamp-1 hover:underline">
@@ -880,6 +891,7 @@ function LibraryPage({ isPreview = false }: { isPreview?: boolean }) {
                               ? { workId: workSlug, chapterId: progress.chapterId }
                               : ({ workId: workSlug } as any)
                           }
+                          preload="intent"
                           className="block h-full w-full no-underline"
                         >
                           <OptimizedImage
@@ -938,6 +950,7 @@ function LibraryPage({ isPreview = false }: { isPreview?: boolean }) {
                         <Link
                           to="/works/$workId"
                           params={{ workId: workSlug }}
+                          preload="intent"
                           className="block no-underline text-inherit group-hover:underline"
                         >
                           <h4 className="font-serif text-sm sm:text-[15px] font-bold leading-tight text-[var(--ink-primary)] line-clamp-2">
@@ -1086,6 +1099,7 @@ function LibraryPage({ isPreview = false }: { isPreview?: boolean }) {
                         <Link
                           to="/read/$workId/$chapterId"
                           params={{ workId: targetSlug, chapterId: targetChapterId }}
+                          preload="intent"
                           onClick={handleCloseDrawer}
                           className="flex-1 py-2.5 px-4 rounded-xl bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 shadow-sm no-underline active:scale-98 transition-all hover:opacity-95"
                         >
@@ -1099,6 +1113,7 @@ function LibraryPage({ isPreview = false }: { isPreview?: boolean }) {
                     <Link
                       to="/works/$workId"
                       params={{ workId: drawerDetail.slug || selectedWorkForDrawer.slug }}
+                      preload="intent"
                       onClick={handleCloseDrawer}
                       className="py-2.5 px-3.5 rounded-xl border border-[var(--border-strong)] hover:bg-[var(--bg-subtle)] text-xs sm:text-sm font-medium text-[var(--ink-primary)] no-underline active:scale-98 transition-all"
                     >

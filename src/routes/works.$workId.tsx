@@ -24,6 +24,9 @@ import { getPublicWorkServerFn } from '../server/works'
 import { formatViewCount } from '../lib/utils'
 
 export const Route = createFileRoute('/works/$workId')({
+  // In-Memory SWR (Desktop & Mobile): Keeps story details fresh in RAM for 60s; instant 0ms navigation
+  staleTime: 60_000,
+  gcTime: 1000 * 60 * 5,
   loader: async ({ params }) => {
     const rawParam = (params.workId || '').trim().toLowerCase()
     // 1. Static mock fast path
@@ -262,13 +265,14 @@ function WorkDetailPage() {
       
       {/* Editorial Breadcrumbs */}
       <div className="flex items-center gap-2 text-xs font-mono text-[var(--ink-muted)] mb-8">
-        <Link to="/discover" className="hover:text-[var(--ink-primary)] text-inherit no-underline">
+        <Link to="/discover" preload="intent" className="hover:text-[var(--ink-primary)] text-inherit no-underline">
           Library
         </Link>
         <span>/</span>
         <Link
           to="/category/$slug"
           params={{ slug: categorySlug }}
+          preload="intent"
           className="hover:text-[var(--ink-primary)] text-inherit no-underline"
         >
           {work.category || 'Novels'}
@@ -329,6 +333,7 @@ function WorkDetailPage() {
               <Link
                 to="/category/$slug"
                 params={{ slug: categorySlug }}
+                preload="intent"
                 className="rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2 py-0.5 uppercase tracking-wider text-inherit no-underline hover:border-[var(--ink-primary)]"
               >
                 {work.category || 'Novels'}
@@ -337,6 +342,7 @@ function WorkDetailPage() {
               <Link
                 to="/genre/$slug"
                 params={{ slug: genreSlug }}
+                preload="intent"
                 className="text-inherit no-underline hover:underline"
               >
                 {work.genre || 'Literary Fiction'}
@@ -375,6 +381,7 @@ function WorkDetailPage() {
             <Link
               to="/author/$authorId"
               params={{ authorId }}
+              preload="intent"
               className="flex items-center gap-3 text-inherit no-underline group"
             >
               <img
@@ -468,6 +475,7 @@ function WorkDetailPage() {
             <Link
               to="/read/$workId/$chapterId"
               params={{ workId: canonicalSlug, chapterId: resumeChapterId }}
+              preload="intent"
               className="inline-flex w-full sm:w-auto items-center justify-center gap-3 rounded-lg border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-8 py-3.5 text-sm font-semibold text-[var(--accent-contrast)] hover:opacity-90 transition-opacity no-underline shadow-sm"
             >
               <BookOpen className="h-4 w-4" />
@@ -484,7 +492,7 @@ function WorkDetailPage() {
       </div>
 
       {/* CHAPTER INDEX LIST */}
-      <section className="py-12">
+      <section className="py-12" style={{ contentVisibility: 'auto', containIntrinsicSize: '600px' }}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-[var(--border-subtle)]">
           <div>
             <h2 className="font-serif text-2xl font-semibold text-[var(--ink-primary)]">
@@ -567,6 +575,7 @@ function WorkDetailPage() {
                     <Link
                       to="/read/$workId/$chapterId"
                       params={{ workId: canonicalSlug, chapterId: chapter.id }}
+                      preload="intent"
                       className="no-underline"
                     >
                       <Button size="sm" variant="primary" rightIcon={<ArrowRight className="h-3.5 w-3.5" />}>

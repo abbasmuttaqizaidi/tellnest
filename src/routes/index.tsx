@@ -24,6 +24,10 @@ const PublicHome = lazy(() => import('../components/home/PublicHome'))
 const LoggedInHome = lazy(() => import('../components/home/LoggedInHome'))
 
 export const Route = createFileRoute('/')({
+  // In-Memory SWR (Desktop & Mobile): Keeps data fresh in RAM for 30s; instant 0ms navigation
+  staleTime: 30_000,
+  // Retains cached in-memory response for 5 minutes before automatic garbage collection
+  gcTime: 1000 * 60 * 5,
   validateSearch: (search: Record<string, unknown>) => ({
     view: (search.view as string) || undefined,
   }),

@@ -21,6 +21,7 @@ export default function AuthorCard({ author }: AuthorCardProps) {
           <Link
             to="/author/$authorId"
             params={{ authorId: author.id }}
+            preload="intent"
             className="flex items-center gap-3 no-underline text-inherit"
           >
             <OptimizedImage

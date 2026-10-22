@@ -30,6 +30,7 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
         <Link
           to="/works/$workId"
           params={{ workId: workSlug }}
+          preload="intent"
           className="relative aspect-[2/3] w-20 sm:w-36 flex-shrink-0 overflow-hidden rounded bg-[var(--bg-subtle)]"
         >
           <OptimizedImage
@@ -83,6 +84,7 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
             <Link
               to="/works/$workId"
               params={{ workId: workSlug }}
+              preload="intent"
               className="mt-2 block no-underline text-inherit"
             >
               <h3 className="font-serif text-lg sm:text-xl font-semibold leading-snug text-[var(--ink-primary)] group-hover:underline">
@@ -105,6 +107,7 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
             <Link
               to="/author/$authorId"
               params={{ authorId: work.author.id }}
+              preload="intent"
               className="flex items-center gap-2 text-inherit no-underline hover:text-[var(--ink-primary)]"
             >
               <OptimizedImage
@@ -146,7 +149,7 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
       <div>
         {/* Cover Presentation */}
         <div className="relative aspect-[3/4] w-full overflow-hidden rounded bg-[var(--bg-subtle)]">
-          <Link to="/works/$workId" params={{ workId: workSlug }}>
+          <Link to="/works/$workId" params={{ workId: workSlug }} preload="intent">
             <OptimizedImage
               src={work.cover}
               alt={work.title}
@@ -212,6 +215,7 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
         <Link
           to="/works/$workId"
           params={{ workId: workSlug }}
+          preload="intent"
           className="mt-1 block no-underline text-inherit"
         >
           <h3 className="font-serif text-base font-semibold leading-tight text-[var(--ink-primary)] group-hover:underline line-clamp-1">
@@ -230,6 +234,7 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
         <Link
           to="/author/$authorId"
           params={{ authorId: work.author.id }}
+          preload="intent"
           className="flex items-center gap-1 sm:gap-1.5 text-inherit no-underline hover:text-[var(--ink-primary)] min-w-0 flex-1"
         >
           <OptimizedImage

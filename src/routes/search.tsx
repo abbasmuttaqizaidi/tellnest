@@ -1,33 +1,43 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
-import { useState, useMemo, useEffect } from 'react'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useApp } from '../context/AppContext'
-import { AUTHORS } from '../data/mockData'
 import WorkCard from '../components/WorkCard'
-import AuthorCard from '../components/AuthorCard'
 import EmptyState from '../components/EmptyState'
-import { AnimatedTabs, FilterDisclosure, OmniSearch } from '../design-system'
+import { FilterDisclosure, OmniSearch } from '../design-system'
+import { SearchModeDropdown, type SearchMode } from '../components/SearchModeDropdown'
 import { 
-  Search, 
-  BookOpen, 
-  User, 
-  Hash, 
-  Sparkles, 
   ArrowRight, 
   ArrowLeft, 
-  RotateCcw, 
   Check, 
-  SlidersHorizontal, 
-  X 
+  X,
+  Loader2
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { generateMeta } from '../lib/seo'
 import { RouteHeader } from '../components/RouteHeader'
+import { globalSearchServerFn, type GlobalSearchResponse } from '../server/search'
+
+export interface SearchRouteSearch {
+  q?: string
+  type?: 'stories' | 'author' | 'genre'
+  genres?: string
+}
 
 export const Route = createFileRoute('/search')({
+  // In-Memory SWR (Desktop & Mobile): Keeps search page fast in RAM for 30s
+  staleTime: 30_000,
+  gcTime: 1000 * 60 * 5,
+  validateSearch: (search: Record<string, unknown>): SearchRouteSearch => {
+    const q = typeof search.q === 'string' && search.q.trim() ? search.q.trim() : undefined
+    const rawType = typeof search.type === 'string' ? search.type.toLowerCase() : ''
+    const type = rawType === 'author' || rawType === 'genre' ? (rawType as 'author' | 'genre') : 'stories'
+    const genres = typeof search.genres === 'string' && search.genres.trim() ? search.genres.trim() : undefined
+    return { q, type, genres }
+  },
   head: () =>
     generateMeta({
-      title: 'Search Stories & Authors',
+      title: 'Search Stories',
       description: 'Search manuscripts, serialized literature, and find reading recommendations.',
       canonicalUrl: 'https://hatchpen.com/search',
       noindex: true,
@@ -103,35 +113,31 @@ const QUESTIONS_CONFIG: QuestionnaireQuestion[] = [
 ]
 
 function SearchPage() {
-  const { allWorks, categories, genres, showToast } = useApp()
+  const { allWorks, categories, genres } = useApp()
+  const navigate = useNavigate()
+  const searchParams = Route.useSearch()
 
-  // Standard Search Params
-  const [searchInput, setSearchInput] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search)
-      return params.get('q') || ''
-    }
-    return ''
-  })
+  const searchMode: SearchMode = searchParams.type || 'stories'
+  const submittedQuery = searchParams.q || ''
+  const selectedGenreSlugs = useMemo(() => {
+    return searchParams.genres ? searchParams.genres.split(',').filter(Boolean).slice(0, 3) : []
+  }, [searchParams.genres])
 
-  const [submittedQuery, setSubmittedQuery] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search)
-      const q = params.get('q') || ''
-      return q.trim().length >= 5 ? q.trim() : ''
-    }
-    return ''
-  })
-
+  // Draft input in the active search bar
+  const [searchInput, setSearchInput] = useState(() => (searchMode === 'genre' ? '' : submittedQuery))
   const [searchError, setSearchError] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
-  const [selectedGenre, setSelectedGenre] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search)
-      return params.get('genre') || 'all'
-    }
-    return 'all'
-  })
+
+  const [serverAuthors, setServerAuthors] = useState<any[]>([])
+
+  // Fast In-Memory RAM Cache (SWR / LRU) & Async State
+  const searchCacheRef = useRef<Map<string, GlobalSearchResponse>>(new Map())
+  const currentRequestIdRef = useRef(0)
+  const [isSearching, setIsSearching] = useState(false)
+  const [hasSearched, setHasSearched] = useState(false)
+  const [serverResults, setServerResults] = useState<{
+    stories: any[]
+  }>({ stories: [] })
 
   // Questionnaire Flow State
   const [isQuestionnaireOpen, setIsQuestionnaireOpen] = useState(false)
@@ -141,128 +147,291 @@ function SearchPage() {
   const [selectedReadingGenre, setSelectedReadingGenre] = useState<string>('all')
   const [isQuestionnaireSubmitted, setIsQuestionnaireSubmitted] = useState(false)
 
-  // Sync if URL search param changes
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search)
-      const q = params.get('q') || ''
-      const g = params.get('genre') || 'all'
-      setSearchInput(q)
-      if (q.trim().length >= 5) {
-        setSubmittedQuery(q.trim())
-        setSearchError(null)
+  // Primary Server-Side Search Executors (Scalable to millions of records)
+  // Protected with a monotonic request sequence guard to eliminate stale race conditions
+  const executeTextSearch = async (trimmed: string, mode: 'stories' | 'author') => {
+    const requestId = ++currentRequestIdRef.current
+    setSearchError(null)
+    setIsQuestionnaireSubmitted(false)
+    setIsQuestionnaireOpen(false)
+
+    // Check in-memory RAM cache first (0ms instant response)
+    const cacheKey = `${mode}:${trimmed.toLowerCase()}`
+    const cached = searchCacheRef.current.get(cacheKey)
+    if (cached) {
+      if (mode === 'author') {
+        setServerAuthors(cached.authors || [])
+        setServerResults({ stories: [] })
       } else {
-        setSubmittedQuery('')
-        if (q.trim().length > 0) {
-          setSearchError('Minimum 5 letters are required for searching.')
+        setServerResults({ stories: cached.stories })
+        setServerAuthors([])
+      }
+      setHasSearched(true)
+      setIsSearching(false)
+      return
+    }
+
+    setIsSearching(true)
+    try {
+      if (mode === 'author') {
+        const res = await globalSearchServerFn({
+          data: { query: trimmed, type: 'author', page: 1 },
+        })
+        if (requestId !== currentRequestIdRef.current) return
+        if (res) {
+          searchCacheRef.current.set(cacheKey, res)
+          setServerAuthors(res.authors || [])
+          setServerResults({ stories: [] })
+          setHasSearched(true)
+        }
+      } else {
+        // stories mode
+        const res = await globalSearchServerFn({
+          data: { query: trimmed, type: 'stories', page: 1, limit: 32 },
+        })
+        if (requestId !== currentRequestIdRef.current) return
+        if (res) {
+          searchCacheRef.current.set(cacheKey, res)
+          setServerResults({ stories: res.stories })
+          setServerAuthors([])
+          setHasSearched(true)
         }
       }
-      setSelectedGenre(g)
+    } catch (err: any) {
+      if (requestId === currentRequestIdRef.current) {
+        console.warn('[SearchPage] Server search warning:', err?.message)
+      }
+    } finally {
+      if (requestId === currentRequestIdRef.current) {
+        setIsSearching(false)
+      }
     }
-  }, [typeof window !== 'undefined' ? window.location.search : ''])
+  }
 
-  const handleExecuteSearch = (val: string, genreToUse = selectedGenre) => {
+  const executeGenreSearch = async (slugs: string[]) => {
+    if (slugs.length === 0) {
+      setServerResults({ stories: [] })
+      setServerAuthors([])
+      setHasSearched(false)
+      return
+    }
+    const requestId = ++currentRequestIdRef.current
+    setSearchError(null)
+    setIsSearching(true)
+    setIsQuestionnaireSubmitted(false)
+    setIsQuestionnaireOpen(false)
+
+    const cacheKey = `genre:${slugs.slice().sort().join(',')}`
+    const cached = searchCacheRef.current.get(cacheKey)
+    if (cached) {
+      setServerResults({ stories: cached.stories })
+      setServerAuthors([])
+      setHasSearched(true)
+      setIsSearching(false)
+      return
+    }
+
+    try {
+      const res = await globalSearchServerFn({
+        data: { query: '', type: 'genre', genreSlugs: slugs, page: 1 },
+      })
+      if (requestId !== currentRequestIdRef.current) return
+      if (res) {
+        searchCacheRef.current.set(cacheKey, res)
+        setServerResults({ stories: res.stories })
+        setServerAuthors([])
+        setHasSearched(true)
+      }
+    } catch (err: any) {
+      if (requestId === currentRequestIdRef.current) {
+        console.warn('[SearchPage] Genre search warning:', err?.message)
+      }
+    } finally {
+      if (requestId === currentRequestIdRef.current) {
+        setIsSearching(false)
+      }
+    }
+  }
+
+  // Reactive synchronizer listening to validated route search parameters
+  useEffect(() => {
+    if (searchMode === 'genre') {
+      setSearchInput('')
+      if (selectedGenreSlugs.length > 0) {
+        executeGenreSearch(selectedGenreSlugs)
+      } else {
+        setServerResults({ stories: [] })
+        setServerAuthors([])
+        setHasSearched(false)
+      }
+    } else {
+      setSearchInput(submittedQuery)
+      if (submittedQuery.length >= 2) {
+        executeTextSearch(submittedQuery, searchMode)
+      } else {
+        setServerResults({ stories: [] })
+        setServerAuthors([])
+        setHasSearched(false)
+        if (submittedQuery.length === 1) {
+          setSearchError('Minimum 2 letters are required for searching.')
+        } else {
+          setSearchError(null)
+        }
+      }
+    }
+  }, [searchMode, submittedQuery, searchParams.genres])
+
+  // Handle user typing
+  const handleInputChange = (val: string) => {
+    if (searchMode === 'genre') return
+    setSearchInput(val)
+    if (searchError && val.trim().length >= 2) {
+      setSearchError(null)
+    }
+    if (!val.trim()) {
+      handleClear()
+    }
+  }
+
+  // 300ms Debounce typing listener (only for stories and author modes)
+  useEffect(() => {
+    if (searchMode === 'genre') return
+    const trimmed = searchInput.trim()
+    if (trimmed.length >= 2 && trimmed !== submittedQuery) {
+      const timer = setTimeout(() => {
+        navigate({
+          to: '/search',
+          search: {
+            type: searchMode,
+            q: trimmed,
+          },
+          replace: true,
+        })
+      }, 300)
+      return () => clearTimeout(timer)
+    }
+  }, [searchInput, searchMode, submittedQuery, navigate])
+
+  // Handle explicit form submission
+  const executeSearch = (val: string, modeOverride?: SearchMode) => {
+    const targetMode = modeOverride ?? searchMode
     const trimmed = val.trim()
     if (!trimmed) {
       handleClear()
       return
     }
-    if (trimmed.length < 5) {
-      setSearchError('Minimum 5 letters are required for searching.')
-      showToast('Please enter at least 5 letters to search.')
+    if (trimmed.length < 2) {
+      setSearchError('Minimum 2 letters are required for searching.')
       return
     }
     setSearchError(null)
-    setSubmittedQuery(trimmed)
-    setIsQuestionnaireSubmitted(false)
-    setIsQuestionnaireOpen(false)
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href)
-      url.searchParams.set('q', trimmed)
-      if (genreToUse && genreToUse !== 'all') {
-        url.searchParams.set('genre', genreToUse)
-      } else {
-        url.searchParams.delete('genre')
-      }
-      window.history.replaceState({}, '', url.toString())
+    navigate({
+      to: '/search',
+      search: {
+        type: targetMode === 'genre' ? 'stories' : targetMode,
+        q: trimmed,
+      },
+    })
+  }
+
+  // Handle mode change via SearchModeDropdown
+  const handleModeChange = (newMode: SearchMode) => {
+    if (newMode === 'genre') {
+      navigate({
+        to: '/search',
+        search: {
+          type: 'genre',
+          genres: selectedGenreSlugs.length > 0 ? selectedGenreSlugs.join(',') : undefined,
+        },
+      })
+    } else {
+      navigate({
+        to: '/search',
+        search: {
+          type: newMode,
+          q: searchInput.trim().length >= 2 ? searchInput.trim() : undefined,
+        },
+      })
     }
   }
 
+  // Handle genres apply → trigger genre search
+  const handleGenresChange = (slugs: string[]) => {
+    navigate({
+      to: '/search',
+      search: {
+        type: 'genre',
+        genres: slugs.length > 0 ? slugs.join(',') : undefined,
+      },
+    })
+  }
+
   const handleClear = () => {
+    currentRequestIdRef.current++
     setSearchInput('')
-    setSubmittedQuery('')
     setSearchError(null)
+    setServerResults({ stories: [] })
+    setServerAuthors([])
+    setHasSearched(false)
+    setIsSearching(false)
     setIsQuestionnaireSubmitted(false)
     setIsQuestionnaireOpen(false)
     setCurrentStepIndex(0)
     setSelectedMood('quiet')
     setSelectedFormat('all')
     setSelectedReadingGenre('all')
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href)
-      url.searchParams.delete('q')
-      window.history.replaceState({}, '', url.toString())
-    }
+    navigate({
+      to: '/search',
+      search: {
+        type: searchMode === 'genre' ? 'genre' : searchMode,
+      },
+      replace: true,
+    })
   }
 
-  const [activeTab, setActiveTab] = useState<'all' | 'works' | 'authors' | 'tags'>('all')
-
-  // Search Results (Only calculated for submitted query with minimum 5 letters)
+  // Search Results: Prefers fast indexed server results, with resilient in-memory fallback
   const matchingWorks = useMemo(() => {
-    if (!submittedQuery.trim() || submittedQuery.trim().length < 5) return []
+    // In genre mode, results come from server directly (no text query needed)
+    if (searchMode === 'genre') {
+      if (selectedGenreSlugs.length === 0) return []
+      if (selectedCategory !== 'all') {
+        return serverResults.stories.filter((w: any) => w.categorySlug === selectedCategory)
+      }
+      return serverResults.stories
+    }
+
+    if (!submittedQuery.trim() || submittedQuery.trim().length < 2) return []
+
+    if (hasSearched) {
+      if (selectedCategory !== 'all') {
+        return serverResults.stories.filter((w: any) => w.categorySlug === selectedCategory)
+      }
+      return serverResults.stories
+    }
+
+    if (serverResults.stories.length > 0) {
+      if (selectedCategory !== 'all') {
+        return serverResults.stories.filter((w: any) => w.categorySlug === selectedCategory)
+      }
+      return serverResults.stories
+    }
+
+    // Author mode: no story fallback
+    if (searchMode === 'author') return []
+
     const q = submittedQuery.toLowerCase()
     return allWorks.filter((w) => {
       if (selectedCategory !== 'all' && w.categorySlug !== selectedCategory) return false
-      if (
-        selectedGenre !== 'all' &&
-        w.genreSlug !== selectedGenre &&
-        w.genre.toLowerCase() !== selectedGenre.toLowerCase()
-      ) {
-        return false
-      }
       return (
         w.title.toLowerCase().includes(q) ||
         w.synopsis.toLowerCase().includes(q) ||
-        w.category.toLowerCase().includes(q) ||
-        w.genre.toLowerCase().includes(q) ||
-        w.tags.some((t) => t.toLowerCase().includes(q))
+        (w.author && w.author.name.toLowerCase().includes(q)) ||
+        (w.tags && w.tags.some((t) => t.toLowerCase().includes(q)))
       )
     })
-  }, [allWorks, submittedQuery, selectedCategory, selectedGenre])
+  }, [serverResults.stories, allWorks, submittedQuery, selectedCategory, hasSearched, searchMode, selectedGenreSlugs])
 
-  const matchingAuthors = useMemo(() => {
-    if (!submittedQuery.trim() || submittedQuery.trim().length < 5) return []
-    const q = submittedQuery.toLowerCase()
-
-    const authorMap = new Map<string, typeof AUTHORS[0]>()
-    AUTHORS.forEach((a) => authorMap.set(a.id, a))
-    allWorks.forEach((w) => {
-      if (w.author && !authorMap.has(w.author.id)) {
-        authorMap.set(w.author.id, w.author)
-      }
-    })
-
-    return Array.from(authorMap.values()).filter(
-      (a) =>
-        a.name.toLowerCase().includes(q) ||
-        a.handle.toLowerCase().includes(q) ||
-        a.bio?.toLowerCase().includes(q)
-    )
-  }, [allWorks, submittedQuery])
-
-  const matchingTags = useMemo(() => {
-    if (!submittedQuery.trim() || submittedQuery.trim().length < 5) return []
-    const q = submittedQuery.toLowerCase()
-    const allTags = Array.from(new Set(allWorks.flatMap((w) => w.tags)))
-    return allTags.filter((t) => t.toLowerCase().includes(q))
-  }, [allWorks, submittedQuery])
-
-  const searchScopes = useMemo(() => [
-    { id: 'all', label: 'All Genres' },
-    ...genres.map((g) => ({ id: g.slug, label: g.name }))
-  ], [genres])
-
-  const totalResults = matchingWorks.length + matchingAuthors.length + matchingTags.length
+  const totalResults = matchingWorks.length
 
   // Recommendations calculated based on questionnaire answers
   const recommendedWorks = useMemo(() => {
@@ -354,7 +523,7 @@ function SearchPage() {
     <div className="min-h-screen pb-12">
       <RouteHeader
         title="Search"
-        subtitle="Find stories and authors"
+        subtitle="Find stories & serialized literature"
       />
 
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-2 sm:pt-4 space-y-3 sm:space-y-5">
@@ -645,7 +814,7 @@ function SearchPage() {
             </div>
           </motion.div>
         </div>
-      ) : !submittedQuery.trim() || submittedQuery.trim().length < 5 ? (
+      ) : (!submittedQuery.trim() || submittedQuery.trim().length < 2) && !(searchMode === 'genre' && selectedGenreSlugs.length > 0) ? (
         /* 3. CLEAN CENTERED SEARCH SCREEN WITH EDITORIAL ILLUSTRATION */
         <motion.div
           key="centered-search-home"
@@ -750,7 +919,7 @@ function SearchPage() {
                 Discover Stories & Manuscripts
               </h2>
               <p className="text-xs sm:text-sm text-[var(--ink-muted)] mt-1.5 font-serif italic">
-                Search through independent literature, serialized novels, essays & authors
+                Search through independent literature, serialized novels, essays & manuscripts
               </p>
             </div>
 
@@ -758,43 +927,37 @@ function SearchPage() {
             <OmniSearch
               expandMode="responsive"
               size="lg"
-              value={searchInput}
-              onChange={(val) => {
-                setSearchInput(val)
-                if (searchError && val.trim().length >= 5) {
-                  setSearchError(null)
-                }
-                if (!val.trim() && submittedQuery) {
-                  setSubmittedQuery('')
-                  setSearchError(null)
-                  if (typeof window !== 'undefined') {
-                    const url = new URL(window.location.href)
-                    url.searchParams.delete('q')
-                    window.history.replaceState({}, '', url.toString())
-                  }
-                }
-              }}
-              onSubmit={(val, sc) => handleExecuteSearch(val, sc)}
+              value={searchMode === 'genre' ? '' : searchInput}
+              isLoading={isSearching}
+              onChange={handleInputChange}
+              onSubmit={(val) => executeSearch(val)}
               onClear={handleClear}
-              scopes={searchScopes}
-              activeScope={selectedGenre}
-              onScopeChange={(newGenre) => {
-                setSelectedGenre(newGenre)
-                if (submittedQuery.trim().length >= 5) {
-                  handleExecuteSearch(submittedQuery, newGenre)
-                }
-              }}
               defaultExpanded={true}
               isExpanded={true}
               collapseOnBlur={false}
               autoFocus
               shortcut="/"
-              placeholders={[
-                "Search manuscripts (min 5 letters)...",
-                "Search 'A Winter in Kyoto'...",
-                "Search 'Cold War telemetry'...",
-                "Search by theme or author...",
-              ]}
+              placeholders={
+                searchMode === 'genre'
+                  ? ['Select genres from the dropdown...']
+                  : searchMode === 'author'
+                  ? ['Search by author name or handle...', 'Search "Elena Rostova"...']
+                  : [
+                      'Search stories (min 2 letters)...',
+                      "Search 'A Winter in Kyoto'...",
+                      "Search 'The Cold Perimeter'...",
+                      'Search by title, genre, or premise...',
+                    ]
+              }
+              leftSlot={
+                <SearchModeDropdown
+                  mode={searchMode}
+                  selectedGenreSlugs={selectedGenreSlugs}
+                  genres={genres}
+                  onModeChange={handleModeChange}
+                  onGenresChange={handleGenresChange}
+                />
+              }
             />
 
             {/* Validation Feedback & Character Counter */}
@@ -802,9 +965,9 @@ function SearchPage() {
               <p className="text-xs text-rose-500 font-mono mt-3 transition-all">
                 {searchError}
               </p>
-            ) : searchInput.trim().length > 0 && searchInput.trim().length < 5 ? (
+            ) : searchInput.trim().length === 1 ? (
               <p className="text-xs text-[var(--ink-muted)] font-mono mt-3 transition-all">
-                {5 - searchInput.trim().length} more {5 - searchInput.trim().length === 1 ? 'letter' : 'letters'} needed (min 5 letters)
+                1 more letter needed (min 2 letters)
               </p>
             ) : null}
 
@@ -840,28 +1003,36 @@ function SearchPage() {
             <OmniSearch
               expandMode="responsive"
               size="md"
-              value={searchInput}
-              onChange={(val) => {
-                setSearchInput(val)
-                if (searchError && val.trim().length >= 5) {
-                  setSearchError(null)
-                }
-                if (!val.trim()) {
-                  handleClear()
-                }
-              }}
-              onSubmit={(val, sc) => handleExecuteSearch(val, sc)}
+              value={searchMode === 'genre' ? '' : searchInput}
+              isLoading={isSearching}
+              onChange={handleInputChange}
+              onSubmit={(val) => executeSearch(val)}
               onClear={handleClear}
-              scopes={searchScopes}
-              activeScope={selectedGenre}
-              onScopeChange={(newGenre) => {
-                setSelectedGenre(newGenre)
-                handleExecuteSearch(submittedQuery, newGenre)
-              }}
               defaultExpanded={true}
               isExpanded={true}
               collapseOnBlur={false}
-              resultsCount={totalResults}
+              resultsCount={searchMode === 'author' ? serverAuthors.length : totalResults}
+              placeholders={
+                searchMode === 'genre'
+                  ? ['Select genres from the dropdown...']
+                  : searchMode === 'author'
+                  ? ['Search by author name or handle...', 'Search "Elena Rostova"...']
+                  : [
+                      'Search stories (min 2 letters)...',
+                      "Search 'A Winter in Kyoto'...",
+                      "Search 'The Cold Perimeter'...",
+                      'Search by title, genre, or premise...',
+                    ]
+              }
+              leftSlot={
+                <SearchModeDropdown
+                  mode={searchMode}
+                  selectedGenreSlugs={selectedGenreSlugs}
+                  genres={genres}
+                  onModeChange={handleModeChange}
+                  onGenresChange={handleGenresChange}
+                />
+              }
             />
             {searchError && (
               <p className="text-xs text-rose-500 font-mono mt-2">
@@ -871,105 +1042,150 @@ function SearchPage() {
           </div>
 
           <div className="pt-4 border-t border-[var(--border-subtle)]">
-            {/* Result Counts & Tabs */}
-            <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-[var(--border-subtle)]">
-              <AnimatedTabs
-                size="sm"
-                activeId={activeTab}
-                onChange={(id) => setActiveTab(id as any)}
-                tabs={[
-                  { id: 'all', label: 'All Results', badge: totalResults },
-                  { id: 'works', label: 'Works', icon: <BookOpen className="h-3.5 w-3.5" />, badge: matchingWorks.length },
-                  { id: 'authors', label: 'Authors', icon: <User className="h-3.5 w-3.5" />, badge: matchingAuthors.length },
-                  { id: 'tags', label: 'Tags & Themes', icon: <Hash className="h-3.5 w-3.5" />, badge: matchingTags.length },
-                ]}
-              />
+            {/* Author Results */}
+            {searchMode === 'author' && (
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-[var(--border-subtle)]">
+                  <span className="font-serif text-base font-semibold text-[var(--ink-primary)]">
+                    Authors ({serverAuthors.length})
+                  </span>
+                </div>
 
-              {/* Category and Genre Filters for Search Results */}
-              <div className="flex flex-wrap items-center gap-2">
-                <FilterDisclosure
-                  label="Filter by Category"
-                  activeId={selectedCategory}
-                  onChange={setSelectedCategory}
-                  items={[
-                    { id: 'all', label: 'All Categories' },
-                    ...categories.map((c) => ({ id: c.slug, label: c.name, badge: c.worksCount }))
-                  ]}
-                />
-
-                <FilterDisclosure
-                  label="Filter by Genre"
-                  activeId={selectedGenre}
-                  onChange={(g) => {
-                    setSelectedGenre(g)
-                    handleExecuteSearch(submittedQuery, g)
-                  }}
-                  items={[
-                    { id: 'all', label: 'All Genres' },
-                    ...genres.map((g) => ({ id: g.slug, label: g.name }))
-                  ]}
-                />
-              </div>
-            </div>
-
-            {totalResults === 0 ? (
-              <EmptyState
-                type="no-search"
-                customTitle={`No records found for "${submittedQuery}"`}
-                customDescription="Try searching by a broader term like 'fiction', 'Kyoto', or 'Rostova'."
-                actionLabel="Clear Search"
-                onAction={handleClear}
-              />
-            ) : (
-              <div className="space-y-12">
-                {/* Works Results */}
-                {(activeTab === 'all' || activeTab === 'works') && matchingWorks.length > 0 && (
-                  <div>
-                    <h3 className="font-serif text-lg font-semibold text-[var(--ink-primary)] mb-4">
-                      Manuscripts & Serials
-                    </h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
-                      {matchingWorks.map((work) => (
-                        <WorkCard key={work.id} work={work} layout="portrait" />
-                      ))}
-                    </div>
+                {serverAuthors.length === 0 && !isSearching ? (
+                  <EmptyState
+                    type="no-search"
+                    customTitle={`No authors found for "${submittedQuery}"`}
+                    customDescription="Try a broader name or handle."
+                    actionLabel="Clear Search"
+                    onAction={handleClear}
+                  />
+                ) : serverAuthors.length === 0 && isSearching ? (
+                  <div className="py-20 flex flex-col items-center justify-center gap-3 text-[var(--ink-muted)]">
+                    <Loader2 className="w-6 h-6 animate-spin text-[var(--ink-secondary)]" />
+                    <p className="text-sm font-mono">Searching authors for &ldquo;{submittedQuery}&rdquo;...</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-6">
+                    {serverAuthors.map((author: any) => (
+                      <Link
+                        key={author.id}
+                        to="/author/$authorId"
+                        params={{ authorId: author.id }}
+                        preload="intent"
+                        className="flex flex-col items-center gap-3 p-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] transition-colors text-center no-underline text-inherit group"
+                      >
+                        <img
+                          src={author.avatar}
+                          alt={author.displayName}
+                          className="w-14 h-14 rounded-full object-cover border border-[var(--border-subtle)]"
+                          onError={(e) => {
+                            ;(e.target as HTMLImageElement).src =
+                              'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80'
+                          }}
+                        />
+                        <div className="min-w-0 w-full">
+                          <div className="font-medium text-sm text-[var(--ink-primary)] truncate group-hover:underline">
+                            {author.displayName}
+                          </div>
+                          <div className="text-xs font-mono text-[var(--ink-muted)] truncate">
+                            @{author.username}
+                          </div>
+                          {author.bio && (
+                            <p className="text-xs text-[var(--ink-secondary)] mt-1 line-clamp-2">
+                              {author.bio}
+                            </p>
+                          )}
+                        </div>
+                        <span className="text-xs font-mono text-[var(--ink-secondary)] group-hover:text-[var(--ink-primary)] transition-colors">
+                          View Profile →
+                        </span>
+                      </Link>
+                    ))}
                   </div>
                 )}
+              </>
+            )}
 
-                {/* Authors Results */}
-                {(activeTab === 'all' || activeTab === 'authors') && matchingAuthors.length > 0 && (
-                  <div>
-                    <h3 className="font-serif text-lg font-semibold text-[var(--ink-primary)] mb-4">
-                      Writers
-                    </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {matchingAuthors.map((author) => (
-                        <AuthorCard key={author.id} author={author} />
-                      ))}
-                    </div>
+            {/* Genre / Stories Results */}
+            {searchMode !== 'author' && (
+              <>
+                {/* Header & Category Filter for Stories */}
+                <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-[var(--border-subtle)]">
+                  <div className="flex items-center gap-2">
+                    <span className="font-serif text-base font-semibold text-[var(--ink-primary)]">
+                      {searchMode === 'genre'
+                        ? `Stories by Genre (${matchingWorks.length})`
+                        : `Stories & Manuscripts (${matchingWorks.length})`}
+                    </span>
+                  </div>
+
+                  {/* Category Filter for Stories */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <FilterDisclosure
+                      label="Filter by Category"
+                      activeId={selectedCategory}
+                      onChange={setSelectedCategory}
+                      items={[
+                        { id: 'all', label: 'All Categories' },
+                        ...categories.map((c) => ({ id: c.slug, label: c.name, badge: c.worksCount }))
+                      ]}
+                    />
+                  </div>
+                </div>
+
+                {totalResults === 0 && !isSearching ? (
+                  <EmptyState
+                    type="no-search"
+                    customTitle={
+                      searchMode === 'genre'
+                        ? 'No stories found for the selected genres'
+                        : `No stories found for "${submittedQuery}"`
+                    }
+                    customDescription={
+                      searchMode === 'genre'
+                        ? 'Try selecting different genres from the dropdown.'
+                        : "Try searching by a broader title like 'Kyoto', 'Cold', or 'Perimeter'."
+                    }
+                    actionLabel="Clear Search"
+                    onAction={handleClear}
+                  />
+                ) : totalResults === 0 && isSearching ? (
+                  <div className="py-20 flex flex-col items-center justify-center gap-3 text-[var(--ink-muted)]">
+                    <Loader2 className="w-6 h-6 animate-spin text-[var(--ink-secondary)]" />
+                    <p className="text-sm font-mono">
+                      {searchMode === 'genre'
+                        ? 'Loading stories for selected genres...'
+                        : `Searching stories for \u201c${submittedQuery}\u201d...`}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-12">
+                    {/* Stories Results */}
+                    {matchingWorks.length > 0 && (
+                      <div>
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="font-serif text-lg font-semibold text-[var(--ink-primary)]">
+                            {searchMode === 'genre'
+                              ? `Stories by Genre (${matchingWorks.length})`
+                              : `Stories & Manuscripts (${matchingWorks.length})`}
+                          </h3>
+                          {isSearching && (
+                            <div className="flex items-center gap-1.5 text-xs text-[var(--ink-muted)] font-mono">
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              <span>Searching...</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
+                          {matchingWorks.map((work) => (
+                            <WorkCard key={work.id} work={work as any} layout="portrait" />
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
-
-                {/* Tags Results */}
-                {(activeTab === 'all' || activeTab === 'tags') && matchingTags.length > 0 && (
-                  <div>
-                    <h3 className="font-serif text-lg font-semibold text-[var(--ink-primary)] mb-4">
-                      Literary Themes & Subjects
-                    </h3>
-                    <div className="flex flex-wrap gap-2.5">
-                      {matchingTags.map((tag) => (
-                        <Link
-                          key={tag}
-                          to="/discover"
-                          className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3.5 py-2 text-xs font-mono text-[var(--ink-secondary)] hover:border-[var(--ink-primary)] transition-colors no-underline"
-                        >
-                          #{tag}
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+              </>
             )}
           </div>
         </motion.div>
