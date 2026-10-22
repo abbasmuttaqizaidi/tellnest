@@ -467,7 +467,7 @@ test('Rising Stories Protection: Anonymous users cannot view Rising Stories', ()
 // ==============================================================================
 // 9. MOCK DATASET BASELINE COVERAGE
 // ==============================================================================
-test('Mock Baseline Coverage: All 7 mock stories render and filter correctly under All Stories', () => {
+test('Mock Baseline Coverage: All 8 mock stories render and filter correctly under All Stories', () => {
   const result = filterAndSortWorks(WORKS, {
     activeTab: 'all',
     selectedCategory: 'all',
@@ -478,7 +478,7 @@ test('Mock Baseline Coverage: All 7 mock stories render and filter correctly und
     isSignedIn: false,
   })
 
-  assert.equal(result.length, 7)
+  assert.equal(result.length, 8)
   // Top read mock story should be 'work-4' (340K reads) followed by 'work-2' (215K reads)
   assert.equal(result[0].id, 'work-4')
   assert.equal(result[1].id, 'work-2')
@@ -580,8 +580,8 @@ test('Combined Dataset: Real DB stories and mock stories coexist and deduplicate
     }
   }
 
-  // Combined length should be 7 mock + 1 new = 8 (no duplicate work-2)
-  assert.equal(combined.length, 8)
+  // Combined length should be 8 mock + 1 new = 9 (no duplicate work-2)
+  assert.equal(combined.length, 9)
   const work2Instances = combined.filter((w) => w.id === 'work-2')
   assert.equal(work2Instances.length, 1)
   assert.equal(work2Instances[0].title, 'A Winter in Kyoto (Updated from Database)')
