@@ -1605,7 +1605,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setIsHeaderScrolled,
         addAdminPostedWork,
         addAdminPostedChapter,
-        reloadWorksFromDb
+        reloadWorksFromDb,
+        updateWork,
+        updateActInWork
       }}
     >
       {children}

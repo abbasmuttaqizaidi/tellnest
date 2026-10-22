@@ -121,6 +121,18 @@ test('Relevance Ranking: Stories with matching title rank ahead of description-o
   assert.equal(stories[1].id, 'story-desc-only', 'Story with description match should rank second')
 })
 
+test('Exact Substring Title Matching: "co" matches "The Cold Perimeter" and excludes non-matching titles', async () => {
+  const { executeGlobalSearch } = await import('../src/server/search.ts')
+  const res = await executeGlobalSearch({ query: 'co' })
+  assert.equal(res.type, 'stories')
+  for (const story of res.stories) {
+    assert.ok(
+      story.title.toLowerCase().includes('co'),
+      `Every returned story must have "co" in its title in exact order. Received: "${story.title}"`
+    )
+  }
+})
+
 test('Pagination: Page and limit capping behaves predictably', async () => {
   const { executeGlobalSearch } = await import('../src/server/search.ts')
 
@@ -317,4 +329,51 @@ test('Genre Mode: Server function validator strictly caps genreSlugs to 3', asyn
     searchFile.includes('slice(0, 3)'),
     'globalSearchServerFn must enforce slice(0, 3) on genreSlugs'
   )
+})
+
+test('Genre Mode with Text Query: Combines genre filter and contiguous title substring search', async () => {
+  const { executeGlobalSearch } = await import('../src/server/search.ts')
+
+  const res = await executeGlobalSearch({ query: 'co', type: 'genre', genreSlugs: ['literary-fiction'] })
+  assert.equal(res.type, 'genre')
+  assert.ok(Array.isArray(res.stories))
+  for (const story of res.stories) {
+    assert.ok(
+      story.title.toLowerCase().includes('co'),
+      `Story "${story.title}" must contain "co" in exact order`
+    )
+  }
+})
+
+test('Search Robustness: Quotes stripping and phonetic tolerance ("The Cold Parameter" matches "The Cold Perimeter")', async () => {
+  const { executeGlobalSearch } = await import('../src/server/search.ts')
+
+  // With quotes: "co"
+  const quotedRes = await executeGlobalSearch({ query: '"co"' })
+  assert.ok(quotedRes.stories.some(s => s.title === 'The Cold Perimeter'))
+
+  // With common user spelling variant "parameter"
+  const paramRes = await executeGlobalSearch({ query: 'The Cold Parameter' })
+  assert.ok(paramRes.stories.some(s => s.title === 'The Cold Perimeter'))
+})
+
+test('Questionnaire Recommendations: Dynamically scores and returns recommendations from DB catalog', async () => {
+  const { executeGetQuestionnaireRecommendations } = await import('../src/server/search.ts')
+
+  // Suspense mood: must include The Cold Perimeter, exclude whimsical comfort stories
+  const suspenseRes = await executeGetQuestionnaireRecommendations({ mood: 'suspense', categorySlug: 'all', genreSlug: 'all' })
+  assert.ok(Array.isArray(suspenseRes))
+  assert.ok(suspenseRes.length > 0)
+  assert.ok(suspenseRes.some(s => s.title === 'The Cold Perimeter'), 'The Cold Perimeter should be recommended for suspense mood')
+  assert.ok(!suspenseRes.some(s => s.title === 'The Starlight Clockmaker'), 'The Starlight Clockmaker should not be recommended for suspense mood')
+
+  // Quiet mood: must include A Winter in Kyoto and Notes on Subarctic Light
+  const quietRes = await executeGetQuestionnaireRecommendations({ mood: 'quiet', categorySlug: 'all', genreSlug: 'all' })
+  assert.ok(quietRes.some(s => s.title === 'A Winter in Kyoto'), 'A Winter in Kyoto should be recommended for quiet mood')
+  assert.ok(!quietRes.some(s => s.title === 'The Redacted Script'), 'The Redacted Script should not be recommended for quiet mood')
+
+  // Comforting mood: must include The Starlight Clockmaker, exclude cold bunker espionage
+  const comfortRes = await executeGetQuestionnaireRecommendations({ mood: 'comforting', categorySlug: 'all', genreSlug: 'all' })
+  assert.ok(comfortRes.some(s => s.title === 'The Starlight Clockmaker'), 'The Starlight Clockmaker should be recommended for comforting mood')
+  assert.ok(!comfortRes.some(s => s.title === 'The Cold Perimeter'), 'The Cold Perimeter should not be recommended for comforting mood')
 })

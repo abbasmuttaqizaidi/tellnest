@@ -991,6 +991,29 @@ export const adminPostWorkServerFn = createServerFn({ method: 'POST' })
         if (createdWork && !workErr) {
           supabaseWorkId = createdWork.id
 
+          // Associate Genre in work_genres
+          if (workData.genre?.trim()) {
+            try {
+              const trimmedGenre = workData.genre.trim()
+              const genreSlug = trimmedGenre.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+              const { data: gData } = await admin
+                .from('genres')
+                .select('id')
+                .or(`name.ilike.%${trimmedGenre}%,slug.eq.${genreSlug}`)
+                .limit(1)
+                .maybeSingle()
+
+              if (gData?.id) {
+                await admin.from('work_genres').insert({
+                  work_id: createdWork.id,
+                  genre_id: gData.id,
+                })
+              }
+            } catch (genreErr: any) {
+              console.warn('[adminPostWork] Genre associate warning:', genreErr?.message)
+            }
+          }
+
           // Create default Act I for the work
           let initialActId: string | null = null
           try {
@@ -1700,6 +1723,32 @@ export const adminUpdateWorkServerFn = createServerFn({ method: 'POST' })
       if (updateErr) {
         console.error('[adminUpdateWorkServerFn] Supabase update error:', updateErr.message)
         throw new Error(`Failed to update manuscript: ${updateErr.message}`)
+      }
+
+      // Update genre mapping in work_genres
+      if (workData.genre?.trim()) {
+        try {
+          const trimmedGenre = workData.genre.trim()
+          const genreSlug = trimmedGenre.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+          const { data: gData } = await admin
+            .from('genres')
+            .select('id')
+            .or(`name.ilike.%${trimmedGenre}%,slug.eq.${genreSlug}`)
+            .limit(1)
+            .maybeSingle()
+
+          if (gData?.id) {
+            // Remove existing genres for this work
+            await admin.from('work_genres').delete().eq('work_id', dbWork.id)
+            // Insert newly selected genre
+            await admin.from('work_genres').insert({
+              work_id: dbWork.id,
+              genre_id: gData.id,
+            })
+          }
+        } catch (genreErr: any) {
+          console.warn('[adminUpdateWorkServerFn] Genre update warning:', genreErr?.message)
+        }
       }
 
       // Optionally update author profile display name if author exists

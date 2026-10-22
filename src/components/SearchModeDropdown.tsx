@@ -18,6 +18,7 @@ interface SearchModeDropdownProps {
   isGenresLoading?: boolean
   onModeChange: (mode: SearchMode) => void
   onGenresChange: (slugs: string[]) => void
+  onSearchSubmit?: (slugs: string[]) => void
 }
 
 const MODE_META: Record<SearchMode, { icon: React.ReactNode; label: string }> = {
@@ -33,19 +34,11 @@ export function SearchModeDropdown({
   isGenresLoading = false,
   onModeChange,
   onGenresChange,
+  onSearchSubmit,
 }: SearchModeDropdownProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [panel, setPanel] = useState<'main' | 'genre'>('main')
-  // Local draft slugs while genre panel is open (before Apply)
-  const [draftSlugs, setDraftSlugs] = useState<string[]>(selectedGenreSlugs)
   const containerRef = useRef<HTMLDivElement>(null)
-
-  // Sync draft when panel opens
-  useEffect(() => {
-    if (panel === 'genre') {
-      setDraftSlugs(selectedGenreSlugs)
-    }
-  }, [panel, selectedGenreSlugs])
 
   // Close on outside click
   useEffect(() => {
@@ -68,27 +61,25 @@ export function SearchModeDropdown({
       : currentMeta.label
 
   const handleToggleGenreSlug = (slug: string) => {
-    setDraftSlugs((prev) => {
-      if (prev.includes(slug)) {
-        return prev.filter((s) => s !== slug)
-      }
-      if (prev.length >= 3) {
+    let nextSlugs: string[]
+    if (selectedGenreSlugs.includes(slug)) {
+      nextSlugs = selectedGenreSlugs.filter((s) => s !== slug)
+    } else {
+      if (selectedGenreSlugs.length >= 3) {
         // Max 3 genres — do nothing
-        return prev
+        return
       }
-      return [...prev, slug]
-    })
-  }
-
-  const handleApply = () => {
-    onGenresChange(draftSlugs)
-    onModeChange('genre')
-    setIsOpen(false)
-    setPanel('main')
+      nextSlugs = [...selectedGenreSlugs, slug]
+    }
+    onGenresChange(nextSlugs)
+    if (mode !== 'genre') {
+      onModeChange('genre')
+    }
   }
 
   const handleSelectMode = (m: SearchMode) => {
     if (m === 'genre') {
+      onModeChange('genre')
       setPanel('genre')
       return
     }
@@ -97,14 +88,33 @@ export function SearchModeDropdown({
     setPanel('main')
   }
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && panel === 'genre') {
+      e.preventDefault()
+      e.stopPropagation()
+      setIsOpen(false)
+      setPanel('main')
+      if (selectedGenreSlugs.length > 0) {
+        onSearchSubmit?.(selectedGenreSlugs)
+      }
+    }
+  }
+
   return (
-    <div ref={containerRef} className="relative flex-shrink-0">
+    <div ref={containerRef} onKeyDown={handleKeyDown} className="relative flex-shrink-0">
       {/* Pill trigger button */}
       <button
         type="button"
         onClick={() => {
-          setIsOpen((v) => !v)
-          setPanel('main')
+          setIsOpen((v) => {
+            const next = !v
+            if (next) {
+              setPanel(mode === 'genre' ? 'genre' : 'main')
+            } else {
+              setPanel('main')
+            }
+            return next
+          })
         }}
         className={cn(
           'inline-flex items-center gap-1.5 rounded-full px-2 py-1',
@@ -132,10 +142,10 @@ export function SearchModeDropdown({
             transition={{ type: 'spring', damping: 22, stiffness: 320 }}
             className={cn(
               'absolute top-full left-0 mt-2 z-50',
-              'min-w-52 max-w-72 rounded-xl',
-              'border border-[var(--border-subtle)]',
+              panel === 'genre' ? 'w-68 sm:w-72' : 'w-48 sm:w-52',
+              'rounded-xl border border-[var(--border-subtle)]',
               'bg-[var(--bg-surface)]',
-              'p-1.5 shadow-2xl ring-1 ring-black/5'
+              'p-2 shadow-2xl ring-1 ring-black/5'
             )}
           >
             <AnimatePresence mode="wait" initial={false}>
@@ -191,18 +201,45 @@ export function SearchModeDropdown({
                   exit={{ opacity: 0, x: 8 }}
                   transition={{ duration: 0.12 }}
                 >
-                  {/* Back row */}
-                  <button
-                    type="button"
-                    onClick={() => setPanel('main')}
-                    className={cn(
-                      'w-full flex items-center gap-2 px-2 py-1.5 rounded-lg mb-1',
-                      'font-mono text-xs text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors'
-                    )}
-                  >
-                    <ArrowLeft className="w-3 h-3" />
-                    <span>Search Mode</span>
-                  </button>
+                  {/* Top Header Row with Back, Clear, and Done */}
+                  <div className="flex items-center justify-between px-1 pb-2 mb-1.5 border-b border-[var(--border-subtle)]">
+                    <button
+                      type="button"
+                      onClick={() => setPanel('main')}
+                      className={cn(
+                        'flex items-center gap-1.5 px-2 py-1 rounded-lg',
+                        'font-mono text-xs text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer'
+                      )}
+                    >
+                      <ArrowLeft className="w-3 h-3" />
+                      <span>Mode</span>
+                    </button>
+
+                    <div className="flex items-center gap-2">
+                      {selectedGenreSlugs.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => onGenresChange([])}
+                          className="text-[11px] font-mono text-[var(--ink-muted)] hover:text-[var(--ink-primary)] px-2 py-1 transition-colors cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsOpen(false)
+                          setPanel('main')
+                        }}
+                        className={cn(
+                          'px-2.5 py-1 rounded-md font-mono text-xs font-medium transition-all cursor-pointer',
+                          'bg-[var(--ink-primary)] text-[var(--accent-contrast)] hover:opacity-90 active:scale-95'
+                        )}
+                      >
+                        Done{selectedGenreSlugs.length > 0 ? ` (${selectedGenreSlugs.length})` : ''}
+                      </button>
+                    </div>
+                  </div>
 
                   {/* Genre list */}
                   {isGenresLoading ? (
@@ -210,10 +247,10 @@ export function SearchModeDropdown({
                       <Loader2 className="w-4 h-4 animate-spin" />
                     </div>
                   ) : (
-                    <div className="max-h-64 overflow-y-auto overscroll-contain space-y-0.5 pr-0.5">
+                    <div className="max-h-56 overflow-y-auto overscroll-contain space-y-0.5 pr-0.5">
                       {genres.map((genre) => {
-                        const isSelected = draftSlugs.includes(genre.slug)
-                        const isDisabled = !isSelected && draftSlugs.length >= 3
+                        const isSelected = selectedGenreSlugs.includes(genre.slug)
+                        const isDisabled = !isSelected && selectedGenreSlugs.length >= 3
                         return (
                           <button
                             key={genre.slug}
@@ -246,23 +283,6 @@ export function SearchModeDropdown({
                       })}
                     </div>
                   )}
-
-                  {/* Apply button */}
-                  <button
-                    type="button"
-                    onClick={handleApply}
-                    disabled={draftSlugs.length === 0}
-                    className={cn(
-                      'w-full mt-2 py-1.5 rounded-lg',
-                      'font-mono text-xs font-medium transition-opacity',
-                      'bg-[var(--ink-primary)] text-[var(--accent-contrast)]',
-                      draftSlugs.length === 0 && 'opacity-40 cursor-not-allowed'
-                    )}
-                  >
-                    {draftSlugs.length === 0
-                      ? 'Select genres'
-                      : `Apply ${draftSlugs.length} genre${draftSlugs.length > 1 ? 's' : ''}`}
-                  </button>
                 </motion.div>
               )}
             </AnimatePresence>

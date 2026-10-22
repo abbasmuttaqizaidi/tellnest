@@ -55,6 +55,7 @@ export const getPublicWorkServerFn = createServerFn({ method: 'GET' })
           bio
         ),
         category:categories(id, name, slug),
+        work_genres (genres (id, name, slug)),
         acts(
           id,
           work_id,
@@ -140,6 +141,8 @@ export const getPublicWorkServerFn = createServerFn({ method: 'GET' })
 
     const authorObj = (data as any).author
     const categoryObj = (data as any).category
+    const genreList = ((data as any).work_genres || []).map((wg: any) => wg.genres).filter(Boolean)
+    const primaryGenre = genreList[0]
 
     return {
       id: data.id,
@@ -151,9 +154,13 @@ export const getPublicWorkServerFn = createServerFn({ method: 'GET' })
         'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80',
       category: categoryObj?.name || 'Novels',
       categorySlug: categoryObj?.slug || 'novels',
-      genre: 'Literary Fiction',
-      genreSlug: 'literary-fiction',
-      tags: ['Serialized', 'Archival'],
+      genre: primaryGenre?.name || 'Literary Fiction',
+      genreSlug: primaryGenre?.slug || 'literary-fiction',
+      tags: [
+        ...genreList.map((g: any) => g.name),
+        'Serialized',
+        'Archival',
+      ],
       language: data.language || 'English',
       status: mappedStatus,
       visibility: (data.visibility === 'public' ? 'Public' : 'Unlisted') as any,

@@ -16,7 +16,12 @@ import {
 import { cn } from '../lib/utils'
 import { generateMeta } from '../lib/seo'
 import { RouteHeader } from '../components/RouteHeader'
-import { globalSearchServerFn, type GlobalSearchResponse } from '../server/search'
+import {
+  globalSearchServerFn,
+  getQuestionnaireRecommendationsServerFn,
+  type GlobalSearchResponse,
+  type SearchStoriesResultItem,
+} from '../server/search'
 
 export interface SearchRouteSearch {
   q?: string
@@ -34,6 +39,32 @@ export const Route = createFileRoute('/search')({
     const type = rawType === 'author' || rawType === 'genre' ? (rawType as 'author' | 'genre') : 'stories'
     const genres = typeof search.genres === 'string' && search.genres.trim() ? search.genres.trim() : undefined
     return { q, type, genres }
+  },
+  loaderDeps: ({ search: { q, type, genres } }) => ({ q, type, genres }),
+  loader: async ({ deps: { q, type, genres } }) => {
+    if (type === 'genre') {
+      const slugs = genres ? genres.split(',').filter(Boolean).slice(0, 3) : []
+      if (slugs.length > 0) {
+        try {
+          return await globalSearchServerFn({
+            data: { query: q || '', type: 'genre', genreSlugs: slugs, page: 1, limit: 32 },
+          })
+        } catch (e) {
+          console.warn('[SearchRoute loader] Genre search error:', e)
+        }
+      }
+      return null
+    }
+    if (q && q.trim().length >= 2) {
+      try {
+        return await globalSearchServerFn({
+          data: { query: q.trim(), type: type || 'stories', page: 1, limit: 32 },
+        })
+      } catch (e) {
+        console.warn('[SearchRoute loader] Text search error:', e)
+      }
+    }
+    return null
   },
   head: () =>
     generateMeta({
@@ -57,6 +88,16 @@ interface QuestionnaireQuestion {
     description?: string
     tag?: string
   }[]
+}
+
+function matchesTitle(title: string | undefined | null, q: string): boolean {
+  if (!title || !q) return false
+  const t = title.toLowerCase()
+  const lowerQ = q.toLowerCase().replace(/["'“”]/g, '').trim()
+  if (t.includes(lowerQ)) return true
+  if (lowerQ.includes('parameter') && t.includes(lowerQ.replace(/parameter/g, 'perimeter'))) return true
+  if (lowerQ.includes('perimeter') && t.includes(lowerQ.replace(/perimeter/g, 'parameter'))) return true
+  return false
 }
 
 const QUESTIONS_CONFIG: QuestionnaireQuestion[] = [
@@ -116,6 +157,7 @@ function SearchPage() {
   const { allWorks, categories, genres } = useApp()
   const navigate = useNavigate()
   const searchParams = Route.useSearch()
+  const loaderData = Route.useLoaderData()
 
   const searchMode: SearchMode = searchParams.type || 'stories'
   const submittedQuery = searchParams.q || ''
@@ -123,21 +165,44 @@ function SearchPage() {
     return searchParams.genres ? searchParams.genres.split(',').filter(Boolean).slice(0, 3) : []
   }, [searchParams.genres])
 
+  // Staged genres in the active genre picker
+  const [stagedGenreSlugs, setStagedGenreSlugs] = useState<string[]>(selectedGenreSlugs)
+
+  // Sync staged genres with URL search parameters on route navigation
+  useEffect(() => {
+    setStagedGenreSlugs(selectedGenreSlugs)
+  }, [selectedGenreSlugs])
+
+  const genreDisplayText = useMemo(() => {
+    if (stagedGenreSlugs.length === 0) return ''
+    const names = stagedGenreSlugs
+      .map((slug) => genres.find((g) => g.slug === slug)?.name || slug)
+      .filter(Boolean)
+    return names.join(', ')
+  }, [stagedGenreSlugs, genres])
+
   // Draft input in the active search bar
   const [searchInput, setSearchInput] = useState(() => (searchMode === 'genre' ? '' : submittedQuery))
   const [searchError, setSearchError] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
 
-  const [serverAuthors, setServerAuthors] = useState<any[]>([])
+  const [serverAuthors, setServerAuthors] = useState<any[]>(() => loaderData?.authors || [])
 
   // Fast In-Memory RAM Cache (SWR / LRU) & Async State
   const searchCacheRef = useRef<Map<string, GlobalSearchResponse>>(new Map())
   const currentRequestIdRef = useRef(0)
   const [isSearching, setIsSearching] = useState(false)
-  const [hasSearched, setHasSearched] = useState(false)
+  const [hasSearched, setHasSearched] = useState(() => {
+    return Boolean(
+      (loaderData?.stories && loaderData.stories.length > 0) ||
+      (loaderData?.authors && loaderData.authors.length > 0) ||
+      (searchMode === 'genre' && selectedGenreSlugs.length > 0) ||
+      (submittedQuery.trim().length >= 2)
+    )
+  })
   const [serverResults, setServerResults] = useState<{
     stories: any[]
-  }>({ stories: [] })
+  }>(() => ({ stories: loaderData?.stories || [] }))
 
   // Questionnaire Flow State
   const [isQuestionnaireOpen, setIsQuestionnaireOpen] = useState(false)
@@ -146,6 +211,8 @@ function SearchPage() {
   const [selectedFormat, setSelectedFormat] = useState<string>('all')
   const [selectedReadingGenre, setSelectedReadingGenre] = useState<string>('all')
   const [isQuestionnaireSubmitted, setIsQuestionnaireSubmitted] = useState(false)
+  const [isRecommending, setIsRecommending] = useState(false)
+  const [dynamicRecommendations, setDynamicRecommendations] = useState<SearchStoriesResultItem[]>([])
 
   // Primary Server-Side Search Executors (Scalable to millions of records)
   // Protected with a monotonic request sequence guard to eliminate stale race conditions
@@ -208,7 +275,7 @@ function SearchPage() {
     }
   }
 
-  const executeGenreSearch = async (slugs: string[]) => {
+  const executeGenreSearch = async (slugs: string[], textQuery: string = '') => {
     if (slugs.length === 0) {
       setServerResults({ stories: [] })
       setServerAuthors([])
@@ -221,7 +288,8 @@ function SearchPage() {
     setIsQuestionnaireSubmitted(false)
     setIsQuestionnaireOpen(false)
 
-    const cacheKey = `genre:${slugs.slice().sort().join(',')}`
+    const trimmedQuery = textQuery.trim()
+    const cacheKey = `genre:${slugs.slice().sort().join(',')}:${trimmedQuery.toLowerCase()}`
     const cached = searchCacheRef.current.get(cacheKey)
     if (cached) {
       setServerResults({ stories: cached.stories })
@@ -233,7 +301,7 @@ function SearchPage() {
 
     try {
       const res = await globalSearchServerFn({
-        data: { query: '', type: 'genre', genreSlugs: slugs, page: 1 },
+        data: { query: trimmedQuery, type: 'genre', genreSlugs: slugs, page: 1 },
       })
       if (requestId !== currentRequestIdRef.current) return
       if (res) {
@@ -255,17 +323,16 @@ function SearchPage() {
 
   // Reactive synchronizer listening to validated route search parameters
   useEffect(() => {
+    setSearchInput(submittedQuery)
     if (searchMode === 'genre') {
-      setSearchInput('')
       if (selectedGenreSlugs.length > 0) {
-        executeGenreSearch(selectedGenreSlugs)
+        executeGenreSearch(selectedGenreSlugs, submittedQuery)
       } else {
         setServerResults({ stories: [] })
         setServerAuthors([])
         setHasSearched(false)
       }
     } else {
-      setSearchInput(submittedQuery)
       if (submittedQuery.length >= 2) {
         executeTextSearch(submittedQuery, searchMode)
       } else {
@@ -281,57 +348,52 @@ function SearchPage() {
     }
   }, [searchMode, submittedQuery, searchParams.genres])
 
-  // Handle user typing
+  // Handle user typing (without auto-debouncing: search triggers strictly on Enter or search button click)
   const handleInputChange = (val: string) => {
-    if (searchMode === 'genre') return
     setSearchInput(val)
     if (searchError && val.trim().length >= 2) {
       setSearchError(null)
     }
-    if (!val.trim()) {
+    if (!val.trim() && submittedQuery) {
       handleClear()
     }
   }
 
-  // 300ms Debounce typing listener (only for stories and author modes)
-  useEffect(() => {
-    if (searchMode === 'genre') return
-    const trimmed = searchInput.trim()
-    if (trimmed.length >= 2 && trimmed !== submittedQuery) {
-      const timer = setTimeout(() => {
-        navigate({
-          to: '/search',
-          search: {
-            type: searchMode,
-            q: trimmed,
-          },
-          replace: true,
-        })
-      }, 300)
-      return () => clearTimeout(timer)
-    }
-  }, [searchInput, searchMode, submittedQuery, navigate])
-
-  // Handle explicit form submission
-  const executeSearch = (val: string, modeOverride?: SearchMode) => {
-    const targetMode = modeOverride ?? searchMode
+  // Handle explicit form submission (triggered strictly on Enter keypress or Search submit button click)
+  const handleFormSubmit = (val: string) => {
     const trimmed = val.trim()
-    if (!trimmed) {
-      handleClear()
-      return
+    if (searchMode === 'genre') {
+      if (stagedGenreSlugs.length === 0) {
+        setSearchError('Please select at least 1 genre from the dropdown.')
+        return
+      }
+      setSearchError(null)
+      navigate({
+        to: '/search',
+        search: {
+          type: 'genre',
+          genres: stagedGenreSlugs.join(','),
+          q: trimmed || undefined,
+        },
+      })
+    } else {
+      if (!trimmed) {
+        handleClear()
+        return
+      }
+      if (trimmed.length < 2) {
+        setSearchError('Minimum 2 letters are required for searching.')
+        return
+      }
+      setSearchError(null)
+      navigate({
+        to: '/search',
+        search: {
+          type: searchMode,
+          q: trimmed,
+        },
+      })
     }
-    if (trimmed.length < 2) {
-      setSearchError('Minimum 2 letters are required for searching.')
-      return
-    }
-    setSearchError(null)
-    navigate({
-      to: '/search',
-      search: {
-        type: targetMode === 'genre' ? 'stories' : targetMode,
-        q: trimmed,
-      },
-    })
   }
 
   // Handle mode change via SearchModeDropdown
@@ -341,7 +403,7 @@ function SearchPage() {
         to: '/search',
         search: {
           type: 'genre',
-          genres: selectedGenreSlugs.length > 0 ? selectedGenreSlugs.join(',') : undefined,
+          genres: stagedGenreSlugs.length > 0 ? stagedGenreSlugs.join(',') : undefined,
         },
       })
     } else {
@@ -355,20 +417,16 @@ function SearchPage() {
     }
   }
 
-  // Handle genres apply → trigger genre search
+  // Handle genres toggle in dropdown (stages selection without triggering network request until Enter is pressed)
   const handleGenresChange = (slugs: string[]) => {
-    navigate({
-      to: '/search',
-      search: {
-        type: 'genre',
-        genres: slugs.length > 0 ? slugs.join(',') : undefined,
-      },
-    })
+    setStagedGenreSlugs(slugs)
+    if (searchError) setSearchError(null)
   }
 
   const handleClear = () => {
     currentRequestIdRef.current++
     setSearchInput('')
+    setStagedGenreSlugs([])
     setSearchError(null)
     setServerResults({ stories: [] })
     setServerAuthors([])
@@ -391,51 +449,57 @@ function SearchPage() {
 
   // Search Results: Prefers fast indexed server results, with resilient in-memory fallback
   const matchingWorks = useMemo(() => {
-    // In genre mode, results come from server directly (no text query needed)
+    // In genre mode, results come from server directly with optional text query filtering
     if (searchMode === 'genre') {
       if (selectedGenreSlugs.length === 0) return []
-      if (selectedCategory !== 'all') {
-        return serverResults.stories.filter((w: any) => w.categorySlug === selectedCategory)
+      let list = serverResults.stories
+      if (submittedQuery.trim().length >= 2) {
+        list = list.filter((w: any) => matchesTitle(w.title, submittedQuery))
       }
-      return serverResults.stories
+      if (selectedCategory !== 'all') {
+        return list.filter((w: any) => w.categorySlug === selectedCategory)
+      }
+      return list
     }
 
     if (!submittedQuery.trim() || submittedQuery.trim().length < 2) return []
 
+    const q = submittedQuery.trim()
+
     if (hasSearched) {
+      const list = serverResults.stories.filter((w: any) => matchesTitle(w.title, q))
       if (selectedCategory !== 'all') {
-        return serverResults.stories.filter((w: any) => w.categorySlug === selectedCategory)
+        return list.filter((w: any) => w.categorySlug === selectedCategory)
       }
-      return serverResults.stories
+      return list
     }
 
     if (serverResults.stories.length > 0) {
+      const list = serverResults.stories.filter((w: any) => matchesTitle(w.title, q))
       if (selectedCategory !== 'all') {
-        return serverResults.stories.filter((w: any) => w.categorySlug === selectedCategory)
+        return list.filter((w: any) => w.categorySlug === selectedCategory)
       }
-      return serverResults.stories
+      return list
     }
 
     // Author mode: no story fallback
     if (searchMode === 'author') return []
 
-    const q = submittedQuery.toLowerCase()
     return allWorks.filter((w) => {
       if (selectedCategory !== 'all' && w.categorySlug !== selectedCategory) return false
-      return (
-        w.title.toLowerCase().includes(q) ||
-        w.synopsis.toLowerCase().includes(q) ||
-        (w.author && w.author.name.toLowerCase().includes(q)) ||
-        (w.tags && w.tags.some((t) => t.toLowerCase().includes(q)))
-      )
+      return matchesTitle(w.title, q)
     })
   }, [serverResults.stories, allWorks, submittedQuery, selectedCategory, hasSearched, searchMode, selectedGenreSlugs])
 
   const totalResults = matchingWorks.length
 
-  // Recommendations calculated based on questionnaire answers
+  // Recommendations calculated based on questionnaire answers (prefers live dynamic server results)
   const recommendedWorks = useMemo(() => {
     if (!isQuestionnaireSubmitted) return []
+
+    if (dynamicRecommendations.length > 0) {
+      return dynamicRecommendations
+    }
 
     const moodOption = QUESTIONS_CONFIG[0].options?.find(o => o.id === selectedMood)
     const moodTag = moodOption?.tag || ''
@@ -459,7 +523,7 @@ function SearchPage() {
         }
 
         // Mood tag match
-        if (moodTag && work.tags.some(t => t.toLowerCase().includes(moodTag) || moodTag.includes(t.toLowerCase()))) {
+        if (moodTag && (work.tags || []).some(t => t.toLowerCase().includes(moodTag) || moodTag.includes(t.toLowerCase()))) {
           score += 25
         }
 
@@ -472,7 +536,7 @@ function SearchPage() {
       .filter(item => item.score > 0)
       .slice(0, 8)
       .map(item => item.work)
-  }, [isQuestionnaireSubmitted, selectedMood, selectedFormat, selectedReadingGenre, allWorks])
+  }, [isQuestionnaireSubmitted, dynamicRecommendations, selectedMood, selectedFormat, selectedReadingGenre, allWorks])
 
   // Pinch & Exit Animation Variants
   const modalPinchVariants = {
@@ -512,10 +576,29 @@ function SearchPage() {
     }
   }
 
-  // Handle final questionnaire submit with pinch effect
-  const handleFinalQuestionnaireSubmit = () => {
+  // Handle final questionnaire submit with dynamic DB server function
+  const handleFinalQuestionnaireSubmit = async () => {
     setIsQuestionnaireOpen(false)
     setIsQuestionnaireSubmitted(true)
+    setIsRecommending(true)
+    setDynamicRecommendations([])
+    try {
+      const res = await getQuestionnaireRecommendationsServerFn({
+        data: {
+          mood: selectedMood,
+          categorySlug: selectedFormat,
+          genreSlug: selectedReadingGenre,
+          limit: 8,
+        },
+      })
+      if (res && Array.isArray(res)) {
+        setDynamicRecommendations(res)
+      }
+    } catch (err: any) {
+      console.warn('[SearchPage] Dynamic recommendations notice:', err?.message)
+    } finally {
+      setIsRecommending(false)
+    }
   }
 
   // --- MAIN RENDER WRAPPER WITH ANIMATEPRESENCE FOR SEAMLESS PINCH & REVEAL ---
@@ -583,7 +666,14 @@ function SearchPage() {
               </div>
             </motion.div>
 
-            {recommendedWorks.length === 0 ? (
+            {isRecommending ? (
+              <div className="py-16 flex flex-col items-center justify-center space-y-3 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl shadow-xs">
+                <Loader2 className="w-6 h-6 animate-spin text-[var(--ink-primary)]" />
+                <p className="text-sm font-mono text-[var(--ink-secondary)]">
+                  Curating recommendations from platform database...
+                </p>
+              </div>
+            ) : recommendedWorks.length === 0 ? (
               <EmptyState
                 type="no-search"
                 customTitle="No exact matches found"
@@ -927,10 +1017,10 @@ function SearchPage() {
             <OmniSearch
               expandMode="responsive"
               size="lg"
-              value={searchMode === 'genre' ? '' : searchInput}
+              value={searchInput}
               isLoading={isSearching}
               onChange={handleInputChange}
-              onSubmit={(val) => executeSearch(val)}
+              onSubmit={(val) => handleFormSubmit(val)}
               onClear={handleClear}
               defaultExpanded={true}
               isExpanded={true}
@@ -939,7 +1029,10 @@ function SearchPage() {
               shortcut="/"
               placeholders={
                 searchMode === 'genre'
-                  ? ['Select genres from the dropdown...']
+                  ? [
+                      'Search stories in selected genre(s)... (press Enter)',
+                      'Type story title or keyword & hit Enter...',
+                    ]
                   : searchMode === 'author'
                   ? ['Search by author name or handle...', 'Search "Elena Rostova"...']
                   : [
@@ -952,10 +1045,11 @@ function SearchPage() {
               leftSlot={
                 <SearchModeDropdown
                   mode={searchMode}
-                  selectedGenreSlugs={selectedGenreSlugs}
+                  selectedGenreSlugs={stagedGenreSlugs}
                   genres={genres}
                   onModeChange={handleModeChange}
                   onGenresChange={handleGenresChange}
+                  onSearchSubmit={() => handleFormSubmit(searchInput)}
                 />
               }
             />
@@ -1003,10 +1097,10 @@ function SearchPage() {
             <OmniSearch
               expandMode="responsive"
               size="md"
-              value={searchMode === 'genre' ? '' : searchInput}
+              value={searchInput}
               isLoading={isSearching}
               onChange={handleInputChange}
-              onSubmit={(val) => executeSearch(val)}
+              onSubmit={(val) => handleFormSubmit(val)}
               onClear={handleClear}
               defaultExpanded={true}
               isExpanded={true}
@@ -1014,7 +1108,10 @@ function SearchPage() {
               resultsCount={searchMode === 'author' ? serverAuthors.length : totalResults}
               placeholders={
                 searchMode === 'genre'
-                  ? ['Select genres from the dropdown...']
+                  ? [
+                      'Search stories in selected genre(s)... (press Enter)',
+                      'Type story title or keyword & hit Enter...',
+                    ]
                   : searchMode === 'author'
                   ? ['Search by author name or handle...', 'Search "Elena Rostova"...']
                   : [
@@ -1027,10 +1124,11 @@ function SearchPage() {
               leftSlot={
                 <SearchModeDropdown
                   mode={searchMode}
-                  selectedGenreSlugs={selectedGenreSlugs}
+                  selectedGenreSlugs={stagedGenreSlugs}
                   genres={genres}
                   onModeChange={handleModeChange}
                   onGenresChange={handleGenresChange}
+                  onSearchSubmit={() => handleFormSubmit(searchInput)}
                 />
               }
             />
@@ -1117,19 +1215,43 @@ function SearchPage() {
                         ? `Stories by Genre (${matchingWorks.length})`
                         : `Stories & Manuscripts (${matchingWorks.length})`}
                     </span>
+                    {isSearching && (
+                      <div className="flex items-center gap-1.5 text-xs text-[var(--ink-muted)] font-mono ml-2">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Searching...</span>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Category Filter for Stories */}
-                  <div className="flex flex-wrap items-center gap-2">
+                  {/* Category Filter as a Button with Dropdown at the Top */}
+                  <div className="flex items-center gap-2">
                     <FilterDisclosure
-                      label="Filter by Category"
+                      label="Category"
                       activeId={selectedCategory}
                       onChange={setSelectedCategory}
                       items={[
                         { id: 'all', label: 'All Categories' },
-                        ...categories.map((c) => ({ id: c.slug, label: c.name, badge: c.worksCount }))
+                        ...categories.map((c) => ({
+                          id: c.slug,
+                          label: c.name,
+                          badge: (searchMode === 'genre'
+                            ? (submittedQuery.trim().length >= 2
+                                ? serverResults.stories.filter((w: any) => w.title?.toLowerCase().includes(submittedQuery.trim().toLowerCase()) && w.categorySlug === c.slug).length
+                                : serverResults.stories.filter((w: any) => w.categorySlug === c.slug).length)
+                            : serverResults.stories.filter((w: any) => w.title?.toLowerCase().includes(submittedQuery.trim().toLowerCase()) && w.categorySlug === c.slug).length
+                          ) || undefined,
+                        }))
                       ]}
                     />
+                    {selectedCategory !== 'all' && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCategory('all')}
+                        className="text-xs font-mono text-[var(--ink-muted)] hover:text-[var(--ink-primary)] px-2 py-1 transition-colors cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -1159,28 +1281,12 @@ function SearchPage() {
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-12">
-                    {/* Stories Results */}
+                  <div className="pt-6">
                     {matchingWorks.length > 0 && (
-                      <div>
-                        <div className="flex items-center justify-between mb-4">
-                          <h3 className="font-serif text-lg font-semibold text-[var(--ink-primary)]">
-                            {searchMode === 'genre'
-                              ? `Stories by Genre (${matchingWorks.length})`
-                              : `Stories & Manuscripts (${matchingWorks.length})`}
-                          </h3>
-                          {isSearching && (
-                            <div className="flex items-center gap-1.5 text-xs text-[var(--ink-muted)] font-mono">
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              <span>Searching...</span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
-                          {matchingWorks.map((work) => (
-                            <WorkCard key={work.id} work={work as any} layout="portrait" />
-                          ))}
-                        </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
+                        {matchingWorks.map((work) => (
+                          <WorkCard key={work.id} work={work as any} layout="portrait" />
+                        ))}
                       </div>
                     )}
                   </div>
