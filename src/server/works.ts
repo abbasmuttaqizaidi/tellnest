@@ -526,25 +526,92 @@ export async function executeGetPlatformWorks(
         ORDER BY w.last_activity_at DESC NULLS LAST;
       `
 
-      // Use pg client via service connection for complex lateral aggregates (or injected queryRows in tests)
+      // Use queryRows in tests, or Supabase Admin REST client (HTTPS), falling back to direct pg
       let rawRows: any[] = []
       if (dependencies.queryRows) {
         rawRows = await dependencies.queryRows()
       } else {
-        const dbUrl = process.env.DATABASE_URL
-        if (!dbUrl) {
-          console.warn('[getPlatformWorksServerFn] DATABASE_URL is not configured; skipping direct pg query.')
-          return []
+        // 1. Primary: Query via Supabase REST API (HTTPS) - works in serverless environments (Vercel) without port 5432
+        try {
+          const { createAdminClient } = await import('../lib/supabase/server.ts')
+          const admin = createAdminClient()
+          const { data: supaRows, error: supaErr } = await admin
+            .from('works_with_collections')
+            .select(`
+              *,
+              profiles:author_id (id, username, display_name, avatar_path, bio, created_at),
+              categories:category_id (id, name, slug),
+              work_genres (genres (id, name, slug)),
+              acts (id, act_number, title, slug, description, status),
+              chapters (id, chapter_number, title, slug, word_count, reading_time_minutes, status, published_at, act_id)
+            `)
+            .eq('visibility', 'public')
+            .eq('publication_status', 'published')
+            .order('last_activity_at', { ascending: false })
+
+          if (!supaErr && Array.isArray(supaRows) && supaRows.length > 0) {
+            rawRows = supaRows.map((w: any) => ({
+              id: w.id,
+              author_id: w.author_id,
+              title: w.title,
+              slug: w.slug,
+              description: w.description,
+              cover_image_path: w.cover_image_path,
+              language: w.language,
+              category_id: w.category_id,
+              status: w.status,
+              visibility: w.visibility,
+              publication_status: w.publication_status,
+              is_indexable: w.is_indexable,
+              content_rating: w.content_rating,
+              reading_time_minutes: w.reading_time_minutes,
+              word_count: w.word_count,
+              chapter_count: w.chapter_count,
+              view_count: w.view_count,
+              like_count: w.like_count,
+              save_count: w.save_count,
+              comment_count: w.comment_count,
+              published_at: w.published_at,
+              last_published_at: w.last_published_at,
+              created_at: w.created_at,
+              updated_at: w.updated_at,
+              last_activity_at: w.last_activity_at,
+              last_activity_type: w.last_activity_type,
+              last_activity_detail: w.last_activity_detail,
+              collections: w.collections,
+              author_name: w.profiles?.display_name || w.profiles?.username || 'Hatchpen Author',
+              author_handle: w.profiles?.username || 'author',
+              author_avatar: w.profiles?.avatar_path || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
+              author_bio: w.profiles?.bio || '',
+              author_created_at: w.profiles?.created_at,
+              category_name: w.categories?.name || 'Novels',
+              category_slug: w.categories?.slug || 'novels',
+              genres: (w.work_genres || []).map((wg: any) => wg.genres).filter(Boolean),
+              acts: w.acts || [],
+              chapters: w.chapters || [],
+            }))
+          } else if (supaErr) {
+            console.warn('[executeGetPlatformWorks] Supabase REST query notice:', supaErr.message)
+          }
+        } catch (supaEx: any) {
+          console.warn('[executeGetPlatformWorks] Supabase REST query exception:', supaEx?.message)
         }
 
-        const { Client } = await import('pg')
-        const client = new Client({
-          connectionString: dbUrl,
-        })
-        await client.connect()
-        const res = await client.query(q)
-        await client.end()
-        rawRows = res.rows || []
+        // 2. Secondary fallback: direct pg connection if available and REST didn't return rows
+        if (rawRows.length === 0 && process.env.DATABASE_URL) {
+          try {
+            const { Client } = await import('pg')
+            const client = new Client({
+              connectionString: process.env.DATABASE_URL,
+            })
+            await client.connect()
+            const res = await client.query(q)
+            await client.end()
+            rawRows = res.rows || []
+          } catch (pgErr: any) {
+            console.warn('[executeGetPlatformWorks] Direct pg query fallback error:', pgErr?.message)
+          }
+        }
       }
 
       return rawRows.map((row: any) => {

@@ -49,6 +49,7 @@ export interface HomeLoaderData {
   }
   initialBootstrap: UserSessionBootstrap | null
   initialRecSignals: UserRecommendationSignals | null
+  initialWorks?: any[] | null
 }
 
 export interface LoggedInHomeProps {
@@ -72,6 +73,19 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
     isOwnWork,
   } = useApp()
 
+  // Merge initialWorks from loaderData if available to ensure instant DB stories hydration
+  const works = useMemo(() => {
+    if (loaderData?.initialWorks && Array.isArray(loaderData.initialWorks) && loaderData.initialWorks.length > 0) {
+      const mergedMap = new Map<string, any>()
+      for (const w of loaderData.initialWorks) mergedMap.set(w.id, w)
+      for (const w of allWorks) {
+        if (!mergedMap.has(w.id)) mergedMap.set(w.id, w)
+      }
+      return Array.from(mergedMap.values())
+    }
+    return allWorks
+  }, [allWorks, loaderData?.initialWorks])
+
   // Optimization 2: Pre-hydrate reading progress from server loaderData if context is still bootstrapping
   const readingProgress = useMemo(() => {
     if (Object.keys(contextReadingProgress).length > 0) {
@@ -82,7 +96,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
       const normalized: Record<string, any> = {}
       for (const item of preloaded) {
         if (!item.work_id || isOwnWork(item.work_id)) continue
-        const matchedWork = allWorks.find((w) => w.id === item.work_id)
+        const matchedWork = works.find((w) => w.id === item.work_id)
         const matchedChapter = matchedWork?.chapters?.find((c) => c.id === item.chapter_id)
         const chNum = (item as any).chapter_number || matchedChapter?.number || 1
         const chTitle = (item as any).chapter_title || matchedChapter?.title || `Chapter ${chNum}`
@@ -98,7 +112,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
       return normalized
     }
     return contextReadingProgress
-  }, [contextReadingProgress, loaderData?.initialBootstrap?.readingProgress, allWorks, isOwnWork])
+  }, [contextReadingProgress, loaderData?.initialBootstrap?.readingProgress, works, isOwnWork])
 
   const [selectedHeroWorkId, setSelectedHeroWorkId] = useState<string | null>(null)
   const [isSwitchMenuOpen, setIsSwitchMenuOpen] = useState(false)
@@ -172,7 +186,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
   }, [savedWorkIds, recommendationSignals?.bookmarkedWorkIds])
 
   const forYouRecommendations = useMemo(() => {
-    const candidateWorks = allWorks.filter((w) => !isOwnWork(w.id))
+    const candidateWorks = works.filter((w) => !isOwnWork(w.id))
     if (candidateWorks.length === 0) return []
 
     if (recommendationSignals && user?.id) {
@@ -198,12 +212,12 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
       score: 100 - index,
       explanation: 'Curated for you',
     }))
-  }, [allWorks, recommendationSignals, mergedBookmarkedWorkIds, user?.id, isOwnWork])
+  }, [works, recommendationSignals, mergedBookmarkedWorkIds, user?.id, isOwnWork])
 
   // Dedicated New Voices: original qualifying stories from writers in first 5 calendar months
   const newVoicesWorks = useMemo(() => {
-    return filterAndOrderNewVoicesStories(allWorks, user?.id)
-  }, [allWorks, user?.id])
+    return filterAndOrderNewVoicesStories(works, user?.id)
+  }, [works, user?.id])
 
   // Books currently in-progress (sorted by most recently read)
   const inProgressList = useMemo(() => {
@@ -214,7 +228,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
         return timeB - timeA
       })
       .map((prog) => {
-        const work = allWorks.find((w) => w.id === prog.workId)
+        const work = works.find((w) => w.id === prog.workId)
         if (!work || isOwnWork(work.id)) return null
         const currentChapter =
           work.chapters?.find((c) => c.id === prog.chapterId) ||
@@ -229,18 +243,18 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
         return { work, progress: prog, currentChapter }
       })
       .filter(Boolean) as {
-        work: (typeof allWorks)[0]
+        work: (typeof works)[0]
         progress: (typeof readingProgress)[string]
-        currentChapter: (typeof allWorks)[0]['chapters'][0] | undefined
+        currentChapter: (typeof works)[0]['chapters'][0] | undefined
       }
-  }, [allWorks, readingProgress, isOwnWork])
+  }, [works, readingProgress, isOwnWork])
 
   // Focal book resolution: allows dynamic switching between user's active in-progress books
   const activeEntry = useMemo(() => {
     if (selectedHeroWorkId) {
       const match = inProgressList.find((item) => item.work.id === selectedHeroWorkId)
       if (match) return match
-      const fallbackWork = allWorks.find((w) => w.id === selectedHeroWorkId)
+      const fallbackWork = works.find((w) => w.id === selectedHeroWorkId)
       if (fallbackWork) {
         return {
           work: fallbackWork,
@@ -250,16 +264,17 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
       }
     }
     return inProgressList[0] || null
-  }, [selectedHeroWorkId, inProgressList, allWorks, readingProgress])
+  }, [selectedHeroWorkId, inProgressList, works, readingProgress])
 
-  const hasReadingHistory = inProgressList.length > 0 || Object.keys(readingProgress).length > 0
+  // Strict currently reading work resolution: ONLY resolves to the story the user is actually reading
+  // NEVER falls back to random featured mock works (A Winter in Kyoto)
+  const userActiveWorkId = selectedHeroWorkId || (Object.keys(readingProgress).length > 0 ? Object.values(readingProgress)[0]?.workId : null)
   const activeWork =
     activeEntry?.work ||
-    (Object.keys(readingProgress).length > 0
-      ? allWorks.find((w) => w.id === Object.values(readingProgress)[0]?.workId)
-      : null) ||
-    allWorks.find((w) => w.featured) ||
-    allWorks[0]
+    (userActiveWorkId ? works.find((w) => w.id === userActiveWorkId) : null) ||
+    null
+
+  const hasReadingHistory = Boolean(activeWork && (inProgressList.length > 0 || (activeWork && readingProgress[activeWork.id])))
   const activeProgress = activeEntry?.progress || (activeWork ? readingProgress[activeWork.id] : null) || null
   const activeChapter = activeEntry?.currentChapter || activeWork?.chapters?.[0]
   const progressPercent = activeProgress ? Math.min(100, Math.max(0, Math.round(Number(activeProgress.progressPercent || 0)))) : 0
@@ -273,19 +288,19 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
 
   // Saved manuscripts from shelf
   const savedWorks = useMemo(() => {
-    return allWorks.filter((w) => savedWorkIds.includes(w.id))
-  }, [allWorks, savedWorkIds])
+    return works.filter((w) => savedWorkIds.includes(w.id))
+  }, [works, savedWorkIds])
 
   const [activeLeaderboardGenre, setActiveLeaderboardGenre] = useState<string>('all')
 
   // Trending & community ranked serials
   const trendingSerials = useMemo(() => {
-    let list = allWorks.filter((w) => w.trending || w.featured || w.totalReads > 50000)
+    let list = works.filter((w) => w.trending || w.featured || w.totalReads > 50000)
     if (activeLeaderboardGenre !== 'all') {
       list = list.filter((w) => w.genre?.toLowerCase().includes(activeLeaderboardGenre.toLowerCase()))
     }
     return list.slice(0, 3)
-  }, [allWorks, activeLeaderboardGenre])
+  }, [works, activeLeaderboardGenre])
 
   // Writer atelier adaptive states
   const isAuthor = writerWorks && writerWorks.length > 0

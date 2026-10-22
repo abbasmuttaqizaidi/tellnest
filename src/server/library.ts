@@ -108,8 +108,51 @@ export async function executeGetCompactLibraryWorks(dependencies: {
     if (queryRows) {
       rows = await queryRows(workIds)
     } else {
-      const dbUrl = process.env.DATABASE_URL
-      if (dbUrl) {
+      // 1. Primary: Query via Supabase Admin REST API (HTTPS) - works in serverless (Vercel) without port 5432
+      try {
+        const { createAdminClient } = await import('../lib/supabase/server.ts')
+        const admin = createAdminClient()
+        const hasTargetIds = Array.isArray(workIds) && workIds.length > 0
+
+        let query = admin
+          .from('works')
+          .select(`
+            id,
+            slug,
+            title,
+            cover_image_path,
+            chapter_count,
+            profiles:author_id (display_name, username),
+            work_genres (genres (name))
+          `)
+          .order('last_activity_at', { ascending: false })
+
+        if (hasTargetIds) {
+          query = query.in('id', workIds)
+        } else {
+          query = query.eq('visibility', 'public').eq('publication_status', 'published').limit(12)
+        }
+
+        const { data: supaRows, error: supaErr } = await query
+
+        if (!supaErr && Array.isArray(supaRows) && supaRows.length > 0) {
+          rows = supaRows.map((r: any) => ({
+            id: r.id,
+            slug: r.slug,
+            title: r.title,
+            cover: r.cover_image_path || '/covers/default-book.webp',
+            chaptersCount: r.chapter_count || 1,
+            authorName: r.profiles?.display_name || r.profiles?.username || 'Author',
+            genre: r.work_genres?.[0]?.genres?.name || 'Fiction',
+          }))
+        }
+      } catch (supaEx) {
+        console.warn('[executeGetCompactLibraryWorks] Supabase REST query exception:', supaEx)
+      }
+
+      // 2. Secondary fallback: direct pg query if available and REST didn't return rows
+      if (rows.length === 0 && process.env.DATABASE_URL) {
+        const dbUrl = process.env.DATABASE_URL
         try {
           const { Client } = await import('pg')
           const client = new Client({ connectionString: dbUrl })
@@ -211,7 +254,65 @@ export async function executeGetLibraryWorkDetail(
     if (raw) return mapRawToLibraryWorkDetail(raw)
   }
 
-  // 1. Try DB query if DATABASE_URL is available
+  // 1. Primary: Query via Supabase Admin REST API (HTTPS)
+  try {
+    const { createAdminClient } = await import('../lib/supabase/server.ts')
+    const admin = createAdminClient()
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clean)
+
+    let query = admin
+      .from('works')
+      .select(`
+        id,
+        slug,
+        title,
+        description,
+        cover_image_path,
+        status,
+        chapter_count,
+        reading_time_minutes,
+        profiles:author_id (id, display_name, username, avatar_path, bio),
+        categories:category_id (name),
+        work_genres (genres (name)),
+        chapters (id, chapter_number)
+      `)
+
+    if (isUuid) {
+      query = query.or(`id.eq.${clean},slug.eq.${clean}`)
+    } else {
+      query = query.eq('slug', clean)
+    }
+
+    const { data: supaWork, error: supaErr } = await query.limit(1).maybeSingle()
+    if (!supaErr && supaWork) {
+      const sortedChapters = (supaWork.chapters || []).sort(
+        (a: any, b: any) => (a.chapter_number || 0) - (b.chapter_number || 0)
+      )
+      return {
+        id: supaWork.id,
+        slug: supaWork.slug || '',
+        title: supaWork.title || '',
+        cover: supaWork.cover_image_path || '/covers/default-book.webp',
+        chaptersCount: supaWork.chapter_count || sortedChapters.length || 1,
+        author: {
+          id: supaWork.profiles?.id,
+          name: supaWork.profiles?.display_name || supaWork.profiles?.username || 'Author',
+          avatar: supaWork.profiles?.avatar_path,
+          bio: supaWork.profiles?.bio,
+        },
+        genre: supaWork.work_genres?.[0]?.genres?.name || 'Fiction',
+        category: supaWork.categories?.name || 'Novel',
+        status: supaWork.status || 'ongoing',
+        description: supaWork.description || '',
+        readingTimeMinutes: supaWork.reading_time_minutes,
+        firstChapterId: sortedChapters[0]?.id || 'ch-1',
+      }
+    }
+  } catch (supaEx) {
+    console.warn('[executeGetLibraryWorkDetail] Supabase REST query exception:', supaEx)
+  }
+
+  // 2. Secondary fallback: DB query if DATABASE_URL is available
   const dbUrl = process.env.DATABASE_URL
   if (dbUrl) {
     try {

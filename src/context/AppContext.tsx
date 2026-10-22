@@ -294,6 +294,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               continue
             }
 
+            const matchedWork = allWorks.find((w) => w.id === item.work_id)
+            const matchedChapter = matchedWork?.chapters?.find((c) => c.id === item.chapter_id)
             const chNum = (item as any).chapter_number || matchedChapter?.number || 1
             const chTitle = (item as any).chapter_title || matchedChapter?.title || `Chapter ${chNum}`
 
@@ -502,6 +504,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                   delete merged[item.work_id]
                   continue
                 }
+                const matchedWork = allWorks.find((w) => w.id === item.work_id)
+                const matchedChapter = matchedWork?.chapters?.find((c) => c.id === item.chapter_id)
                 const chNum = (item as any).chapter_number || matchedChapter?.number || 1
                 const chTitle = (item as any).chapter_title || matchedChapter?.title || `Chapter ${chNum}`
                 merged[item.work_id] = {

@@ -11,6 +11,7 @@ import {
   getUserRecommendationSignalsServerFn,
   type UserRecommendationSignals,
 } from '../server/recommendations'
+import { getPlatformWorksServerFn } from '../server/works'
 import {
   LoggedInHomeSkeleton,
   PublicHomeSkeleton,
@@ -29,38 +30,41 @@ export const Route = createFileRoute('/')({
   loader: async (): Promise<HomeLoaderData> => {
     try {
       const authUser = await getAuthUserServerFn()
+      const isAuth = Boolean(authUser?.isAuthenticated && authUser?.userId)
 
-      // Optimization 2: Parallel server pre-fetch of both user bootstrap & recommendation signals
-      // Eliminates the 4-step client waterfall (Clerk -> AppContext -> Server -> Signals)
-      if (authUser?.isAuthenticated && authUser.userId) {
-        const [bootstrap, recSignals] = await Promise.all([
-          getUserSessionBootstrapServerFn({ data: authUser.userId }).catch((err) => {
-            console.warn('[Route Loader] Pre-fetch bootstrap failed:', err?.message || err)
-            return null
-          }),
-          getUserRecommendationSignalsServerFn().catch((err) => {
-            console.warn('[Route Loader] Pre-fetch rec signals failed:', err?.message || err)
-            return null
-          }),
-        ])
-
-        return {
-          authUser,
-          initialBootstrap: bootstrap,
-          initialRecSignals: recSignals,
-        }
-      }
+      // Parallel server pre-fetch of user bootstrap, recommendation signals, and platform works
+      // Eliminates the client waterfall and ensures real DB works are ready on frame 1
+      const [bootstrap, recSignals, platformWorks] = await Promise.all([
+        isAuth
+          ? getUserSessionBootstrapServerFn({ data: authUser!.userId! }).catch((err) => {
+              console.warn('[Route Loader] Pre-fetch bootstrap failed:', err?.message || err)
+              return null
+            })
+          : null,
+        isAuth
+          ? getUserRecommendationSignalsServerFn().catch((err) => {
+              console.warn('[Route Loader] Pre-fetch rec signals failed:', err?.message || err)
+              return null
+            })
+          : null,
+        getPlatformWorksServerFn().catch((err) => {
+          console.warn('[Route Loader] Pre-fetch platform works failed:', err?.message || err)
+          return null
+        }),
+      ])
 
       return {
         authUser: authUser || { userId: null, isAuthenticated: false },
-        initialBootstrap: null,
-        initialRecSignals: null,
+        initialBootstrap: bootstrap,
+        initialRecSignals: recSignals,
+        initialWorks: platformWorks,
       }
     } catch {
       return {
         authUser: { userId: null, isAuthenticated: false },
         initialBootstrap: null,
         initialRecSignals: null,
+        initialWorks: null,
       }
     }
   },
