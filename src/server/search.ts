@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/react-start'
-import { getWorkSlug } from '../data/mockData.ts'
+import { WORKS, AUTHORS, getWorkSlug } from '../data/mockData.ts'
 
 export interface SearchStoriesResultItem {
   id: string
@@ -122,6 +122,25 @@ export async function executeGlobalSearch({
       }
     } catch (e: any) {
       console.warn('[executeGlobalSearch] Author DB query notice:', e?.message)
+    }
+
+    // Offline / Mock fallback resilience when DB returns 0 authors
+    if (authors.length === 0) {
+      const lowerQuery = clean.toLowerCase()
+      const matchingMockAuthors: SearchAuthorsResultItem[] = AUTHORS.filter((a) => {
+        const nameMatch = a.name.toLowerCase().includes(lowerQuery)
+        const handleMatch = a.handle.toLowerCase().includes(lowerQuery)
+        const bioMatch = (a.bio || '').toLowerCase().includes(lowerQuery)
+        return nameMatch || handleMatch || bioMatch
+      }).map((a) => ({
+        id: a.id,
+        username: a.handle,
+        displayName: a.name,
+        avatar: a.avatar,
+        bio: a.bio,
+        worksCount: a.worksCount || 1,
+      }))
+      authors = matchingMockAuthors
     }
 
     const effectiveTotal = Math.max(totalCount, authors.length)
@@ -587,7 +606,43 @@ export async function executeGetQuestionnaireRecommendations({
     console.warn('[executeGetQuestionnaireRecommendations] DB query notice:', err?.message)
   }
 
-  const allCandidateStories = [...dbStories]
+  // Candidate pool: DB stories augmented with catalog works, deduplicated by ID & slug
+  const mockStories: SearchStoriesResultItem[] = WORKS.map((w) => ({
+    id: w.id,
+    title: w.title,
+    subtitle: w.subtitle,
+    slug: getWorkSlug(w),
+    synopsis: w.synopsis,
+    cover: w.cover,
+    category: w.category,
+    categorySlug: w.categorySlug.toLowerCase(),
+    genre: w.genre,
+    genreSlug: (w.genreSlug || '').toLowerCase(),
+    genres: w.tags || [w.genre],
+    status: (w.status === 'Completed' ? 'Completed' : 'In Progress') as any,
+    readingTimeMinutes: (w as any).readingTimeMinutes || 5,
+    wordCount: (w as any).wordCount || 1000,
+    viewCount: w.totalReads || (w as any).viewCount || 0,
+    ratingScore: w.ratingScore,
+    ratingCount: w.ratingCount,
+    author: {
+      id: w.author.id,
+      name: w.author.name,
+      handle: w.author.handle,
+      avatar: w.author.avatar,
+      bio: w.author.bio,
+    },
+  }))
+
+  const seenIds = new Set<string>()
+  const allCandidateStories: SearchStoriesResultItem[] = []
+  for (const s of [...dbStories, ...mockStories]) {
+    if (!seenIds.has(s.id) && !seenIds.has(s.slug)) {
+      seenIds.add(s.id)
+      seenIds.add(s.slug)
+      allCandidateStories.push(s)
+    }
+  }
 
   // Rank and score candidates
   const scored = allCandidateStories.map((story) => {

@@ -1,44 +1,61 @@
 ✖ failing tests:
 
-test at tests/discover-filters.test.mjs:470:1
-✖ Mock Baseline Coverage: All 7 mock stories render and filter correctly under All Stories (0.538917ms)
-  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
-  
-  8 !== 7
-  
-      at TestContext.<anonymous> (file:///Users/syedabbasmuttaqizaidi/Desktop/development/stories-by-relay/tests/discover-filters.test.mjs:481:10)
-      at Test.runInAsyncScope (node:async_hooks:214:14)
-      at Test.run (node:internal/test_runner/test:1047:25)
-      at Test.processPendingSubtests (node:internal/test_runner/test:744:18)
-      at Test.postRun (node:internal/test_runner/test:1173:19)
-      at Test.run (node:internal/test_runner/test:1101:12)
+test at tests/global-search.test.mjs:260:1
+✖ Author Mode: Offline/Mock fallback returns valid author results with id and handle (136.955833ms)
+  AssertionError [ERR_ASSERTION]: Author search must return matching mock authors when DB is unavailable
+      at TestContext.<anonymous> (file:///Users/syedabbasmuttaqizaidi/Desktop/development/stories-by-relay/tests/global-search.test.mjs:265:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1054:7)
       at async Test.processPendingSubtests (node:internal/test_runner/test:744:7) {
-    generatedMessage: true,
+    generatedMessage: false,
     code: 'ERR_ASSERTION',
-    actual: 8,
-    expected: 7,
-    operator: 'strictEqual',
+    actual: false,
+    expected: true,
+    operator: '==',
     diff: 'simple'
   }
 
-test at tests/discover-filters.test.mjs:555:1
-✖ Combined Dataset: Real DB stories and mock stories coexist and deduplicate by ID (0.153958ms)
-  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
-  
-  9 !== 8
-  
-      at TestContext.<anonymous> (file:///Users/syedabbasmuttaqizaidi/Desktop/development/stories-by-relay/tests/discover-filters.test.mjs:584:10)
-      at Test.runInAsyncScope (node:async_hooks:214:14)
-      at Test.run (node:internal/test_runner/test:1047:25)
-      at Test.processPendingSubtests (node:internal/test_runner/test:744:18)
-      at Test.postRun (node:internal/test_runner/test:1173:19)
-      at Test.run (node:internal/test_runner/test:1101:12)
+test at tests/global-search.test.mjs:360:1
+✖ Questionnaire Recommendations: Dynamically scores and returns recommendations from DB catalog (332.119166ms)
+  AssertionError [ERR_ASSERTION]: A Winter in Kyoto should be recommended for quiet mood
+      at TestContext.<anonymous> (file:///Users/syedabbasmuttaqizaidi/Desktop/development/stories-by-relay/tests/global-search.test.mjs:372:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1054:7)
       at async Test.processPendingSubtests (node:internal/test_runner/test:744:7) {
-    generatedMessage: true,
+    generatedMessage: false,
     code: 'ERR_ASSERTION',
-    actual: 9,
-    expected: 8,
-    operator: 'strictEqual',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests/library-backend.test.mjs:69:1
+✖ Library Backend: executeGetCompactLibraryWorks falls back gracefully to platform catalog (0.489792ms)
+  AssertionError [ERR_ASSERTION]: Should fall back to platform catalog
+      at TestContext.<anonymous> (file:///Users/syedabbasmuttaqizaidi/Desktop/development/stories-by-relay/tests/library-backend.test.mjs:74:10)
+      at async Test.run (node:internal/test_runner/test:1054:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:744:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests/library-backend.test.mjs:156:1
+✖ Library Backend: executeGetLibraryWorkDetail falls back gracefully to catalog when work not in DB (10158.351083ms)
+  AssertionError [ERR_ASSERTION]: Should resolve catalog work
+      at TestContext.<anonymous> (file:///Users/syedabbasmuttaqizaidi/Desktop/development/stories-by-relay/tests/library-backend.test.mjs:159:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1054:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:744:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: true,
+    operator: '==',
     diff: 'simple'
   }
 
