@@ -15,17 +15,12 @@ import {
   CheckCircle2,
   Edit3,
 } from 'lucide-react'
-import { AUTHORS } from '../data/mockData'
 import { generateMeta } from '../lib/seo'
 import { getPublicAuthorServerFn } from '../server/works'
 import { formatViewCount } from '../lib/utils'
 
 export const Route = createFileRoute('/author/$authorId')({
   loader: async ({ params }) => {
-    const raw = (params.authorId || '').trim().toLowerCase()
-    const staticAuthor = AUTHORS.find((a) => a.id === params.authorId || a.handle.toLowerCase() === raw)
-    if (staticAuthor) return { author: staticAuthor }
-
     try {
       const dbAuthor = await getPublicAuthorServerFn({ data: params.authorId })
       if (dbAuthor) return { author: dbAuthor }
@@ -37,9 +32,6 @@ export const Route = createFileRoute('/author/$authorId')({
   },
   head: ({ params, loaderData }) => {
     let author = loaderData?.author
-    if (!author) {
-      author = AUTHORS.find((a) => a.id === params.authorId || a.handle.toLowerCase() === params.authorId.toLowerCase())
-    }
     if (!author && typeof window !== 'undefined') {
       try {
         const stored = localStorage.getItem('hatchpen_admin_posted_works')

@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/react-start'
-import { WORKS, type Work, getWorkSlug } from '../data/mockData.ts'
+import { type Work, getWorkSlug } from '../data/mockData.ts'
 
 export interface CompactLibraryWork {
   id: string
@@ -215,15 +215,10 @@ export async function executeGetCompactLibraryWorks(dependencies: {
       return rows.map(projectToCompactLibraryWork)
     }
 
-    // Resilient fallback to platform catalog works projected strictly to compact schema
-    const fallbackCatalog =
-      Array.isArray(workIds) && workIds.length > 0
-        ? WORKS.filter((w) => workIds.includes(w.id))
-        : WORKS
-    return fallbackCatalog.map(projectToCompactLibraryWork)
+    return []
   } catch (err) {
-    console.warn('[executeGetCompactLibraryWorks] Uncaught error, falling back to mock catalog:', err)
-    return WORKS.map(projectToCompactLibraryWork)
+    console.warn('[executeGetCompactLibraryWorks] Uncaught error:', err)
+    return []
   }
 }
 
@@ -353,33 +348,6 @@ export async function executeGetLibraryWorkDetail(
       }
     } catch (err) {
       console.warn('[executeGetLibraryWorkDetail] DB query error:', err)
-    }
-  }
-
-  // 2. Fallback to platform catalog works
-  const found = WORKS.find(
-    (w) => w.id === clean || (w.slug && w.slug.toLowerCase() === clean) || getWorkSlug(w) === clean
-  )
-  if (found) {
-    return {
-      id: found.id,
-      slug: getWorkSlug(found),
-      title: found.title,
-      cover: found.cover,
-      chaptersCount: found.chaptersCount || found.publishedChaptersCount || found.chapters?.length || 1,
-      author: {
-        id: found.author?.id,
-        name: found.author?.name || 'Author',
-        avatar: found.author?.avatar,
-        bio: found.author?.bio || 'Hatchpen author',
-      },
-      genre: found.genre || 'Literary Fiction',
-      category: found.category || 'Serialized Novel',
-      status: found.status || 'Ongoing',
-      description: found.description || found.excerpt || 'An original literary manuscript on Hatchpen.',
-      readingTimeMinutes: (found as any).readingTimeMinutes || 15,
-      totalReads: found.totalReads || '1.2K',
-      firstChapterId: found.chapters?.[0]?.id || 'ch-1',
     }
   }
 

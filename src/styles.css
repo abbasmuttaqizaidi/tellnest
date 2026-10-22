@@ -428,4 +428,13 @@ img[src*="white"] {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* Prevent mobile Safari / iOS auto-zoom on input focus by enforcing 16px minimum font size */
+@media screen and (max-width: 768px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
 

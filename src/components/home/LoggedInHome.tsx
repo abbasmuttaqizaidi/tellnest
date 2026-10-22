@@ -435,7 +435,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
                   <div className="space-y-1 max-w-md">
                     <div className="flex items-center justify-between font-mono text-[10.5px] text-[var(--ink-muted)]">
                       <span className="font-medium text-[var(--ink-primary)] truncate max-w-[180px] sm:max-w-xs">
-                        {activeChapter?.title ? `Ch. ${activeChapter.number}: ${activeChapter.title}` : `Chapter ${activeChapter?.number || 1}`}
+                        {activeChapter?.title || `Chapter ${activeChapter?.number || 1}`}
                       </span>
                       <span className="shrink-0 font-semibold text-[var(--ink-primary)]">
                         {progressPercent}% read

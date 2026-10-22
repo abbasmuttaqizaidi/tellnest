@@ -23,6 +23,8 @@ import {
 import { useUser, useClerk } from '@clerk/react'
 import { useApp } from '../context/AppContext'
 import { PaletteSearch, OmniSearch, Drawer } from '../design-system'
+import { SPRINGS } from '../design-system/tokens'
+import { motion, AnimatePresence } from 'motion/react'
 import { UnisexAvatar, UnisexAvatarIcon } from './UnisexAvatar'
 import { HatchpenLogo } from './HatchpenLogo'
 
@@ -161,12 +163,40 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
         
         {/* Left: Brand Identity */}
         <div className="flex items-center gap-4 lg:gap-8 flex-shrink-0">
-          <Link to="/" preload="intent" className="group flex items-center text-inherit no-underline flex-shrink-0">
-            <HatchpenLogo
-              size="sm"
-              variant="full"
-              className={isNavSearchOpen ? 'hidden md:inline-flex' : 'inline-flex'}
-            />
+          <Link to="/" preload="intent" className="group flex items-center text-inherit no-underline flex-shrink-0 select-none">
+            {/* Desktop: Constant Full Wordmark */}
+            <div className="hidden md:inline-flex items-center">
+              <HatchpenLogo size="sm" variant="full" />
+            </div>
+
+            {/* Mobile: Ultra-smooth GPU-accelerated Logo Morph (Zero-lag, pre-decoded in DOM) */}
+            <div
+              className={`relative md:hidden flex items-center h-8 overflow-hidden transition-[width] duration-160 ease-[cubic-bezier(0.2,0,0,1)] transform-gpu ${
+                isNavSearchOpen ? 'w-8' : 'w-[144px]'
+              }`}
+            >
+              {/* Full Wordmark Layer */}
+              <div
+                className={`absolute left-0 flex items-center transition-all duration-160 ease-[cubic-bezier(0.2,0,0,1)] transform-gpu will-change-[transform,opacity] ${
+                  isNavSearchOpen
+                    ? 'opacity-0 -translate-x-2 scale-95 pointer-events-none'
+                    : 'opacity-100 translate-x-0 scale-100 pointer-events-auto'
+                }`}
+              >
+                <HatchpenLogo size="sm" variant="full" />
+              </div>
+
+              {/* Icon Emblem Layer */}
+              <div
+                className={`flex items-center justify-center h-8 w-8 transition-all duration-160 ease-[cubic-bezier(0.2,0,0,1)] transform-gpu will-change-[transform,opacity] ${
+                  isNavSearchOpen
+                    ? 'opacity-100 scale-100 translate-x-0 pointer-events-auto'
+                    : 'opacity-0 scale-80 -translate-x-1 pointer-events-none'
+                }`}
+              >
+                <HatchpenLogo size="sm" variant="icon" />
+              </div>
+            </div>
           </Link>
 
           {/* Primary Desktop Navigation */}
@@ -239,7 +269,13 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
           
           {/* Responsive Expansion OmniSearch on Nav Menu (Hidden on public homepage) */}
           {!isPublicHome && (
-            <div className={isNavSearchOpen ? 'flex-1 max-w-xs sm:max-w-sm md:max-w-md w-full min-w-0' : ''}>
+            <div
+              className={`transition-[flex-grow,max-width] duration-160 ease-[cubic-bezier(0.2,0,0,1)] min-w-0 ${
+                isNavSearchOpen
+                  ? 'flex-1 max-w-xs sm:max-w-sm md:max-w-md w-full'
+                  : 'flex-initial'
+              }`}
+            >
               <OmniSearch
                 expandMode="responsive"
                 size="sm"

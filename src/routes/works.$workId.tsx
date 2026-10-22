@@ -18,7 +18,7 @@ import {
   UserPlus,
   UserCheck,
 } from 'lucide-react'
-import { WORKS, getWorkSlug } from '../data/mockData'
+import { getWorkSlug } from '../data/mockData'
 import { generateMeta } from '../lib/seo'
 import { getPublicWorkServerFn } from '../server/works'
 import { formatViewCount } from '../lib/utils'
@@ -29,16 +29,8 @@ export const Route = createFileRoute('/works/$workId')({
   gcTime: 1000 * 60 * 5,
   loader: async ({ params }) => {
     const rawParam = (params.workId || '').trim().toLowerCase()
-    // 1. Static mock fast path
-    const staticWork = WORKS.find(
-      (w) =>
-        w.id === params.workId ||
-        (w.slug && w.slug.toLowerCase() === rawParam) ||
-        getWorkSlug(w) === rawParam
-    )
-    if (staticWork) return { work: staticWork }
 
-    // 2. Fetch full work from Supabase
+    // 1. Fetch full work from Supabase
     try {
       const dbWork = await getPublicWorkServerFn({ data: params.workId })
       if (dbWork) return { work: dbWork }
@@ -51,15 +43,6 @@ export const Route = createFileRoute('/works/$workId')({
   head: ({ params, loaderData }) => {
     const rawParam = (params.workId || '').trim().toLowerCase()
     let work = loaderData?.work
-
-    if (!work) {
-      work = WORKS.find(
-        (w) =>
-          w.id === params.workId ||
-          (w.slug && w.slug.toLowerCase() === rawParam) ||
-          getWorkSlug(w) === rawParam
-      )
-    }
 
     if (!work && typeof window !== 'undefined') {
       try {
@@ -146,25 +129,16 @@ function WorkDetailPage() {
     // 0. Route loader result (fastest, SSR-synchronized)
     if (loaderData?.work) return loaderData.work
 
-    // 1. Context lookup (checks allWorks, WORKS, localStorage)
+    // 1. Context lookup (checks allWorks from DB, localStorage)
     const matched = getWorkById(workId)
     if (matched) return matched
 
-    // 2. Direct static mock fallback
-    const rawParam = workId.trim().toLowerCase()
-    const staticMatched = WORKS.find(
-      (w) =>
-        w.id === workId ||
-        (w.slug && w.slug.toLowerCase() === rawParam) ||
-        getWorkSlug(w) === rawParam
-    )
-    if (staticMatched) return staticMatched
-
-    // 3. Direct browser localStorage fallback
+    // 2. Direct browser localStorage fallback
     if (typeof window !== 'undefined') {
       try {
         const stored = localStorage.getItem('hatchpen_admin_posted_works')
         if (stored) {
+          const rawParam = workId.trim().toLowerCase()
           const list = JSON.parse(stored)
           const localMatch = list.find(
             (w: any) =>

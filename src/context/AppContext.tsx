@@ -1,7 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import {
-  WORKS,
-  AUTHORS,
   CATEGORIES,
   GENRES,
   getWorkLatestActivityDate,
@@ -215,7 +213,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [writerDraftsCount, setWriterDraftsCount] = useState(0)
 
   const [allWorks, setAllWorks] = useState<Work[]>(() => {
-    let base = [...WORKS]
+    let base: Work[] = []
     if (typeof window !== 'undefined') {
       try {
         const cachedPlatform = localStorage.getItem('hatchpen_cached_platform_works')
@@ -857,8 +855,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     const currentlyFollowed = followedAuthorIds.includes(authorId)
-    const author = AUTHORS.find((a) => a.id === authorId)
-    const name = author ? author.name : 'Author'
+    const authorWork = allWorks.find((w) => w.author.id === authorId)
+    const name = authorWork ? authorWork.author.name : 'Author'
 
     // 2. Optimistic UI update
     setFollowedAuthorIds((prev) => {
@@ -1035,16 +1033,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     )
     if (inState) return inState
 
-    // 2. Fallback to static baseline WORKS collection
-    const inMock = WORKS.find(
-      (w) =>
-        w.id === idOrSlug ||
-        (w.slug && w.slug.toLowerCase() === clean) ||
-        getWorkSlug(w) === clean
-    )
-    if (inMock) return inMock
-
-    // 3. Fallback to localStorage admin posted works (ensures instant availability even during cold boot / SSR)
+    // 2. Fallback to localStorage admin posted works (ensures instant availability even during cold boot / SSR)
     if (typeof window !== 'undefined') {
       try {
         const stored = localStorage.getItem('hatchpen_admin_posted_works')
@@ -1065,19 +1054,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
   const getAuthorById = (id: string): Author | undefined => {
     if (!id) return undefined
-    // 1. Direct match in static AUTHORS collection
-    const fromMock = AUTHORS.find(
-      (a) => a.id === id || a.handle.toLowerCase() === id.toLowerCase()
-    )
-    if (fromMock) return fromMock
-
-    // 2. Direct match across all current works (including admin posted works)
+    // 1. Direct match across all current works (including DB and admin posted works)
     const fromWorks = allWorks.find(
       (w) => w.author.id === id || w.author.handle.toLowerCase() === id.toLowerCase()
     )
     if (fromWorks) return fromWorks.author
 
-    // 3. Fallback to localStorage admin works
+    // 2. Fallback to localStorage admin works
     if (typeof window !== 'undefined') {
       try {
         const stored = localStorage.getItem('hatchpen_admin_posted_works')

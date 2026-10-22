@@ -100,7 +100,24 @@ export function HatchpenLogo({
   const conf = sizeConfig[size]
 
   if (variant === 'icon') {
-    return <HatchpenEmblem className={`${conf.icon} ${className}`} />
+    return (
+      <div className={`relative inline-flex items-center justify-center shrink-0 select-none ${conf.icon} ${className}`}>
+        <img
+          src="/hatchpen-logo-kit/svg/hatchpen-icon.svg"
+          alt="Hatchpen"
+          className="h-full w-full object-contain dark:hidden transition-all"
+          loading="eager"
+          decoding="async"
+        />
+        <img
+          src="/hatchpen-logo-kit/svg/hatchpen-icon-reversed.svg"
+          alt="Hatchpen"
+          className="h-full w-full object-contain hidden dark:inline transition-all"
+          loading="eager"
+          decoding="async"
+        />
+      </div>
+    )
   }
 
   if (variant === 'inverted' || invert || forceTheme === 'dark') {

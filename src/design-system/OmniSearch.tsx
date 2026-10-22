@@ -148,7 +148,7 @@ export const OmniSearch: FC<OmniSearchProps> = ({
       bar: 'h-8 px-2 text-xs',
       icon: 'h-3.5 w-3.5',
       scopeBtn: 'px-2 py-0.5 text-[11px]',
-      input: 'text-xs',
+      input: 'text-[16px] sm:text-xs',
       badge: 'text-[9px] px-1.5 py-0.5',
     },
     md: {
@@ -156,7 +156,7 @@ export const OmniSearch: FC<OmniSearchProps> = ({
       bar: 'h-10 px-2.5 text-xs sm:text-sm',
       icon: 'h-4 w-4',
       scopeBtn: 'px-2.5 py-1 text-xs',
-      input: 'text-xs sm:text-sm',
+      input: 'text-[16px] sm:text-sm',
       badge: 'text-[10px] px-2 py-0.5',
     },
     lg: {
@@ -164,7 +164,7 @@ export const OmniSearch: FC<OmniSearchProps> = ({
       bar: 'h-12 px-3 text-sm sm:text-base',
       icon: 'h-4.5 w-4.5',
       scopeBtn: 'px-3 py-1.5 text-xs sm:text-sm',
-      input: 'text-sm sm:text-base',
+      input: 'text-[16px] sm:text-base',
       badge: 'text-xs px-2 py-0.5',
     },
   }[size]
@@ -175,9 +175,10 @@ export const OmniSearch: FC<OmniSearchProps> = ({
       setInternalExpanded(true)
     }
     onExpand?.()
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
     setTimeout(() => {
       inputRef.current?.focus()
-    }, 50)
+    }, isMobile ? 160 : 30)
   }
 
   // Collapse action
@@ -345,7 +346,7 @@ export const OmniSearch: FC<OmniSearchProps> = ({
               )
         )}
       >
-        <AnimatePresence initial={false} mode="wait">
+        <AnimatePresence initial={false}>
           {/* COLLAPSED STATE: Simple Icon Trigger */}
           {!expanded ? (
             <motion.button

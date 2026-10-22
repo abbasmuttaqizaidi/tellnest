@@ -12,7 +12,9 @@ interface CommentsSectionProps {
 
 export default function CommentsSection({ workId, chapterId }: CommentsSectionProps) {
   const { showToast } = useApp()
-  const [comments, setComments] = useState<CommentItem[]>(INITIAL_COMMENTS)
+  const [comments, setComments] = useState<CommentItem[]>(() =>
+    INITIAL_COMMENTS.filter((c) => c.workId === workId && (!chapterId || c.chapterId === chapterId))
+  )
   const [newCommentText, setNewCommentText] = useState('')
   const [replyingToId, setReplyingToId] = useState<string | null>(null)
   const [replyText, setReplyText] = useState('')

@@ -19,7 +19,7 @@ import { ProtectedRoute } from '../components/ProtectedRoute'
 import { generateMeta } from '../lib/seo'
 import { getWriterWorkDetailsServerFn, saveWriterChapterServerFn } from '../server/writer'
 import { getPublicWorkServerFn } from '../server/works'
-import { WORKS, getWorkSlug } from '../data/mockData'
+import { getWorkSlug } from '../data/mockData'
 
 export const Route = createFileRoute('/write/editor/$workId/$chapterId')({
   loader: async ({ params }) => {
@@ -29,15 +29,6 @@ export const Route = createFileRoute('/write/editor/$workId/$chapterId')({
     } catch (e) {
       console.warn('[Route /write/editor] Loader DB writer lookup error:', e)
     }
-
-    const rawParam = (params.workId || '').trim().toLowerCase()
-    const staticWork = WORKS.find(
-      (w) =>
-        w.id === params.workId ||
-        (w.slug && w.slug.toLowerCase() === rawParam) ||
-        getWorkSlug(w) === rawParam
-    )
-    if (staticWork) return { work: staticWork }
 
     try {
       const publicDbWork = await getPublicWorkServerFn({ data: params.workId })

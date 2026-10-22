@@ -267,21 +267,21 @@ export const AnimatedSearch: FC<AnimatedSearchProps> = ({
   const sizeStyles = {
     sm: {
       height: 'h-8',
-      text: 'text-xs',
+      text: 'text-[16px] sm:text-xs',
       iconSize: 'h-3.5 w-3.5',
       padding: 'px-2.5 py-1',
       badge: 'text-[9px] px-1 py-0.2',
     },
     md: {
       height: 'h-9.5',
-      text: 'text-xs sm:text-sm',
+      text: 'text-[16px] sm:text-sm',
       iconSize: 'h-4 w-4',
       padding: 'px-3.5 py-1.5',
       badge: 'text-[10px] px-1.5 py-0.5',
     },
     lg: {
       height: 'h-12',
-      text: 'text-sm sm:text-base',
+      text: 'text-[16px] sm:text-base',
       iconSize: 'h-5 w-5',
       padding: 'px-4.5 py-2.5',
       badge: 'text-xs px-2 py-0.5',

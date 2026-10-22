@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useState, useMemo } from 'react'
 import { useApp } from '../context/AppContext'
-import { FEED_EVENTS, AUTHORS } from '../data/mockData'
 import EmptyState from '../components/EmptyState'
 import { FilterDisclosure, AnimatedSearch } from '../design-system'
 import { ProtectedRoute } from '../components/ProtectedRoute'
@@ -33,9 +32,9 @@ function FollowingPage() {
   const [selectedAuthor, setSelectedAuthor] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState<string>('')
 
-  // Followed authors: check both catalog AUTHORS and dynamic authors from allWorks
+  // Followed authors: resolved dynamically from allWorks based on followedAuthorIds
   const followedAuthors = useMemo(() => {
-    const pool = [...AUTHORS]
+    const pool: any[] = []
     for (const w of allWorks) {
       if (w.author && !pool.some((a) => a.id === w.author.id || a.handle.toLowerCase() === w.author.handle.toLowerCase())) {
         pool.push(w.author)
@@ -44,10 +43,59 @@ function FollowingPage() {
     return pool.filter((a) => isAuthorFollowed(a.id) || isAuthorFollowed(a.handle))
   }, [allWorks, isAuthorFollowed, followedAuthorIds])
 
-  // Filter feed items for authors we follow
+  // Filter feed items for authors we follow based on actual DB works/chapters
   const feedItems = useMemo(() => {
-    return FEED_EVENTS.filter((event) => {
-      if (!isAuthorFollowed(event.author.id) && !isAuthorFollowed(event.author.handle)) return false
+    const items: any[] = []
+    for (const author of followedAuthors) {
+      const worksByAuthor = allWorks.filter(
+        (w) => w.author?.id === author.id || w.author?.handle?.toLowerCase() === author.handle?.toLowerCase()
+      )
+      for (const w of worksByAuthor) {
+        // Add new_work event
+        items.push({
+          id: `feed-work-${w.id}`,
+          type: 'new_work',
+          author: w.author,
+          work: {
+            id: w.id,
+            title: w.title,
+            cover: w.cover,
+            category: w.category,
+            genre: w.genre,
+          },
+          timestamp: w.publishedAt ? new Date(w.publishedAt).toLocaleDateString() : 'Recently',
+          note: `${w.author.name} published serialized work: ${w.title}.`,
+        })
+
+        // Add chapter drops if available
+        if (Array.isArray(w.chapters) && w.chapters.length > 0) {
+          const latestChapters = w.chapters.slice(-2)
+          for (const ch of latestChapters) {
+            items.push({
+              id: `feed-ch-${w.id}-${ch.id}`,
+              type: 'chapter_release',
+              author: w.author,
+              work: {
+                id: w.id,
+                title: w.title,
+                cover: w.cover,
+                category: w.category,
+                genre: w.genre,
+              },
+              chapter: {
+                id: ch.id,
+                number: ch.number,
+                title: ch.title,
+              },
+              timestamp: (ch as any).publishedAt ? new Date((ch as any).publishedAt).toLocaleDateString() : 'Recently',
+              note: `${w.author.name} published Chapter ${ch.number}: "${ch.title}" in ${w.title}.`,
+            })
+          }
+        }
+      }
+    }
+
+    return items.filter((event) => {
       if (selectedType !== 'all' && event.type !== selectedType) return false
       if (selectedAuthor !== 'all' && event.author.id !== selectedAuthor && event.author.handle !== selectedAuthor) return false
       if (searchQuery.trim()) {
@@ -59,7 +107,7 @@ function FollowingPage() {
       }
       return true
     })
-  }, [isAuthorFollowed, followedAuthorIds, selectedType, selectedAuthor, searchQuery])
+  }, [followedAuthors, allWorks, selectedType, selectedAuthor, searchQuery])
 
   return (
     <div className="min-h-screen pb-12">

@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { generateMeta } from '../lib/seo'
-import { getWorkSlug, WORKS } from '../data/mockData'
+import { getWorkSlug } from '../data/mockData'
 import { getWriterWorkDetailsServerFn, saveWriterChapterServerFn, createWriterChapterServerFn } from '../server/writer'
 import { getPublicWorkServerFn } from '../server/works'
 import { formatViewCount } from '../lib/utils'
@@ -31,15 +31,6 @@ export const Route = createFileRoute('/write/manage/$workId')({
     } catch (e) {
       console.warn('[Route /write/manage/$workId] Loader DB writer lookup error:', e)
     }
-
-    const rawParam = (params.workId || '').trim().toLowerCase()
-    const staticWork = WORKS.find(
-      (w) =>
-        w.id === params.workId ||
-        (w.slug && w.slug.toLowerCase() === rawParam) ||
-        getWorkSlug(w) === rawParam
-    )
-    if (staticWork) return { work: staticWork }
 
     try {
       const publicDbWork = await getPublicWorkServerFn({ data: params.workId })

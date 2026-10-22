@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/react-start'
-import { WORKS, AUTHORS, getWorkSlug } from '../data/mockData.ts'
+import { getWorkSlug } from '../data/mockData.ts'
 
 export interface SearchStoriesResultItem {
   id: string
@@ -124,37 +124,13 @@ export async function executeGlobalSearch({
       console.warn('[executeGlobalSearch] Author DB query notice:', e?.message)
     }
 
-    // Baseline mock fallback for local dev / offline testing resilience
-    const matchingMockAuthors: SearchAuthorsResultItem[] = AUTHORS.filter((a) => {
-      const nameMatch = a.name.toLowerCase().includes(lowerQuery)
-      const handleMatch = a.handle.toLowerCase().includes(lowerQuery)
-      const bioMatch = (a.bio || '').toLowerCase().includes(lowerQuery)
-      return nameMatch || handleMatch || bioMatch
-    }).map((a) => ({
-      id: a.id,
-      username: a.handle,
-      displayName: a.name,
-      avatar: a.avatar,
-      bio: a.bio,
-      worksCount: a.worksCount || 1,
-    }))
-
-    const seenAuthorIds = new Set(authors.map((a) => a.id))
-    for (const mockA of matchingMockAuthors) {
-      if (!seenAuthorIds.has(mockA.id)) {
-        seenAuthorIds.add(mockA.id)
-        authors.push(mockA)
-      }
-      if (authors.length >= cappedLimit) break
-    }
-
     const effectiveTotal = Math.max(totalCount, authors.length)
 
     return {
       query: clean,
       type: 'author',
       stories: [],
-      authors,
+      authors: authors.slice(0, cappedLimit),
       totalCount: effectiveTotal,
       page: validPage,
       hasMore: to + 1 < effectiveTotal,
@@ -281,69 +257,12 @@ export async function executeGlobalSearch({
         console.warn('[executeGlobalSearch] Genre DB query notice:', e?.message)
       }
 
-      // Baseline mock fallback for local dev / offline testing resilience
-      const matchingMockStories: SearchStoriesResultItem[] = WORKS.filter((w) => {
-        const primarySlug = (w.genreSlug || w.genre || '').toLowerCase()
-        const primaryName = (w.genre || '').toLowerCase()
-        const tagSlugs = (w.tags || []).map((t) => t.toLowerCase())
-        const genreMatch = genreSlugs.some((slug) => {
-          const s = slug.toLowerCase()
-          return (
-            primarySlug === s ||
-            primarySlug.includes(s) ||
-            primaryName.includes(s) ||
-            tagSlugs.some((t) => t === s || t.includes(s))
-          )
-        })
-        if (!genreMatch) return false
-        if (clean.length >= 2) {
-          return matchesTitle(w.title)
-        }
-        return true
-      }).map((w) => ({
-        id: w.id,
-        title: w.title,
-        subtitle: w.subtitle,
-        slug: getWorkSlug(w),
-        synopsis: w.synopsis,
-        cover: w.cover,
-        category: w.category,
-        categorySlug: w.categorySlug,
-        genre: w.genre,
-        genreSlug: w.genreSlug,
-        genres: w.tags || [w.genre],
-        status: (w.status === 'Completed' ? 'Completed' : 'In Progress') as 'Completed' | 'In Progress' | 'Hiatus',
-        readingTimeMinutes: (w as any).readingTimeMinutes || 5,
-        wordCount: (w as any).wordCount || 1000,
-        viewCount: w.totalReads || (w as any).viewCount || 0,
-        ratingScore: w.ratingScore,
-        ratingCount: w.ratingCount,
-        author: {
-          id: w.author.id,
-          name: w.author.name,
-          handle: w.author.handle,
-          avatar: w.author.avatar,
-          bio: w.author.bio,
-        },
-      }))
-
-      const seenIds = new Set(dbStories.map((s) => s.id))
-      const combinedGenreStories = [...dbStories]
-      for (const mockStory of matchingMockStories) {
-        if (!seenIds.has(mockStory.id) && !seenIds.has(mockStory.slug)) {
-          seenIds.add(mockStory.id)
-          seenIds.add(mockStory.slug)
-          combinedGenreStories.push(mockStory)
-        }
-        if (combinedGenreStories.length >= cappedLimit) break
-      }
-
-      const effectiveTotal = Math.max(totalDbCount, combinedGenreStories.length)
+      const effectiveTotal = Math.max(totalDbCount, dbStories.length)
 
       return {
         query: clean,
         type: 'genre',
-        stories: combinedGenreStories,
+        stories: dbStories.slice(0, cappedLimit),
         authors: [],
         totalCount: effectiveTotal,
         page: validPage,
@@ -459,55 +378,12 @@ export async function executeGlobalSearch({
     console.warn('[executeGlobalSearch] DB query notice:', e?.message)
   }
 
-  // Merge in mock works matching title query for local dev / testing fallback
-  const matchingMockStories: SearchStoriesResultItem[] = WORKS.filter((w) => {
-    return matchesTitle(w.title)
-  }).map((w) => ({
-    id: w.id,
-    title: w.title,
-    subtitle: w.subtitle,
-    slug: getWorkSlug(w),
-    synopsis: w.synopsis,
-    cover: w.cover,
-    category: w.category,
-    categorySlug: w.categorySlug,
-    genre: w.genre,
-    genreSlug: w.genreSlug,
-    genres: w.tags || [w.genre],
-    status: (w.status === 'Completed' ? 'Completed' : 'In Progress') as 'Completed' | 'In Progress' | 'Hiatus',
-    readingTimeMinutes: (w as any).readingTimeMinutes || 5,
-    wordCount: (w as any).wordCount || 1000,
-    viewCount: w.totalReads || (w as any).viewCount || 0,
-    ratingScore: w.ratingScore,
-    ratingCount: w.ratingCount,
-    author: {
-      id: w.author.id,
-      name: w.author.name,
-      handle: w.author.handle,
-      avatar: w.author.avatar,
-      bio: w.author.bio,
-    },
-  }))
-
-  // Deduplicate by id or slug
-  const seenIds = new Set<string>()
-  const combinedStories: SearchStoriesResultItem[] = []
-
-  for (const story of [...dbStories, ...matchingMockStories]) {
-    if (!seenIds.has(story.id) && !seenIds.has(story.slug)) {
-      seenIds.add(story.id)
-      seenIds.add(story.slug)
-      combinedStories.push(story)
-    }
-    if (combinedStories.length >= cappedLimit) break
-  }
-
-  const effectiveTotal = Math.max(totalDbCount, combinedStories.length)
+  const effectiveTotal = Math.max(totalDbCount, dbStories.length)
 
   return {
     query: clean,
     type: 'stories',
-    stories: combinedStories,
+    stories: dbStories.slice(0, cappedLimit),
     authors: [],
     totalCount: effectiveTotal,
     page: validPage,
@@ -711,35 +587,7 @@ export async function executeGetQuestionnaireRecommendations({
     console.warn('[executeGetQuestionnaireRecommendations] DB query notice:', err?.message)
   }
 
-  // Load mock works baseline
-  const mockStories: SearchStoriesResultItem[] = WORKS.map((w) => ({
-    id: w.id,
-    title: w.title,
-    subtitle: w.subtitle,
-    slug: getWorkSlug(w),
-    synopsis: w.synopsis,
-    cover: w.cover,
-    category: w.category,
-    categorySlug: w.categorySlug.toLowerCase(),
-    genre: w.genre,
-    genreSlug: (w.genreSlug || '').toLowerCase(),
-    genres: w.tags || [w.genre],
-    status: (w.status === 'Completed' ? 'Completed' : 'In Progress') as any,
-    readingTimeMinutes: (w as any).readingTimeMinutes || 5,
-    wordCount: (w as any).wordCount || 1000,
-    viewCount: w.totalReads || (w as any).viewCount || 0,
-    ratingScore: w.ratingScore,
-    ratingCount: w.ratingCount,
-    author: {
-      id: w.author.id,
-      name: w.author.name,
-      handle: w.author.handle,
-      avatar: w.author.avatar,
-      bio: w.author.bio,
-    },
-  }))
-
-  const allCandidateStories = [...dbStories, ...mockStories]
+  const allCandidateStories = [...dbStories]
 
   // Rank and score candidates
   const scored = allCandidateStories.map((story) => {
