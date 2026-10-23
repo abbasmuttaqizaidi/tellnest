@@ -37,6 +37,8 @@ export const CloudinaryImageUpload: React.FC<CloudinaryImageUploadProps> = ({
   const [isPickerOpen, setIsPickerOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const isCover = folder === 'covers'
+
   const handleFile = async (file: File) => {
     if (!file.type.startsWith('image/')) {
       setUploadError('Please select a valid image file (PNG, JPG, WebP, etc.).')
@@ -88,20 +90,30 @@ export const CloudinaryImageUpload: React.FC<CloudinaryImageUploadProps> = ({
       </div>
 
       {currentImageUrl && !imageLoadError ? (
-        <div className="relative group overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)]">
+        <div
+          className={`relative group overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] ${
+            isCover ? 'w-full max-w-[260px] mx-auto aspect-[2/3] shadow-md' : 'w-full'
+          }`}
+        >
           <img
             src={getOptimizedImageUrl(currentImageUrl, { width: 900, quality: 'auto' })}
             alt="Uploaded preview"
             onError={() => setImageLoadError(true)}
-            className="w-full h-32 sm:h-40 object-cover object-center"
+            className={`w-full object-cover object-center ${
+              isCover ? 'h-full aspect-[2/3]' : 'h-32 sm:h-40'
+            }`}
           />
-          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 p-3 flex-wrap">
+          <div
+            className={`absolute inset-0 bg-black/65 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-4 ${
+              isCover ? 'flex-col gap-2' : 'gap-2 flex-wrap'
+            }`}
+          >
             {allowPlatformPicker && (
               <button
                 type="button"
                 onClick={() => setIsPickerOpen(true)}
                 disabled={isUploading}
-                className="px-3 py-1.5 rounded-md bg-white text-black border border-slate-200 hover:bg-slate-50 text-xs font-mono font-medium transition cursor-pointer shadow-xs"
+                className="w-full max-w-[170px] px-3 py-1.5 rounded-md bg-white text-black border border-slate-200 hover:bg-slate-50 text-xs font-mono font-medium transition cursor-pointer shadow-xs text-center"
               >
                 Choose from Library
               </button>
@@ -110,26 +122,26 @@ export const CloudinaryImageUpload: React.FC<CloudinaryImageUploadProps> = ({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
-              className="px-2.5 py-1.5 rounded-md bg-[var(--bg-canvas)] text-[var(--ink-primary)] text-xs font-mono font-medium hover:bg-[var(--bg-subtle)] transition cursor-pointer flex items-center gap-1.5 shadow"
+              className="w-full max-w-[170px] px-2.5 py-1.5 rounded-md bg-[var(--bg-canvas)] text-[var(--ink-primary)] text-xs font-mono font-medium hover:bg-[var(--bg-subtle)] transition cursor-pointer flex items-center justify-center gap-1.5 shadow"
             >
               <UploadCloud className="h-3.5 w-3.5" />
-              Upload New
+              <span>Upload New</span>
             </button>
             {onImageRemoved && (
               <button
                 type="button"
                 onClick={onImageRemoved}
                 disabled={isUploading}
-                className="px-2.5 py-1.5 rounded-md bg-rose-600/90 text-white text-xs font-mono font-medium hover:bg-rose-700 transition cursor-pointer flex items-center gap-1.5 shadow"
+                className="w-full max-w-[170px] px-2.5 py-1.5 rounded-md bg-rose-600/90 text-white text-xs font-mono font-medium hover:bg-rose-700 transition cursor-pointer flex items-center justify-center gap-1.5 shadow"
               >
                 <X className="h-3.5 w-3.5" />
-                Remove
+                <span>Remove</span>
               </button>
             )}
           </div>
-          <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/75 text-emerald-400 font-mono text-[10px] flex items-center gap-1">
+          <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/75 text-emerald-400 font-mono text-[10px] flex items-center gap-1 pointer-events-none">
             <CheckCircle2 className="h-3 w-3" />
-            <span>Cloudinary Optimized</span>
+            <span>Optimized</span>
           </div>
         </div>
       ) : (
@@ -143,6 +155,8 @@ export const CloudinaryImageUpload: React.FC<CloudinaryImageUploadProps> = ({
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
             className={`flex flex-col items-center justify-center p-5 rounded-lg border-2 border-dashed transition-all cursor-pointer ${
+              isCover ? 'w-full max-w-[260px] mx-auto aspect-[2/3]' : ''
+            } ${
               dragOver
                 ? 'border-[var(--ink-primary)] bg-[var(--bg-subtle)]'
                 : 'border-[var(--border-subtle)] hover:border-[var(--ink-muted)] bg-[var(--bg-canvas)]/60'
@@ -151,32 +165,32 @@ export const CloudinaryImageUpload: React.FC<CloudinaryImageUploadProps> = ({
             {isUploading ? (
               <div className="flex flex-col items-center gap-2 py-2">
                 <Loader2 className="h-6 w-6 animate-spin text-[var(--ink-primary)]" />
-                <span className="text-xs font-mono text-[var(--ink-secondary)]">
-                  Uploading to Cloudinary CDN & optimizing...
+                <span className="text-xs font-mono text-[var(--ink-secondary)] text-center">
+                  Uploading to CDN...
                 </span>
               </div>
             ) : (
-              <div className="flex flex-col items-center gap-1.5 text-center">
+              <div className="flex flex-col items-center gap-2 text-center p-2">
                 <div className="p-2.5 rounded-full bg-[var(--bg-subtle)] text-[var(--ink-muted)]">
                   <ImageIcon className="h-5 w-5" />
                 </div>
                 <div className="text-xs font-mono text-[var(--ink-primary)] font-medium">
-                  Click to upload or drag & drop custom image
+                  {isCover ? 'Upload Book Cover' : 'Click to upload custom image'}
                 </div>
-                <div className="text-[10px] font-mono text-[var(--ink-faint)]">
-                  PNG, JPG, WebP up to {maxSizeMb}MB (Auto-compressed to WebP)
+                <div className="text-[10px] font-mono text-[var(--ink-faint)] max-w-[180px]">
+                  {isCover ? 'Portrait 2:3 (600×900 px)' : 'PNG, JPG, WebP'} up to {maxSizeMb}MB
                 </div>
               </div>
             )}
           </div>
 
           {allowPlatformPicker && (
-            <div className="flex items-center justify-center">
+            <div className={`flex items-center justify-center ${isCover ? 'max-w-[260px] mx-auto' : ''}`}>
               <button
                 type="button"
                 onClick={() => setIsPickerOpen(true)}
                 disabled={isUploading}
-                className="w-full py-2.5 px-4 rounded-lg bg-white text-black border border-slate-200 hover:bg-slate-50 hover:border-slate-300 text-xs font-mono font-medium transition cursor-pointer shadow-xs text-center"
+                className="w-full py-2 px-4 rounded-lg bg-white text-black border border-slate-200 hover:bg-slate-50 hover:border-slate-300 text-xs font-mono font-medium transition cursor-pointer shadow-xs text-center"
               >
                 Choose from Library
               </button>

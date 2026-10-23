@@ -1,20 +1,28 @@
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router'
-import { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { useApp } from '../context/AppContext'
 import { useUser } from '@clerk/react'
-import { CATEGORIES } from '../data/mockData'
-import { GLOBAL_GENRES, GENRE_GROUPS, SUGGESTED_TAGS } from '../lib/taxonomy'
+import { ALL_SUGGESTED_TAGS } from '../lib/taxonomy'
 import { ProtectedRoute } from '../components/ProtectedRoute'
-import { ArrowLeft, BookOpen, Upload, Sparkles, CheckCircle2, Loader2 } from 'lucide-react'
+import { RouteHeader } from '../components/RouteHeader'
 import { generateMeta } from '../lib/seo'
 import { CloudinaryImageUpload } from '../components/CloudinaryImageUpload'
+import { MobileScreenSuggestionBanner } from '../components/studio'
 import { createWriterWorkServerFn } from '../server/writer'
+import {
+  Button,
+  AnimatedTabs,
+  DropdownSelect,
+  type SelectOption,
+  type TabOption,
+} from '../design-system'
+import { ArrowLeft, X } from 'lucide-react'
 
 export const Route = createFileRoute('/write/new')({
   head: () =>
     generateMeta({
-      title: 'Create New Manuscript',
-      description: 'Start publishing a new serialized literary work, novel, or essay series on Hatchpen.',
+      title: 'Bind New Manuscript — Writer Studio',
+      description: 'Register and bind a new serialized literary work, novel, or essay series on Hatchpen.',
       noindex: true,
     }),
   component: () => (
@@ -34,7 +42,40 @@ const SAMPLE_COVERS = [
   'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=600&q=80',
   'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=600&q=80',
   'https://images.unsplash.com/photo-1518495973542-4542c06a5843?auto=format&fit=crop&w=600&q=80',
-  'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=600&q=80'
+  'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=600&q=80',
+]
+
+const LANGUAGE_OPTIONS: SelectOption[] = [
+  { id: 'English', label: 'English' },
+  { id: 'French', label: 'French' },
+  { id: 'German', label: 'German' },
+  { id: 'Japanese', label: 'Japanese' },
+  { id: 'Spanish', label: 'Spanish' },
+  { id: 'Italian', label: 'Italian' },
+  { id: 'Portuguese', label: 'Portuguese' },
+]
+
+const STATUS_TABS: TabOption[] = [
+  { id: 'Ongoing', label: 'Ongoing (Serialized)' },
+  { id: 'Completed', label: 'Completed Work' },
+]
+
+const VISIBILITY_TABS: TabOption[] = [
+  { id: 'Draft', label: 'Private Draft' },
+  { id: 'Public', label: 'Public Discovery' },
+  { id: 'Unlisted', label: 'Unlisted' },
+]
+
+const POPULAR_SUGGESTIONS = [
+  'Isolation',
+  'Memory',
+  'Urban',
+  'Slow-Burn',
+  'Dystopian',
+  'Philosophy',
+  'Mythology',
+  'Psychological',
+  'Noir',
 ]
 
 function CreateWorkPage() {
@@ -48,27 +89,63 @@ function CreateWorkPage() {
   const [category, setCategory] = useState(categories[0]?.name || 'Novels')
   const [genre, setGenre] = useState(genres[0]?.name || 'Literary Fiction')
   const [cover, setCover] = useState(SAMPLE_COVERS[0])
-  const [tags, setTags] = useState('Isolation, Memory')
+  const [selectedTags, setSelectedTags] = useState<string[]>(['Isolation', 'Memory'])
+  const [tagInput, setTagInput] = useState('')
   const [language, setLanguage] = useState('English')
   const [status, setStatus] = useState<'Ongoing' | 'Completed'>('Ongoing')
   const [visibility, setVisibility] = useState<'Public' | 'Unlisted' | 'Draft'>('Draft')
   const [isMature, setIsMature] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  // Map categories to DropdownSelect options
+  const categoryOptions: SelectOption[] = useMemo(() => {
+    return categories.map((cat) => ({
+      id: cat.name,
+      label: cat.name,
+      description: cat.description,
+    }))
+  }, [categories])
+
+  // Map genres to DropdownSelect options
+  const genreOptions: SelectOption[] = useMemo(() => {
+    return genres.map((g) => ({
+      id: g.name,
+      label: g.name,
+      description: g.group ? `${g.group}` : undefined,
+    }))
+  }, [genres])
+
+  // Handle adding a tag
+  const handleAddTag = (tagToAdd: string) => {
+    const clean = tagToAdd.trim().replace(/^[#,\s]+|[,\s]+$/g, '')
+    if (clean && !selectedTags.some((t) => t.toLowerCase() === clean.toLowerCase())) {
+      setSelectedTags([...selectedTags, clean])
+    }
+    setTagInput('')
+  }
+
+  // Handle removing a tag
+  const handleRemoveTag = (tagToRemove: string) => {
+    setSelectedTags(selectedTags.filter((t) => t !== tagToRemove))
+  }
+
+  const handleKeyDownTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault()
+      handleAddTag(tagInput)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!title.trim()) return
+    if (!title.trim()) {
+      showToast('Please enter a manuscript title')
+      return
+    }
     if (!user) {
       showToast('Please sign in to register a manuscript')
       return
     }
-
-    const parsedTags: string[] = tags
-      ? tags
-          .split(',')
-          .map((t) => t.trim())
-          .filter((t) => t.length > 0)
-      : []
 
     try {
       setIsSubmitting(true)
@@ -81,14 +158,15 @@ function CreateWorkPage() {
           categoryName: category,
           genreName: genre,
           cover,
-          tags: parsedTags,
+          tags: selectedTags,
           language,
           status,
           visibility,
+          includeInitialAct: false,
         },
       })
 
-      showToast('Manuscript successfully registered in database!')
+      showToast('Manuscript successfully registered!')
 
       // Sync writer works and global platform works
       await Promise.all([
@@ -110,301 +188,341 @@ function CreateWorkPage() {
   }
 
   return (
-    <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-      {/* Back button */}
-      <Link
-        to="/write"
-        className="inline-flex items-center gap-1.5 text-xs font-mono text-[var(--ink-muted)] hover:text-[var(--ink-primary)] mb-6 no-underline"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" />
-        <span>Return to Writer Studio</span>
-      </Link>
+    <div className="min-h-screen bg-[var(--bg-canvas)] text-[var(--ink-primary)] pb-16">
+      {/* Mobile Route Header */}
+      <RouteHeader
+        title="Bind Manuscript"
+        subtitle="Register and configure your new work"
+      />
 
-      <div className="border-b border-[var(--border-subtle)] pb-6 mb-8">
-        <h1 className="font-serif text-3xl font-semibold text-[var(--ink-primary)]">
-          Create New Manuscript
-        </h1>
-        <p className="mt-1 text-xs sm:text-sm text-[var(--ink-muted)]">
-          Set the foundational metadata, cover art, and publication parameters for your work.
-        </p>
-      </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-8">
+        {/* Mobile Advisory Banner for Larger Screens */}
+        <MobileScreenSuggestionBanner
+          className="mb-6"
+          storageKey="hatchpen_dismiss_new_work_desktop_banner"
+          title="Best Experienced on Desktop"
+          message="Manuscript binding, cover formatting, and synopsis drafting are designed for wider displays. Consider switching to a desktop or laptop for the smoothest experience."
+        />
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
-        <form onSubmit={handleSubmit} className="lg:col-span-8 space-y-8">
-        
-        {/* Title & Subtitle */}
-        <div className="space-y-4">
-          <div>
-            <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
-              Work Title <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              required
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. A Winter in Kyoto"
-              className="w-full rounded-lg border border-[var(--border-strong)] bg-[var(--bg-surface)] px-4 py-2.5 font-serif text-lg text-[var(--ink-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--ink-primary)] placeholder-[var(--ink-faint)]"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
-              Subtitle or Tagline (Optional)
-            </label>
-            <input
-              type="text"
-              value={subtitle}
-              onChange={(e) => setSubtitle(e.target.value)}
-              placeholder="e.g. A Novel of Atmospheric Reconnaissance"
-              className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-2 text-xs font-serif italic text-[var(--ink-secondary)] focus:outline-none focus:border-[var(--border-strong)] placeholder-[var(--ink-faint)]"
-            />
-          </div>
-        </div>
-
-        {/* Synopsis / Description */}
-        <div>
-          <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
-            Synopsis / Overview
-          </label>
-          <textarea
-            rows={4}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="A compelling synopsis for readers browsing the library..."
-            className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3.5 text-xs text-[var(--ink-primary)] leading-relaxed focus:outline-none focus:border-[var(--border-strong)] placeholder-[var(--ink-faint)]"
-          />
-        </div>
-
-        {/* Category & Genre */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
-              Category
-            </label>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 text-xs text-[var(--ink-primary)] focus:outline-none focus:border-[var(--border-strong)]"
-            >
-              {categories.map((cat) => (
-                <option key={cat.slug} value={cat.name}>
-                  {cat.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
-              Primary Genre
-            </label>
-            <select
-              value={genre}
-              onChange={(e) => setGenre(e.target.value)}
-              className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 text-xs text-[var(--ink-primary)] focus:outline-none focus:border-[var(--border-strong)]"
-            >
-              {GENRE_GROUPS.map((groupName) => {
-                const groupGenres = genres.filter((g) => g.group === groupName)
-                if (groupGenres.length === 0) return null
-                return (
-                  <optgroup key={groupName} label={groupName}>
-                    {groupGenres.map((g) => (
-                      <option key={g.slug} value={g.name}>
-                        {g.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                )
-              })}
-            </select>
-          </div>
-        </div>
-
-        {/* Cover Art Selector (Cloudinary Curated Gallery + Custom Upload) */}
-        <div>
-          <CloudinaryImageUpload
-            label="Cover Artwork"
-            currentImageUrl={cover}
-            onImageUploaded={(url) => setCover(url)}
-            onImageRemoved={() => setCover('')}
-            folder="covers"
-            recommendedDimensions="600 × 900 px"
-            aspectRatioHint="Portrait (2:3)"
-            maxSizeMb={10}
-            allowPlatformPicker={true}
-          />
-
-          <div className="mt-2.5">
-            <input
-              type="text"
-              value={cover}
-              onChange={(e) => setCover(e.target.value)}
-              placeholder="Or paste external image URL..."
-              className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 text-xs font-mono text-[var(--ink-muted)] focus:outline-none focus:border-[var(--border-strong)]"
-            />
-          </div>
-        </div>
-
-        {/* Tags & Language */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
-              Tags (Optional, comma-separated)
-            </label>
-            <input
-              type="text"
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-              placeholder="e.g. Isolation, Memory, Urban, Slow‑Burn"
-              className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 text-xs text-[var(--ink-primary)] focus:outline-none focus:border-[var(--border-strong)]"
-            />
-            <p className="mt-1 text-[10px] text-[var(--ink-faint)] font-mono">
-              Suggested: Isolation, Memory, Urban, Slow‑Burn, Dark, Identity
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
-              Manuscript Language
-            </label>
-            <select
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 text-xs text-[var(--ink-primary)] focus:outline-none focus:border-[var(--border-strong)]"
-            >
-              <option value="English">English</option>
-              <option value="French">French</option>
-              <option value="German">German</option>
-              <option value="Japanese">Japanese</option>
-              <option value="Spanish">Spanish</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Status, Visibility, & Mature Toggle */}
-        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
-                Publication Status
-              </label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value as any)}
-                className="w-full rounded-md border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-1.5 text-xs text-[var(--ink-primary)] focus:outline-none"
-              >
-                <option value="Ongoing">Ongoing (Serialized Release)</option>
-                <option value="Completed">Completed Work</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
-                Visibility
-              </label>
-              <select
-                value={visibility}
-                onChange={(e) => setVisibility(e.target.value as any)}
-                className="w-full rounded-md border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-1.5 text-xs text-[var(--ink-primary)] focus:outline-none"
-              >
-                <option value="Public">Public (Searchable in Discovery)</option>
-                <option value="Unlisted">Unlisted (Direct Link Only)</option>
-                <option value="Draft">Private Draft</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="pt-2 border-t border-[var(--border-subtle)] flex items-center justify-between">
-            <div>
-              <p className="text-xs font-medium text-[var(--ink-primary)]">Mature Content (18+)</p>
-              <p className="text-[11px] text-[var(--ink-muted)]">Flag if work contains adult themes or explicit violence.</p>
-            </div>
-            <input
-              type="checkbox"
-              checked={isMature}
-              onChange={(e) => setIsMature(e.target.checked)}
-              className="h-4 w-4 rounded border-[var(--border-strong)] accent-black"
-            />
-          </div>
-        </div>
-
-        {/* Form Action CTA */}
-        <div className="pt-4 flex items-center justify-end gap-3">
+        {/* Desktop Breadcrumbs & Header */}
+        <div className="hidden sm:block pb-6 border-b border-[var(--border-subtle)] mb-8">
           <Link
             to="/write"
-            className="rounded border border-[var(--border-subtle)] px-4 py-2.5 text-xs font-medium text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors no-underline"
+            className="inline-flex items-center gap-1.5 text-xs font-mono text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors mb-3 no-underline"
           >
-            Cancel
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Writer's Studio</span>
           </Link>
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="inline-flex items-center gap-2 rounded-lg border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-6 py-2.5 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 disabled:opacity-50 transition-opacity shadow-xs"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Registering in Database...</span>
-              </>
-            ) : (
-              <span>Create Work & Begin Writing</span>
-            )}
-          </button>
-        </div>
-
-      </form>
-
-      {/* Right Column: Live Manuscript Preview */}
-      <aside className="hidden lg:block lg:col-span-4 sticky top-20 space-y-6">
-        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 space-y-4 shadow-xs">
-          <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
-            <span className="font-mono text-xs uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
-              Live Card Preview
-            </span>
-            <span className="rounded bg-[var(--bg-subtle)] px-2 py-0.5 font-mono text-[10px] text-[var(--ink-muted)]">
-              {status}
-            </span>
-          </div>
-
-          <div className="relative aspect-[3/4] w-full max-w-[220px] mx-auto overflow-hidden rounded-lg border border-[var(--border-strong)] bg-[var(--bg-subtle)] shadow-sm">
-            <img
-              src={cover}
-              alt="Manuscript Cover"
-              className="h-full w-full object-cover grayscale"
-            />
-          </div>
-
-          <div className="text-center space-y-1">
-            <h3 className="font-serif text-lg font-semibold text-[var(--ink-primary)] line-clamp-2">
-              {title || 'Untitled Manuscript'}
-            </h3>
-            {subtitle && (
-              <p className="font-serif text-xs text-[var(--ink-muted)] italic line-clamp-1">
-                {subtitle}
-              </p>
-            )}
-            <p className="font-mono text-xs text-[var(--ink-faint)]">
-              {category} • {genre}
-            </p>
-          </div>
-
-          <p className="text-xs text-[var(--ink-muted)] line-clamp-3 text-center italic">
-            {description || 'No synopsis added yet...'}
+          <h1 className="font-serif text-2xl sm:text-3xl font-semibold tracking-tight text-[var(--ink-primary)]">
+            Bind a New Manuscript
+          </h1>
+          <p className="font-serif italic text-xs sm:text-sm text-[var(--ink-muted)] mt-1">
+            Establish the title, cover artwork, and literary taxonomy for your serialized folio.
           </p>
         </div>
 
-        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/50 p-5 space-y-2.5 text-xs">
-          <h4 className="font-serif font-semibold text-[var(--ink-primary)]">Publishing Checklist</h4>
-          <ul className="space-y-1.5 text-[var(--ink-muted)] list-disc pl-4">
-            <li>Title must be unique and descriptive</li>
-            <li>High-resolution grayscale cover recommended</li>
-            <li>First chapter draft created right after save</li>
-          </ul>
-        </div>
-      </aside>
+        {/* Main Form */}
+        <form onSubmit={handleSubmit} className="space-y-8">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            {/* Left Column: Manuscript Identity, Taxonomy, Parameters (7-8 cols) */}
+            <div className="order-1 lg:col-span-7 xl:col-span-8 space-y-6">
+              {/* Section 1: Premise & Identity */}
+              <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5 sm:p-6 space-y-4 shadow-2xs">
+                <div className="pb-3 border-b border-[var(--border-subtle)]">
+                  <h2 className="font-serif text-base font-semibold text-[var(--ink-primary)]">
+                    Manuscript Identity
+                  </h2>
+                  <p className="font-serif italic text-xs text-[var(--ink-muted)] mt-0.5">
+                    The primary title and premise of your work
+                  </p>
+                </div>
 
+                <div>
+                  <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
+                    Title <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="e.g. A Winter in Kyoto"
+                    className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3.5 py-2.5 font-serif text-base sm:text-lg text-[var(--ink-primary)] focus:outline-none focus:border-[var(--ink-primary)] placeholder-[var(--ink-faint)] transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
+                    Subtitle or Tagline (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={subtitle}
+                    onChange={(e) => setSubtitle(e.target.value)}
+                    placeholder="e.g. A serialized study of atmospheric silence"
+                    className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3.5 py-2 font-serif italic text-xs sm:text-sm text-[var(--ink-secondary)] focus:outline-none focus:border-[var(--ink-primary)] placeholder-[var(--ink-faint)] transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
+                    Synopsis / Overview
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="A compelling synopsis for readers browsing your folio..."
+                    className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] p-3 text-xs text-[var(--ink-primary)] leading-relaxed focus:outline-none focus:border-[var(--ink-primary)] placeholder-[var(--ink-faint)] transition-colors resize-y"
+                  />
+                </div>
+              </div>
+
+              {/* Section 2: Taxonomy & Classification */}
+              <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5 sm:p-6 space-y-4 shadow-2xs">
+                <div className="pb-3 border-b border-[var(--border-subtle)]">
+                  <h2 className="font-serif text-base font-semibold text-[var(--ink-primary)]">
+                    Literary Taxonomy
+                  </h2>
+                  <p className="font-serif italic text-xs text-[var(--ink-muted)] mt-0.5">
+                    Classify your work to help readers discover it in the catalog
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
+                      Category
+                    </label>
+                    <DropdownSelect
+                      options={categoryOptions}
+                      value={category}
+                      onChange={(val) => setCategory(val)}
+                      size="md"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
+                      Primary Genre
+                    </label>
+                    <DropdownSelect
+                      options={genreOptions}
+                      value={genre}
+                      onChange={(val) => setGenre(val)}
+                      size="md"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
+                    Manuscript Language
+                  </label>
+                  <div className="sm:w-1/2">
+                    <DropdownSelect
+                      options={LANGUAGE_OPTIONS}
+                      value={language}
+                      onChange={(val) => setLanguage(val)}
+                      size="md"
+                    />
+                  </div>
+                </div>
+
+                {/* Tags Selector */}
+                <div className="pt-2 space-y-2">
+                  <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)]">
+                    Thematic Tags
+                  </label>
+
+                  {/* Selected Tags Pills */}
+                  {selectedTags.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5 pb-1">
+                      {selectedTags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 font-mono text-[11px] bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--ink-primary)] select-none"
+                        >
+                          <span>{tag}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveTag(tag)}
+                            className="hover:text-red-500 transition-colors cursor-pointer"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Tag Input */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyDown={handleKeyDownTag}
+                      placeholder="Type a tag and press Enter..."
+                      className="flex-1 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-1.5 text-xs text-[var(--ink-primary)] focus:outline-none focus:border-[var(--ink-primary)] placeholder-[var(--ink-faint)]"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleAddTag(tagInput)}
+                      disabled={!tagInput.trim()}
+                    >
+                      Add Tag
+                    </Button>
+                  </div>
+
+                  {/* Popular Suggested Tags */}
+                  <div className="pt-1 flex flex-wrap items-center gap-1 text-[11px] font-mono text-[var(--ink-muted)]">
+                    <span className="text-[10px] text-[var(--ink-faint)] mr-1">Suggestions:</span>
+                    {POPULAR_SUGGESTIONS.map((sug) => {
+                      const isAdded = selectedTags.some((t) => t.toLowerCase() === sug.toLowerCase())
+                      return (
+                        <button
+                          key={sug}
+                          type="button"
+                          onClick={() => handleAddTag(sug)}
+                          disabled={isAdded}
+                          className={`rounded px-1.5 py-0.5 transition-colors cursor-pointer text-[10px] ${
+                            isAdded
+                              ? 'opacity-40 cursor-default'
+                              : 'bg-[var(--bg-subtle)] hover:bg-[var(--border-subtle)] text-[var(--ink-secondary)]'
+                          }`}
+                        >
+                          +{sug}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 3: Serialization Parameters */}
+              <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5 sm:p-6 space-y-5 shadow-2xs">
+                <div className="pb-3 border-b border-[var(--border-subtle)]">
+                  <h2 className="font-serif text-base font-semibold text-[var(--ink-primary)]">
+                    Serialization Parameters
+                  </h2>
+                  <p className="font-serif italic text-xs text-[var(--ink-muted)] mt-0.5">
+                    Choose how your manuscript will be released to readers
+                  </p>
+                </div>
+
+                {/* Status Tabs */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)]">
+                    Publication Status
+                  </label>
+                  <div className="flex">
+                    <AnimatedTabs
+                      tabs={STATUS_TABS}
+                      activeId={status}
+                      onChange={(id) => setStatus(id as any)}
+                      variant="pill"
+                      size="sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Visibility Tabs */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)]">
+                    Catalog Visibility
+                  </label>
+                  <div className="flex">
+                    <AnimatedTabs
+                      tabs={VISIBILITY_TABS}
+                      activeId={visibility}
+                      onChange={(id) => setVisibility(id as any)}
+                      variant="pill"
+                      size="sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Mature Content Switch */}
+                <div className="pt-3 border-t border-[var(--border-subtle)] flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-[var(--ink-primary)]">Mature Content (18+)</p>
+                    <p className="text-[11px] text-[var(--ink-muted)]">Flag if work contains adult themes or explicit violence.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={isMature}
+                    onChange={(e) => setIsMature(e.target.checked)}
+                    className="h-4 w-4 rounded border-[var(--border-strong)] accent-black cursor-pointer"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column: Cover Artwork (4-5 cols) */}
+            <aside className="order-2 lg:col-span-5 xl:col-span-4 sticky top-20 space-y-6">
+              {/* Cover Artwork Card */}
+              <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5 sm:p-6 space-y-4 shadow-2xs">
+                <div className="pb-3 border-b border-[var(--border-subtle)]">
+                  <h2 className="font-serif text-base font-semibold text-[var(--ink-primary)]">
+                    Cover Artwork
+                  </h2>
+                  <p className="font-serif italic text-xs text-[var(--ink-muted)] mt-0.5">
+                    Select curated photography or upload a custom book cover
+                  </p>
+                </div>
+
+                <CloudinaryImageUpload
+                  label="Cover Artwork"
+                  currentImageUrl={cover}
+                  onImageUploaded={(url) => setCover(url)}
+                  onImageRemoved={() => setCover('')}
+                  folder="covers"
+                  recommendedDimensions="600 × 900 px"
+                  aspectRatioHint="Portrait (2:3)"
+                  maxSizeMb={10}
+                  allowPlatformPicker={true}
+                />
+
+                <div>
+                  <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1">
+                    Or External Image URL
+                  </label>
+                  <input
+                    type="text"
+                    value={cover}
+                    onChange={(e) => setCover(e.target.value)}
+                    placeholder="https://..."
+                    className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-1.5 text-xs font-mono text-[var(--ink-muted)] focus:outline-none focus:border-[var(--ink-primary)]"
+                  />
+                </div>
+              </div>
+            </aside>
+
+            {/* Form CTA Actions */}
+            <div className="order-3 lg:col-span-7 xl:col-span-8 pt-6 border-t border-[var(--border-subtle)] flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3">
+              <Link to="/write" className="no-underline">
+                <Button variant="outline" size="md" className="w-full sm:w-auto">
+                  Cancel
+                </Button>
+              </Link>
+
+              <Button
+                type="submit"
+                variant="primary"
+                size="md"
+                isLoading={isSubmitting}
+                disabled={!title.trim() || isSubmitting}
+                className="w-full sm:w-auto"
+              >
+                Bind Manuscript & Begin Chapter 1
+              </Button>
+            </div>
+          </div>
+        </form>
       </div>
     </div>
   )

@@ -7,6 +7,7 @@ import { ProtectedRoute } from '../components/ProtectedRoute'
 import { Users, BookOpen, Clock, Sparkles, ArrowRight, UserCheck } from 'lucide-react'
 import { generateMeta } from '../lib/seo'
 import { RouteHeader } from '../components/RouteHeader'
+import { AUTHORS } from '../data/mockData'
 
 export const Route = createFileRoute('/following')({
   head: () =>
@@ -32,14 +33,27 @@ function FollowingPage() {
   const [selectedAuthor, setSelectedAuthor] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState<string>('')
 
-  // Followed authors: resolved dynamically from allWorks based on followedAuthorIds
+  // Followed authors: resolved dynamically from allWorks & platform authors based on followedAuthorIds
   const followedAuthors = useMemo(() => {
     const pool: any[] = []
+    const seen = new Set<string>()
+
     for (const w of allWorks) {
-      if (w.author && !pool.some((a) => a.id === w.author.id || a.handle.toLowerCase() === w.author.handle.toLowerCase())) {
+      if (w.author && !seen.has(w.author.id) && !seen.has(w.author.handle.toLowerCase())) {
+        seen.add(w.author.id)
+        seen.add(w.author.handle.toLowerCase())
         pool.push(w.author)
       }
     }
+
+    for (const a of AUTHORS) {
+      if (!seen.has(a.id) && !seen.has(a.handle.toLowerCase())) {
+        seen.add(a.id)
+        seen.add(a.handle.toLowerCase())
+        pool.push(a)
+      }
+    }
+
     return pool.filter((a) => isAuthorFollowed(a.id) || isAuthorFollowed(a.handle))
   }, [allWorks, isAuthorFollowed, followedAuthorIds])
 
@@ -179,16 +193,20 @@ function FollowingPage() {
                   <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
                     <Link
                       to="/author/$authorId"
-                      params={{ authorId: event.author.id }}
+                      params={{ authorId: event.author.handle || event.author.id }}
                       className="flex items-center gap-2.5 text-inherit no-underline group"
                     >
                       <img
-                        src={event.author.avatar}
-                        alt={event.author.name}
+                        src={event.author.showAvatar !== false ? event.author.avatar : '/unisex-avatar.svg'}
+                        alt={event.author.showName !== false ? event.author.name : (event.author.showUsername !== false ? `@${event.author.handle}` : 'Author')}
                         className="h-7 w-7 rounded-full object-cover grayscale"
                       />
                       <span className="text-xs font-semibold text-[var(--ink-primary)] group-hover:underline">
-                        {event.author.name}
+                        {event.author.showName !== false
+                          ? event.author.name
+                          : event.author.showUsername !== false
+                            ? `@${event.author.handle}`
+                            : 'Author'}
                       </span>
                     </Link>
                     <span className="font-mono text-[11px] text-[var(--ink-faint)]">
@@ -260,37 +278,49 @@ function FollowingPage() {
               </p>
             ) : (
               <div className="space-y-3.5">
-                {followedAuthors.map((author) => (
-                  <div key={author.id} className="flex items-center justify-between gap-3">
-                    <Link
-                      to="/author/$authorId"
-                      params={{ authorId: author.id }}
-                      className="flex items-center gap-2.5 text-inherit no-underline min-w-0"
-                    >
-                      <img
-                        src={author.avatar}
-                        alt={author.name}
-                        className="h-8 w-8 rounded-full object-cover grayscale flex-shrink-0"
-                      />
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold text-[var(--ink-primary)] truncate hover:underline">
-                          {author.name}
-                        </p>
-                        <p className="text-[10px] font-mono text-[var(--ink-faint)]">
-                          {author.worksCount} works
-                        </p>
-                      </div>
-                    </Link>
+                {followedAuthors.map((author) => {
+                  const showAvatar = author.showAvatar !== false
+                  const showName = author.showName !== false
+                  const showUsername = author.showUsername !== false
+                  const authorDisplayName = showName
+                    ? author.name
+                    : showUsername
+                      ? `@${author.handle}`
+                      : 'Anonymous Author'
+                  const authorAvatar = showAvatar ? author.avatar : '/unisex-avatar.svg'
 
-                    <button
-                      onClick={() => toggleFollowAuthor(author.id)}
-                      className="p-1 text-[var(--ink-muted)] hover:text-red-500 transition-colors"
-                      title="Unfollow"
-                    >
-                      <UserCheck className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
+                  return (
+                    <div key={author.id} className="flex items-center justify-between gap-3">
+                      <Link
+                        to="/author/$authorId"
+                        params={{ authorId: author.handle || author.id }}
+                        className="flex items-center gap-2.5 text-inherit no-underline min-w-0"
+                      >
+                        <img
+                          src={authorAvatar}
+                          alt={authorDisplayName}
+                          className="h-8 w-8 rounded-full object-cover grayscale flex-shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-[var(--ink-primary)] truncate hover:underline">
+                            {authorDisplayName}
+                          </p>
+                          <p className="text-[10px] font-mono text-[var(--ink-faint)]">
+                            {author.worksCount} works
+                          </p>
+                        </div>
+                      </Link>
+
+                      <button
+                        onClick={() => toggleFollowAuthor(author.id)}
+                        className="p-1 text-[var(--ink-muted)] hover:text-red-500 transition-colors"
+                        title="Unfollow"
+                      >
+                        <UserCheck className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )
+                })}
               </div>
             )}
 

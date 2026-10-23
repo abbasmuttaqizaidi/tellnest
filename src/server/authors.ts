@@ -258,12 +258,40 @@ export const updateUserProfileServerFn = createServerFn({ method: 'POST' })
       }
     }
 
-    const { data: updated, error } = await admin
+    let { data: updated, error } = await admin
       .from('profiles')
       .update(updates)
       .eq('clerk_user_id', data.clerkUserId)
       .select('id, clerk_user_id, username, display_name, avatar_path, bio, location, website_url, pronouns, gender, onboarding_completed, preferences, is_public, account_status')
       .single()
+
+    // Gracefully self-heal if profile record did not exist yet in database
+    if (error && (error.code === 'PGRST116' || error.message?.includes('0 rows'))) {
+      const upsertRes = await admin
+        .from('profiles')
+        .upsert(
+          {
+            clerk_user_id: data.clerkUserId,
+            username: updates.username || ('user_' + data.clerkUserId.slice(-6).toLowerCase()),
+            display_name: updates.display_name || 'HatchPen Member',
+            avatar_path: updates.avatar_path || null,
+            bio: updates.bio || null,
+            location: updates.location || null,
+            website_url: updates.website_url || null,
+            pronouns: updates.pronouns || null,
+            gender: updates.gender || null,
+            is_public: true,
+            account_status: 'active',
+            preferences: updates.preferences || {},
+            updated_at: updates.updated_at,
+          },
+          { onConflict: 'clerk_user_id' }
+        )
+        .select('id, clerk_user_id, username, display_name, avatar_path, bio, location, website_url, pronouns, gender, onboarding_completed, preferences, is_public, account_status')
+        .single()
+      updated = upsertRes.data
+      error = upsertRes.error
+    }
 
     if (error) {
       console.error('[updateUserProfileServerFn] Error:', error.message)
@@ -272,6 +300,8 @@ export const updateUserProfileServerFn = createServerFn({ method: 'POST' })
       }
       throw new Error(error.message)
     }
+
+    invalidateProfileCache(data.clerkUserId)
 
     return updated
   })
@@ -323,28 +353,29 @@ export const toggleFollowAuthorServerFn = createServerFn({ method: 'POST' })
     }
 
     // 2. Resolve target author profile UUID
-    let targetProfileId = data.targetAuthorId
-    const isTargetUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.targetAuthorId)
+    const cleanTarget = data.targetAuthorId.replace(/^@/, '').trim()
+    let targetProfileId = cleanTarget
+    const isTargetUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanTarget)
 
     if (!isTargetUuid) {
       const { data: authorProf } = await admin
         .from('profiles')
         .select('id')
-        .or(`username.eq.${data.targetAuthorId.toLowerCase()},clerk_user_id.eq.${data.targetAuthorId}`)
+        .or(`username.eq.${cleanTarget.toLowerCase()},clerk_user_id.eq.${cleanTarget}`)
         .maybeSingle()
 
       if (authorProf?.id) {
         targetProfileId = authorProf.id
       } else {
         // If target is a static catalog author (e.g. auth-1, kenjitakahashi), auto-provision a profile row so follows foreign key succeeds
-        const cleanHandle = data.targetAuthorId.toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 30)
+        const cleanHandle = cleanTarget.toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 30)
         const { data: mockProfile } = await admin
           .from('profiles')
           .upsert(
             {
               clerk_user_id: `static_${cleanHandle}`,
               username: cleanHandle,
-              display_name: data.targetAuthorId,
+              display_name: cleanTarget,
               is_public: true,
             },
             { onConflict: 'clerk_user_id' }
@@ -400,23 +431,34 @@ export const toggleFollowAuthorServerFn = createServerFn({ method: 'POST' })
 
       isFollowing = true
 
-      // Create notification row for the author
-      await admin
+      // Avoid spamming duplicate new_follower notifications on rapid toggle
+      const { data: existingNotif } = await admin
         .from('notifications')
-        .insert({
-          user_id: targetProfileId,
-          type: 'new_follower',
-          actor_id: followerProfile.id,
-          metadata: {
-            actorName: followerProfile.display_name || followerProfile.username || 'A reader',
-            actorAvatar: followerProfile.avatar_path || '/unisex-avatar.svg',
-            actorHandle: followerProfile.username,
-            title: 'New Follower',
-            description: `${followerProfile.display_name || followerProfile.username} started following your literary catalog.`,
-            targetUrl: `/author/${followerProfile.username || followerProfile.id}`,
-          },
-          created_at: nowIso,
-        })
+        .select('id')
+        .eq('user_id', targetProfileId)
+        .eq('actor_id', followerProfile.id)
+        .eq('type', 'new_follower')
+        .maybeSingle()
+
+      if (!existingNotif) {
+        // Create notification row for the author
+        await admin
+          .from('notifications')
+          .insert({
+            user_id: targetProfileId,
+            type: 'new_follower',
+            actor_id: followerProfile.id,
+            metadata: {
+              actorName: followerProfile.display_name || followerProfile.username || 'A reader',
+              actorAvatar: followerProfile.avatar_path || '/unisex-avatar.svg',
+              actorHandle: followerProfile.username,
+              title: 'New Follower',
+              description: `${followerProfile.display_name || followerProfile.username} started following your literary catalog.`,
+              targetUrl: `/author/${followerProfile.username || followerProfile.id}`,
+            },
+            created_at: nowIso,
+          })
+      }
     }
 
     // 4. Return updated follower count for the author and current user's followed author IDs

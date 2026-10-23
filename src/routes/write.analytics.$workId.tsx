@@ -137,7 +137,7 @@ function WorkAnalyticsPage() {
             <span className="font-mono text-[10px] uppercase tracking-wider">Library Saves</span>
             <Bookmark className="h-4 w-4" />
           </div>
-          <p className="font-serif text-2xl font-semibold text-[var(--ink-primary)]">{work.totalSaves.toLocaleString()}</p>
+          <p className="font-serif text-2xl font-semibold text-[var(--ink-primary)]">{(work.totalSaves || 0).toLocaleString()}</p>
           <p className="font-mono text-[11px] text-emerald-600 dark:text-emerald-400 mt-1">+420 this week</p>
         </div>
 
@@ -201,7 +201,7 @@ function WorkAnalyticsPage() {
                   Ch. {String(chap.number).padStart(2, '0')}: {chap.title}
                 </span>
                 <span className="text-[var(--ink-muted)]">
-                  {chap.reads.toLocaleString()} reads • <strong>{chap.completionRate}% completion</strong>
+                  {(chap.reads || 0).toLocaleString()} reads • <strong>{chap.completionRate}% completion</strong>
                 </span>
               </div>
 

@@ -91,6 +91,8 @@ export interface AdminUser {
   displayName: string
   username: string
   avatarUrl: string | null
+  bio?: string | null
+  location?: string | null
   createdAt: string
   lastSignInAt: string | null
   status: 'active' | 'suspended' | 'banned'
@@ -100,6 +102,15 @@ export interface AdminUser {
   followedAuthors: AdminUserFollowedAuthor[]
   interests: string[]
   isMock: boolean
+  isPublic?: boolean
+  worksVisibility?: 'public' | 'hidden'
+  showAvatar?: boolean
+  showName?: boolean
+  showUsername?: boolean
+  showReads?: boolean
+  showFollowers?: boolean
+  showWorksCount?: boolean
+  showReadingHistory?: boolean
   preferences?: {
     theme?: string
     readingMode?: string
@@ -317,6 +328,10 @@ export const getAdminUsersServerFn = createServerFn({ method: 'POST' })
         interestSet.add('Serialized Fiction')
       }
 
+      const matchingPrivacy = (matchingProfile?.preferences && typeof matchingProfile.preferences === 'object')
+        ? (matchingProfile.preferences.privacy || {})
+        : {}
+
       usersMap.set(u.id, {
         clerkId: u.id,
         profileId,
@@ -326,6 +341,8 @@ export const getAdminUsersServerFn = createServerFn({ method: 'POST' })
         displayName: matchingProfile?.display_name || fullName,
         username: matchingProfile?.username || username,
         avatarUrl: matchingProfile?.avatar_path || avatarUrl,
+        bio: matchingProfile?.bio || null,
+        location: matchingProfile?.location || null,
         createdAt: matchingProfile?.created_at || createdDate,
         lastSignInAt: lastSignIn,
         status: (matchingProfile?.account_status as any) || 'active',
@@ -335,6 +352,15 @@ export const getAdminUsersServerFn = createServerFn({ method: 'POST' })
         followedAuthors: userFollows,
         interests: Array.from(interestSet),
         isMock: Boolean(matchingProfile?.is_mock),
+        isPublic: matchingProfile?.is_public ?? false,
+        worksVisibility: (matchingPrivacy.worksVisibility === 'hidden' ? 'hidden' : 'public') as 'public' | 'hidden',
+        showAvatar: matchingPrivacy.showAvatar !== undefined ? Boolean(matchingPrivacy.showAvatar) : true,
+        showName: matchingPrivacy.showName !== undefined ? Boolean(matchingPrivacy.showName) : true,
+        showUsername: matchingPrivacy.showUsername !== undefined ? Boolean(matchingPrivacy.showUsername) : true,
+        showReads: Boolean(matchingPrivacy.showReads ?? false),
+        showFollowers: Boolean(matchingPrivacy.showFollowers ?? false),
+        showWorksCount: Boolean(matchingPrivacy.showWorksCount ?? false),
+        showReadingHistory: Boolean(matchingPrivacy.showReadingHistory ?? false),
         preferences: prefs
           ? {
               theme: prefs.theme,
@@ -379,6 +405,10 @@ export const getAdminUsersServerFn = createServerFn({ method: 'POST' })
             lastReadAt: rp.last_read_at,
           }))
 
+        const pPrivacy = (p.preferences && typeof p.preferences === 'object')
+          ? (p.preferences.privacy || {})
+          : {}
+
         usersMap.set(p.clerk_user_id, {
           clerkId: p.clerk_user_id,
           profileId: p.id,
@@ -388,6 +418,8 @@ export const getAdminUsersServerFn = createServerFn({ method: 'POST' })
           displayName: p.display_name,
           username: p.username,
           avatarUrl: p.avatar_path,
+          bio: p.bio || null,
+          location: p.location || null,
           createdAt: p.created_at,
           lastSignInAt: null,
           status: p.account_status || 'active',
@@ -397,6 +429,15 @@ export const getAdminUsersServerFn = createServerFn({ method: 'POST' })
           followedAuthors: [],
           interests: ['Serialized Fiction'],
           isMock: Boolean(p.is_mock),
+          isPublic: p.is_public ?? false,
+          worksVisibility: (pPrivacy.worksVisibility === 'hidden' ? 'hidden' : 'public') as 'public' | 'hidden',
+          showAvatar: pPrivacy.showAvatar !== undefined ? Boolean(pPrivacy.showAvatar) : true,
+          showName: pPrivacy.showName !== undefined ? Boolean(pPrivacy.showName) : true,
+          showUsername: pPrivacy.showUsername !== undefined ? Boolean(pPrivacy.showUsername) : true,
+          showReads: Boolean(pPrivacy.showReads ?? false),
+          showFollowers: Boolean(pPrivacy.showFollowers ?? false),
+          showWorksCount: Boolean(pPrivacy.showWorksCount ?? false),
+          showReadingHistory: Boolean(pPrivacy.showReadingHistory ?? false),
           preferences: null,
         })
       }
@@ -929,7 +970,8 @@ export const adminPostWorkServerFn = createServerFn({ method: 'POST' })
       }
     }
 
-    const wordCount = workData.chapterContent.trim().split(/\s+/).filter(Boolean).length
+    const cleanChapterContent = workData.chapterContent.replace(/\\+[ \t]*(?=\r?\n|$)/g, '').trim()
+    const wordCount = cleanChapterContent.split(/\s+/).filter(Boolean).length
     const readingTime = Math.max(1, Math.ceil(wordCount / 220))
 
     const localWorkId = `admin-work-${Date.now()}`
@@ -1017,12 +1059,13 @@ export const adminPostWorkServerFn = createServerFn({ method: 'POST' })
           // Create default Act I for the work
           let initialActId: string | null = null
           try {
-            const { data: createdAct } = await admin
+            const { data: createdAct, error: actErr } = await admin
               .from('acts')
               .insert({
                 work_id: createdWork.id,
                 act_number: 1,
                 title: 'Act I',
+                slug: 'act-1',
                 description: 'The Opening Movement',
                 status: 'published',
               })
@@ -1030,20 +1073,24 @@ export const adminPostWorkServerFn = createServerFn({ method: 'POST' })
               .single()
             if (createdAct) {
               initialActId = createdAct.id
+            } else if (actErr) {
+              console.error('[adminPostWork] Act insert error:', actErr.message)
             }
           } catch (actErr: any) {
             console.warn('[adminPostWork] Act insert warning:', actErr?.message)
           }
 
           // Insert initial chapter
+          const chapterSlug = `chapter-1-${Date.now().toString(36)}`
           const { data: createdChapter, error: chErr } = await admin
             .from('chapters')
             .insert({
               work_id: createdWork.id,
               act_id: initialActId,
+              slug: chapterSlug,
               title: workData.chapterTitle.trim(),
               chapter_number: 1,
-              content: workData.chapterContent.trim(),
+              content: cleanChapterContent,
               word_count: wordCount,
               reading_time_minutes: readingTime,
               status: 'published',
@@ -1055,7 +1102,7 @@ export const adminPostWorkServerFn = createServerFn({ method: 'POST' })
           if (createdChapter && !chErr) {
             supabaseChapterId = createdChapter.id
           } else {
-            console.warn('[adminPostWork] Chapter insert warning:', chErr?.message)
+            console.error('[adminPostWork] Chapter insert error:', chErr?.message)
           }
         } else {
           console.warn('[adminPostWork] Work insert warning:', workErr?.message)
@@ -1133,7 +1180,8 @@ export const adminPostChapterServerFn = createServerFn({ method: 'POST' })
 
     const admin = createAdminClient()
     const nowIso = new Date().toISOString()
-    const wordCount = data.content.trim().split(/\s+/).filter(Boolean).length
+    const cleanContent = data.content.replace(/\\+[ \t]*(?=\r?\n|$)/g, '').trim()
+    const wordCount = cleanContent.split(/\s+/).filter(Boolean).length
     const readingTime = Math.max(1, Math.ceil(wordCount / 220))
     const status = data.status || 'published'
 
@@ -1182,7 +1230,7 @@ export const adminPostChapterServerFn = createServerFn({ method: 'POST' })
             subtitle: data.subtitle?.trim() || null,
             slug: chapterSlug,
             chapter_number: assignedChapterNumber,
-            content: data.content.trim(),
+            content: cleanContent,
             banner_image_path: data.bannerImagePath?.trim() || null,
             word_count: wordCount,
             reading_time_minutes: readingTime,
@@ -1267,7 +1315,8 @@ export const adminUpdateChapterServerFn = createServerFn({ method: 'POST' })
 
     const admin = createAdminClient()
     const nowIso = new Date().toISOString()
-    const wordCount = data.content.trim().split(/\s+/).filter(Boolean).length
+    const cleanContent = data.content.replace(/\\+[ \t]*(?=\r?\n|$)/g, '').trim()
+    const wordCount = cleanContent.split(/\s+/).filter(Boolean).length
     const readingTime = Math.max(1, Math.ceil(wordCount / 220))
     const status = data.status || 'published'
 
@@ -1276,7 +1325,7 @@ export const adminUpdateChapterServerFn = createServerFn({ method: 'POST' })
       const updateData: Record<string, any> = {
         title: data.title.trim(),
         subtitle: data.subtitle?.trim() || null,
-        content: data.content.trim(),
+        content: cleanContent,
         word_count: wordCount,
         reading_time_minutes: readingTime,
         status,
@@ -2027,6 +2076,120 @@ export const adminCreateMockAuthorServerFn = createServerFn({ method: 'POST' })
       username: newProfile.username,
       isMock: newProfile.is_mock,
       created: true,
+    }
+  })
+
+/**
+ * Server Function: Dedicated endpoint for Admin to customize any user's profile and hide/show privacy settings.
+ * Specifically allows full customization of mock personas and real accounts.
+ * Protected: Requires valid adminToken.
+ */
+export const adminUpdateUserProfileServerFn = createServerFn({ method: 'POST' })
+  .validator((params: {
+    adminToken: string
+    clerkUserId?: string
+    profileId?: string
+    displayName?: string
+    username?: string
+    avatarUrl?: string | null
+    bio?: string | null
+    location?: string | null
+    isPublic?: boolean
+    worksVisibility?: 'public' | 'hidden'
+    showAvatar?: boolean
+    showName?: boolean
+    showUsername?: boolean
+    showReads?: boolean
+    showFollowers?: boolean
+    showWorksCount?: boolean
+    showReadingHistory?: boolean
+  }) => {
+    if (!params.adminToken) throw new Error('Admin authorization token is required')
+    if (!params.clerkUserId && !params.profileId) {
+      throw new Error('User identifier (clerkUserId or profileId) is required')
+    }
+    return params
+  })
+  .handler(async ({ data }) => {
+    if (!isValidAdminToken(data.adminToken)) {
+      throw new Error('Unauthorized: Invalid administration key')
+    }
+
+    const admin = createAdminClient()
+
+    // 1. Locate existing profile
+    let query = admin.from('profiles').select('*')
+    if (data.profileId) {
+      query = query.eq('id', data.profileId)
+    } else if (data.clerkUserId) {
+      query = query.eq('clerk_user_id', data.clerkUserId)
+    }
+
+    const { data: profile, error: pErr } = await query.maybeSingle()
+    if (pErr || !profile) {
+      throw new Error(`Profile not located: ${pErr?.message || 'No profile matching ID'}`)
+    }
+
+    // 2. Validate username if changed
+    let cleanUsername = profile.username
+    if (data.username && data.username.trim().toLowerCase() !== profile.username?.toLowerCase()) {
+      cleanUsername = data.username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '')
+      const { data: existingUser } = await admin
+        .from('profiles')
+        .select('id')
+        .eq('username', cleanUsername)
+        .neq('id', profile.id)
+        .maybeSingle()
+
+      if (existingUser) {
+        throw new Error(`The username "${cleanUsername}" is already taken by another account.`)
+      }
+    }
+
+    const currentPrefs = (profile.preferences && typeof profile.preferences === 'object') ? profile.preferences : {}
+    const currentPrivacy = (currentPrefs.privacy && typeof currentPrefs.privacy === 'object') ? currentPrefs.privacy : {}
+
+    const updatedPrivacy = {
+      ...currentPrivacy,
+      worksVisibility: data.worksVisibility !== undefined ? data.worksVisibility : (currentPrivacy.worksVisibility || 'public'),
+      showAvatar: data.showAvatar !== undefined ? Boolean(data.showAvatar) : (currentPrivacy.showAvatar !== undefined ? Boolean(currentPrivacy.showAvatar) : true),
+      showName: data.showName !== undefined ? Boolean(data.showName) : (currentPrivacy.showName !== undefined ? Boolean(currentPrivacy.showName) : true),
+      showUsername: data.showUsername !== undefined ? Boolean(data.showUsername) : (currentPrivacy.showUsername !== undefined ? Boolean(currentPrivacy.showUsername) : true),
+      showReads: data.showReads !== undefined ? Boolean(data.showReads) : Boolean(currentPrivacy.showReads ?? false),
+      showFollowers: data.showFollowers !== undefined ? Boolean(data.showFollowers) : Boolean(currentPrivacy.showFollowers ?? false),
+      showWorksCount: data.showWorksCount !== undefined ? Boolean(data.showWorksCount) : Boolean(currentPrivacy.showWorksCount ?? false),
+      showReadingHistory: data.showReadingHistory !== undefined ? Boolean(data.showReadingHistory) : Boolean(currentPrivacy.showReadingHistory ?? false),
+    }
+
+    const updatePayload: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+      preferences: {
+        ...currentPrefs,
+        privacy: updatedPrivacy,
+      },
+    }
+
+    if (data.displayName !== undefined) updatePayload.display_name = data.displayName.trim()
+    if (cleanUsername !== undefined) updatePayload.username = cleanUsername
+    if (data.avatarUrl !== undefined) updatePayload.avatar_path = data.avatarUrl?.trim() || null
+    if (data.bio !== undefined) updatePayload.bio = data.bio?.trim() || null
+    if (data.location !== undefined) updatePayload.location = data.location?.trim() || null
+    if (data.isPublic !== undefined) updatePayload.is_public = Boolean(data.isPublic)
+
+    const { data: updatedProfile, error: uErr } = await admin
+      .from('profiles')
+      .update(updatePayload)
+      .eq('id', profile.id)
+      .select('*')
+      .single()
+
+    if (uErr || !updatedProfile) {
+      throw new Error(`Failed to update user profile: ${uErr?.message || 'Database update error'}`)
+    }
+
+    return {
+      success: true,
+      profile: updatedProfile,
     }
   })
 

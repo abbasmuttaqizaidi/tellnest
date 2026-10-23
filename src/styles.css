@@ -437,4 +437,117 @@ img[src*="white"] {
   }
 }
 
+/* TipTap WYSIWYG Story Writing Studio Canvas Styles */
+.tiptap {
+  outline: none !important;
+  min-height: 480px;
+}
+
+.tiptap p {
+  margin-bottom: 1.25rem;
+  line-height: 1.9;
+}
+
+.tiptap h2 {
+  font-family: var(--font-serif, serif);
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.3;
+  margin-top: 2.25rem;
+  margin-bottom: 0.75rem;
+  color: var(--ink-primary);
+  letter-spacing: -0.02em;
+}
+
+.tiptap h3 {
+  font-family: var(--font-serif, serif);
+  font-size: 1.35rem;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-top: 1.75rem;
+  margin-bottom: 0.5rem;
+  color: var(--ink-primary);
+  letter-spacing: -0.01em;
+}
+
+.tiptap strong {
+  font-weight: 700;
+  color: var(--ink-primary);
+}
+
+.tiptap em {
+  font-style: italic;
+}
+
+.tiptap s {
+  text-decoration: line-through;
+  color: var(--ink-faint);
+}
+
+.tiptap blockquote {
+  border-left: 2px solid var(--ink-primary);
+  padding-left: 1rem;
+  margin: 1.5rem 0;
+  font-style: italic;
+  color: var(--ink-muted);
+  background-color: var(--bg-subtle);
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+  border-radius: 0 4px 4px 0;
+}
+
+.tiptap hr {
+  border: none;
+  border-top: 1px dashed var(--border-strong);
+  margin: 2.5rem 0;
+  text-align: center;
+  position: relative;
+}
+
+.tiptap hr::after {
+  content: '✦ ✦ ✦';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: var(--bg-canvas);
+  padding: 0 1rem;
+  font-family: monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  color: #d97706; /* amber */
+}
+
+.tiptap ul {
+  list-style-type: disc;
+  margin-left: 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.tiptap ol {
+  list-style-type: decimal;
+  margin-left: 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.tiptap code {
+  font-family: monospace;
+  font-size: 0.88em;
+  background-color: var(--bg-subtle);
+  color: var(--ink-primary);
+  padding: 0.15rem 0.35rem;
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle);
+}
+
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--ink-faint);
+  pointer-events: none;
+  height: 0;
+  font-style: italic;
+}
+
+
 

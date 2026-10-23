@@ -2,12 +2,29 @@ import type { ParagraphInfo, StoryParagraphMap } from './types.ts'
 
 /**
  * Splits chapter prose text into clean paragraph strings.
- * Follows the project standard of separating by blank lines (double newline).
+ * Robustly handles:
+ * 1. Double newlines (standard Markdown paragraph breaks)
+ * 2. Markdown hard-break backslash artifacts (trailing '\' before newlines)
+ * 3. Single-line prose (fallback when text is pasted with single newlines without double spacing)
  */
 export function extractParagraphTexts(content: string): string[] {
   if (!content || typeof content !== 'string') return []
-  return content
-    .split(/\r?\n\s*\r?\n/)
+
+  // 1. Strip any markdown hardbreak backslash artifacts at line ends
+  const cleaned = content.replace(/\\+[ \t]*(?=\r?\n|$)/g, '')
+
+  // 2. Standard split by double newline
+  const doubleNewlineRegex = /\r?\n\s*\r?\n/
+  if (doubleNewlineRegex.test(cleaned)) {
+    return cleaned
+      .split(doubleNewlineRegex)
+      .map((p) => p.trim())
+      .filter(Boolean)
+  }
+
+  // 3. Fallback: if there are no double newlines, split by single newlines so lines don't get fused
+  return cleaned
+    .split(/\r?\n/)
     .map((p) => p.trim())
     .filter(Boolean)
 }

@@ -69,7 +69,7 @@ export const Route = createFileRoute('/works/$workId')({
 
     const canonicalSlug = getWorkSlug(work)
     const authorName = work.author?.name || 'Hatchpen Author'
-    const authorId = work.author?.id || 'author-unknown'
+    const authorSlug = work.author?.handle || work.author?.id || 'author-unknown'
 
     return generateMeta({
       title: `${work.title} by ${authorName}`,
@@ -95,7 +95,7 @@ export const Route = createFileRoute('/works/$workId')({
         author: {
           '@type': 'Person',
           name: authorName,
-          url: `https://hatchpen.com/author/${authorId}`,
+          url: `https://hatchpen.com/author/${authorSlug}`,
         },
         genre: work.genre || 'Fiction',
         description: work.synopsis || '',
@@ -122,7 +122,8 @@ function WorkDetailPage() {
     toggleFollowAuthor,
     readingProgress,
     isOwnWork,
-    showToast
+    showToast,
+    openAuthModal,
   } = useApp()
 
   const work = useMemo(() => {
@@ -168,9 +169,28 @@ function WorkDetailPage() {
       (user.username && work.author.handle && work.author.handle.toLowerCase() === user.username.toLowerCase())
     )
   )
+
+  const showAuthorAvatar = isSelf || work?.author?.showAvatar !== false
+  const showAuthorName = isSelf || work?.author?.showName !== false
+  const showAuthorUsername = isSelf || work?.author?.showUsername !== false
+
+  const authorDisplayName = isSelf
+    ? authorName
+    : showAuthorName
+      ? authorName
+      : showAuthorUsername
+        ? `@${authorHandle}`
+        : 'Anonymous Author'
+  const authorDisplayAvatar = showAuthorAvatar ? authorAvatar : '/unisex-avatar.svg'
   const progress = work && !isOwnWork(work.id) ? readingProgress[work.id] : undefined
 
-  const chaptersList = work?.chapters || []
+  const isAuthor = isOwnWork(work?.id || '')
+  const rawChaptersList = work?.chapters || []
+  const chaptersList = useMemo(() => {
+    return isAuthor
+      ? rawChaptersList
+      : rawChaptersList.filter((c) => c.status === 'published')
+  }, [rawChaptersList, isAuthor])
   const firstChapterId = chaptersList[0]?.id || ''
   const resumeChapterId = progress ? progress.chapterId : firstChapterId
 
@@ -354,24 +374,34 @@ function WorkDetailPage() {
           <div className="flex flex-wrap items-center justify-between gap-4 py-3 border-y border-[var(--border-subtle)]">
             <Link
               to="/author/$authorId"
-              params={{ authorId }}
+              params={{ authorId: authorHandle || authorId }}
               preload="intent"
+              onClick={(e) => {
+                if (!user) {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  const authorSlug = authorHandle || authorId
+                  openAuthModal(`/author/${authorSlug}`)
+                }
+              }}
               className="flex items-center gap-3 text-inherit no-underline group"
             >
               <img
-                src={authorAvatar}
-                alt={authorName}
+                src={authorDisplayAvatar}
+                alt={authorDisplayName}
                 loading="lazy"
                 decoding="async"
                 className="h-10 w-10 rounded-full object-cover grayscale border border-[var(--border-strong)]"
               />
               <div>
                 <p className="text-sm font-semibold text-[var(--ink-primary)] group-hover:underline">
-                  {authorName}
+                  {authorDisplayName}
                 </p>
-                <p className="text-xs font-mono text-[var(--ink-muted)]">
-                  @{authorHandle}
-                </p>
+                {(isSelf || showAuthorUsername) && (
+                  <p className="text-xs font-mono text-[var(--ink-muted)]">
+                    @{authorHandle}
+                  </p>
+                )}
               </div>
             </Link>
 
@@ -510,7 +540,10 @@ function WorkDetailPage() {
             items={filteredChapters.map((chapter) => {
             const isRead = progress && progress.chapterNumber > chapter.number
             const isCurrent = progress && progress.chapterId === chapter.id
-            const badgeLabel = chapter.isNew
+            const isDraft = chapter.status === 'draft'
+            const badgeLabel = isDraft
+              ? 'Draft (Unpublished)'
+              : chapter.isNew
               ? 'New'
               : chapter.isUpdated
               ? 'Updated'

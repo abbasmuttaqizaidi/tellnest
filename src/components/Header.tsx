@@ -42,6 +42,8 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
     setSiteTheme,
     openAuthModal,
     openPublicWriteModal,
+    userDisplayName,
+    userProfileUsername,
     customAvatarUrl,
     genres,
     showToast,
@@ -50,7 +52,11 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
     mobileDrawerOpen,
     setMobileDrawerOpen,
   } = useApp()
-  const activeAvatar = customAvatarUrl || user?.imageUrl
+  const isAvatarRemoved = customAvatarUrl === 'none'
+  const activeAvatar = isAvatarRemoved ? null : (customAvatarUrl || user?.imageUrl || null)
+  // Strictly prioritize user's profile display name set in Hatchpen Settings / Profile
+  const profileDisplayName = userDisplayName || userProfileUsername || 'Hatchpen Member'
+  const profileHandle = userProfileUsername || (user?.username ? user.username : (user?.primaryEmailAddress?.emailAddress?.split('@')[0] || 'reader'))
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const userMenuRef = useRef<HTMLDivElement>(null)
 
@@ -363,11 +369,12 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
               <button
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
                 className="flex h-8 w-8 items-center justify-center rounded-full overflow-hidden focus:outline-none hover:ring-2 hover:ring-[var(--border-strong)] transition-all cursor-pointer border border-[var(--border-subtle)]"
-                title="Account Menu"
+                title={profileDisplayName}
               >
                 <UnisexAvatar
                   src={activeAvatar}
-                  name={user?.fullName || user?.firstName}
+                  forceUnisex={isAvatarRemoved}
+                  name={profileDisplayName}
                   size="sm"
                 />
               </button>
@@ -380,15 +387,16 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
                   <div className="flex items-center gap-2.5 px-3 py-2 border-b border-[var(--border-subtle)]">
                     <UnisexAvatar
                       src={activeAvatar}
-                      name={user?.fullName || user?.firstName}
+                      forceUnisex={isAvatarRemoved}
+                      name={profileDisplayName}
                       size="sm"
                     />
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-[var(--ink-primary)] truncate">
-                        {user?.fullName || user?.firstName || 'Hatchpen Member'}
+                        {profileDisplayName}
                       </p>
                       <p className="text-[11px] text-[var(--ink-muted)] font-mono truncate">
-                        @{user?.username || user?.primaryEmailAddress?.emailAddress?.split('@')[0] || 'reader'}
+                        @{profileHandle}
                       </p>
                     </div>
                   </div>
@@ -447,19 +455,8 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
 
                   <div className="border-t border-[var(--border-subtle)]" />
 
-                  {/* Section 3: Profile & Settings */}
+                  {/* Section 3: Settings & Sign Out */}
                   <div className="py-1">
-                    <Link
-                      to="/profile"
-                      preload="intent"
-                      onClick={() => setUserMenuOpen(false)}
-                      className="hidden md:flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
-                    >
-                      <div className="h-3.5 w-3.5 rounded-full overflow-hidden shrink-0">
-                        <UnisexAvatarIcon />
-                      </div>
-                      <span>Author Profile</span>
-                    </Link>
                     <Link
                       to="/settings"
                       preload="intent"
@@ -476,6 +473,8 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
                           localStorage.removeItem('relay_auth_hint')
                           localStorage.removeItem('hatchpen_has_session')
                           localStorage.removeItem('hatchpen_cached_bookmarks')
+                          localStorage.removeItem('hatchpen_custom_avatar')
+                          localStorage.removeItem('tellnest_custom_avatar')
                           document.cookie = 'hatchpen_has_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
                         }
                         setUserMenuOpen(false)
@@ -535,15 +534,16 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
             <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-subtle)]">
               <UnisexAvatar
                 src={activeAvatar}
-                name={user?.fullName || user?.firstName}
+                forceUnisex={isAvatarRemoved}
+                name={profileDisplayName}
                 size="sm"
               />
               <div className="min-w-0 flex-1">
                 <p className="font-semibold text-xs text-[var(--ink-primary)] truncate">
-                  {user?.fullName || user?.firstName || 'HatchPen Reader'}
+                  {profileDisplayName}
                 </p>
                 <p className="text-[10px] text-[var(--ink-muted)] font-mono truncate">
-                  @{user?.username || user?.primaryEmailAddress?.emailAddress?.split('@')[0] || 'reader'}
+                  @{profileHandle}
                 </p>
               </div>
             </div>
@@ -697,6 +697,8 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
                     localStorage.removeItem('relay_auth_hint')
                     localStorage.removeItem('hatchpen_has_session')
                     localStorage.removeItem('hatchpen_cached_bookmarks')
+                    localStorage.removeItem('hatchpen_custom_avatar')
+                    localStorage.removeItem('tellnest_custom_avatar')
                     document.cookie = 'hatchpen_has_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
                   }
                   setMobileDrawerOpen(false)

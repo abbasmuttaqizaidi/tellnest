@@ -43,6 +43,15 @@ export interface Author {
   featuredQuote?: string
   verified?: boolean
   createdAt?: string
+  isPublic?: boolean
+  worksVisibility?: 'public' | 'hidden'
+  showAvatar?: boolean
+  showName?: boolean
+  showUsername?: boolean
+  showReads?: boolean
+  showFollowers?: boolean
+  showWorksCount?: boolean
+  showReadingHistory?: boolean
 }
 
 export type WorkActivityType =
@@ -775,6 +784,9 @@ export interface WriterWorkSummary {
   category: string
   genre?: string
   tags?: string[]
+  firstChapterId?: string
+  activeChapterId?: string
+  chapters?: Chapter[]
 }
 
 export const USER_WRITER_WORKS: WriterWorkSummary[] = [

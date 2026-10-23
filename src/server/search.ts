@@ -103,7 +103,8 @@ export async function executeGlobalSearch({
 
       const { data: rows, error, count } = await admin
         .from('profiles')
-        .select('id, username, display_name, avatar_path, bio', { count: 'exact' })
+        .select('id, username, display_name, avatar_path, bio, preferences', { count: 'exact' })
+        .eq('is_public', true)
         .or(`display_name.ilike.%${sanitized}%,username.ilike.%${sanitized}%,bio.ilike.%${sanitized}%`)
         .not('display_name', 'is', null)
         .range(from, to)
@@ -112,13 +113,25 @@ export async function executeGlobalSearch({
         if (count !== null && count !== undefined) totalCount = count
         authors = (rows as any[])
           .filter((p: any) => p.display_name || p.username)
-          .map((p: any) => ({
-            id: p.id,
-            username: p.username || '',
-            displayName: p.display_name || p.username || '',
-            avatar: p.avatar_path || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
-            bio: p.bio || undefined,
-          }))
+          .map((p: any) => {
+            const priv = (p.preferences && typeof p.preferences === 'object' && p.preferences.privacy) || {}
+            const showAvatar = priv.showAvatar !== false
+            const showName = priv.showName !== false
+            const showUsername = priv.showUsername !== false
+            return {
+              id: p.id,
+              username: p.username || '',
+              displayName: showName
+                ? (p.display_name || p.username || '')
+                : showUsername && p.username
+                  ? `@${p.username}`
+                  : 'Anonymous Author',
+              avatar: showAvatar
+                ? (p.avatar_path || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80')
+                : '/unisex-avatar.svg',
+              bio: p.bio || undefined,
+            }
+          })
       }
     } catch (e: any) {
       console.warn('[executeGlobalSearch] Author DB query notice:', e?.message)

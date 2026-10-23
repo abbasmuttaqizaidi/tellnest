@@ -31,7 +31,9 @@ import {
   markNotificationReadServerFn,
   getUserProfileServerFn,
   getUserSessionBootstrapServerFn,
+  updateUserProfileServerFn,
 } from '../server/authors'
+import { isDefaultOrInitialAvatar } from '../components/UnisexAvatar'
 import {
   getAllUserReadingProgressServerFn,
 } from '../server/reader'
@@ -116,7 +118,11 @@ interface AppContextType {
   toastMessage: string | null
   showToast: (msg: string) => void
 
-  // Custom Avatar
+  // Custom Avatar & User Identity
+  userDisplayName: string | null
+  setUserDisplayName: (name: string | null) => void
+  userProfileUsername: string | null
+  setUserProfileUsername: (name: string | null) => void
   customAvatarUrl: string | null
   setCustomAvatarUrl: (url: string | null) => void
 
@@ -458,9 +464,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setFollowedAuthorIds([])
       setNotifications([])
       setUserProfileId(null)
+      setCustomAvatarUrlState(null)
+      setUserDisplayNameState(null)
+      setUserProfileUsernameState(null)
       if (typeof window !== 'undefined') {
         try {
           localStorage.removeItem('hatchpen_cached_bookmarks')
+          localStorage.removeItem('hatchpen_custom_avatar')
+          localStorage.removeItem('tellnest_custom_avatar')
+          localStorage.removeItem('hatchpen_display_name')
+          localStorage.removeItem('hatchpen_username')
         } catch (e) {}
       }
       return
@@ -474,6 +487,70 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (isMounted) {
           if (bootstrap.profileId) {
             setUserProfileId(bootstrap.profileId)
+          }
+
+          if (bootstrap.profile) {
+            if (bootstrap.profile.display_name) {
+              setUserDisplayNameState(bootstrap.profile.display_name)
+              if (typeof window !== 'undefined') {
+                try {
+                  localStorage.setItem('hatchpen_display_name', bootstrap.profile.display_name)
+                } catch (e) {}
+              }
+            }
+
+            if (bootstrap.profile.username) {
+              setUserProfileUsernameState(bootstrap.profile.username)
+              if (typeof window !== 'undefined') {
+                try {
+                  localStorage.setItem('hatchpen_username', bootstrap.profile.username)
+                } catch (e) {}
+              }
+            }
+
+            if (bootstrap.profile.avatar_path === 'none') {
+              setCustomAvatarUrlState('none')
+              if (typeof window !== 'undefined') {
+                try {
+                  localStorage.setItem('hatchpen_custom_avatar', 'none')
+                } catch (e) {}
+              }
+            } else if (bootstrap.profile.avatar_path && !isDefaultOrInitialAvatar(bootstrap.profile.avatar_path)) {
+              setCustomAvatarUrlState(bootstrap.profile.avatar_path)
+              if (typeof window !== 'undefined') {
+                try {
+                  localStorage.setItem('hatchpen_custom_avatar', bootstrap.profile.avatar_path)
+                } catch (e) {}
+              }
+            } else {
+              // If DB avatar is null or a default initial, check if localStorage retains a valid custom avatar
+              const cachedAvatar =
+                typeof window !== 'undefined'
+                  ? localStorage.getItem('hatchpen_custom_avatar') || localStorage.getItem('tellnest_custom_avatar')
+                  : null
+
+              if (cachedAvatar && cachedAvatar !== 'none' && !isDefaultOrInitialAvatar(cachedAvatar)) {
+                setCustomAvatarUrlState(cachedAvatar)
+                // Background sync to DB so it persists permanently in user's profile
+                updateUserProfileServerFn({
+                  data: {
+                    clerkUserId: user!.id,
+                    avatarUrl: cachedAvatar,
+                  },
+                }).catch(() => {})
+              } else if (bootstrap.profile.avatar_path) {
+                // If no custom avatar in localStorage, use DB avatar if available
+                setCustomAvatarUrlState(bootstrap.profile.avatar_path)
+              } else {
+                setCustomAvatarUrlState(null)
+                if (typeof window !== 'undefined') {
+                  try {
+                    localStorage.removeItem('hatchpen_custom_avatar')
+                    localStorage.removeItem('tellnest_custom_avatar')
+                  } catch (e) {}
+                }
+              }
+            }
           }
 
           if (Array.isArray(bootstrap.bookmarkIds)) {
@@ -633,6 +710,50 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [userProfileId])
   const [toastMessage, setToastMessage] = useState<string | null>(null)
+  const [userDisplayName, setUserDisplayNameState] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        return localStorage.getItem('hatchpen_display_name')
+      } catch (e) {}
+    }
+    return null
+  })
+
+  const setUserDisplayName = (name: string | null) => {
+    setUserDisplayNameState(name)
+    if (typeof window !== 'undefined') {
+      try {
+        if (name) {
+          localStorage.setItem('hatchpen_display_name', name)
+        } else {
+          localStorage.removeItem('hatchpen_display_name')
+        }
+      } catch (e) {}
+    }
+  }
+
+  const [userProfileUsername, setUserProfileUsernameState] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        return localStorage.getItem('hatchpen_username')
+      } catch (e) {}
+    }
+    return null
+  })
+
+  const setUserProfileUsername = (uname: string | null) => {
+    setUserProfileUsernameState(uname)
+    if (typeof window !== 'undefined') {
+      try {
+        if (uname) {
+          localStorage.setItem('hatchpen_username', uname)
+        } else {
+          localStorage.removeItem('hatchpen_username')
+        }
+      } catch (e) {}
+    }
+  }
+
   const [customAvatarUrl, setCustomAvatarUrlState] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -854,15 +975,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    const currentlyFollowed = followedAuthorIds.includes(authorId)
-    const authorWork = allWorks.find((w) => w.author.id === authorId)
-    const name = authorWork ? authorWork.author.name : 'Author'
+    const cleanId = authorId.trim().toLowerCase()
+    const currentlyFollowed = isAuthorFollowed(authorId)
+    const authorObj =
+      allWorks.find((w) => w.author.id.toLowerCase() === cleanId || w.author.handle?.toLowerCase() === cleanId)?.author ||
+      AUTHORS.find((a) => a.id.toLowerCase() === cleanId || a.handle.toLowerCase() === cleanId)
+    const name = authorObj ? authorObj.name : 'Author'
 
     // 2. Optimistic UI update
     setFollowedAuthorIds((prev) => {
       if (currentlyFollowed) {
         showToast(`Unfollowed ${name}`)
-        return prev.filter((id) => id !== authorId)
+        return prev.filter((id) => id.toLowerCase().trim() !== cleanId)
       } else {
         showToast(`Now following ${name}`)
         return [...prev, authorId]
@@ -1085,6 +1209,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     status?: 'draft' | 'published',
     bannerImage?: string | null
   ) => {
+    const cleanContent = typeof content === 'string' ? content.replace(/\\+[ \t]*(?=\r?\n|$)/g, '') : content
     setAllWorks(prev => prev.map(work => {
       const isMatch =
         work.id === workId ||
@@ -1092,7 +1217,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         work.id.toLowerCase() === workId.toLowerCase() ||
         (work.slug && work.slug.toLowerCase() === workId.toLowerCase())
       if (!isMatch) return work
-      const words = content.trim().split(/\s+/).filter(Boolean).length
+      const words = cleanContent.trim().split(/\s+/).filter(Boolean).length
       const nowIso = new Date().toISOString()
       
       let targetChapterNumber = 1
@@ -1107,7 +1232,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return {
           ...ch,
           title,
-          content,
+          content: cleanContent,
           bannerImage: bannerImage !== undefined ? (bannerImage || undefined) : ch.bannerImage,
           status: status || ch.status,
           wordCount: words,
@@ -1573,6 +1698,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         addNotification,
         toastMessage,
         showToast,
+        userDisplayName,
+        setUserDisplayName,
+        userProfileUsername,
+        setUserProfileUsername,
         customAvatarUrl,
         setCustomAvatarUrl,
         isAuthModalOpen,

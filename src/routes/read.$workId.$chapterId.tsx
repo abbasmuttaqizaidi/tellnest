@@ -102,7 +102,7 @@ export const Route = createFileRoute('/read/$workId/$chapterId')({
         author: {
           '@type': 'Person',
           name: work.author.name,
-          url: `https://hatchpen.com/author/${work.author.id}`,
+          url: `https://hatchpen.com/author/${work.author.handle || work.author.id}`,
         },
         publisher: {
           '@type': 'Organization',
@@ -119,14 +119,17 @@ export const Route = createFileRoute('/read/$workId/$chapterId')({
 })
 
 function formatInlineMarkdown(text: string): React.ReactNode {
+  // Strip any trailing backslashes before newlines or end of line (markdown hard-break artifacts)
+  const cleanText = text.replace(/\\+[ \t]*(?=\r?\n|$)/g, '')
+
   // Regex matches:
   // 1. Bold (**text** or __text__)
   // 2. Italic (*text* or _text_)
   // 3. Strikethrough (~~text~~)
   // 4. Inline code (`code`)
   const regex = /(\*\*[^*]+\*\*|__[^_]+__|(?<!\*)\*[^*]+\*(?!\*)|(?<!_)_[^_]+_(?!_)|~~[^~]+~~|`[^`]+`)/g
-  const parts = text.split(regex)
-  if (parts.length === 1) return text
+  const parts = cleanText.split(regex)
+  if (parts.length === 1) return cleanText
 
   return parts.map((part, index) => {
     // Bold: **text** or __text__
@@ -168,7 +171,8 @@ function formatInlineMarkdown(text: string): React.ReactNode {
 }
 
 function renderChapterParagraph(text: string): React.ReactNode {
-  const trimmed = text.trim()
+  const cleanText = text.replace(/\\+[ \t]*(?=\r?\n|$)/g, '')
+  const trimmed = cleanText.trim()
 
   // Horizontal Rule / Scene Break (--- or ***)
   if (/^(\*{3,}|-{3,})$/.test(trimmed)) {
@@ -216,7 +220,7 @@ function renderChapterParagraph(text: string): React.ReactNode {
     )
   }
 
-  return formatInlineMarkdown(text)
+  return formatInlineMarkdown(cleanText)
 }
 
 function ReaderPage() {
@@ -234,7 +238,9 @@ function ReaderPage() {
     readingProgress,
     updateReadingProgress,
     isOwnWork,
-    showToast
+    showToast,
+    isSignedIn,
+    openAuthModal,
   } = useApp()
 
   const work = useMemo(() => {
@@ -554,6 +560,23 @@ function ReaderPage() {
     )
   }
 
+  const isAuthor = isOwnWork(work.id)
+  const isDraftChapter = chapter.status === 'draft'
+
+  if (isDraftChapter && !isAuthor) {
+    return (
+      <div className="py-20 px-4 max-w-xl mx-auto">
+        <EmptyState
+          type="no-works"
+          customTitle="Unpublished Draft"
+          customDescription="This chapter is currently in draft and has not been published yet by the author."
+          actionLabel="Return to Table of Contents"
+          actionHref={`/works/${getWorkSlug(work) || work.id}`}
+        />
+      </div>
+    )
+  }
+
   const saved = isWorkSaved(work.id)
 
   // Floating TOC, Inline Marginalia and Continuous Progression settings
@@ -746,6 +769,13 @@ function ReaderPage() {
         </div>
       </header>
 
+      {/* Private Draft Preview Banner for Authors */}
+      {isDraftChapter && isAuthor && (
+        <div className="bg-amber-500/15 border-b border-amber-500/30 px-4 py-2 text-center text-xs font-mono font-medium text-amber-800 dark:text-amber-300">
+          Private Author Preview • This chapter is currently an unpublished draft. Readers cannot see this.
+        </div>
+      )}
+
       {/* READING CANVAS — Distraction Free and Dominating the Screen */}
       <main className={`mx-auto px-4 sm:px-8 pt-2 sm:pt-3 pb-8 sm:pb-12 ${widthClasses}`}>
         
@@ -799,10 +829,18 @@ function ReaderPage() {
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-[var(--ink-faint)]">
               <Link
                 to="/author/$authorId"
-                params={{ authorId: work.author.id }}
+                params={{ authorId: work.author.handle || work.author.id }}
+                onClick={(e) => {
+                  if (!isSignedIn) {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    const authorSlug = work.author.handle || work.author.id
+                    openAuthModal(`/author/${authorSlug}`)
+                  }
+                }}
                 className="hover:text-[var(--ink-primary)] transition-colors no-underline"
               >
-                by {work.author.name}
+                by {work.author.showName !== false ? work.author.name : (work.author.showUsername !== false ? `@${work.author.handle}` : 'Author')}
               </Link>
               <span>•</span>
               <span>{chapter.readTimeMinutes} min read</span>

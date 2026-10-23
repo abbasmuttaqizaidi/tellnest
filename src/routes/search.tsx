@@ -154,7 +154,7 @@ const QUESTIONS_CONFIG: QuestionnaireQuestion[] = [
 ]
 
 function SearchPage() {
-  const { allWorks, categories, genres } = useApp()
+  const { allWorks, categories, genres, isSignedIn, openAuthModal } = useApp()
   const navigate = useNavigate()
   const searchParams = Route.useSearch()
   const loaderData = Route.useLoaderData()
@@ -1168,8 +1168,16 @@ function SearchPage() {
                       <Link
                         key={author.id}
                         to="/author/$authorId"
-                        params={{ authorId: author.id }}
+                        params={{ authorId: author.handle || author.username || author.id }}
                         preload="intent"
+                        onClick={(e) => {
+                          if (!isSignedIn) {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            const authorSlug = author.handle || author.username || author.id
+                            openAuthModal(`/author/${authorSlug}`)
+                          }
+                        }}
                         className="flex flex-col items-center gap-3 p-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] transition-colors text-center no-underline text-inherit group"
                       >
                         <img

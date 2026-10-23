@@ -12,6 +12,7 @@ import {
   purgeUserServerFn,
   adminPostWorkServerFn,
   adminPostChapterServerFn,
+  adminUpdateUserProfileServerFn,
   type AdminUser,
   type AdminDashboardData,
   type AdminWorkRow,
@@ -45,6 +46,8 @@ import {
   Sparkles,
   CheckCircle2,
   Edit,
+  Sliders,
+  Globe,
 } from 'lucide-react'
 
 import { generateMeta } from '../lib/seo'
@@ -132,6 +135,26 @@ function SecretAdminPanelPage() {
   const [purgeConfirmText, setPurgeConfirmText] = useState('')
   const [isPurging, setIsPurging] = useState(false)
   const [purgeResult, setPurgeResult] = useState<{ success: boolean; message: string } | null>(null)
+
+  // Customize User Profile & Visibility Modal State
+  const [showCustomizeUserModal, setShowCustomizeUserModal] = useState(false)
+  const [customizeTargetUser, setCustomizeTargetUser] = useState<AdminUser | null>(null)
+  const [customizeDisplayName, setCustomizeDisplayName] = useState('')
+  const [customizeUsername, setCustomizeUsername] = useState('')
+  const [customizeAvatarUrl, setCustomizeAvatarUrl] = useState('')
+  const [customizeBio, setCustomizeBio] = useState('')
+  const [customizeLocation, setCustomizeLocation] = useState('')
+  const [customizeIsPublic, setCustomizeIsPublic] = useState(false)
+  const [customizeWorksVisibility, setCustomizeWorksVisibility] = useState<'public' | 'hidden'>('public')
+  const [customizeShowAvatar, setCustomizeShowAvatar] = useState(true)
+  const [customizeShowName, setCustomizeShowName] = useState(true)
+  const [customizeShowUsername, setCustomizeShowUsername] = useState(true)
+  const [customizeShowReads, setCustomizeShowReads] = useState(false)
+  const [customizeShowFollowers, setCustomizeShowFollowers] = useState(false)
+  const [customizeShowWorksCount, setCustomizeShowWorksCount] = useState(false)
+  const [customizeShowReadingHistory, setCustomizeShowReadingHistory] = useState(false)
+  const [isSavingUserCustomization, setIsSavingUserCustomization] = useState(false)
+  const [customizeUserError, setCustomizeUserError] = useState<string | null>(null)
 
   // Post Work Modal State
   const [showPostWorkModal, setShowPostWorkModal] = useState(false)
@@ -741,6 +764,72 @@ function SecretAdminPanelPage() {
     setPostWorkChapterTitle('Chapter One: The Crossing')
     setPostWorkChapterContent('')
     setPostWorkError(null)
+  }
+
+  const openCustomizeUserModal = (target: AdminUser) => {
+    setCustomizeTargetUser(target)
+    setCustomizeDisplayName(target.displayName || '')
+    setCustomizeUsername(target.username || '')
+    setCustomizeAvatarUrl(target.avatarUrl || '')
+    setCustomizeBio(target.bio || '')
+    setCustomizeLocation(target.location || '')
+    setCustomizeIsPublic(Boolean(target.isPublic))
+    setCustomizeWorksVisibility(target.worksVisibility || 'public')
+    setCustomizeShowAvatar(target.showAvatar !== false)
+    setCustomizeShowName(target.showName !== false)
+    setCustomizeShowUsername(target.showUsername !== false)
+    setCustomizeShowReads(Boolean(target.showReads))
+    setCustomizeShowFollowers(Boolean(target.showFollowers))
+    setCustomizeShowWorksCount(Boolean(target.showWorksCount))
+    setCustomizeShowReadingHistory(Boolean(target.showReadingHistory))
+    setCustomizeUserError(null)
+    setShowCustomizeUserModal(true)
+  }
+
+  const handleSaveUserCustomization = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!adminToken || !customizeTargetUser) return
+    setIsSavingUserCustomization(true)
+    setCustomizeUserError(null)
+
+    try {
+      const res = await adminUpdateUserProfileServerFn({
+        data: {
+          adminToken,
+          clerkUserId: customizeTargetUser.clerkId,
+          profileId: customizeTargetUser.profileId || undefined,
+          displayName: customizeDisplayName.trim(),
+          username: customizeUsername.trim(),
+          avatarUrl: customizeAvatarUrl.trim() || null,
+          bio: customizeBio.trim() || null,
+          location: customizeLocation.trim() || null,
+          isPublic: customizeIsPublic,
+          worksVisibility: customizeWorksVisibility,
+          showAvatar: customizeShowAvatar,
+          showName: customizeShowName,
+          showUsername: customizeShowUsername,
+          showReads: customizeShowReads,
+          showFollowers: customizeShowFollowers,
+          showWorksCount: customizeShowWorksCount,
+          showReadingHistory: customizeShowReadingHistory,
+        },
+      })
+
+      if (!res.success) {
+        throw new Error('Failed to update profile.')
+      }
+
+      showToast(`Profile & privacy settings saved for @${customizeUsername}`, 'success')
+      setShowCustomizeUserModal(false)
+
+      // Refresh dashboard registry
+      fetchDashboard(adminToken, true)
+    } catch (err: any) {
+      console.error('[Admin] Error customizing user profile:', err)
+      setCustomizeUserError(err?.message || 'Failed to update user profile and privacy.')
+    } finally {
+      setIsSavingUserCustomization(false)
+    }
   }
 
   const openPostWorkModal = (preselectedUser?: AdminUser | typeof AUTHORS[0]) => {
@@ -1798,8 +1887,17 @@ function SecretAdminPanelPage() {
                     </div>
                   </div>
 
-                  {/* Right: Post Work & Purge Buttons */}
-                  <div className="flex items-center gap-3 shrink-0">
+                  {/* Right: Actions */}
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 shrink-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      leftIcon={<Sliders className="h-3.5 w-3.5" />}
+                      onClick={() => openCustomizeUserModal(user)}
+                      title={`Customize profile and hide/show options for ${user.displayName}`}
+                    >
+                      Customize Profile
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"
@@ -2297,6 +2395,424 @@ function SecretAdminPanelPage() {
                 )}
               </button>
             </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOMIZE USER PROFILE & VISIBILITY MODAL */}
+      {showCustomizeUserModal && customizeTargetUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-6 sm:p-8 shadow-2xl space-y-6">
+            
+            {/* Modal Header */}
+            <div className="flex items-start justify-between gap-4 pb-4 border-b border-[var(--border-subtle)]">
+              <div className="flex items-center gap-3">
+                <UnisexAvatar
+                  src={customizeAvatarUrl || customizeTargetUser.avatarUrl}
+                  name={customizeDisplayName || customizeTargetUser.displayName}
+                  size="lg"
+                />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-serif text-lg font-semibold text-[var(--ink-primary)]">
+                      Customize Profile & Visibility
+                    </h3>
+                    {customizeTargetUser.isMock ? (
+                      <Badge variant="subtle" size="sm">Mock Persona</Badge>
+                    ) : (
+                      <Badge variant="outline" size="sm">User Account</Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-[var(--ink-muted)]">
+                    Configure persona details, public visibility, and stats display for @{customizeTargetUser.username}.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCustomizeUserModal(false)}
+                className="text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors p-1"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Error Message */}
+            {customizeUserError && (
+              <div className="p-3.5 rounded-lg border border-rose-300 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/30 text-rose-800 dark:text-rose-300 text-xs flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span>{customizeUserError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveUserCustomization} className="space-y-6">
+              {/* SECTION 1: PROFILE DETAILS */}
+              <div className="space-y-4">
+                <h4 className="text-xs font-mono font-semibold uppercase tracking-wider text-[var(--ink-primary)]">
+                  1. Profile Details & Persona
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-mono text-[var(--ink-secondary)]">Display Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={customizeDisplayName}
+                      onChange={(e) => setCustomizeDisplayName(e.target.value)}
+                      placeholder="e.g. Elena Vasquez"
+                      className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2 text-xs text-[var(--ink-primary)] focus:outline-none focus:border-[var(--ink-primary)] transition-colors"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-mono text-[var(--ink-secondary)]">Handle (@username) *</label>
+                    <input
+                      type="text"
+                      required
+                      value={customizeUsername}
+                      onChange={(e) => setCustomizeUsername(e.target.value)}
+                      placeholder="e.g. elenavasquez"
+                      className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2 text-xs text-[var(--ink-primary)] focus:outline-none focus:border-[var(--ink-primary)] transition-colors"
+                    />
+                  </div>
+
+                  <div className="space-y-1 sm:col-span-2">
+                    <label className="text-[11px] font-mono text-[var(--ink-secondary)]">Avatar URL</label>
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      {PRESET_MOCK_AVATARS.map((preset, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setCustomizeAvatarUrl(preset.url)}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-[11px] font-mono transition-all cursor-pointer ${
+                            customizeAvatarUrl === preset.url
+                              ? 'border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-semibold'
+                              : 'border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
+                          }`}
+                        >
+                          <img src={preset.url} alt="" className="h-3.5 w-3.5 rounded-full object-cover" />
+                          <span>{preset.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="url"
+                      value={customizeAvatarUrl}
+                      onChange={(e) => setCustomizeAvatarUrl(e.target.value)}
+                      placeholder="https://images.unsplash.com/photo-..."
+                      className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2 text-xs text-[var(--ink-primary)] focus:outline-none focus:border-[var(--ink-primary)] transition-colors"
+                    />
+                  </div>
+
+                  <div className="space-y-1 sm:col-span-2">
+                    <label className="text-[11px] font-mono text-[var(--ink-secondary)]">Biography</label>
+                    <textarea
+                      rows={2}
+                      value={customizeBio}
+                      onChange={(e) => setCustomizeBio(e.target.value)}
+                      placeholder="Brief author biography or reader journey..."
+                      className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2 text-xs text-[var(--ink-primary)] focus:outline-none focus:border-[var(--ink-primary)] transition-colors resize-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1 sm:col-span-2">
+                    <label className="text-[11px] font-mono text-[var(--ink-secondary)]">Location</label>
+                    <input
+                      type="text"
+                      value={customizeLocation}
+                      onChange={(e) => setCustomizeLocation(e.target.value)}
+                      placeholder="e.g. Prague, Czechia"
+                      className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2 text-xs text-[var(--ink-primary)] focus:outline-none focus:border-[var(--ink-primary)] transition-colors"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 2: HIDE / SHOW CONTROLS (UNIFIED SINGLE CARD) */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-mono font-semibold uppercase tracking-wider text-[var(--ink-primary)]">
+                  2. Visibility & Hide/Show Settings (Single Card)
+                </h4>
+
+                <div className="p-4 sm:p-5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-canvas)] space-y-4">
+                  {/* Part A: Profile Visibility */}
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-0.5 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-semibold text-[var(--ink-primary)]">
+                          Profile Visibility
+                        </p>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-medium ${
+                            customizeIsPublic
+                              ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                              : 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
+                          }`}
+                        >
+                          {customizeIsPublic ? 'Public Profile' : 'Private (Default)'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-[var(--ink-muted)]">
+                        {customizeIsPublic
+                          ? 'Signed-in HatchPen members can view this profile, bio, and chosen public statistics.'
+                          : 'Profile is private. Other users see "This Profile is Private".'}
+                      </p>
+                    </div>
+                    <div className="shrink-0 flex items-center justify-center p-1">
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={customizeIsPublic}
+                        onClick={() => setCustomizeIsPublic(!customizeIsPublic)}
+                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          customizeIsPublic
+                            ? 'bg-[var(--ink-primary)]'
+                            : 'bg-[var(--border-strong)]'
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                            customizeIsPublic ? 'translate-x-4' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  <div className="border-t border-[var(--border-subtle)]" />
+
+                  {/* Part B: Works Catalog Visibility */}
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-0.5 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-semibold text-[var(--ink-primary)]">
+                          Works & Manuscripts Catalog
+                        </p>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-medium ${
+                            customizeWorksVisibility === 'public'
+                              ? 'bg-[var(--bg-subtle)] text-[var(--ink-secondary)] border border-[var(--border-subtle)]'
+                              : 'bg-neutral-200 dark:bg-neutral-800 text-[var(--ink-muted)]'
+                          }`}
+                        >
+                          {customizeWorksVisibility === 'public' ? 'Public' : 'Hidden'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-[var(--ink-muted)]">
+                        {customizeWorksVisibility === 'public'
+                          ? 'Authored works are displayed in the catalog on this profile.'
+                          : 'Authored works are hidden from visitors on this profile.'}
+                      </p>
+                    </div>
+                    <div className="shrink-0 flex items-center justify-center p-1">
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={customizeWorksVisibility === 'public'}
+                        onClick={() =>
+                          setCustomizeWorksVisibility(
+                            customizeWorksVisibility === 'public' ? 'hidden' : 'public'
+                          )
+                        }
+                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          customizeWorksVisibility === 'public'
+                            ? 'bg-[var(--ink-primary)]'
+                            : 'bg-[var(--border-strong)]'
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                            customizeWorksVisibility === 'public' ? 'translate-x-4' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  <div className="border-t border-[var(--border-subtle)]" />
+
+                  {/* Part C: Identity Visibility (DP, Name, Username) */}
+                  <div className="space-y-2.5">
+                    <div>
+                      <p className="text-[11px] font-mono uppercase tracking-wider font-semibold text-[var(--ink-primary)]">
+                        Profile Identity & Details
+                      </p>
+                      <p className="text-[10px] text-[var(--ink-muted)]">
+                        Control public visibility of the display photo, full name, and handle badge.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      {/* Show/Hide DP / Avatar */}
+                      <label className="flex items-center justify-between p-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] cursor-pointer hover:border-[var(--border-strong)] transition-colors">
+                        <div className="space-y-0.5 pr-2">
+                          <span className="text-xs font-medium text-[var(--ink-primary)] block">
+                            Display Picture (DP)
+                          </span>
+                          <span className="text-[10px] text-[var(--ink-muted)] block">
+                            {customizeShowAvatar ? 'Custom photo visible' : 'Silhouette placeholder'}
+                          </span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={customizeShowAvatar}
+                          onChange={(e) => setCustomizeShowAvatar(e.target.checked)}
+                          className="rounded border-[var(--border-strong)] text-[var(--ink-primary)] focus:ring-[var(--ink-primary)] h-4 w-4"
+                        />
+                      </label>
+
+                      {/* Show/Hide Name */}
+                      <label className="flex items-center justify-between p-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] cursor-pointer hover:border-[var(--border-strong)] transition-colors">
+                        <div className="space-y-0.5 pr-2">
+                          <span className="text-xs font-medium text-[var(--ink-primary)] block">
+                            Full Name
+                          </span>
+                          <span className="text-[10px] text-[var(--ink-muted)] block">
+                            {customizeShowName ? 'Display name shown' : 'Hidden to public'}
+                          </span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={customizeShowName}
+                          onChange={(e) => setCustomizeShowName(e.target.checked)}
+                          className="rounded border-[var(--border-strong)] text-[var(--ink-primary)] focus:ring-[var(--ink-primary)] h-4 w-4"
+                        />
+                      </label>
+
+                      {/* Show/Hide Username */}
+                      <label className="flex items-center justify-between p-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] cursor-pointer hover:border-[var(--border-strong)] transition-colors">
+                        <div className="space-y-0.5 pr-2">
+                          <span className="text-xs font-medium text-[var(--ink-primary)] block">
+                            Username (@handle)
+                          </span>
+                          <span className="text-[10px] text-[var(--ink-muted)] block">
+                            {customizeShowUsername ? '@handle badge visible' : 'Hidden on profile'}
+                          </span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={customizeShowUsername}
+                          onChange={(e) => setCustomizeShowUsername(e.target.checked)}
+                          className="rounded border-[var(--border-strong)] text-[var(--ink-primary)] focus:ring-[var(--ink-primary)] h-4 w-4"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  <div className="border-t border-[var(--border-subtle)]" />
+
+                  {/* Part D: Granular Statistics (Hide / Show) */}
+                  <div className="space-y-2.5">
+                    <div>
+                      <p className="text-[11px] font-mono uppercase tracking-wider font-semibold text-[var(--ink-primary)]">
+                        Public Profile Statistics
+                      </p>
+                      <p className="text-[10px] text-[var(--ink-muted)]">
+                        Select which metrics appear publicly on this profile.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {/* Lifetime Reads */}
+                      <label className="flex items-center justify-between p-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] cursor-pointer hover:border-[var(--border-strong)] transition-colors">
+                        <div className="space-y-0.5 pr-2">
+                          <span className="text-xs font-medium text-[var(--ink-primary)] block">
+                            Lifetime Reads
+                          </span>
+                          <span className="text-[10px] text-[var(--ink-muted)] block">
+                            Show reads counter
+                          </span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={customizeShowReads}
+                          onChange={(e) => setCustomizeShowReads(e.target.checked)}
+                          className="rounded border-[var(--border-strong)] text-[var(--ink-primary)] focus:ring-[var(--ink-primary)] h-4 w-4"
+                        />
+                      </label>
+
+                      {/* Followers */}
+                      <label className="flex items-center justify-between p-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] cursor-pointer hover:border-[var(--border-strong)] transition-colors">
+                        <div className="space-y-0.5 pr-2">
+                          <span className="text-xs font-medium text-[var(--ink-primary)] block">
+                            Followers Count
+                          </span>
+                          <span className="text-[10px] text-[var(--ink-muted)] block">
+                            Show subscribers count
+                          </span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={customizeShowFollowers}
+                          onChange={(e) => setCustomizeShowFollowers(e.target.checked)}
+                          className="rounded border-[var(--border-strong)] text-[var(--ink-primary)] focus:ring-[var(--ink-primary)] h-4 w-4"
+                        />
+                      </label>
+
+                      {/* Works Count */}
+                      <label className="flex items-center justify-between p-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] cursor-pointer hover:border-[var(--border-strong)] transition-colors">
+                        <div className="space-y-0.5 pr-2">
+                          <span className="text-xs font-medium text-[var(--ink-primary)] block">
+                            Works Count
+                          </span>
+                          <span className="text-[10px] text-[var(--ink-muted)] block">
+                            Show cataloged count
+                          </span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={customizeShowWorksCount}
+                          onChange={(e) => setCustomizeShowWorksCount(e.target.checked)}
+                          className="rounded border-[var(--border-strong)] text-[var(--ink-primary)] focus:ring-[var(--ink-primary)] h-4 w-4"
+                        />
+                      </label>
+
+                      {/* Reading History */}
+                      <label className="flex items-center justify-between p-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] cursor-pointer hover:border-[var(--border-strong)] transition-colors">
+                        <div className="space-y-0.5 pr-2">
+                          <span className="text-xs font-medium text-[var(--ink-primary)] block">
+                            Reading History
+                          </span>
+                          <span className="text-[10px] text-[var(--ink-muted)] block">
+                            Show reading activity
+                          </span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={customizeShowReadingHistory}
+                          onChange={(e) => setCustomizeShowReadingHistory(e.target.checked)}
+                          className="rounded border-[var(--border-strong)] text-[var(--ink-primary)] focus:ring-[var(--ink-primary)] h-4 w-4"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-[var(--border-subtle)]">
+                <button
+                  type="button"
+                  onClick={() => setShowCustomizeUserModal(false)}
+                  className="px-4 py-2 text-xs font-mono text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingUserCustomization}
+                  className="inline-flex items-center gap-2 rounded-lg bg-[var(--ink-primary)] text-[var(--accent-contrast)] px-5 py-2 text-xs font-semibold hover:opacity-90 transition-all cursor-pointer disabled:opacity-50 shadow-xs"
+                >
+                  {isSavingUserCustomization && <RefreshCw className="h-3.5 w-3.5 animate-spin" />}
+                  <span>Save Profile & Privacy</span>
+                </button>
+              </div>
+            </form>
 
           </div>
         </div>

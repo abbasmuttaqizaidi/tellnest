@@ -12,6 +12,7 @@ import {
   executeUnblockUser,
   executeClearReadingHistory,
   executeDeleteUserAccount,
+  executeCheckUsernameAvailability,
 } from '../src/server/settings.ts'
 
 // ==============================================================================
@@ -692,5 +693,77 @@ test('Settings Backend: executeUpdateReadingPreferences enforces maximum 3 categ
       message: /maximum of 3 preferred story formats/,
     }
   )
+})
+
+test('Settings Backend: executeCheckUsernameAvailability verifies availability against usernames table', async () => {
+  const mockAdminClient = {
+    from: (table) => {
+      if (table === 'usernames') {
+        return {
+          select: () => ({
+            eq: (col, val) => ({
+              maybeSingle: async () => {
+                if (val === 'taken_author') {
+                  return { data: { username: 'taken_author' }, error: null }
+                }
+                return { data: null, error: null }
+              },
+            }),
+          }),
+        }
+      }
+      if (table === 'profiles') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { username: 'my_current_username' },
+                error: null,
+              }),
+            }),
+          }),
+        }
+      }
+      return {}
+    },
+  }
+
+  // 1. Too short
+  const resShort = await executeCheckUsernameAvailability({
+    adminClient: mockAdminClient,
+    username: 'ab',
+  })
+  assert.equal(resShort.available, false)
+  assert.match(resShort.message, /at least 3 characters/)
+
+  // 2. Already taken in usernames table
+  const resTaken = await executeCheckUsernameAvailability({
+    adminClient: mockAdminClient,
+    username: 'taken_author',
+    currentClerkUserId: 'clerk_diff_user',
+  })
+  assert.equal(resTaken.available, false)
+  assert.equal(resTaken.isTaken, true)
+  assert.match(resTaken.message, /already taken/)
+
+  // 3. User's own current username
+  const resCurrent = await executeCheckUsernameAvailability({
+    adminClient: mockAdminClient,
+    username: 'my_current_username',
+    currentClerkUserId: 'clerk_owner',
+  })
+  assert.equal(resCurrent.available, true)
+  assert.equal(resCurrent.isCurrent, true)
+  assert.match(resCurrent.message, /current handle/)
+
+  // 4. Truly available username
+  const resAvailable = await executeCheckUsernameAvailability({
+    adminClient: mockAdminClient,
+    username: 'totally_unique_author_99',
+    currentClerkUserId: 'clerk_owner',
+  })
+  assert.equal(resAvailable.available, true)
+  assert.equal(resAvailable.isTaken, false)
+  assert.match(resAvailable.message, /is available/)
 })
 

@@ -94,6 +94,29 @@ export async function syncClerkUserToProfile(params: {
 }) {
   const admin = createAdminClient()
 
+  // 1. Check if user profile already exists
+  const { data: existing } = await admin
+    .from('profiles')
+    .select('id, clerk_user_id, username, display_name, avatar_path, bio, is_public, account_status')
+    .eq('clerk_user_id', params.clerkUserId)
+    .maybeSingle()
+
+  if (existing) {
+    // If the profile already exists, NEVER overwrite a custom/removed avatar or custom pen name!
+    // Only backfill avatar_path if it was null/empty and NOT explicitly removed ('none')
+    if (existing.avatar_path === null && params.avatarUrl) {
+      const { data: updated } = await admin
+        .from('profiles')
+        .update({ avatar_path: params.avatarUrl })
+        .eq('id', existing.id)
+        .select('id, clerk_user_id, username, display_name, avatar_path, bio, is_public, account_status')
+        .single()
+      return updated || existing
+    }
+    return existing
+  }
+
+  // 2. Initial insert for new user
   const payload: Record<string, any> = {
     clerk_user_id: params.clerkUserId,
     username: params.username.toLowerCase().trim(),

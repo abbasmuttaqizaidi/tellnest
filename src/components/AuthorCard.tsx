@@ -1,9 +1,10 @@
 import React from 'react'
 import { Link } from '@tanstack/react-router'
+import { useUser } from '@clerk/react'
 import type { Author } from '../data/mockData'
 import { useApp } from '../context/AppContext'
 import { UserPlus, UserCheck, BookOpen } from 'lucide-react'
-import { OptimizedImage } from './OptimizedImage'
+import UnisexAvatar from './UnisexAvatar'
 import { formatViewCount } from '../lib/utils'
 
 interface AuthorCardProps {
@@ -11,8 +12,34 @@ interface AuthorCardProps {
 }
 
 export default function AuthorCard({ author }: AuthorCardProps) {
-  const { isAuthorFollowed, toggleFollowAuthor } = useApp()
-  const followed = isAuthorFollowed(author.id)
+  const { isAuthorFollowed, toggleFollowAuthor, isSignedIn, openAuthModal } = useApp()
+  const { user } = useUser()
+  const followed = isAuthorFollowed(author.id) || isAuthorFollowed(author.handle)
+  const authorSlug = author.handle || author.id
+
+  const isSelf = Boolean(
+    user && (
+      author.id === user.id ||
+      (user.username && author.handle && author.handle.toLowerCase() === user.username.toLowerCase())
+    )
+  )
+
+  const showAvatar = author.showAvatar !== false
+  const showName = author.showName !== false
+  const showUsername = author.showUsername !== false
+  const displayName = showName
+    ? author.name
+    : showUsername
+      ? `@${author.handle}`
+      : 'Anonymous Author'
+
+  const handleAuthorClick = (e: React.MouseEvent) => {
+    if (!isSignedIn) {
+      e.preventDefault()
+      e.stopPropagation()
+      openAuthModal(`/author/${authorSlug}`)
+    }
+  }
 
   return (
     <div className="flex flex-col justify-between rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all">
@@ -20,45 +47,48 @@ export default function AuthorCard({ author }: AuthorCardProps) {
         <div className="flex items-start justify-between gap-3">
           <Link
             to="/author/$authorId"
-            params={{ authorId: author.id }}
+            params={{ authorId: authorSlug }}
             preload="intent"
+            onClick={handleAuthorClick}
             className="flex items-center gap-3 no-underline text-inherit"
           >
-            <OptimizedImage
-              src={author.avatar}
-              alt={author.name}
-              width={48}
-              height={48}
-              className="h-12 w-12 rounded-full object-cover grayscale border border-[var(--border-subtle)]"
+            <UnisexAvatar
+              size="lg"
+              avatarPath={showAvatar ? author.avatar : undefined}
+              forceUnisex={!showAvatar}
+              seed={showName ? author.name : (showUsername ? author.handle : 'anonymous')}
+              className="h-12 w-12 rounded-full border border-[var(--border-subtle)] shrink-0"
             />
             <div>
               <h4 className="font-serif text-base font-semibold text-[var(--ink-primary)] hover:underline leading-snug">
-                {author.name}
+                {displayName}
               </h4>
-              <p className="font-mono text-xs text-[var(--ink-muted)]">@{author.handle}</p>
+              {showUsername && <p className="font-mono text-xs text-[var(--ink-muted)]">@{author.handle}</p>}
             </div>
           </Link>
 
-          <button
-            onClick={() => toggleFollowAuthor(author.id)}
-            className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-all ${
-              followed
-                ? 'border border-[var(--border-strong)] bg-[var(--bg-subtle)] text-[var(--ink-secondary)]'
-                : 'border border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] hover:opacity-90'
-            }`}
-          >
-            {followed ? (
-              <>
-                <UserCheck className="h-3.5 w-3.5" />
-                <span>Following</span>
-              </>
-            ) : (
-              <>
-                <UserPlus className="h-3.5 w-3.5" />
-                <span>Follow</span>
-              </>
-            )}
-          </button>
+          {!isSelf && (
+            <button
+              onClick={() => toggleFollowAuthor(author.id)}
+              className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-all ${
+                followed
+                  ? 'border border-[var(--border-strong)] bg-[var(--bg-subtle)] text-[var(--ink-secondary)]'
+                  : 'border border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] hover:opacity-90'
+              }`}
+            >
+              {followed ? (
+                <>
+                  <UserCheck className="h-3.5 w-3.5" />
+                  <span>Following</span>
+                </>
+              ) : (
+                <>
+                  <UserPlus className="h-3.5 w-3.5" />
+                  <span>Follow</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
 
         <p className="mt-3 text-xs leading-relaxed text-[var(--ink-muted)] line-clamp-2">

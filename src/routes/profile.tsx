@@ -40,6 +40,7 @@ import {
   SPRINGS,
 } from '../design-system'
 import { getUserProfileServerFn, updateUserProfileServerFn } from '../server/authors'
+import { uploadToCloudinary } from '../lib/cloudinary'
 import { uploadImage, optimizeAvatarImage, STORAGE_BUCKETS } from '../lib/supabase/storage'
 import { generateMeta } from '../lib/seo'
 
@@ -76,6 +77,7 @@ type ProfileData = {
   newsletter: string
   isPseudonym: boolean
   pronouns: string
+  gender: string
 }
 
 const INITIAL_PROFILE: ProfileData = {
@@ -87,6 +89,30 @@ const INITIAL_PROFILE: ProfileData = {
   newsletter: 'https://greenhouse.meridian.pub',
   isPseudonym: false,
   pronouns: '',
+  gender: '',
+}
+
+function normalizeGenderSelection(val: string | null | undefined): string {
+  if (!val) return ''
+  const s = val.trim().toLowerCase().replace(/[\s\-_]/g, '')
+  if (s === 'female') return 'Female'
+  if (s === 'male') return 'Male'
+  if (s === 'nonbinary') return 'Non-binary'
+  if (s === 'genderqueer') return 'Genderqueer'
+  if (s === 'prefernottsay' || s === 'iprefernottosay' || s.includes('prefernot')) return ''
+  if (s === 'other') return 'Other'
+  return val
+}
+
+function normalizePronounsSelection(val: string | null | undefined): string {
+  if (!val) return ''
+  const s = val.trim().toLowerCase().replace(/\s+/g, ' ')
+  if (s === 'she / her' || s === 'she/her' || s === 'she_her') return 'She / Her'
+  if (s === 'he / him' || s === 'he/him' || s === 'he_him') return 'He / Him'
+  if (s === 'they / them' || s === 'they/them' || s === 'they_them') return 'They / Them'
+  if (s.includes('any') || s === 'any_all') return 'Any / All Pronouns'
+  if (s.includes('prefer') || s === 'prefer_not_say') return ''
+  return 'Other'
 }
 
 // Type conversion helpers between ReaderSettings and App Settings UI
@@ -124,6 +150,9 @@ export function UserProfileAndSettingsPage() {
     readerSettings,
     updateReaderSettings,
     showToast,
+    userDisplayName,
+    setUserDisplayName,
+    setUserProfileUsername,
     customAvatarUrl,
     setCustomAvatarUrl,
     writerWorks,
@@ -235,7 +264,14 @@ export function UserProfileAndSettingsPage() {
             newsletter: dbData.preferences?.newsletter || INITIAL_PROFILE.newsletter,
             isPseudonym: Boolean(dbData.preferences?.isPseudonym),
             pronouns: dbData.pronouns || '',
+            gender: dbData.gender || '',
           })
+          if (dbData.display_name) {
+            setUserDisplayName(dbData.display_name)
+          }
+          if (dbData.username) {
+            setUserProfileUsername(dbData.username)
+          }
 
           // Hydrate App Settings toggles and reading preferences if present
           if (dbData.preferences?.reading) {
@@ -316,7 +352,8 @@ export function UserProfileAndSettingsPage() {
     }
   }, [user?.id])
 
-  const activeAvatar = customAvatarUrl || dbProfile?.avatar_path || user?.imageUrl
+  const isAvatarRemoved = customAvatarUrl === 'none' || dbProfile?.avatar_path === 'none'
+  const activeAvatar = isAvatarRemoved ? null : (customAvatarUrl || dbProfile?.avatar_path || user?.imageUrl || null)
   const serialsCount = dbProfile?.stats?.authoredWorksCount ?? writerWorks?.length ?? 4
   const readersCount = dbProfile?.stats?.readsCount ? `${dbProfile.stats.readsCount}` : '18.4k'
   const notesCount = dbProfile?.stats?.followersCount ? `${dbProfile.stats.followersCount}` : '142'
@@ -333,23 +370,56 @@ export function UserProfileAndSettingsPage() {
 
     try {
       setIsUploadingAvatar(true)
-      const optimizedFile = await optimizeAvatarImage(file, 300, 0.85)
-      const ext = optimizedFile.name.split('.').pop() || 'webp'
-      const filePath = `${user?.id || 'creator'}/avatar_${Date.now()}.${ext}`
+      let avatarUrl = ''
 
-      const uploadResult = await uploadImage({
-        bucket: STORAGE_BUCKETS.AVATARS,
-        path: filePath,
-        file: optimizedFile,
-        upsert: true,
-      })
-
-      if (uploadResult.error || !uploadResult.url) {
-        throw uploadResult.error || new Error('Upload failed')
+      // 1. Try Cloudinary direct CDN upload
+      try {
+        const cldRes = await uploadToCloudinary(file, 'avatars')
+        if (cldRes?.secure_url) {
+          avatarUrl = cldRes.secure_url
+        }
+      } catch (cldErr) {
+        console.warn('[Profile] Cloudinary upload failed, attempting storage fallback:', cldErr)
       }
 
-      setCustomAvatarUrl(uploadResult.url)
-      showToast('Colophon portrait updated successfully')
+      // 2. Try Supabase Storage upload
+      if (!avatarUrl) {
+        try {
+          const optimizedFile = await optimizeAvatarImage(file, 300, 0.85)
+          const ext = optimizedFile.name.split('.').pop() || 'webp'
+          const filePath = `${user?.id || 'creator'}/avatar_${Date.now()}.${ext}`
+
+          const uploadResult = await uploadImage({
+            bucket: STORAGE_BUCKETS.AVATARS,
+            path: filePath,
+            file: optimizedFile,
+            upsert: true,
+          })
+
+          if (uploadResult?.url) {
+            avatarUrl = uploadResult.url
+          }
+        } catch (storageErr) {
+          console.warn('[Profile] Supabase storage upload failed:', storageErr)
+        }
+      }
+
+      if (!avatarUrl) {
+        throw new Error('Upload failed. Please try a different image.')
+      }
+
+      setCustomAvatarUrl(avatarUrl)
+      if (user?.id) {
+        try {
+          await updateUserProfileServerFn({
+            data: {
+              clerkUserId: user.id,
+              avatarUrl,
+            },
+          })
+        } catch {}
+      }
+      showToast('Author portrait updated successfully')
     } catch (err: any) {
       console.error('[AvatarUpload] Error:', err)
       showToast(err.message || 'Failed to upload image')
@@ -359,9 +429,20 @@ export function UserProfileAndSettingsPage() {
     }
   }
 
-  const handleResetAvatar = () => {
-    setCustomAvatarUrl(null)
-    showToast('Colophon portrait restored to default')
+  const handleResetAvatar = async () => {
+    setCustomAvatarUrl('none')
+    setDbProfile((prev: any) => (prev ? { ...prev, avatar_path: 'none' } : prev))
+    if (user?.id) {
+      try {
+        await updateUserProfileServerFn({
+          data: {
+            clerkUserId: user.id,
+            avatarUrl: 'none',
+          },
+        })
+      } catch {}
+    }
+    showToast('Author portrait restored to default placeholder')
   }
 
   // Save Settings Function
@@ -381,15 +462,19 @@ export function UserProfileAndSettingsPage() {
     setIsSaving(true)
     try {
       const cleanUsername = profile.handle.replace(/^@/, '')
+      const cleanPronouns = profile.pronouns === 'Other' ? null : (profile.pronouns?.trim() || null)
+      const cleanGender = profile.gender?.trim() || null
+
       await updateUserProfileServerFn({
         data: {
           clerkUserId: user.id,
           username: cleanUsername,
-          displayName: profile.name,
+          displayName: profile.name?.trim(),
           bio: profile.bio,
           location: profile.location,
           websiteUrl: profile.website,
-          pronouns: profile.pronouns,
+          pronouns: cleanPronouns,
+          gender: cleanGender,
           preferences: {
             newsletter: profile.newsletter,
             isPseudonym: profile.isPseudonym,
@@ -414,10 +499,16 @@ export function UserProfileAndSettingsPage() {
           },
         },
       })
+      if (profile.name?.trim()) {
+        setUserDisplayName(profile.name.trim())
+      }
+      if (cleanUsername) {
+        setUserProfileUsername(cleanUsername)
+      }
       showToast('Settings saved successfully')
-    } catch (err) {
+    } catch (err: any) {
       console.error('[SaveSettings] Error:', err)
-      showToast('Settings saved locally')
+      showToast(err?.message || 'Failed to save settings')
     } finally {
       setIsSaving(false)
     }
@@ -675,6 +766,7 @@ export function UserProfileAndSettingsPage() {
                 <div className="w-24 h-24 rounded-full overflow-hidden shadow-sm bg-[var(--bg-surface)] ring-2 ring-[var(--color-primary)]/40 group-hover:ring-[var(--color-primary)] transition-all">
                   <UnisexAvatar
                     src={activeAvatar}
+                    forceUnisex={isAvatarRemoved}
                     hasImage={Boolean(activeAvatar && !isDefaultOrInitialAvatar(activeAvatar))}
                     name={profile.name}
                     size="2xl"
@@ -821,6 +913,7 @@ export function UserProfileAndSettingsPage() {
                     <div className="w-20 h-20 rounded-full overflow-hidden shadow-xs bg-[var(--bg-surface)] ring-2 ring-[var(--color-primary)] transition-all group-hover:brightness-90">
                       <UnisexAvatar
                         src={activeAvatar}
+                        forceUnisex={isAvatarRemoved}
                         hasImage={Boolean(activeAvatar && !isDefaultOrInitialAvatar(activeAvatar))}
                         name={profile.name}
                         size="xl"
@@ -848,13 +941,15 @@ export function UserProfileAndSettingsPage() {
                         <Upload className="w-3.5 h-3.5" />
                         <span>Change Portrait</span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={handleResetAvatar}
-                        className="px-3 py-1 text-[var(--color-outline)] hover:text-red-600 font-mono text-xs transition-colors cursor-pointer"
-                      >
-                        Reset Default
-                      </button>
+                      {!isAvatarRemoved && Boolean(activeAvatar) && (
+                        <button
+                          type="button"
+                          onClick={handleResetAvatar}
+                          className="px-3 py-1 text-[var(--color-outline)] hover:text-red-600 font-mono text-xs transition-colors cursor-pointer"
+                        >
+                          Reset Default
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -936,6 +1031,64 @@ export function UserProfileAndSettingsPage() {
                         className="w-full bg-[var(--bg-surface)] pl-9 pr-3.5 py-2 rounded font-mono text-xs text-[var(--color-on-surface)] border border-[var(--border-subtle)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)] transition-all shadow-xs"
                       />
                     </div>
+                  </div>
+                </div>
+
+                {/* Pronouns & Gender */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="space-y-1.5">
+                    <label className="block font-mono text-xs font-medium text-[var(--color-on-surface)]">
+                      Author Pronouns
+                    </label>
+                    <select
+                      value={normalizePronounsSelection(profile.pronouns)}
+                      onChange={(e) => {
+                        const val = e.target.value
+                        if (val === 'Other') {
+                          setProfile((prev) => ({
+                            ...prev,
+                            pronouns: prev.pronouns && normalizePronounsSelection(prev.pronouns) === 'Other' ? prev.pronouns : 'Other',
+                          }))
+                        } else {
+                          setProfile((prev) => ({ ...prev, pronouns: val }))
+                        }
+                      }}
+                      className="w-full bg-[var(--bg-surface)] px-3.5 py-2.5 rounded font-mono text-xs text-[var(--color-on-surface)] border border-[var(--border-subtle)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)] transition-all shadow-xs"
+                    >
+                      <option value="">Prefer not to say</option>
+                      <option value="She / Her">She / Her</option>
+                      <option value="He / Him">He / Him</option>
+                      <option value="They / Them">They / Them</option>
+                      <option value="Any / All Pronouns">Any / All Pronouns</option>
+                      <option value="Other">Other / Custom</option>
+                    </select>
+                    {normalizePronounsSelection(profile.pronouns) === 'Other' && (
+                      <input
+                        type="text"
+                        value={profile.pronouns === 'Other' ? '' : (profile.pronouns || '')}
+                        onChange={(e) => setProfile((prev) => ({ ...prev, pronouns: e.target.value || 'Other' }))}
+                        placeholder="Type custom pronouns (e.g. ze/hir)..."
+                        className="mt-2 w-full bg-[var(--bg-surface)] px-3.5 py-2 rounded font-mono text-xs text-[var(--color-on-surface)] border border-[var(--border-subtle)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)] transition-all shadow-xs"
+                      />
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block font-mono text-xs font-medium text-[var(--color-on-surface)]">
+                      Gender Identity
+                    </label>
+                    <select
+                      value={normalizeGenderSelection(profile.gender)}
+                      onChange={(e) => setProfile((prev) => ({ ...prev, gender: e.target.value }))}
+                      className="w-full bg-[var(--bg-surface)] px-3.5 py-2.5 rounded font-mono text-xs text-[var(--color-on-surface)] border border-[var(--border-subtle)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)] transition-all shadow-xs"
+                    >
+                      <option value="">Prefer not to say</option>
+                      <option value="Female">Female</option>
+                      <option value="Male">Male</option>
+                      <option value="Non-binary">Non-binary</option>
+                      <option value="Genderqueer">Genderqueer</option>
+                      <option value="Other">Other</option>
+                    </select>
                   </div>
                 </div>
 
@@ -1454,6 +1607,7 @@ export function UserProfileAndSettingsPage() {
             <div className="w-20 h-20 rounded-full overflow-hidden ring-4 ring-[var(--bg-surface)] shadow-md bg-[var(--bg-surface)]">
               <UnisexAvatar
                 src={activeAvatar}
+                forceUnisex={isAvatarRemoved}
                 hasImage={Boolean(activeAvatar && !isDefaultOrInitialAvatar(activeAvatar))}
                 name={profile.name}
                 size="xl"

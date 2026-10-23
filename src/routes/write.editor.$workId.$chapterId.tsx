@@ -9,23 +9,41 @@ import {
   Eye,
   Save,
   Send,
-  SlidersHorizontal,
+  ListFilter,
+  Layers,
   ChevronLeft,
   ChevronRight,
-  ListFilter,
-  Type
 } from 'lucide-react'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { generateMeta } from '../lib/seo'
-import { getWriterWorkDetailsServerFn, saveWriterChapterServerFn } from '../server/writer'
+import { getWriterWorkDetailsServerFn, saveWriterChapterServerFn, createWriterChapterServerFn } from '../server/writer'
 import { getPublicWorkServerFn } from '../server/works'
 import { getWorkSlug } from '../data/mockData'
+import { StoryRichEditor } from '../components/studio/StoryRichEditor'
 
 export const Route = createFileRoute('/write/editor/$workId/$chapterId')({
   loader: async ({ params }) => {
     try {
       const dbWork = await getWriterWorkDetailsServerFn({ data: { workId: params.workId } })
-      if (dbWork) return { work: dbWork }
+      if (dbWork) {
+        // Self-healing: If manuscript has zero chapters, auto-provision initial Chapter One
+        if (!dbWork.chapters || dbWork.chapters.length === 0) {
+          try {
+            const newChRes = await createWriterChapterServerFn({
+              data: {
+                workId: dbWork.id,
+                title: 'Chapter One',
+              },
+            })
+            if (newChRes?.chapter) {
+              dbWork.chapters = [newChRes.chapter as any]
+            }
+          } catch (autoErr) {
+            console.warn('[Route /write/editor] Auto-provision chapter error:', autoErr)
+          }
+        }
+        return { work: dbWork }
+      }
     } catch (e) {
       console.warn('[Route /write/editor] Loader DB writer lookup error:', e)
     }
@@ -60,21 +78,92 @@ function ChapterEditorPage() {
   const navigate = useNavigate()
 
   const work = loaderData?.work || getWorkById(workId)
-  const currentChapter = work?.chapters?.find((c: any) => c.id === chapterId)
+
+  // Resilient Chapter Resolution:
+  // 1. Try exact ID match
+  // 2. Fallbacks for aliases ('ch-1', 'first', 'default', '1')
+  // 3. Match by chapter number (e.g. from 'chapter-1' or 'ch-2')
+  // 4. Default to first draft or first chapter
+  const currentChapter = useMemo(() => {
+    if (!work || !Array.isArray(work.chapters) || work.chapters.length === 0) {
+      return null
+    }
+
+    // 1. Exact ID match
+    const exact = work.chapters.find((c: any) => c.id === chapterId)
+    if (exact) return exact
+
+    // 2. Conventional aliases ('ch-1', 'first', 'default', '1')
+    if (chapterId === 'ch-1' || chapterId === 'first' || chapterId === 'default' || chapterId === '1') {
+      const ch1 = work.chapters.find((c: any) => c.number === 1 || c.chapter_number === 1)
+      if (ch1) return ch1
+      return work.chapters[0]
+    }
+
+    // 3. Chapter number fallback
+    const match = chapterId.match(/\d+/)
+    if (match) {
+      const num = parseInt(match[0], 10)
+      const byNum = work.chapters.find((c: any) => c.number === num || c.chapter_number === num)
+      if (byNum) return byNum
+    }
+
+    // 4. Default to first draft or first chapter
+    return work.chapters.find((c: any) => c.status === 'draft') || work.chapters[0]
+  }, [work, chapterId])
+
+  // Synchronize URL in address bar if resolved to a different real UUID
+  useEffect(() => {
+    if (work && currentChapter && currentChapter.id !== chapterId) {
+      navigate({
+        to: '/write/editor/$workId/$chapterId',
+        params: { workId: work.id, chapterId: currentChapter.id },
+        replace: true,
+      })
+    }
+  }, [work?.id, currentChapter?.id, chapterId, navigate])
 
   const [title, setTitle] = useState(currentChapter?.title || 'Untitled Chapter')
   const [subtitle, setSubtitle] = useState(currentChapter?.subtitle || '')
   const [content, setContent] = useState(currentChapter?.content || '')
+  const [actId, setActId] = useState<string>(currentChapter?.actId || '')
   const [autosaveStatus, setAutosaveStatus] = useState<'saved' | 'saving' | 'dirty'>('saved')
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [focusMode, setFocusMode] = useState(false)
 
-  // Sync state if resolved chapter changes
+  // Track previous chapter ID to safely flush changes before switching
+  const prevChapterIdRef = useRef<string | null>(currentChapter?.id || null)
+
+  // Sync state if resolved chapter changes, flushing any pending changes from previous chapter
   useEffect(() => {
+    if (prevChapterIdRef.current && prevChapterIdRef.current !== currentChapter?.id && work) {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+        saveTimeoutRef.current = null
+      }
+      const prevId = prevChapterIdRef.current
+      const { title: curTitle, subtitle: curSubtitle, content: curContent, actId: curActId, status: curStatus } =
+        latestStateRef.current
+      saveWriterChapterServerFn({
+        data: {
+          workId: work.id,
+          chapterId: prevId,
+          title: curTitle,
+          subtitle: curSubtitle,
+          content: curContent,
+          status: curStatus,
+          actId: curActId || undefined,
+        },
+      }).catch((e) => console.warn('[chapterSwitch] Flush error:', e))
+    }
+
     if (currentChapter) {
+      prevChapterIdRef.current = currentChapter.id
       setTitle(currentChapter.title || 'Untitled Chapter')
       setSubtitle(currentChapter.subtitle || '')
       setContent(currentChapter.content || '')
+      setActId(currentChapter.actId || '')
+      setAutosaveStatus('saved')
     }
   }, [currentChapter?.id])
 
@@ -98,24 +187,192 @@ function ChapterEditorPage() {
     }
   }, [])
 
+  // Keep a ref of latest editor state for instant flushing when exiting or unmounting
+  const latestStateRef = useRef({
+    title,
+    subtitle,
+    content,
+    actId,
+    status: currentChapter?.status || 'draft',
+  })
+
+  useEffect(() => {
+    latestStateRef.current = {
+      title,
+      subtitle,
+      content,
+      actId,
+      status: currentChapter?.status || 'draft',
+    }
+  }, [title, subtitle, content, actId, currentChapter?.status])
+
+  const flushSave = async () => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+      saveTimeoutRef.current = null
+    }
+    if (!work || !currentChapter) return
+
+    const { title: curTitle, subtitle: curSubtitle, content: curContent, actId: curActId, status: curStatus } =
+      latestStateRef.current
+
+    setAutosaveStatus('saving')
+    updateChapterContent(work.id, currentChapter.id, curTitle, curContent, curStatus)
+    if (Array.isArray(work.chapters)) {
+      const found = work.chapters.find((c: any) => c.id === currentChapter.id)
+      if (found) {
+        found.title = curTitle
+        found.subtitle = curSubtitle
+        found.status = curStatus
+        found.wordCount = curContent.trim().split(/\s+/).filter(Boolean).length
+      }
+    }
+
+    try {
+      await saveWriterChapterServerFn({
+        data: {
+          workId: work.id,
+          chapterId: currentChapter.id,
+          title: curTitle,
+          subtitle: curSubtitle,
+          content: curContent,
+          status: curStatus,
+          actId: curActId || undefined,
+        },
+      })
+      setAutosaveStatus('saved')
+    } catch (e) {
+      console.warn('[flushSave] Error saving chapter:', e)
+      setAutosaveStatus('saved')
+    }
+  }
+
+  // Flush any pending changes when exiting or unmounting
+  useEffect(() => {
+    return () => {
+      flushSave()
+    }
+  }, [])
+
+  const handleExit = async () => {
+    await flushSave()
+    navigate({ to: '/write/manage/$workId', params: { workId: work.id } })
+  }
+
+  const handleActChange = async (newActId: string) => {
+    setActId(newActId)
+    if (work && currentChapter) {
+      try {
+        await saveWriterChapterServerFn({
+          data: {
+            workId: work.id,
+            chapterId: currentChapter.id,
+            title,
+            subtitle,
+            content,
+            status: currentChapter.status,
+            actId: newActId || null,
+          },
+        })
+        showToast('Manuscript Act updated')
+      } catch (e) {
+        console.warn('[handleActChange] Error:', e)
+      }
+    }
+  }
+
+  const handleTitleChange = (newTitle: string) => {
+    setTitle(newTitle)
+    setAutosaveStatus('dirty')
+
+    // Instant optimistic update for sidebar & context so it previews live on every keystroke
+    if (work && currentChapter) {
+      updateChapterContent(work.id, currentChapter.id, newTitle, content, currentChapter.status)
+      if (Array.isArray(work.chapters)) {
+        const found = work.chapters.find((c: any) => c.id === currentChapter.id)
+        if (found) found.title = newTitle
+      }
+    }
+
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
+    const targetChapterId = currentChapter.id
+    saveTimeoutRef.current = setTimeout(async () => {
+      if (prevChapterIdRef.current !== targetChapterId) return
+      setAutosaveStatus('saving')
+      try {
+        if (work && currentChapter) {
+          await saveWriterChapterServerFn({
+            data: {
+              workId: work.id,
+              chapterId: targetChapterId,
+              title: newTitle,
+              subtitle,
+              content,
+              status: currentChapter.status,
+              actId: actId || undefined,
+            },
+          })
+          setAutosaveStatus('saved')
+        }
+      } catch (e) {
+        console.warn('[handleTitleChange] DB autosave error:', e)
+        setAutosaveStatus('saved')
+      }
+    }, 1500)
+  }
+
+  const handleSubtitleChange = (newSub: string) => {
+    setSubtitle(newSub)
+    setAutosaveStatus('dirty')
+
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
+    const targetChapterId = currentChapter.id
+    saveTimeoutRef.current = setTimeout(async () => {
+      if (prevChapterIdRef.current !== targetChapterId) return
+      setAutosaveStatus('saving')
+      try {
+        if (work && currentChapter) {
+          await saveWriterChapterServerFn({
+            data: {
+              workId: work.id,
+              chapterId: targetChapterId,
+              title,
+              subtitle: newSub,
+              content,
+              status: currentChapter.status,
+              actId: actId || undefined,
+            },
+          })
+          setAutosaveStatus('saved')
+        }
+      } catch (e) {
+        console.warn('[handleSubtitleChange] DB autosave error:', e)
+        setAutosaveStatus('saved')
+      }
+    }, 1500)
+  }
+
   const handleContentChange = (newVal: string) => {
     setContent(newVal)
     setAutosaveStatus('dirty')
 
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
+    const targetChapterId = currentChapter.id
     saveTimeoutRef.current = setTimeout(async () => {
+      if (prevChapterIdRef.current !== targetChapterId) return
       setAutosaveStatus('saving')
       try {
         if (work && currentChapter) {
-          updateChapterContent(work.id, currentChapter.id, title, newVal, currentChapter.status)
+          updateChapterContent(work.id, targetChapterId, title, newVal, currentChapter.status)
           await saveWriterChapterServerFn({
             data: {
               workId: work.id,
-              chapterId: currentChapter.id,
+              chapterId: targetChapterId,
               title,
               subtitle,
               content: newVal,
               status: currentChapter.status,
+              actId: actId || undefined,
             },
           })
           setAutosaveStatus('saved')
@@ -140,6 +397,7 @@ function ChapterEditorPage() {
             subtitle,
             content,
             status: currentChapter.status,
+            actId: actId || undefined,
           },
         })
       } catch (e) {}
@@ -151,207 +409,267 @@ function ChapterEditorPage() {
   const handlePublish = async () => {
     if (work && currentChapter) {
       setAutosaveStatus('saving')
-      updateChapterContent(work.id, currentChapter.id, title, content, 'published')
+      const curTitle = latestStateRef.current.title
+      const curContent = latestStateRef.current.content
+      const curSubtitle = latestStateRef.current.subtitle
+      latestStateRef.current.status = 'published'
+
+      updateChapterContent(work.id, currentChapter.id, curTitle, curContent, 'published')
+      if (Array.isArray(work.chapters)) {
+        const found = work.chapters.find((c: any) => c.id === currentChapter.id)
+        if (found) {
+          found.status = 'published'
+          found.title = curTitle
+          found.subtitle = curSubtitle
+        }
+      }
+
       try {
         await saveWriterChapterServerFn({
           data: {
             workId: work.id,
             chapterId: currentChapter.id,
-            title,
-            subtitle,
-            content,
+            title: curTitle,
+            subtitle: curSubtitle,
+            content: curContent,
             status: 'published',
+            actId: actId || undefined,
           },
         })
-      } catch (e) {}
-      setAutosaveStatus('saved')
-      showToast('Chapter published to database!')
+        setAutosaveStatus('saved')
+        showToast('Chapter published to manuscript!')
+      } catch (e) {
+        console.warn('[handlePublish] Error:', e)
+        setAutosaveStatus('saved')
+        showToast('Failed to publish chapter')
+      }
     }
   }
+
+  const currentAct = useMemo(() => {
+    if (!work?.acts || work.acts.length === 0) return null
+    return work.acts.find((a: any) => a.id === actId || a.number === currentChapter?.actNumber)
+  }, [work?.acts, actId, currentChapter?.actNumber])
+
+  const actName = currentAct ? (currentAct.title || `Act ${currentAct.number}`) : undefined
 
   if (!work || !currentChapter) {
     return (
       <div className="py-20 px-4 max-w-xl mx-auto">
         <EmptyState
           type="no-drafts"
-          customTitle="Chapter Not Found"
-          customDescription="The chapter requested does not exist in this manuscript."
-          actionLabel="Return to Studio"
-          actionHref="/write"
+          customTitle={work ? 'No Chapters Found' : 'Manuscript Not Found'}
+          customDescription={
+            work
+              ? 'This manuscript does not have any chapters yet. Open manuscript management to add your first chapter.'
+              : 'The manuscript requested does not exist.'
+          }
+          actionLabel={work ? 'Manage Folio' : 'Return to Studio'}
+          actionHref={work ? `/write/manage/${work.id}` : '/write'}
         />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg-canvas)] flex flex-col font-sans transition-colors">
-      
-      {/* Top Editor Bar */}
-      <header className="sticky top-0 z-30 flex h-12 w-full items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4">
-        
-        {/* Left: Back & Work Title */}
-        <div className="flex items-center gap-3">
-          <Link
-            to="/write/manage/$workId"
-            params={{ workId: work.id }}
-            className="flex items-center gap-1.5 text-xs font-mono text-[var(--ink-muted)] hover:text-[var(--ink-primary)] no-underline"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">{work.title}</span>
-            <span className="sm:hidden">Exit</span>
-          </Link>
+    <div className="min-h-screen bg-[var(--bg-canvas)] flex font-sans transition-colors">
+      {/* Optional Left Sidebar for Manuscript Navigation */}
+      {sidebarOpen && (
+        <aside className="w-64 border-r border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 hidden md:flex flex-col shrink-0 overflow-y-auto">
+          <div className="flex items-center justify-between pb-3 mb-3 border-b border-[var(--border-subtle)]">
+            <Link
+              to="/write/manage/$workId"
+              params={{ workId: work.id }}
+              onClick={async (e) => {
+                e.preventDefault()
+                await handleExit()
+              }}
+              className="flex items-center gap-1.5 text-xs font-mono text-[var(--ink-muted)] hover:text-[var(--ink-primary)] no-underline"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              <span className="truncate">{work.title}</span>
+            </Link>
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(false)}
+              className="p-1 rounded text-[var(--ink-muted)] hover:text-[var(--ink-primary)]"
+              title="Collapse Sidebar"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+          </div>
 
-          <span className="text-[var(--border-strong)] hidden sm:inline">|</span>
+          <h3 className="font-mono text-[10px] uppercase tracking-wider text-[var(--ink-muted)] mb-3 flex items-center justify-between">
+            <span>Manuscript Chapters</span>
+            <span>{work.chapters.length}</span>
+          </h3>
 
-          {/* Sidebar Toggle */}
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className={`hidden md:flex items-center gap-1 text-xs font-mono px-2 py-1 rounded transition-colors ${
-              sidebarOpen ? 'bg-[var(--bg-subtle)] text-[var(--ink-primary)]' : 'text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
-            }`}
-          >
-            <ListFilter className="h-3.5 w-3.5" />
-            <span>Chapters ({work.chapters.length})</span>
-          </button>
-        </div>
+          {work.acts && work.acts.length > 0 ? (
+            <div className="space-y-4">
+              {work.acts.map((act: any) => {
+                const actChapters = work.chapters.filter(
+                  (c: any) => c.actId === act.id || c.actNumber === act.number
+                )
+                return (
+                  <div key={act.id} className="space-y-1">
+                    <div className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-mono font-semibold uppercase tracking-wider text-[var(--ink-muted)] bg-[var(--bg-subtle)]/40 rounded">
+                      <Layers className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                      <span className="truncate">{act.title || `Act ${act.number}`}</span>
+                    </div>
+                    <div className="pl-1 space-y-0.5">
+                      {actChapters.map((ch: any) => {
+                        const isCurrent = ch.id === currentChapter.id
+                        const displayedTitle = isCurrent
+                          ? (title.trim() || 'Untitled Chapter')
+                          : (ch.title || 'Untitled Chapter')
+                        return (
+                          <Link
+                            key={ch.id}
+                            to="/write/editor/$workId/$chapterId"
+                            params={{ workId: work.id, chapterId: ch.id }}
+                            className={`flex items-center justify-between gap-2 rounded p-2 text-xs no-underline transition-all ${
+                              isCurrent
+                                ? 'bg-[var(--bg-subtle)] text-[var(--ink-primary)] font-semibold shadow-2xs border-l-2 border-[var(--ink-primary)] pl-2.5'
+                                : 'text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-canvas)]'
+                            }`}
+                          >
+                            <span className="truncate flex-1">
+                              {String(ch.number).padStart(2, '0')}. {displayedTitle}
+                            </span>
+                            {isCurrent && (
+                              <span
+                                className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0"
+                                title="Live editing preview"
+                              />
+                            )}
+                            <span className="font-mono text-[9px] uppercase text-[var(--ink-faint)]">
+                              {ch.status}
+                            </span>
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
 
-        {/* Center: Autosave Indicator & Word Count */}
-        <div className="flex items-center gap-3 font-mono text-xs text-[var(--ink-muted)]">
-          <span className="hidden sm:inline">
-            {wordCount.toLocaleString()} words • ~{readTimeMinutes} min
-          </span>
-          <span className="flex items-center gap-1 text-[11px]">
-            {autosaveStatus === 'saving' && <span className="animate-pulse text-amber-600">Autosaving...</span>}
-            {autosaveStatus === 'saved' && (
-              <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                <CheckCircle2 className="h-3 w-3" /> Saved
-              </span>
-            )}
-            {autosaveStatus === 'dirty' && <span className="text-[var(--ink-faint)]">Unsaved changes</span>}
-          </span>
-        </div>
-
-        {/* Right Actions: Focus Mode, Preview, Save, Publish */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setFocusMode(!focusMode)}
-            className={`px-2 py-1 rounded text-xs font-mono transition-colors hidden sm:block ${
-              focusMode
-                ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-bold'
-                : 'text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
-            }`}
-            title="Toggle Distraction-Free Focus Mode"
-          >
-            Focus
-          </button>
-
-          <Link
-            to="/read/$workId/$chapterId"
-            params={{ workId: work.id, chapterId: currentChapter.id }}
-            className="flex items-center gap-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-2.5 py-1 text-xs text-[var(--ink-secondary)] hover:border-[var(--border-strong)] no-underline"
-            title="Preview reading view"
-          >
-            <Eye className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Preview</span>
-          </Link>
-
-          <button
-            onClick={handleManualSave}
-            className="rounded border border-[var(--border-strong)] bg-[var(--bg-surface)] px-2.5 py-1 text-xs font-medium text-[var(--ink-secondary)] hover:bg-[var(--bg-subtle)]"
-          >
-            <Save className="h-3.5 w-3.5 sm:hidden" />
-            <span className="hidden sm:inline">Save</span>
-          </button>
-
-          <button
-            onClick={handlePublish}
-            className="rounded bg-[var(--ink-primary)] px-3 py-1 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 shadow-xs"
-          >
-            Publish
-          </button>
-        </div>
-      </header>
-
-      {/* Main Studio Body: Optional Sidebar + Dominated Writing Canvas */}
-      <div className="flex flex-1 overflow-hidden">
-        
-        {/* Left: Chapter Navigation Drawer */}
-        {sidebarOpen && !focusMode && (
-          <aside className="w-64 border-r border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 hidden md:block overflow-y-auto">
-            <h3 className="font-mono text-[10px] uppercase tracking-wider text-[var(--ink-muted)] mb-3">
-              Manuscript Chapters
-            </h3>
-            <div className="space-y-1">
-              {work.chapters.map((ch) => (
-                <Link
-                  key={ch.id}
-                  to="/write/editor/$workId/$chapterId"
-                  params={{ workId: work.id, chapterId: ch.id }}
-                  className={`flex items-center justify-between rounded p-2 text-xs no-underline transition-colors ${
-                    ch.id === currentChapter.id
-                      ? 'bg-[var(--bg-subtle)] text-[var(--ink-primary)] font-semibold'
-                      : 'text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-canvas)]'
-                  }`}
-                >
-                  <span className="truncate">
-                    {String(ch.number).padStart(2, '0')}. {ch.title}
-                  </span>
-                  <span className="font-mono text-[9px] uppercase text-[var(--ink-faint)]">
-                    {ch.status}
-                  </span>
-                </Link>
-              ))}
+              {(() => {
+                const unassignedChapters = work.chapters.filter(
+                  (c: any) => !c.actId || !work.acts.some((a: any) => a.id === c.actId)
+                )
+                if (unassignedChapters.length === 0) return null
+                return (
+                  <div className="space-y-1 pt-2 border-t border-[var(--border-subtle)]/70">
+                    <div className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-mono font-semibold uppercase tracking-wider text-[var(--ink-muted)] bg-[var(--bg-subtle)]/40 rounded">
+                      <Layers className="h-3 w-3 text-[var(--ink-muted)]" />
+                      <span>Unassigned Chapters</span>
+                    </div>
+                    <div className="pl-1 space-y-0.5">
+                      {unassignedChapters.map((ch: any) => {
+                        const isCurrent = ch.id === currentChapter.id
+                        const displayedTitle = isCurrent
+                          ? (title.trim() || 'Untitled Chapter')
+                          : (ch.title || 'Untitled Chapter')
+                        return (
+                          <Link
+                            key={ch.id}
+                            to="/write/editor/$workId/$chapterId"
+                            params={{ workId: work.id, chapterId: ch.id }}
+                            className={`flex items-center justify-between gap-2 rounded p-2 text-xs no-underline transition-all ${
+                              isCurrent
+                                ? 'bg-[var(--bg-subtle)] text-[var(--ink-primary)] font-semibold shadow-2xs border-l-2 border-[var(--ink-primary)] pl-2.5'
+                                : 'text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-canvas)]'
+                            }`}
+                          >
+                            <span className="truncate flex-1">
+                              {String(ch.number).padStart(2, '0')}. {displayedTitle}
+                            </span>
+                            {isCurrent && (
+                              <span
+                                className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0"
+                                title="Live editing preview"
+                              />
+                            )}
+                            <span className="font-mono text-[9px] uppercase text-[var(--ink-faint)]">
+                              {ch.status}
+                            </span>
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
-          </aside>
+          ) : (
+            <div className="space-y-1">
+              {work.chapters.map((ch: any) => {
+                const isCurrent = ch.id === currentChapter.id
+                const displayedTitle = isCurrent
+                  ? (title.trim() || 'Untitled Chapter')
+                  : (ch.title || 'Untitled Chapter')
+                return (
+                  <Link
+                    key={ch.id}
+                    to="/write/editor/$workId/$chapterId"
+                    params={{ workId: work.id, chapterId: ch.id }}
+                    className={`flex items-center justify-between gap-2 rounded p-2 text-xs no-underline transition-all ${
+                      isCurrent
+                        ? 'bg-[var(--bg-subtle)] text-[var(--ink-primary)] font-semibold shadow-2xs border-l-2 border-[var(--ink-primary)] pl-2.5'
+                        : 'text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-canvas)]'
+                    }`}
+                  >
+                    <span className="truncate flex-1">
+                      {String(ch.number).padStart(2, '0')}. {displayedTitle}
+                    </span>
+                    {isCurrent && (
+                      <span
+                        className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0"
+                        title="Live editing preview"
+                      />
+                    )}
+                    <span className="font-mono text-[9px] uppercase text-[var(--ink-faint)]">
+                      {ch.status}
+                    </span>
+                  </Link>
+                )
+              })}
+            </div>
+          )}
+        </aside>
+      )}
+
+      {/* Main Studio Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {!sidebarOpen && (
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            className="fixed left-2 bottom-3 z-30 hidden md:flex items-center gap-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2 py-1 text-xs font-mono text-[var(--ink-muted)] hover:text-[var(--ink-primary)] shadow-xs"
+            title="Expand Chapters Sidebar"
+          >
+            <ChevronRight className="h-3 w-3" />
+            <span>Folio Chapters</span>
+          </button>
         )}
 
-        {/* Center: The Writing Canvas (Dominates the screen) */}
-        <div className="flex-1 overflow-y-auto py-12 px-6 sm:px-12 flex justify-center">
-          <div className="w-full max-w-3xl space-y-6">
-            
-            {/* Chapter Header Inputs */}
-            <div className="space-y-3 pb-6 border-b border-[var(--border-subtle)]">
-              <span className="font-mono text-xs uppercase tracking-widest text-[var(--ink-muted)]">
-                Chapter {String(currentChapter.number).padStart(2, '0')}
-              </span>
-
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Chapter Title..."
-                className="w-full font-serif text-3xl sm:text-4xl lg:text-5xl font-semibold text-[var(--ink-primary)] bg-transparent border-none focus:outline-none placeholder-[var(--ink-faint)]"
-              />
-
-              <input
-                type="text"
-                value={subtitle}
-                onChange={(e) => setSubtitle(e.target.value)}
-                placeholder="Optional chapter subtitle or descriptive line..."
-                className="w-full font-serif text-base italic text-[var(--ink-muted)] bg-transparent border-none focus:outline-none placeholder-[var(--ink-faint)]"
-              />
-            </div>
-
-            {/* Writing Textarea */}
-            <div className="min-h-[600px]">
-              <textarea
-                value={content}
-                onChange={(e) => handleContentChange(e.target.value)}
-                placeholder="Begin crafting your narrative here. Words flow naturally without distraction..."
-                rows={24}
-                className="w-full resize-none font-serif text-lg leading-loose text-[var(--ink-secondary)] bg-transparent border-none focus:outline-none placeholder-[var(--ink-faint)] select-text"
-              />
-            </div>
-
-            <div className="pt-8 text-center text-xs font-mono text-[var(--ink-faint)] border-t border-[var(--border-subtle)]">
-              End of Chapter Draft • All modifications stored automatically
-            </div>
-
-          </div>
-        </div>
-
+        <StoryRichEditor
+          title={title}
+          setTitle={handleTitleChange}
+          subtitle={subtitle}
+          setSubtitle={handleSubtitleChange}
+          content={content}
+          onChange={handleContentChange}
+          autosaveStatus={autosaveStatus}
+          onManualSave={handleManualSave}
+          onPublish={handlePublish}
+          workTitle={work.title}
+          workId={work.id}
+          chapterNumber={currentChapter.number}
+          actName={actName}
+          onExit={handleExit}
+        />
       </div>
-
     </div>
   )
 }

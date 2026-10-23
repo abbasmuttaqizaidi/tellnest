@@ -26,6 +26,8 @@ import {
   Lock,
   Type,
   Camera,
+  Pencil,
+  Globe,
 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { UnisexAvatar } from '../components/UnisexAvatar'
@@ -33,10 +35,12 @@ import { ProtectedRoute } from '../components/ProtectedRoute'
 import { RouteHeader } from '../components/RouteHeader'
 import { HatchpenLoader } from '../components/TellnestLoader'
 import { GLOBAL_CATEGORIES, GLOBAL_GENRES } from '../lib/taxonomy'
+import { uploadToCloudinary } from '../lib/cloudinary'
 import { uploadImage, optimizeAvatarImage, convertFileToOptimizedDataUrl, STORAGE_BUCKETS } from '../lib/supabase/storage'
 import {
   getSettingsDataServerFn,
   updateAccountProfileServerFn,
+  verifyUsernameAvailabilityServerFn,
   updateReadingPreferencesServerFn,
   updateRecommendationsSettingsServerFn,
   resetRecommendationTasteServerFn,
@@ -62,7 +66,7 @@ function normalizeGenderSelection(val: string | null | undefined): string {
   if (s === 'male') return 'Male'
   if (s === 'nonbinary') return 'Non-binary'
   if (s === 'genderqueer') return 'Genderqueer'
-  if (s === 'prefernottsay' || s === 'iprefernottosay' || s.includes('prefernot')) return 'Prefer not to say'
+  if (s === 'prefernottsay' || s === 'iprefernottosay' || s.includes('prefernot')) return ''
   if (s === 'other') return 'Other'
   return val
 }
@@ -74,7 +78,7 @@ function normalizePronounsSelection(val: string | null | undefined): string {
   if (s === 'he / him' || s === 'he/him' || s === 'he_him') return 'He / Him'
   if (s === 'they / them' || s === 'they/them' || s === 'they_them') return 'They / Them'
   if (s.includes('any') || s === 'any_all') return 'Any / All Pronouns'
-  if (s.includes('prefer') || s === 'prefer_not_say') return 'Prefer not to say'
+  if (s.includes('prefer') || s === 'prefer_not_say') return ''
   return 'Other'
 }
 
@@ -130,7 +134,15 @@ const DEMO_SETTINGS_DATA: SettingsDataPayload = {
     securityAnnouncements: true,
   },
   privacy: {
-    isPublic: true,
+    isPublic: false,
+    worksVisibility: 'public',
+    showAvatar: true,
+    showName: true,
+    showUsername: true,
+    showReads: false,
+    showFollowers: false,
+    showWorksCount: false,
+    showReadingHistory: false,
     adultContentEnabled: false,
     blockedUsers: [],
     readingHistoryCount: 28,
@@ -286,6 +298,11 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
     siteTheme,
     setSiteTheme,
     showToast,
+    userDisplayName,
+    setUserDisplayName,
+    setUserProfileUsername,
+    customAvatarUrl,
+    setCustomAvatarUrl,
   } = useApp()
 
   // Routing state: has the user picked a specific section?
@@ -323,7 +340,7 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
           displayName: initialData.profile.displayName,
           username: initialData.profile.username,
           bio: initialData.profile.bio || '',
-          avatarPath: initialData.profile.avatarPath || '',
+          avatarPath: initialData.profile.avatarPath ?? customAvatarUrl ?? '',
           websiteUrl: initialData.profile.websiteUrl || '',
           location: initialData.profile.location || '',
           pronouns: initialData.profile.pronouns || '',
@@ -370,15 +387,39 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
   )
   const [privacyForm, setPrivacyForm] = useState<{
     isPublic: boolean
+    worksVisibility: 'public' | 'hidden'
+    showAvatar: boolean
+    showName: boolean
+    showUsername: boolean
+    showReads: boolean
+    showFollowers: boolean
+    showWorksCount: boolean
+    showReadingHistory: boolean
     adultContentEnabled: boolean
   }>(() =>
     initialData
       ? {
-          isPublic: initialData.privacy.isPublic,
-          adultContentEnabled: initialData.privacy.adultContentEnabled,
+          isPublic: Boolean(initialData.privacy?.isPublic ?? false),
+          worksVisibility: initialData.privacy?.worksVisibility || 'public',
+          showAvatar: initialData.privacy?.showAvatar !== false,
+          showName: initialData.privacy?.showName !== false,
+          showUsername: initialData.privacy?.showUsername !== false,
+          showReads: Boolean(initialData.privacy?.showReads ?? false),
+          showFollowers: Boolean(initialData.privacy?.showFollowers ?? false),
+          showWorksCount: Boolean(initialData.privacy?.showWorksCount ?? false),
+          showReadingHistory: Boolean(initialData.privacy?.showReadingHistory ?? false),
+          adultContentEnabled: Boolean(initialData.privacy?.adultContentEnabled),
         }
       : {
-          isPublic: true,
+          isPublic: false,
+          worksVisibility: 'public',
+          showAvatar: true,
+          showName: true,
+          showUsername: true,
+          showReads: false,
+          showFollowers: false,
+          showWorksCount: false,
+          showReadingHistory: false,
           adultContentEnabled: false,
         }
   )
@@ -394,10 +435,29 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null)
   const [saveErrorMsg, setSaveErrorMsg] = useState<string | null>(null)
 
+  // Username verification state
+  const [isVerifyingUsername, setIsVerifyingUsername] = useState(false)
+  const [usernameVerification, setUsernameVerification] = useState<{
+    available: boolean
+    message: string
+    isCurrent?: boolean
+  } | null>(null)
+
   // Modals state
   const [confirmResetTasteOpen, setConfirmResetTasteOpen] = useState(false)
   const [confirmClearHistoryOpen, setConfirmClearHistoryOpen] = useState(false)
   const [confirmDeleteAccountOpen, setConfirmDeleteAccountOpen] = useState(false)
+  const [confirmMakePublicOpen, setConfirmMakePublicOpen] = useState(false)
+  const [publicModalStats, setPublicModalStats] = useState({
+    worksVisibility: 'public' as 'public' | 'hidden',
+    showAvatar: true,
+    showName: true,
+    showUsername: true,
+    showReads: true,
+    showFollowers: true,
+    showWorksCount: true,
+    showReadingHistory: false,
+  })
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -418,27 +478,39 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
     try {
       let avatarUrl = ''
 
-      // 1. Try Supabase Storage upload
+      // 1. Try Cloudinary direct CDN upload (Primary, instant 0ms CDN delivery)
       try {
-        const optimizedFile = await optimizeAvatarImage(file, 300, 0.85)
-        const ext = optimizedFile.name.split('.').pop() || 'webp'
-        const filePath = `${user?.id || 'author'}/avatar_${Date.now()}.${ext}`
-
-        const uploadResult = await uploadImage({
-          bucket: STORAGE_BUCKETS.AVATARS,
-          path: filePath,
-          file: optimizedFile,
-          upsert: true,
-        })
-
-        if (uploadResult?.url) {
-          avatarUrl = uploadResult.url
+        const cldRes = await uploadToCloudinary(file, 'avatars')
+        if (cldRes?.secure_url) {
+          avatarUrl = cldRes.secure_url
         }
-      } catch (storageErr) {
-        console.warn('[Settings] Storage upload failed, falling back to data URL:', storageErr)
+      } catch (cldErr) {
+        console.warn('[Settings] Cloudinary upload failed, attempting storage fallback:', cldErr)
       }
 
-      // 2. Fallback to optimized WebP data URL
+      // 2. Try Supabase Storage upload
+      if (!avatarUrl) {
+        try {
+          const optimizedFile = await optimizeAvatarImage(file, 300, 0.85)
+          const ext = optimizedFile.name.split('.').pop() || 'webp'
+          const filePath = `${user?.id || 'author'}/avatar_${Date.now()}.${ext}`
+
+          const uploadResult = await uploadImage({
+            bucket: STORAGE_BUCKETS.AVATARS,
+            path: filePath,
+            file: optimizedFile,
+            upsert: true,
+          })
+
+          if (uploadResult?.url) {
+            avatarUrl = uploadResult.url
+          }
+        } catch (storageErr) {
+          console.warn('[Settings] Storage upload failed, falling back to data URL:', storageErr)
+        }
+      }
+
+      // 3. Fallback to optimized WebP data URL
       if (!avatarUrl) {
         avatarUrl = await convertFileToOptimizedDataUrl(file, 300, 0.85)
       }
@@ -448,6 +520,7 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
       }
 
       setAccountForm((prev) => ({ ...prev, avatarPath: avatarUrl }))
+      setCustomAvatarUrl(avatarUrl)
 
       // Persist directly to Supabase profiles table
       await updateAccountProfileServerFn({
@@ -457,7 +530,7 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
       })
       router.invalidate()
 
-      showToast('Profile avatar updated in database', 'success')
+      showToast('Profile avatar updated', 'success')
     } catch (err: any) {
       console.error('[Settings] Avatar upload error:', err)
       showToast(err?.message || 'Failed to update avatar', 'error')
@@ -472,18 +545,59 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
   const handleRemoveAvatar = async () => {
     setIsUploadingAvatar(true)
     try {
-      setAccountForm((prev) => ({ ...prev, avatarPath: '' }))
+      setAccountForm((prev) => ({ ...prev, avatarPath: 'none' }))
+      setCustomAvatarUrl('none')
       await updateAccountProfileServerFn({
         data: {
-          avatarPath: null,
+          avatarPath: 'none',
         },
       })
       router.invalidate()
-      showToast('Avatar removed from database', 'info')
+      showToast('Avatar removed', 'info')
     } catch (err: any) {
       showToast('Failed to remove avatar', 'error')
     } finally {
       setIsUploadingAvatar(false)
+    }
+  }
+
+  const handleVerifyUsername = async () => {
+    const handle = accountForm.username?.trim().toLowerCase().replace(/[^a-z0-9_]/g, '') || ''
+    if (!handle || handle.length < 3) {
+      const msg = 'Username must be at least 3 characters (lowercase letters, numbers, underscores).'
+      setUsernameVerification({
+        available: false,
+        message: msg,
+      })
+      showToast(msg, 'error')
+      return
+    }
+
+    setIsVerifyingUsername(true)
+    setUsernameVerification(null)
+    try {
+      const res = await verifyUsernameAvailabilityServerFn({
+        data: { username: handle },
+      })
+      setUsernameVerification({
+        available: res.available,
+        message: res.message,
+        isCurrent: res.isCurrent,
+      })
+      if (res.available) {
+        showToast(res.message, 'success')
+      } else {
+        showToast(res.message, 'error')
+      }
+    } catch (err: any) {
+      const msg = err?.message || 'Failed to verify username availability.'
+      setUsernameVerification({
+        available: false,
+        message: msg,
+      })
+      showToast(msg, 'error')
+    } finally {
+      setIsVerifyingUsername(false)
     }
   }
 
@@ -512,7 +626,11 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
 
   // Lock body scroll when modals open on mobile & desktop
   useEffect(() => {
-    const anyModalOpen = confirmResetTasteOpen || confirmClearHistoryOpen || confirmDeleteAccountOpen
+    const anyModalOpen =
+      confirmResetTasteOpen ||
+      confirmClearHistoryOpen ||
+      confirmDeleteAccountOpen ||
+      confirmMakePublicOpen
     if (anyModalOpen) {
       document.body.style.overflow = 'hidden'
     } else {
@@ -521,7 +639,7 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
     return () => {
       document.body.style.overflow = ''
     }
-  }, [confirmResetTasteOpen, confirmClearHistoryOpen, confirmDeleteAccountOpen])
+  }, [confirmResetTasteOpen, confirmClearHistoryOpen, confirmDeleteAccountOpen, confirmMakePublicOpen])
 
   // Fetch initial data fallback (if not supplied via route loader cache)
   const loadData = useCallback(async () => {
@@ -577,17 +695,26 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
       setData(res)
       setLoading(false)
       setLoadError(null)
-      setAccountForm((prev) => ({
-        displayName: prev.displayName ?? res.profile.displayName,
-        username: prev.username ?? res.profile.username,
-        bio: prev.bio ?? res.profile.bio ?? '',
-        avatarPath: prev.avatarPath ?? res.profile.avatarPath ?? '',
-        websiteUrl: prev.websiteUrl ?? res.profile.websiteUrl ?? '',
-        location: prev.location ?? res.profile.location ?? '',
-        pronouns: prev.pronouns ?? res.profile.pronouns ?? '',
-        gender: prev.gender ?? res.profile.gender ?? '',
-        interestedInWriting: prev.interestedInWriting !== undefined ? prev.interestedInWriting : Boolean(res.profile.interestedInWriting),
-      }))
+      if (res.profile.displayName) {
+        setUserDisplayName(res.profile.displayName)
+      }
+      if (res.profile.username) {
+        setUserProfileUsername(res.profile.username)
+      }
+      if (res.profile.avatarPath) {
+        setCustomAvatarUrl(res.profile.avatarPath)
+      }
+      setAccountForm({
+        displayName: res.profile.displayName || '',
+        username: res.profile.username || '',
+        bio: res.profile.bio || '',
+        avatarPath: res.profile.avatarPath || '',
+        websiteUrl: res.profile.websiteUrl || '',
+        location: res.profile.location || '',
+        pronouns: res.profile.pronouns || '',
+        gender: res.profile.gender || '',
+        interestedInWriting: Boolean(res.profile.interestedInWriting),
+      })
       setReadingPrefsForm((prev) => (prev.favoriteGenres.length > 0 ? prev : res.readingPreferences))
       setRecsForm((prev) => prev || res.recommendations)
       setReadingExpForm((prev) => prev || res.readingExperience)
@@ -623,22 +750,36 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
     setSaveSuccessMsg(null)
     setSaveErrorMsg(null)
     try {
+      const cleanPronouns = accountForm.pronouns === 'Other' ? null : (accountForm.pronouns?.trim() || null)
+      const cleanGender = accountForm.gender?.trim() || null
+
       const res: any = await updateAccountProfileServerFn({
         data: {
-          displayName: accountForm.displayName,
+          displayName: accountForm.displayName?.trim(),
           username: accountForm.username,
           bio: accountForm.bio,
           avatarPath: accountForm.avatarPath,
           websiteUrl: accountForm.websiteUrl,
           location: accountForm.location,
-          pronouns: accountForm.pronouns,
-          gender: accountForm.gender,
+          pronouns: cleanPronouns,
+          gender: cleanGender,
           interestedInWriting: accountForm.interestedInWriting,
         },
       })
       if (res && res.success === false) {
         throw new Error(res.error || 'Failed to update profile.')
       }
+
+      if (accountForm.displayName?.trim()) {
+        setUserDisplayName(accountForm.displayName.trim())
+      }
+      if (accountForm.username?.trim()) {
+        setUserProfileUsername(accountForm.username.trim())
+      }
+      if (accountForm.avatarPath) {
+        setCustomAvatarUrl(accountForm.avatarPath)
+      }
+
       router.invalidate()
       setSaveSuccessMsg('Profile changes saved successfully.')
       showToast('Profile updated', 'success')
@@ -648,12 +789,12 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
           ...prev,
           displayName: updatedProfile.display_name || prev.displayName,
           username: updatedProfile.username || prev.username,
-          bio: updatedProfile.bio ?? prev.bio,
-          avatarPath: updatedProfile.avatar_path ?? prev.avatarPath,
-          websiteUrl: updatedProfile.website_url ?? prev.websiteUrl,
-          location: updatedProfile.location ?? prev.location,
-          pronouns: updatedProfile.pronouns ?? prev.pronouns,
-          gender: updatedProfile.gender ?? prev.gender,
+          bio: updatedProfile.bio !== undefined ? (updatedProfile.bio || '') : prev.bio,
+          avatarPath: updatedProfile.avatar_path !== undefined ? (updatedProfile.avatar_path || '') : prev.avatarPath,
+          websiteUrl: updatedProfile.website_url !== undefined ? (updatedProfile.website_url || '') : prev.websiteUrl,
+          location: updatedProfile.location !== undefined ? (updatedProfile.location || '') : prev.location,
+          pronouns: updatedProfile.pronouns !== undefined ? (updatedProfile.pronouns || '') : (cleanPronouns || ''),
+          gender: updatedProfile.gender !== undefined ? (updatedProfile.gender || '') : (cleanGender || ''),
           interestedInWriting: Boolean(updatedProfile.preferences?.interestedInWriting ?? prev.interestedInWriting),
         }))
       }
@@ -885,6 +1026,8 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
   }
 
   const currentSectionMeta = SECTIONS.find((s) => s.id === activeSection)
+  const isAvatarRemoved = accountForm.avatarPath === 'none' || customAvatarUrl === 'none'
+  const activeAvatarPath = isAvatarRemoved ? null : (accountForm.avatarPath || customAvatarUrl || user?.imageUrl || null)
 
   return (
     <div className="min-h-screen bg-neutral-50/30 dark:bg-[#0B0C0E] text-neutral-900 dark:text-neutral-100 antialiased">
@@ -958,7 +1101,8 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
               <div className="flex items-center gap-3 min-w-0">
                 <UnisexAvatar
                   size="sm"
-                  avatarPath={accountForm.avatarPath || user?.imageUrl}
+                  avatarPath={activeAvatarPath}
+                  forceUnisex={isAvatarRemoved}
                   seed={accountForm.username || user?.username || 'user'}
                 />
                 <div className="min-w-0">
@@ -1055,11 +1199,8 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
                   </p>
                 </div>
 
-                {/* Profile Avatar Card */}
-                <div className="p-4 sm:p-5 rounded-2xl border border-neutral-200/80 dark:border-neutral-800/80 bg-white dark:bg-[#0B0C0E] space-y-3 sm:space-y-4">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-                    Profile Avatar
-                  </h3>
+                {/* Core Identity Fields */}
+                <div className="p-4 sm:p-5 rounded-2xl border border-neutral-200/80 dark:border-neutral-800/80 bg-white dark:bg-[#0B0C0E] space-y-4">
                   <input
                     ref={avatarInputRef}
                     type="file"
@@ -1067,89 +1208,91 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
                     className="sr-only"
                     onChange={handleAvatarFileChange}
                   />
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5">
-                    <div className="flex items-center gap-4">
-                      <div className="relative group">
-                        <UnisexAvatar
-                          size="lg"
-                          avatarPath={accountForm.avatarPath || user?.imageUrl}
-                          seed={accountForm.username || user?.username || 'author'}
-                        />
-                        {isUploadingAvatar && (
-                          <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center text-white">
-                            <Loader2 className="w-5 h-5 animate-spin" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="sm:hidden space-y-1">
-                        <p className="text-xs font-medium text-neutral-900 dark:text-neutral-100">
-                          {accountForm.displayName || 'Author'}
-                        </p>
-                        <p className="text-[11px] font-mono text-neutral-400">
-                          @{accountForm.username || 'handle'}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="space-y-2 flex-1">
-                      <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
-                        Upload a custom author portrait (JPEG, PNG, WebP up to 2MB). Saved directly to your HatchPen database profile.
-                      </p>
-                      <div className="flex flex-wrap items-center gap-2.5">
+
+                  <div className="flex items-center justify-between pb-1">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                      Literary Identity
+                    </h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="flex items-center gap-3">
+                      {/* Profile Avatar with on-hover pencil overlay */}
+                      <div className="relative group shrink-0" title="Click to change avatar">
                         <button
                           type="button"
                           onClick={() => avatarInputRef.current?.click()}
                           disabled={isUploadingAvatar}
-                          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl sm:rounded-lg bg-neutral-900 hover:bg-neutral-800 dark:bg-neutral-100 dark:hover:bg-neutral-200 text-white dark:text-neutral-950 text-xs font-medium transition-all shadow-xs min-h-[40px] disabled:opacity-50"
+                          aria-label="Change profile avatar"
+                          className="relative w-11 h-11 rounded-full overflow-hidden p-0 m-0 border-0 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-neutral-100 cursor-pointer group shrink-0 block"
                         >
-                          {isUploadingAvatar ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <Camera className="w-3.5 h-3.5" />
+                          <UnisexAvatar
+                            size="md"
+                            avatarPath={activeAvatarPath}
+                            forceUnisex={isAvatarRemoved}
+                            seed={accountForm.username || user?.username || 'author'}
+                            className="w-11 h-11 h-full w-full ring-1 ring-neutral-200 dark:ring-neutral-800 group-hover:ring-neutral-400 dark:group-hover:ring-neutral-600 transition-all"
+                          />
+                          {/* Hover Pencil Icon Overlay - exact matching circular bounds */}
+                          <div className="absolute inset-0 w-full h-full rounded-full bg-black/55 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white pointer-events-none">
+                            <Pencil className="w-3.5 h-3.5 text-white drop-shadow-xs" />
+                          </div>
+                          {isUploadingAvatar && (
+                            <div className="absolute inset-0 w-full h-full rounded-full bg-black/60 flex items-center justify-center text-white pointer-events-none">
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            </div>
                           )}
-                          <span>{isUploadingAvatar ? 'Updating...' : 'Change Avatar'}</span>
                         </button>
-                        {accountForm.avatarPath && (
+                        {!isAvatarRemoved && Boolean(accountForm.avatarPath || customAvatarUrl || user?.imageUrl) && (
                           <button
                             type="button"
                             onClick={handleRemoveAvatar}
                             disabled={isUploadingAvatar}
-                            className="px-3 py-2 rounded-xl sm:rounded-lg border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-900 text-xs text-neutral-600 dark:text-neutral-400 hover:text-red-600 dark:hover:text-red-400 transition-colors min-h-[40px] flex items-center gap-1.5"
+                            title="Remove avatar"
+                            className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-neutral-800 hover:bg-red-600 text-white flex items-center justify-center text-[9px] shadow-xs cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span>Remove</span>
+                            <X className="w-2.5 h-2.5" />
                           </button>
                         )}
                       </div>
-                    </div>
-                  </div>
-                </div>
 
-                {/* Core Identity Fields */}
-                <div className="p-4 sm:p-5 rounded-2xl border border-neutral-200/80 dark:border-neutral-800/80 bg-white dark:bg-[#0B0C0E] space-y-4">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-                    Literary Identity
-                  </h3>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">
-                        Display / Pen Name <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        autoComplete="name"
-                        value={accountForm.displayName || ''}
-                        onChange={(e) => setAccountForm((p) => ({ ...p, displayName: e.target.value }))}
-                        placeholder="e.g. Eleanor Vance"
-                        className="w-full px-3.5 py-2.5 sm:py-2 rounded-xl sm:rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-neutral-100 transition-all min-h-[44px] sm:min-h-0"
-                      />
+                      <div className="flex-1 min-w-0">
+                        <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">
+                          Display / Pen Name <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          autoComplete="name"
+                          value={accountForm.displayName || ''}
+                          onChange={(e) => setAccountForm((p) => ({ ...p, displayName: e.target.value }))}
+                          placeholder="e.g. Eleanor Vance"
+                          className="w-full px-3.5 py-2.5 sm:py-2 rounded-xl sm:rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-neutral-100 transition-all min-h-[44px] sm:min-h-0"
+                        />
+                      </div>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">
-                        Unique Handle <span className="text-red-500">*</span>
-                      </label>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                          Unique Handle <span className="text-red-500">*</span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={handleVerifyUsername}
+                          disabled={isVerifyingUsername || saving || !accountForm.username?.trim()}
+                          className="inline-flex items-center justify-center gap-1.5 px-2.5 py-0.5 text-[11px] font-medium rounded-md border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        >
+                          {isVerifyingUsername ? (
+                            <>
+                              <Loader2 className="w-3 h-3 animate-spin text-neutral-600 dark:text-neutral-400" />
+                              <span>Verifying...</span>
+                            </>
+                          ) : (
+                            <span>Verify</span>
+                          )}
+                        </button>
+                      </div>
                       <div className="relative">
                         <span className="absolute left-3.5 top-3 sm:top-2 text-xs text-neutral-400 font-mono">@</span>
                         <input
@@ -1160,13 +1303,25 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
                           autoCorrect="off"
                           spellCheck={false}
                           value={accountForm.username || ''}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            setUsernameVerification(null)
                             setAccountForm((p) => ({ ...p, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') }))
-                          }
+                          }}
                           placeholder="handle"
                           className="w-full pl-8 pr-3.5 py-2.5 sm:py-2 rounded-xl sm:rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 text-base sm:text-xs font-mono focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-neutral-100 transition-all min-h-[44px] sm:min-h-0"
                         />
                       </div>
+                      {usernameVerification && (
+                        <p
+                          className={`mt-1.5 text-xs font-medium ${
+                            usernameVerification.available
+                              ? 'text-emerald-600 dark:text-emerald-400'
+                              : 'text-red-500 dark:text-red-400'
+                          }`}
+                        >
+                          {usernameVerification.message}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -1190,7 +1345,7 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4 pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4 pt-1">
                     <div>
                       <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">
                         Website / Portfolio
@@ -1226,7 +1381,10 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
                         onChange={(e) => {
                           const val = e.target.value
                           if (val === 'Other') {
-                            setAccountForm((p) => ({ ...p, pronouns: p.pronouns && normalizePronounsSelection(p.pronouns) === 'Other' ? p.pronouns : '' }))
+                            setAccountForm((p) => ({
+                              ...p,
+                              pronouns: p.pronouns && normalizePronounsSelection(p.pronouns) === 'Other' ? p.pronouns : 'Other',
+                            }))
                           } else {
                             setAccountForm((p) => ({ ...p, pronouns: val }))
                           }
@@ -1244,7 +1402,7 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
                         <input
                           type="text"
                           value={accountForm.pronouns === 'Other' ? '' : (accountForm.pronouns || '')}
-                          onChange={(e) => setAccountForm((p) => ({ ...p, pronouns: e.target.value }))}
+                          onChange={(e) => setAccountForm((p) => ({ ...p, pronouns: e.target.value || 'Other' }))}
                           placeholder="Type custom pronouns (e.g. ze/hir)..."
                           className="mt-2 w-full px-3.5 py-2 sm:py-1.5 rounded-xl sm:rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 text-base sm:text-xs focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-neutral-100"
                         />
@@ -1267,6 +1425,17 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
                         <option value="Other">Other</option>
                       </select>
                     </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-neutral-100 dark:border-neutral-800/60 flex items-center justify-end">
+                    <button
+                      type="submit"
+                      disabled={saving || isVerifyingUsername}
+                      className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl sm:rounded-lg bg-neutral-900 hover:bg-neutral-800 dark:bg-neutral-100 dark:hover:bg-neutral-200 text-white dark:text-neutral-950 text-xs font-medium transition-all shadow-xs disabled:opacity-50 min-h-[38px] cursor-pointer"
+                    >
+                      {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                      <span>Save Changes</span>
+                    </button>
                   </div>
                 </div>
 
@@ -1310,80 +1479,11 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
                   </div>
                 </div>
 
-                {/* Clerk Credentials & Security Card */}
-                <div className="p-4 sm:p-5 rounded-2xl border border-neutral-200/80 dark:border-neutral-800/80 bg-white dark:bg-[#0B0C0E] space-y-4">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-                    Authentication & Security
-                  </h3>
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/60 dark:border-neutral-800/60">
-                    <div>
-                      <p className="text-xs font-medium text-neutral-900 dark:text-neutral-100 break-all">
-                        Primary Email: {user?.primaryEmailAddress?.emailAddress || 'Not specified'}
-                      </p>
-                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed">
-                        Managed via Clerk authentication provider. Multi-factor auth and passwords are fully secured.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => openUserProfile?.()}
-                      className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 sm:py-1.5 rounded-xl sm:rounded-lg bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-950 text-xs font-medium hover:opacity-90 transition-opacity shrink-0 min-h-[44px] sm:min-h-0"
-                    >
-                      <span>Manage Security</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs text-neutral-500 dark:text-neutral-400 pt-2 border-t border-neutral-100 dark:border-neutral-800/60">
-                    <Link to="/terms" className="hover:underline text-inherit py-1">
-                      Terms of Service
-                    </Link>
-                    <span>•</span>
-                    <Link to="/privacy" className="hover:underline text-inherit py-1">
-                      Privacy Policy
-                    </Link>
-                    <span>•</span>
-                    <button
-                      type="button"
-                      onClick={handleSignOut}
-                      className="hover:underline text-neutral-700 dark:text-neutral-300 flex items-center gap-1 py-1"
-                    >
-                      <LogOut className="w-3.5 h-3.5" />
-                      <span>Log Out</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Danger Zone */}
-                <div className="p-4 sm:p-5 rounded-2xl border border-red-200/80 dark:border-red-950 bg-red-50/20 dark:bg-red-950/10 space-y-3">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-red-600 dark:text-red-400 flex items-center gap-1.5">
-                    <AlertCircle className="w-3.5 h-3.5" />
-                    <span>Danger Zone</span>
-                  </h3>
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-medium text-neutral-900 dark:text-neutral-100">
-                        Permanently Delete Account
-                      </p>
-                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed">
-                        Irrevocably deletes your profile, preferences, and personal reading records.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setConfirmDeleteAccountOpen(true)}
-                      className="w-full sm:w-auto px-4 py-2.5 sm:py-1.5 rounded-xl sm:rounded-lg border border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 text-xs font-semibold sm:font-medium transition-colors shrink-0 min-h-[44px] sm:min-h-0 flex items-center justify-center"
-                    >
-                      Delete Account
-                    </button>
-                  </div>
-                </div>
-
                 {/* Action Bar */}
                 <div className="pt-2">
                   <button
                     type="submit"
-                    disabled={saving}
+                    disabled={saving || isVerifyingUsername}
                     className="w-full sm:w-auto sm:ml-auto px-5 py-3 sm:py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 dark:bg-neutral-100 dark:hover:bg-neutral-200 text-white dark:text-neutral-950 text-sm sm:text-xs font-semibold transition-all shadow-xs disabled:opacity-50 flex items-center justify-center gap-2 min-h-[44px]"
                   >
                     {saving && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -1593,7 +1693,7 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
                 <div className="pt-2">
                   <button
                     type="submit"
-                    disabled={saving}
+                    disabled={saving || isVerifyingUsername}
                     className="w-full sm:w-auto sm:ml-auto px-5 py-3 sm:py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 dark:bg-neutral-100 dark:hover:bg-neutral-200 text-white dark:text-neutral-950 text-sm sm:text-xs font-semibold transition-all shadow-xs disabled:opacity-50 flex items-center justify-center gap-2 min-h-[44px]"
                   >
                     {saving && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -1738,7 +1838,7 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
                 <div className="pt-2">
                   <button
                     type="submit"
-                    disabled={saving}
+                    disabled={saving || isVerifyingUsername}
                     className="w-full sm:w-auto sm:ml-auto px-5 py-3 sm:py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 dark:bg-neutral-100 dark:hover:bg-neutral-200 text-white dark:text-neutral-950 text-sm sm:text-xs font-semibold transition-all shadow-xs disabled:opacity-50 flex items-center justify-center gap-2 min-h-[44px]"
                   >
                     {saving && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -2033,7 +2133,7 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
                 <div className="pt-2">
                   <button
                     type="submit"
-                    disabled={saving}
+                    disabled={saving || isVerifyingUsername}
                     className="w-full sm:w-auto sm:ml-auto px-5 py-3 sm:py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 dark:bg-neutral-100 dark:hover:bg-neutral-200 text-white dark:text-neutral-950 text-sm sm:text-xs font-semibold transition-all shadow-xs disabled:opacity-50 flex items-center justify-center gap-2 min-h-[44px]"
                   >
                     {saving && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -2246,7 +2346,7 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
                 <div className="pt-2">
                   <button
                     type="submit"
-                    disabled={saving}
+                    disabled={saving || isVerifyingUsername}
                     className="w-full sm:w-auto sm:ml-auto px-5 py-3 sm:py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 dark:bg-neutral-100 dark:hover:bg-neutral-200 text-white dark:text-neutral-950 text-sm sm:text-xs font-semibold transition-all shadow-xs disabled:opacity-50 flex items-center justify-center gap-2 min-h-[44px]"
                   >
                     {saving && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -2263,22 +2363,36 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
               <form onSubmit={handleSavePrivacy} className="space-y-5 sm:space-y-6">
                 <div>
                   <h2 className="text-lg sm:text-xl font-serif font-bold text-neutral-900 dark:text-neutral-100">
-                    Privacy & Safety
+                    Privacy & Visibility
                   </h2>
                   <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                    Manage your author visibility, reading session history, and block list.
+                    Manage your profile visibility, manuscripts catalog, public stats, and block list. Profiles are private by default.
                   </p>
                 </div>
 
-                {/* Profile Visibility */}
-                <div className="p-4 sm:p-5 rounded-2xl border border-neutral-200/80 dark:border-neutral-800/80 bg-white dark:bg-[#0B0C0E]">
+                {/* Unified Visibility & Privacy Controls Card (Hide/Show All In One Card) */}
+                <div className="p-4 sm:p-5 rounded-2xl border border-neutral-200/80 dark:border-neutral-800/80 bg-white dark:bg-[#0B0C0E] space-y-5">
+                  {/* 1. Profile Visibility: Public vs Private (Default Private) */}
                   <div className="flex items-start justify-between gap-4">
                     <div className="space-y-1 flex-1">
-                      <p className="text-xs font-semibold text-neutral-900 dark:text-neutral-100">
-                        Public Author Profile
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-semibold text-neutral-900 dark:text-neutral-100">
+                          Profile Visibility
+                        </p>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-medium ${
+                            privacyForm.isPublic
+                              ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                              : 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
+                          }`}
+                        >
+                          {privacyForm.isPublic ? 'Public Profile' : 'Private (Default)'}
+                        </span>
+                      </div>
                       <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-relaxed">
-                        When enabled, your author bio, public library shelves, and published stories can be viewed by anyone on HatchPen.
+                        {privacyForm.isPublic
+                          ? 'Signed-in HatchPen members can view your author profile, bio, and chosen public statistics.'
+                          : 'Your profile is completely private. Other users cannot see your profile, works catalog, or stats. Only you can view it.'}
                       </p>
                     </div>
                     <div className="shrink-0 flex items-center justify-center p-1">
@@ -2286,7 +2400,23 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
                         type="button"
                         role="switch"
                         aria-checked={privacyForm.isPublic}
-                        onClick={() => setPrivacyForm((p) => ({ ...p, isPublic: !p.isPublic }))}
+                        onClick={() => {
+                          if (!privacyForm.isPublic) {
+                            setPublicModalStats({
+                              worksVisibility: privacyForm.worksVisibility,
+                              showAvatar: privacyForm.showAvatar,
+                              showName: privacyForm.showName,
+                              showUsername: privacyForm.showUsername,
+                              showReads: privacyForm.showReads,
+                              showFollowers: privacyForm.showFollowers,
+                              showWorksCount: privacyForm.showWorksCount,
+                              showReadingHistory: privacyForm.showReadingHistory,
+                            })
+                            setConfirmMakePublicOpen(true)
+                          } else {
+                            setPrivacyForm((p) => ({ ...p, isPublic: false }))
+                          }
+                        }}
                         className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                           privacyForm.isPublic
                             ? 'bg-neutral-900 dark:bg-neutral-100'
@@ -2299,6 +2429,218 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
                           }`}
                         />
                       </button>
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  <div className="border-t border-neutral-100 dark:border-neutral-800/80" />
+
+                  {/* 2. Work / Catalog Visibility */}
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-semibold text-neutral-900 dark:text-neutral-100">
+                          Works & Manuscripts Catalog
+                        </p>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-medium ${
+                            privacyForm.worksVisibility === 'public'
+                              ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200'
+                              : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-400'
+                          }`}
+                        >
+                          {privacyForm.worksVisibility === 'public' ? 'Public' : 'Hidden'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-relaxed">
+                        {privacyForm.worksVisibility === 'public'
+                          ? 'Your published manuscripts and serials are listed on your profile for readers to discover.'
+                          : 'Your authored works are hidden from your profile catalog.'}
+                      </p>
+                    </div>
+                    <div className="shrink-0 flex items-center justify-center p-1">
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={privacyForm.worksVisibility === 'public'}
+                        onClick={() =>
+                          setPrivacyForm((p) => ({
+                            ...p,
+                            worksVisibility: p.worksVisibility === 'public' ? 'hidden' : 'public',
+                          }))
+                        }
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          privacyForm.worksVisibility === 'public'
+                            ? 'bg-neutral-900 dark:bg-neutral-100'
+                            : 'bg-neutral-200 dark:bg-neutral-700'
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white dark:bg-neutral-900 shadow-md ring-0 transition duration-200 ease-in-out ${
+                            privacyForm.worksVisibility === 'public' ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  <div className="border-t border-neutral-100 dark:border-neutral-800/80" />
+
+                  {/* 3. Identity & Profile Information (Hide / Show) */}
+                  <div className="space-y-3">
+                    <div>
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-900 dark:text-neutral-100">
+                        Profile Identity & Details
+                      </h3>
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
+                        Decide whether your display photo, full name, or username handle are shown publicly to readers.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-0.5">
+                      {/* Show/Hide DP / Avatar */}
+                      <label className="flex items-center justify-between p-3 rounded-xl border border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30 cursor-pointer hover:bg-neutral-100/50 dark:hover:bg-neutral-800/50 transition-colors">
+                        <div className="space-y-0.5 pr-2">
+                          <span className="text-xs font-medium text-neutral-800 dark:text-neutral-200 block">
+                            Display Picture (DP)
+                          </span>
+                          <span className="text-[10px] text-neutral-500 dark:text-neutral-400 block">
+                            {privacyForm.showAvatar ? 'Custom photo visible' : 'Hidden (anonymous silhouette)'}
+                          </span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={privacyForm.showAvatar}
+                          onChange={(e) => setPrivacyForm((p) => ({ ...p, showAvatar: e.target.checked }))}
+                          className="rounded border-neutral-300 dark:border-neutral-700 text-neutral-900 focus:ring-neutral-500 h-4 w-4"
+                        />
+                      </label>
+
+                      {/* Show/Hide Name */}
+                      <label className="flex items-center justify-between p-3 rounded-xl border border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30 cursor-pointer hover:bg-neutral-100/50 dark:hover:bg-neutral-800/50 transition-colors">
+                        <div className="space-y-0.5 pr-2">
+                          <span className="text-xs font-medium text-neutral-800 dark:text-neutral-200 block">
+                            Full Name
+                          </span>
+                          <span className="text-[10px] text-neutral-500 dark:text-neutral-400 block">
+                            {privacyForm.showName ? 'Display name visible' : 'Hidden to public'}
+                          </span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={privacyForm.showName}
+                          onChange={(e) => setPrivacyForm((p) => ({ ...p, showName: e.target.checked }))}
+                          className="rounded border-neutral-300 dark:border-neutral-700 text-neutral-900 focus:ring-neutral-500 h-4 w-4"
+                        />
+                      </label>
+
+                      {/* Show/Hide Username */}
+                      <label className="flex items-center justify-between p-3 rounded-xl border border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30 cursor-pointer hover:bg-neutral-100/50 dark:hover:bg-neutral-800/50 transition-colors">
+                        <div className="space-y-0.5 pr-2">
+                          <span className="text-xs font-medium text-neutral-800 dark:text-neutral-200 block">
+                            Username (@handle)
+                          </span>
+                          <span className="text-[10px] text-neutral-500 dark:text-neutral-400 block">
+                            {privacyForm.showUsername ? '@handle badge visible' : 'Hidden on profile'}
+                          </span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={privacyForm.showUsername}
+                          onChange={(e) => setPrivacyForm((p) => ({ ...p, showUsername: e.target.checked }))}
+                          className="rounded border-neutral-300 dark:border-neutral-700 text-neutral-900 focus:ring-neutral-500 h-4 w-4"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  <div className="border-t border-neutral-100 dark:border-neutral-800/80" />
+
+                  {/* 4. Granular Statistics Visibility (Hide / Show) */}
+                  <div className="space-y-3">
+                    <div>
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-900 dark:text-neutral-100">
+                        Public Profile Statistics
+                      </h3>
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
+                        Choose which stats readers can see on your profile. Any unchecked metric will remain hidden.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-0.5">
+                      {/* Show/Hide Lifetime Reads */}
+                      <label className="flex items-center justify-between p-3 rounded-xl border border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30 cursor-pointer hover:bg-neutral-100/50 dark:hover:bg-neutral-800/50 transition-colors">
+                        <div className="space-y-0.5 pr-2">
+                          <span className="text-xs font-medium text-neutral-800 dark:text-neutral-200 block">
+                            Lifetime Reads
+                          </span>
+                          <span className="text-[10px] text-neutral-500 dark:text-neutral-400 block">
+                            Show total reads counter
+                          </span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={privacyForm.showReads}
+                          onChange={(e) => setPrivacyForm((p) => ({ ...p, showReads: e.target.checked }))}
+                          className="rounded border-neutral-300 dark:border-neutral-700 text-neutral-900 focus:ring-neutral-500 h-4 w-4"
+                        />
+                      </label>
+
+                      {/* Show/Hide Followers Count */}
+                      <label className="flex items-center justify-between p-3 rounded-xl border border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30 cursor-pointer hover:bg-neutral-100/50 dark:hover:bg-neutral-800/50 transition-colors">
+                        <div className="space-y-0.5 pr-2">
+                          <span className="text-xs font-medium text-neutral-800 dark:text-neutral-200 block">
+                            Followers Count
+                          </span>
+                          <span className="text-[10px] text-neutral-500 dark:text-neutral-400 block">
+                            Show your subscriber tally
+                          </span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={privacyForm.showFollowers}
+                          onChange={(e) => setPrivacyForm((p) => ({ ...p, showFollowers: e.target.checked }))}
+                          className="rounded border-neutral-300 dark:border-neutral-700 text-neutral-900 focus:ring-neutral-500 h-4 w-4"
+                        />
+                      </label>
+
+                      {/* Show/Hide Works Count */}
+                      <label className="flex items-center justify-between p-3 rounded-xl border border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30 cursor-pointer hover:bg-neutral-100/50 dark:hover:bg-neutral-800/50 transition-colors">
+                        <div className="space-y-0.5 pr-2">
+                          <span className="text-xs font-medium text-neutral-800 dark:text-neutral-200 block">
+                            Works Count
+                          </span>
+                          <span className="text-[10px] text-neutral-500 dark:text-neutral-400 block">
+                            Show number of cataloged works
+                          </span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={privacyForm.showWorksCount}
+                          onChange={(e) => setPrivacyForm((p) => ({ ...p, showWorksCount: e.target.checked }))}
+                          className="rounded border-neutral-300 dark:border-neutral-700 text-neutral-900 focus:ring-neutral-500 h-4 w-4"
+                        />
+                      </label>
+
+                      {/* Show/Hide Reading History */}
+                      <label className="flex items-center justify-between p-3 rounded-xl border border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30 cursor-pointer hover:bg-neutral-100/50 dark:hover:bg-neutral-800/50 transition-colors">
+                        <div className="space-y-0.5 pr-2">
+                          <span className="text-xs font-medium text-neutral-800 dark:text-neutral-200 block">
+                            Reading History
+                          </span>
+                          <span className="text-[10px] text-neutral-500 dark:text-neutral-400 block">
+                            Show reading activity sessions
+                          </span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={privacyForm.showReadingHistory}
+                          onChange={(e) => setPrivacyForm((p) => ({ ...p, showReadingHistory: e.target.checked }))}
+                          className="rounded border-neutral-300 dark:border-neutral-700 text-neutral-900 focus:ring-neutral-500 h-4 w-4"
+                        />
+                      </label>
                     </div>
                   </div>
                 </div>
@@ -2370,7 +2712,7 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
                 <div className="pt-2">
                   <button
                     type="submit"
-                    disabled={saving}
+                    disabled={saving || isVerifyingUsername}
                     className="w-full sm:w-auto sm:ml-auto px-5 py-3 sm:py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 dark:bg-neutral-100 dark:hover:bg-neutral-200 text-white dark:text-neutral-950 text-sm sm:text-xs font-semibold transition-all shadow-xs disabled:opacity-50 flex items-center justify-center gap-2 min-h-[44px]"
                   >
                     {saving && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -2417,7 +2759,7 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
               <button
                 type="button"
                 onClick={handleResetTaste}
-                disabled={saving}
+                disabled={saving || isVerifyingUsername}
                 className="w-full sm:w-auto px-4 py-2.5 rounded-xl sm:rounded-lg bg-neutral-900 hover:bg-neutral-800 dark:bg-neutral-100 dark:hover:bg-neutral-200 text-white dark:text-neutral-950 text-xs font-semibold transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 min-h-[44px]"
               >
                 {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
@@ -2458,7 +2800,7 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
               <button
                 type="button"
                 onClick={handleClearReadingHistory}
-                disabled={saving}
+                disabled={saving || isVerifyingUsername}
                 className="w-full sm:w-auto px-4 py-2.5 rounded-xl sm:rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 min-h-[44px]"
               >
                 {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
@@ -2523,6 +2865,264 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
               >
                 {isDeleting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 <span>Permanently Delete</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. Make Profile Public Stats Selection Modal */}
+      {confirmMakePublicOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-lg p-5 sm:p-6 rounded-t-3xl sm:rounded-2xl border-t sm:border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#121316] shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300">
+                  <Globe className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-serif font-bold text-neutral-900 dark:text-neutral-100">
+                    Make Profile Public
+                  </h3>
+                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                    Choose which stats & catalogs to share with community members.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConfirmMakePublicOpen(false)}
+                className="p-1 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 pt-1">
+              {/* Works Visibility Selection */}
+              <div className="p-3.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/40 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="pr-2">
+                    <p className="text-xs font-semibold text-neutral-900 dark:text-neutral-100">
+                      Works & Manuscripts Catalog
+                    </p>
+                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                      Allow readers to browse your published stories on your profile page.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={publicModalStats.worksVisibility === 'public'}
+                    onClick={() =>
+                      setPublicModalStats((s) => ({
+                        ...s,
+                        worksVisibility: s.worksVisibility === 'public' ? 'hidden' : 'public',
+                      }))
+                    }
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      publicModalStats.worksVisibility === 'public'
+                        ? 'bg-neutral-900 dark:bg-neutral-100'
+                        : 'bg-neutral-200 dark:bg-neutral-700'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white dark:bg-neutral-900 shadow-sm ring-0 transition duration-200 ease-in-out ${
+                        publicModalStats.worksVisibility === 'public' ? 'translate-x-4' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              {/* Identity Checkboxes */}
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 uppercase tracking-wider text-[10px]">
+                  Profile Identity to Display
+                </p>
+
+                <div className="space-y-2">
+                  {/* Avatar / DP */}
+                  <label className="flex items-center justify-between p-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/60 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors">
+                    <div className="space-y-0.5 pr-2">
+                      <span className="text-xs font-medium text-neutral-900 dark:text-neutral-100 block">
+                        Display Picture (Avatar)
+                      </span>
+                      <span className="text-[10px] text-neutral-500 dark:text-neutral-400 block">
+                        Show your custom profile photo (uncheck to show neutral unisex silhouette)
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={publicModalStats.showAvatar}
+                      onChange={(e) =>
+                        setPublicModalStats((s) => ({ ...s, showAvatar: e.target.checked }))
+                      }
+                      className="rounded border-neutral-300 dark:border-neutral-700 text-neutral-900 focus:ring-neutral-500 h-4 w-4"
+                    />
+                  </label>
+
+                  {/* Full Name */}
+                  <label className="flex items-center justify-between p-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/60 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors">
+                    <div className="space-y-0.5 pr-2">
+                      <span className="text-xs font-medium text-neutral-900 dark:text-neutral-100 block">
+                        Full Name
+                      </span>
+                      <span className="text-[10px] text-neutral-500 dark:text-neutral-400 block">
+                        Show your author / reader display name
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={publicModalStats.showName}
+                      onChange={(e) =>
+                        setPublicModalStats((s) => ({ ...s, showName: e.target.checked }))
+                      }
+                      className="rounded border-neutral-300 dark:border-neutral-700 text-neutral-900 focus:ring-neutral-500 h-4 w-4"
+                    />
+                  </label>
+
+                  {/* Username */}
+                  <label className="flex items-center justify-between p-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/60 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors">
+                    <div className="space-y-0.5 pr-2">
+                      <span className="text-xs font-medium text-neutral-900 dark:text-neutral-100 block">
+                        Username Handle (@handle)
+                      </span>
+                      <span className="text-[10px] text-neutral-500 dark:text-neutral-400 block">
+                        Show your @handle badge on the profile header
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={publicModalStats.showUsername}
+                      onChange={(e) =>
+                        setPublicModalStats((s) => ({ ...s, showUsername: e.target.checked }))
+                      }
+                      className="rounded border-neutral-300 dark:border-neutral-700 text-neutral-900 focus:ring-neutral-500 h-4 w-4"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Stats Checkboxes */}
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 uppercase tracking-wider text-[10px]">
+                  Public Statistics to Display
+                </p>
+
+                <div className="space-y-2">
+                  {/* Lifetime Reads */}
+                  <label className="flex items-center justify-between p-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/60 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors">
+                    <div className="space-y-0.5 pr-2">
+                      <span className="text-xs font-medium text-neutral-900 dark:text-neutral-100 block">
+                        Lifetime Reads
+                      </span>
+                      <span className="text-[10px] text-neutral-500 dark:text-neutral-400 block">
+                        Display total reads counter on your profile header
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={publicModalStats.showReads}
+                      onChange={(e) =>
+                        setPublicModalStats((s) => ({ ...s, showReads: e.target.checked }))
+                      }
+                      className="rounded border-neutral-300 dark:border-neutral-700 text-neutral-900 focus:ring-neutral-500 h-4 w-4"
+                    />
+                  </label>
+
+                  {/* Followers */}
+                  <label className="flex items-center justify-between p-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/60 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors">
+                    <div className="space-y-0.5 pr-2">
+                      <span className="text-xs font-medium text-neutral-900 dark:text-neutral-100 block">
+                        Followers Count
+                      </span>
+                      <span className="text-[10px] text-neutral-500 dark:text-neutral-400 block">
+                        Display how many subscribers follow your updates
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={publicModalStats.showFollowers}
+                      onChange={(e) =>
+                        setPublicModalStats((s) => ({ ...s, showFollowers: e.target.checked }))
+                      }
+                      className="rounded border-neutral-300 dark:border-neutral-700 text-neutral-900 focus:ring-neutral-500 h-4 w-4"
+                    />
+                  </label>
+
+                  {/* Works Count */}
+                  <label className="flex items-center justify-between p-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/60 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors">
+                    <div className="space-y-0.5 pr-2">
+                      <span className="text-xs font-medium text-neutral-900 dark:text-neutral-100 block">
+                        Works Count
+                      </span>
+                      <span className="text-[10px] text-neutral-500 dark:text-neutral-400 block">
+                        Display total count of cataloged stories & manuscripts
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={publicModalStats.showWorksCount}
+                      onChange={(e) =>
+                        setPublicModalStats((s) => ({ ...s, showWorksCount: e.target.checked }))
+                      }
+                      className="rounded border-neutral-300 dark:border-neutral-700 text-neutral-900 focus:ring-neutral-500 h-4 w-4"
+                    />
+                  </label>
+
+                  {/* Reading History */}
+                  <label className="flex items-center justify-between p-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/60 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors">
+                    <div className="space-y-0.5 pr-2">
+                      <span className="text-xs font-medium text-neutral-900 dark:text-neutral-100 block">
+                        Reading Activity & Sessions
+                      </span>
+                      <span className="text-[10px] text-neutral-500 dark:text-neutral-400 block">
+                        Display reading history and active literary sessions
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={publicModalStats.showReadingHistory}
+                      onChange={(e) =>
+                        setPublicModalStats((s) => ({ ...s, showReadingHistory: e.target.checked }))
+                      }
+                      className="rounded border-neutral-300 dark:border-neutral-700 text-neutral-900 focus:ring-neutral-500 h-4 w-4"
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center justify-end gap-2.5 pt-3 border-t border-neutral-100 dark:border-neutral-800">
+              <button
+                type="button"
+                onClick={() => setConfirmMakePublicOpen(false)}
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl sm:rounded-lg border border-neutral-200 dark:border-neutral-700 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 min-h-[44px] sm:min-h-0 flex items-center justify-center cursor-pointer"
+              >
+                Cancel (Keep Private)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPrivacyForm((prev) => ({
+                    ...prev,
+                    isPublic: true,
+                    worksVisibility: publicModalStats.worksVisibility,
+                    showAvatar: publicModalStats.showAvatar,
+                    showName: publicModalStats.showName,
+                    showUsername: publicModalStats.showUsername,
+                    showReads: publicModalStats.showReads,
+                    showFollowers: publicModalStats.showFollowers,
+                    showWorksCount: publicModalStats.showWorksCount,
+                    showReadingHistory: publicModalStats.showReadingHistory,
+                  }))
+                  setConfirmMakePublicOpen(false)
+                  showToast('Profile set to Public with chosen statistics.', 'info')
+                }}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl sm:rounded-lg bg-neutral-900 hover:bg-neutral-800 dark:bg-neutral-100 dark:hover:bg-neutral-200 text-white dark:text-neutral-950 text-xs font-semibold shadow-xs flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-0 cursor-pointer"
+              >
+                Confirm & Make Public
               </button>
             </div>
           </div>

@@ -20,10 +20,18 @@ export interface UnisexAvatarProps {
  * Checks if a given image URL is an auto-generated initial placeholder or default stock photo
  */
 export function isDefaultOrInitialAvatar(url?: string | null): boolean {
-  if (!url) return true
+  if (!url || url === 'none' || url === 'placeholder' || url === '/unisex-avatar.svg') return true
 
-  // Custom data URL or Supabase storage is always a valid custom avatar
-  if (url.startsWith('data:image/') || url.includes('author-avatars') || url.includes('/storage/v1/object/public/')) return false
+  // Custom data URL, Supabase storage, or Cloudinary is always a valid custom avatar
+  if (
+    url.startsWith('data:image/') ||
+    url.includes('author-avatars') ||
+    url.includes('/storage/v1/object/public/') ||
+    url.includes('cloudinary.com') ||
+    url.includes('res.cloudinary.com')
+  ) {
+    return false
+  }
 
   // 1. Unsplash female stock photo previously used as hardcoded fallback
   if (url.includes('photo-1534528741775-53994a69daeb')) return true
@@ -111,13 +119,17 @@ export function UnisexAvatar({
 }: UnisexAvatarProps) {
   const [imageError, setImageError] = useState(false)
 
+  React.useEffect(() => {
+    setImageError(false)
+  }, [src, avatarPath])
+
   const sizeClass = typeof size === 'number' ? '' : SIZE_MAP[size] || SIZE_MAP.md
   const sizeStyle = typeof size === 'number' ? { width: size, height: size } : undefined
   const roundedClass = shape === 'circle' ? 'rounded-full' : 'rounded-lg'
 
-  const effectiveSrc = src || avatarPath
+  const effectiveSrc = (src === 'none' || avatarPath === 'none') ? null : (src || avatarPath)
   const isInitialOrPlaceholder = isDefaultOrInitialAvatar(effectiveSrc)
-  const isExplicitlyNoImage = hasImage === false || forceUnisex
+  const isExplicitlyNoImage = hasImage === false || forceUnisex || src === 'none' || avatarPath === 'none'
   const validSrc = !imageError && effectiveSrc && !isInitialOrPlaceholder && !isExplicitlyNoImage ? effectiveSrc : null
   const optimizedSrc = validSrc && !validSrc.startsWith('data:image/')
     ? getOptimizedImageUrl(validSrc, { width: 160, height: 160, quality: 85 })

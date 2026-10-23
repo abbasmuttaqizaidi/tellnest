@@ -57,6 +57,130 @@ export interface LoggedInHomeProps {
   loaderData?: HomeLoaderData
 }
 
+function CurrentlyReadingCard({
+  item,
+  isWorkSaved,
+  toggleSaveWork,
+}: {
+  item: {
+    work: any
+    progress: any
+    currentChapter: any
+  }
+  isWorkSaved: (id: string) => boolean
+  toggleSaveWork: (id: string) => void
+}) {
+  const { work, progress, currentChapter } = item
+  const workSlug = getWorkSlug(work)
+  const progressPercent = Math.min(100, Math.max(0, Math.round(Number(progress?.progressPercent || 0))))
+  const chapterNumber = currentChapter?.number || progress?.chapterNumber || 1
+  const chapterTitle = currentChapter?.title || progress?.chapterTitle || `Chapter ${chapterNumber}`
+  const chapterId = currentChapter?.id || progress?.chapterId || 'ch-1'
+  const saved = isWorkSaved(work.id)
+
+  return (
+    <div className="relative h-full overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3 sm:p-3.5 shadow-2xs hover:border-[var(--border-strong)] transition-all">
+      <div className="flex items-stretch gap-3 sm:gap-3.5 h-full">
+        {/* ── PART 1 (LEFT): Image Cover ── */}
+        <Link
+          to="/read/$workId/$chapterId"
+          params={{ workId: workSlug, chapterId }}
+          preload="intent"
+          className="relative w-20 sm:w-24 aspect-[2/3] rounded-lg overflow-hidden shadow-xs group no-underline border border-[var(--border-subtle)] bg-[var(--bg-subtle)] shrink-0 self-start"
+        >
+          <img
+            src={work.cover}
+            alt={work.title}
+            loading="lazy"
+            decoding="async"
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        </Link>
+
+        {/* ── PART 2 (RIGHT): All Details Vertically Aligned in One Flow ── */}
+        <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5 space-y-2">
+          {/* Top Info */}
+          <div className="space-y-1">
+            {/* Genre Badge + Author */}
+            <div className="flex items-center gap-1.5 text-[10.5px]">
+              {work.genre && (
+                <Badge variant="subtle" size="sm" className="text-[10px] px-1.5 py-0">
+                  {work.genre}
+                </Badge>
+              )}
+              <span className="text-[var(--ink-muted)] font-serif text-[11px] truncate">
+                by <strong className="text-[var(--ink-primary)] font-medium">{work.author?.name}</strong>
+              </span>
+            </div>
+
+            {/* Story Title */}
+            <Link
+              to="/works/$workId"
+              params={{ workId: workSlug }}
+              className="block no-underline text-inherit group"
+            >
+              <h4 className="font-serif text-sm sm:text-base font-bold text-[var(--ink-primary)] tracking-tight truncate group-hover:underline">
+                {work.title}
+              </h4>
+            </Link>
+
+            {/* Chapter Title & Progress */}
+            <div className="space-y-1 pt-0.5">
+              <div className="flex items-center justify-between font-mono text-[10px] text-[var(--ink-muted)]">
+                <span className="font-medium text-[var(--ink-secondary)] truncate max-w-[120px] sm:max-w-[150px]">
+                  {chapterTitle}
+                </span>
+                <span className="shrink-0 font-semibold text-[var(--ink-primary)]">
+                  {progressPercent}%
+                </span>
+              </div>
+
+              <div className="w-full h-1 bg-[var(--bg-subtle)] rounded-full overflow-hidden border border-[var(--border-subtle)]">
+                <div
+                  className="h-full bg-[var(--ink-primary)] rounded-full transition-all duration-500"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Action Row inside Details Column */}
+          <div className="flex items-center gap-2 pt-1">
+            <Link
+              to="/read/$workId/$chapterId"
+              params={{ workId: workSlug, chapterId }}
+              preload="intent"
+              className="no-underline flex-1 min-w-0"
+            >
+              <button
+                type="button"
+                className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 h-7.5 rounded-lg bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-xs font-semibold hover:opacity-90 transition-opacity shadow-2xs cursor-pointer truncate"
+              >
+                <Play className="h-2.5 w-2.5 fill-current shrink-0" />
+                <span className="truncate">Resume Ch. {chapterNumber}</span>
+              </button>
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => toggleSaveWork(work.id)}
+              className={`h-7.5 w-7.5 inline-flex items-center justify-center rounded-lg border text-xs transition-colors cursor-pointer shrink-0 ${
+                saved
+                  ? 'border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)]'
+                  : 'border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
+              }`}
+              title={saved ? 'Saved in library' : 'Save to library'}
+              aria-label="Bookmark story"
+            >
+              <Bookmark className={`h-3 w-3 ${saved ? 'fill-current' : ''}`} />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ==========================================================================
    LOGGED IN HOME PAGE — Personalized Reader Dashboard & Shelf Experience
    ========================================================================== */
@@ -113,9 +237,6 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
     }
     return contextReadingProgress
   }, [contextReadingProgress, loaderData?.initialBootstrap?.readingProgress, works, isOwnWork])
-
-  const [selectedHeroWorkId, setSelectedHeroWorkId] = useState<string | null>(null)
-  const [isSwitchMenuOpen, setIsSwitchMenuOpen] = useState(false)
 
   // Optimization 2: Initialize recommendation signals immediately from route loaderData without waiting for client roundtrip
   const [recommendationSignals, setRecommendationSignals] = useState<UserRecommendationSignals | null>(() => {
@@ -249,42 +370,15 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
       }
   }, [works, readingProgress, isOwnWork])
 
-  // Focal book resolution: allows dynamic switching between user's active in-progress books
-  const activeEntry = useMemo(() => {
-    if (selectedHeroWorkId) {
-      const match = inProgressList.find((item) => item.work.id === selectedHeroWorkId)
-      if (match) return match
-      const fallbackWork = works.find((w) => w.id === selectedHeroWorkId)
-      if (fallbackWork) {
-        return {
-          work: fallbackWork,
-          progress: readingProgress[fallbackWork.id] || { progressPercent: 0, chapterNumber: 1, chapterId: fallbackWork.chapters?.[0]?.id || 'ch-1' },
-          currentChapter: fallbackWork.chapters?.[0],
-        }
-      }
-    }
-    return inProgressList[0] || null
-  }, [selectedHeroWorkId, inProgressList, works, readingProgress])
-
-  // Strict currently reading work resolution: ONLY resolves to the story the user is actually reading
-  // NEVER falls back to random featured mock works (A Winter in Kyoto)
-  const userActiveWorkId = selectedHeroWorkId || (Object.keys(readingProgress).length > 0 ? Object.values(readingProgress)[0]?.workId : null)
-  const activeWork =
-    activeEntry?.work ||
-    (userActiveWorkId ? works.find((w) => w.id === userActiveWorkId) : null) ||
-    null
-
-  const hasReadingHistory = Boolean(activeWork && (inProgressList.length > 0 || (activeWork && readingProgress[activeWork.id])))
-  const activeProgress = activeEntry?.progress || (activeWork ? readingProgress[activeWork.id] : null) || null
-  const activeChapter = activeEntry?.currentChapter || activeWork?.chapters?.[0]
-  const progressPercent = activeProgress ? Math.min(100, Math.max(0, Math.round(Number(activeProgress.progressPercent || 0)))) : 0
+  const hasReadingHistory = inProgressList.length > 0
+  const desktopReadingList = useMemo(() => inProgressList.slice(0, 3), [inProgressList])
 
   // If server preloaded bootstrap is available, user session is already resolved
   const hasPreloadedBootstrap = Boolean(loaderData?.initialBootstrap)
   const isResolvingReadingSession =
     !isUserLoaded ||
     (isReadingProgressLoading && !hasPreloadedBootstrap) ||
-    (Object.keys(readingProgress).length > 0 && !activeWork)
+    (Object.keys(readingProgress).length > 0 && inProgressList.length === 0)
 
   // Saved manuscripts from shelf
   const savedWorks = useMemo(() => {
@@ -311,8 +405,6 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
     return <LoggedInHomeSkeleton />
   }
 
-  const activeWorkSlug = activeWork ? getWorkSlug(activeWork) : ''
-
   return (
     <div className="min-h-screen pb-12">
       {/* Consistent Route Header with + New button */}
@@ -326,167 +418,82 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
         <NewVoicesOpportunityModal />
 
       {/* =========================================================================
-          SECTION 2: PICK UP WHERE YOU LEFT OFF (ASYMMETRIC PRIMARY HERO CARD)
+          SECTION 2: CURRENTLY READING (MOBILE SLIDES & DESKTOP MAX-3 GRID)
           ========================================================================= */}
-      {hasReadingHistory && activeWork ? (
-        <section id="active-novel" className="w-full space-y-2">
-          {inProgressList.length > 1 && (
-            <div className="flex items-center justify-end pb-1">
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setIsSwitchMenuOpen((prev) => !prev)}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] font-mono text-[11px] font-semibold cursor-pointer shadow-2xs transition-all"
-                >
-                  <Clock className="h-3 w-3 text-[var(--ink-muted)]" />
-                  <span>Switch Book ({inProgressList.length})</span>
-                  <ChevronRight className={`h-2.5 w-2.5 transition-transform ${isSwitchMenuOpen ? 'rotate-90' : ''}`} />
-                </button>
-
-                {isSwitchMenuOpen && (
-                  <div className="absolute right-0 top-full mt-1.5 w-64 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-strong)] shadow-xl p-1.5 z-50 space-y-1">
-                    <div className="px-2 py-1 font-mono text-[9px] uppercase tracking-wider text-[var(--ink-muted)]">
-                      Active Queue Folios
-                    </div>
-                    {inProgressList.map((item) => (
-                      <button
-                        key={item.work.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedHeroWorkId(item.work.id)
-                          setIsSwitchMenuOpen(false)
-                        }}
-                        className={`w-full flex items-center gap-2 p-1.5 rounded-lg text-left text-xs transition-colors cursor-pointer ${
-                          item.work.id === activeWork.id
-                            ? 'bg-[var(--bg-subtle)] font-semibold text-[var(--ink-primary)]'
-                            : 'hover:bg-[var(--bg-subtle)] text-[var(--ink-secondary)]'
-                        }`}
-                      >
-                        <img src={item.work.cover} alt={item.work.title} className="w-7 h-9 object-cover rounded shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="truncate font-serif text-xs">{item.work.title}</p>
-                          <p className="font-mono text-[9.5px] text-[var(--ink-muted)]">
-                            Ch. {item.currentChapter?.number || 1} • {Math.min(100, Math.max(0, Math.round(Number(item.progress.progressPercent || 0))))}%
-                          </p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+      {hasReadingHistory ? (
+        <section id="active-novel" className="w-full space-y-2.5">
+          {/* Section Header: Title + View all redirecting to Library > Reading tab */}
+          <div className="flex items-center justify-between pb-0.5">
+            <div className="flex items-center gap-2">
+              <span className="font-serif text-sm sm:text-base font-bold text-[var(--ink-primary)] tracking-tight">
+                Currently Reading
+              </span>
+              <span className="font-mono text-[11px] text-[var(--ink-muted)]">
+                ({inProgressList.length})
+              </span>
             </div>
-          )}
 
-          {/* Compact Card Layout */}
-          <div className="relative overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3 sm:p-3.5 shadow-2xs">
-            <div className="flex items-center gap-3 sm:gap-4">
-              
-              {/* Thumbnail Cover with Optimization hints */}
-              <Link
-                to="/read/$workId/$chapterId"
-                params={{
-                  workId: activeWorkSlug,
-                  chapterId: activeChapter?.id || 'ch-1',
-                }}
-                preload="intent"
-                className="relative w-24 sm:w-24 aspect-[2/3] rounded-lg overflow-hidden shadow-xs group no-underline border border-[var(--border-subtle)] bg-[var(--bg-subtle)] shrink-0"
-              >
-                <img
-                  src={activeWork.cover}
-                  alt={activeWork.title}
-                  loading="eager"
-                  decoding="async"
-                  width={96}
-                  height={144}
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                />
-              </Link>
+            <Link
+              to="/library"
+              search={{ tab: 'reading' }}
+              className="inline-flex items-center gap-1 text-xs font-mono font-medium text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors cursor-pointer"
+            >
+              <span>View all</span>
+              <span className="hidden sm:inline">({inProgressList.length})</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
 
-              {/* Right Side: Details & Actions */}
-              <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4">
-                {/* Story Info & Progress */}
-                <div className="flex-1 min-w-0 space-y-1 sm:space-y-1.5">
-                  {/* Badges + Author row */}
-                  <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-                    <Badge variant="subtle" size="sm">
-                      {activeWork.genre}
-                    </Badge>
-                    <span className="text-[var(--ink-muted)] font-serif text-xs">
-                      by <strong className="text-[var(--ink-primary)] font-medium">{activeWork.author.name}</strong>
-                    </span>
-                    <span className="text-[var(--ink-faint)] hidden md:inline">•</span>
-                    <span className="text-[var(--ink-muted)] font-mono text-[11px] hidden md:inline">
-                      Ch. {activeChapter?.number || 1} of {activeWork.chaptersCount}
-                    </span>
-                  </div>
-
-                  {/* Title */}
-                  <Link
-                    to="/works/$workId"
-                    params={{ workId: activeWorkSlug }}
-                    className="block no-underline text-inherit group"
-                  >
-                    <h4 className="font-serif text-base sm:text-lg font-bold text-[var(--ink-primary)] tracking-tight truncate group-hover:underline">
-                      {activeWork.title}
-                    </h4>
-                  </Link>
-
-                  {/* Progress Bar + Stats Row */}
-                  <div className="space-y-1 max-w-md">
-                    <div className="flex items-center justify-between font-mono text-[10.5px] text-[var(--ink-muted)]">
-                      <span className="font-medium text-[var(--ink-primary)] truncate max-w-[180px] sm:max-w-xs">
-                        {activeChapter?.title || `Chapter ${activeChapter?.number || 1}`}
-                      </span>
-                      <span className="shrink-0 font-semibold text-[var(--ink-primary)]">
-                        {progressPercent}% read
-                      </span>
-                    </div>
-
-                    <div className="w-full h-1 bg-[var(--bg-subtle)] rounded-full overflow-hidden border border-[var(--border-subtle)]">
-                      <div
-                        className="h-full bg-[var(--ink-primary)] rounded-full transition-all duration-500"
-                        style={{ width: `${progressPercent}%` }}
+          {/* ── MOBILE SCREENS: Horizontal Slides (No Dropdown Switcher) ── */}
+          <div className="block md:hidden">
+            {inProgressList.length === 1 ? (
+              <CurrentlyReadingCard
+                item={inProgressList[0]}
+                isWorkSaved={isWorkSaved}
+                toggleSaveWork={toggleSaveWork}
+              />
+            ) : (
+              <div className="space-y-1.5">
+                <div
+                  className="flex gap-3 overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory -mx-3 px-3"
+                  style={{ scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch' }}
+                >
+                  {inProgressList.map((item) => (
+                    <div
+                      key={item.work.id}
+                      className="snap-start shrink-0 w-[84vw] max-w-[340px]"
+                    >
+                      <CurrentlyReadingCard
+                        item={item}
+                        isWorkSaved={isWorkSaved}
+                        toggleSaveWork={toggleSaveWork}
                       />
                     </div>
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="w-full sm:w-auto flex items-center gap-2">
-                  <Link
-                    to="/read/$workId/$chapterId"
-                    params={{
-                      workId: activeWorkSlug,
-                      chapterId: activeChapter?.id || 'ch-1',
-                    }}
-                    preload="intent"
-                    className="flex-1 sm:flex-initial no-underline"
-                  >
-                    <button
-                      type="button"
-                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 h-8 rounded-lg bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-xs font-semibold hover:opacity-90 transition-opacity shadow-2xs cursor-pointer"
-                    >
-                      <Play className="h-3 w-3 fill-current shrink-0" />
-                      <span>Resume Ch. {activeChapter?.number || 1}</span>
-                    </button>
-                  </Link>
-
-                  <button
-                    type="button"
-                    onClick={() => toggleSaveWork(activeWork.id)}
-                    className={`h-8 w-8 inline-flex items-center justify-center rounded-lg border text-xs transition-colors cursor-pointer shrink-0 ${
-                      isWorkSaved(activeWork.id)
-                        ? 'border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)]'
-                        : 'border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
-                    }`}
-                    title={isWorkSaved(activeWork.id) ? 'Saved in library' : 'Save to library'}
-                    aria-label="Bookmark story"
-                  >
-                    <Bookmark className={`h-3.5 w-3.5 ${isWorkSaved(activeWork.id) ? 'fill-current' : ''}`} />
-                  </button>
+                  ))}
                 </div>
               </div>
+            )}
+          </div>
 
+          {/* ── DESKTOP SCREENS: Max 3 Cards Grid ── */}
+          <div className="hidden md:block">
+            <div
+              className={`grid gap-3.5 ${
+                desktopReadingList.length === 1
+                  ? 'grid-cols-1 max-w-xl'
+                  : desktopReadingList.length === 2
+                  ? 'grid-cols-2'
+                  : 'grid-cols-3'
+              }`}
+            >
+              {desktopReadingList.map((item) => (
+                <CurrentlyReadingCard
+                  key={item.work.id}
+                  item={item}
+                  isWorkSaved={isWorkSaved}
+                  toggleSaveWork={toggleSaveWork}
+                />
+              ))}
             </div>
           </div>
         </section>

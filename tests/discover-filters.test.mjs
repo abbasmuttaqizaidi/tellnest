@@ -13,7 +13,7 @@ import {
   matchesTab,
 } from '../src/lib/discover/filters.ts'
 import { WORKS } from '../src/data/mockData.ts'
-import { executeGetPlatformWorks } from '../src/server/works.ts'
+import { executeGetPlatformWorks, executeGetPaginatedDiscoverWorks } from '../src/server/works.ts'
 
 // Fixed test reference time: Wednesday, October 14, 2026 12:00:00 UTC
 // Week boundary: Monday, Oct 12, 2026 00:00:00 UTC to Monday, Oct 19, 2026 00:00:00 UTC
@@ -1315,6 +1315,57 @@ test('SQL & Application Parity: Published story with null published_at preserves
   assert.equal(appMapped[0].new_this_week, false)
   assert.equal(appMapped[0].editorPick, true)
   assert.ok(appMapped[0].collection.includes('editor_picks'))
+})
+
+test('Paginated Discover: executeGetPaginatedDiscoverWorks enforces limit 14 and all-status default', async () => {
+  // Generate 30 mock works with mix of ongoing and completed
+  const mockRows = Array.from({ length: 30 }, (_, i) => ({
+    id: `work-page-${i + 1}`,
+    title: `Serialized Story ${i + 1}`,
+    status: i % 2 === 0 ? 'completed' : 'ongoing',
+    visibility: 'public',
+    publication_status: 'published',
+    published_at: '2026-01-01T00:00:00.000Z',
+    created_at: '2026-01-01T00:00:00.000Z',
+    category_name: 'Novels',
+    category_slug: 'novels',
+    genres: [{ id: 'g-1', name: 'Literary Fiction', slug: 'literary-fiction' }],
+    acts: [],
+    chapters: [],
+    curated_collections: [],
+  }))
+
+  const deps = {
+    queryRows: async () => mockRows,
+    getAuthState: async () => ({ userId: 'test-user' }),
+  }
+
+  // Page 1 (default limit 14, default status all)
+  const resPage1 = await executeGetPaginatedDiscoverWorks({ page: 1 }, deps)
+  assert.equal(resPage1.pageSize, 14)
+  assert.equal(resPage1.page, 1)
+  assert.equal(resPage1.works.length, 14)
+  assert.equal(resPage1.totalCount, 30)
+  assert.equal(resPage1.totalPages, 3)
+  assert.equal(resPage1.hasNextPage, true)
+  assert.equal(resPage1.hasPrevPage, false)
+  // Both ongoing and completed present
+  assert.ok(resPage1.works.some((w) => w.status === 'Ongoing'))
+  assert.ok(resPage1.works.some((w) => w.status === 'Completed'))
+
+  // Page 2
+  const resPage2 = await executeGetPaginatedDiscoverWorks({ page: 2 }, deps)
+  assert.equal(resPage2.works.length, 14)
+  assert.equal(resPage2.page, 2)
+  assert.equal(resPage2.hasNextPage, true)
+  assert.equal(resPage2.hasPrevPage, true)
+
+  // Page 3 (remaining 2 works)
+  const resPage3 = await executeGetPaginatedDiscoverWorks({ page: 3 }, deps)
+  assert.equal(resPage3.works.length, 2)
+  assert.equal(resPage3.page, 3)
+  assert.equal(resPage3.hasNextPage, false)
+  assert.equal(resPage3.hasPrevPage, true)
 })
 
 

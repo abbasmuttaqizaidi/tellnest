@@ -17,6 +17,14 @@ export type WorkVisibility = 'draft' | 'private' | 'unlisted' | 'public'
 export type PublicationStatus = 'draft' | 'published' | 'archived'
 export type ContentRating = 'general' | 'teen' | 'mature'
 export type ChapterStatus = 'draft' | 'published' | 'archived'
+export type WorkActivityType =
+  | 'work_created'
+  | 'work_metadata_updated'
+  | 'act_created'
+  | 'act_updated'
+  | 'chapter_drafted'
+  | 'chapter_updated'
+  | 'chapter_published'
 export type CommentStatus = 'visible' | 'hidden' | 'removed' | 'pending_review'
 export type NotificationType =
   | 'new_follower'
@@ -384,7 +392,7 @@ export interface Database {
           published_at: string | null
           last_published_at: string | null
           last_activity_at: string
-          last_activity_type: string
+          last_activity_type: WorkActivityType
           last_activity_detail: Json
           created_at: string
           updated_at: string
@@ -415,7 +423,7 @@ export interface Database {
           published_at?: string | null
           last_published_at?: string | null
           last_activity_at?: string
-          last_activity_type?: string
+          last_activity_type?: WorkActivityType
           last_activity_detail?: Json
           created_at?: string
           updated_at?: string
@@ -438,7 +446,7 @@ export interface Database {
           content_warning_text?: string | null
           reading_time_minutes?: number | null
           last_activity_at?: string
-          last_activity_type?: string
+          last_activity_type?: WorkActivityType
           last_activity_detail?: Json
           word_count?: number
           chapter_count?: number
@@ -975,6 +983,17 @@ export interface Database {
           chapter_id?: string | null
           metadata?: Json | null
           created_at?: string
+        }
+      }
+      usernames: {
+        Row: {
+          username: string
+        }
+        Insert: {
+          username: string
+        }
+        Update: {
+          username?: string
         }
       }
     }

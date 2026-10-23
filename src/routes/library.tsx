@@ -35,15 +35,22 @@ import {
 
 export interface LibrarySearch {
   preview?: string
+  tab?: 'all' | 'reading' | 'saved' | 'completed'
 }
 
 export const Route = createFileRoute('/library')({
   // In-Memory SWR (Desktop & Mobile): Keeps shelf data fresh in RAM for 30s; instant 0ms navigation
   staleTime: 30_000,
   gcTime: 1000 * 60 * 5,
-  validateSearch: (search: Record<string, unknown>): LibrarySearch => ({
-    preview: search.preview ? String(search.preview).replace(/['"]/g, '') : undefined,
-  }),
+  validateSearch: (search: Record<string, unknown>): LibrarySearch => {
+    const rawTab = typeof search.tab === 'string' ? search.tab.toLowerCase() : ''
+    const validTabs: LibrarySearch['tab'][] = ['all', 'reading', 'saved', 'completed']
+    const tab = validTabs.includes(rawTab as any) ? (rawTab as LibrarySearch['tab']) : undefined
+    return {
+      preview: search.preview ? String(search.preview).replace(/['"]/g, '') : undefined,
+      tab,
+    }
+  },
   head: () =>
     generateMeta({
       title: 'My Library — Continue Reading & Saved Books',
@@ -55,7 +62,7 @@ export const Route = createFileRoute('/library')({
 
 function LibraryPageRoute() {
   const { isSignedIn } = useUser()
-  const { preview } = Route.useSearch()
+  const { preview, tab } = Route.useSearch()
   const cleanPreview = preview ? String(preview).replace(/['"]/g, '') : ''
   const isExplicitPreview =
     cleanPreview === 'true' ||
@@ -65,7 +72,7 @@ function LibraryPageRoute() {
   // If a user is signed in, ALWAYS show their authentic real user library!
   // Mock preview mode is strictly reserved for logged-out design inspection.
   if (isExplicitPreview && !isSignedIn) {
-    return <LibraryPage isPreview={true} />
+    return <LibraryPage isPreview={true} initialTab={tab} />
   }
 
   return (
@@ -74,16 +81,28 @@ function LibraryPageRoute() {
       description="Sign in to view your saved books and continue reading."
       featureBadge="My Library"
     >
-      <LibraryPage isPreview={false} />
+      <LibraryPage isPreview={false} initialTab={tab} />
     </ProtectedRoute>
   )
 }
 
 type ShelfTab = 'all' | 'reading' | 'saved' | 'completed'
 
-function LibraryPage({ isPreview = false }: { isPreview?: boolean }) {
+function LibraryPage({ isPreview = false, initialTab }: { isPreview?: boolean; initialTab?: ShelfTab }) {
   const { allWorks, savedWorkIds: rawSavedWorkIds, toggleSaveWork, readingProgress: rawReadingProgress, writerWorks, isOwnWork } = useApp()
-  const [activeTab, setActiveTab] = useState<ShelfTab>('all')
+  const [activeTab, setActiveTab] = useState<ShelfTab>(() => {
+    if (initialTab && ['all', 'reading', 'saved', 'completed'].includes(initialTab)) {
+      return initialTab
+    }
+    return 'all'
+  })
+
+  // Sync tab if URL search parameter changes
+  useEffect(() => {
+    if (initialTab && ['all', 'reading', 'saved', 'completed'].includes(initialTab)) {
+      setActiveTab(initialTab)
+    }
+  }, [initialTab])
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedFocalWorkId, setSelectedFocalWorkId] = useState<string | null>(null)
 

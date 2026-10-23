@@ -3,6 +3,7 @@ import { useUser, useAuth } from '@clerk/react'
 import { useRouter } from '@tanstack/react-router'
 import { syncClerkUserServerFn } from '../server/authors'
 import { createClerkSupabaseClient } from '../lib/supabase/client'
+import { useApp } from '../context/AppContext'
 
 /**
  * ClerkSync Component
@@ -13,6 +14,7 @@ export function ClerkSync() {
   const { user, isLoaded: isUserLoaded, isSignedIn } = useUser()
   const { getToken } = useAuth()
   const router = useRouter()
+  const { setUserDisplayName, setUserProfileUsername } = useApp()
   const lastSyncedIdRef = useRef<string | null>(null)
   const prevSignedInRef = useRef<boolean | null>(null)
 
@@ -57,7 +59,7 @@ export function ClerkSync() {
           'HatchPen Author'
 
         // 1. Sync User into Supabase `profiles` table via server function (Service Role Key runs strictly on server)
-        await syncClerkUserServerFn({
+        const synced = await syncClerkUserServerFn({
           data: {
             clerkUserId: user.id,
             username,
@@ -65,6 +67,15 @@ export function ClerkSync() {
             avatarUrl: user.imageUrl || '/unisex-avatar.svg',
           },
         })
+
+        if (synced) {
+          if (synced.display_name) {
+            setUserDisplayName(synced.display_name)
+          }
+          if (synced.username) {
+            setUserProfileUsername(synced.username)
+          }
+        }
 
         lastSyncedIdRef.current = user.id
 

@@ -13,11 +13,30 @@ interface WorkCardProps {
 }
 
 export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
-  const { isWorkSaved, toggleSaveWork, readingProgress, isOwnWork } = useApp()
+  const { isWorkSaved, toggleSaveWork, readingProgress, isOwnWork, isSignedIn, openAuthModal } = useApp()
   const saved = isWorkSaved(work.id)
   const progress = !isOwnWork(work.id) ? readingProgress[work.id] : undefined
   const activity = formatWorkActivitySummary(work)
   const workSlug = getWorkSlug(work)
+  const authorSlug = work.author.handle || work.author.id
+
+  const showAuthorAvatar = work.author.showAvatar !== false
+  const showAuthorName = work.author.showName !== false
+  const showAuthorUsername = work.author.showUsername !== false
+  const authorDisplayName = showAuthorName
+    ? work.author.name
+    : showAuthorUsername
+      ? `@${work.author.handle}`
+      : 'Anonymous Author'
+  const authorAvatarUrl = showAuthorAvatar ? work.author.avatar : '/unisex-avatar.svg'
+
+  const handleAuthorClick = (e: React.MouseEvent) => {
+    if (!isSignedIn) {
+      e.preventDefault()
+      e.stopPropagation()
+      openAuthModal(`/author/${authorSlug}`)
+    }
+  }
 
   if (layout === 'horizontal') {
     return (
@@ -106,18 +125,19 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[var(--border-subtle)] text-[11px] text-[var(--ink-muted)]">
             <Link
               to="/author/$authorId"
-              params={{ authorId: work.author.id }}
+              params={{ authorId: authorSlug }}
               preload="intent"
+              onClick={handleAuthorClick}
               className="flex items-center gap-2 text-inherit no-underline hover:text-[var(--ink-primary)]"
             >
               <OptimizedImage
-                src={work.author.avatar}
-                alt={work.author.name}
+                src={authorAvatarUrl}
+                alt={authorDisplayName}
                 width={24}
                 height={24}
                 className="h-5 w-5 rounded-full object-cover grayscale"
               />
-              <span className="font-medium text-[var(--ink-secondary)]">{work.author.name}</span>
+              <span className="font-medium text-[var(--ink-secondary)]">{authorDisplayName}</span>
             </Link>
 
             <div className="flex items-center gap-3 font-mono text-[10px]">
@@ -233,18 +253,19 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
       <div className="mt-3 sm:mt-4 pt-2.5 sm:pt-3 border-t border-[var(--border-subtle)] flex items-center justify-between gap-1.5 text-[11px]">
         <Link
           to="/author/$authorId"
-          params={{ authorId: work.author.id }}
+          params={{ authorId: authorSlug }}
           preload="intent"
+          onClick={handleAuthorClick}
           className="flex items-center gap-1 sm:gap-1.5 text-inherit no-underline hover:text-[var(--ink-primary)] min-w-0 flex-1"
         >
           <OptimizedImage
-            src={work.author.avatar}
-            alt={work.author.name}
+            src={authorAvatarUrl}
+            alt={authorDisplayName}
             width={20}
             height={20}
             className="h-3.5 w-3.5 sm:h-4 sm:w-4 rounded-full object-cover grayscale shrink-0"
           />
-          <span className="truncate text-[var(--ink-secondary)] font-medium text-[10px] sm:text-[11px]">{work.author.name}</span>
+          <span className="truncate text-[var(--ink-secondary)] font-medium text-[10px] sm:text-[11px]">{authorDisplayName}</span>
         </Link>
 
         <div className="flex items-center gap-1 sm:gap-1.5 font-mono text-[9px] sm:text-[10px] text-[var(--ink-faint)] shrink-0 whitespace-nowrap">

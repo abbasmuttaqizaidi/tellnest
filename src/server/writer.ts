@@ -2,6 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '../lib/supabase/server.ts'
 import type { Database } from '../lib/supabase/types.ts'
+import type { Chapter } from '../data/mockData'
 
 /**
  * Helper to resolve or auto-provision a profile row for the authenticated Clerk user.
@@ -52,6 +53,9 @@ export interface WriterWorkListItem {
   totalReads: string
   totalSaves: number
   lastUpdated: string
+  firstChapterId?: string
+  activeChapterId?: string
+  chapters?: Chapter[]
 }
 
 export interface GetWriterWorksResponse {
@@ -95,7 +99,18 @@ export const getWriterWorksServerFn = createServerFn({ method: 'GET' })
         created_at,
         updated_at,
         last_activity_at,
-        category:categories(id, name, slug)
+        category:categories(id, name, slug),
+        chapters(
+          id,
+          chapter_number,
+          title,
+          subtitle,
+          content,
+          word_count,
+          reading_time_minutes,
+          status,
+          updated_at
+        )
       `)
       .eq('author_id', profile.id)
       .order('updated_at', { ascending: false })
@@ -133,6 +148,26 @@ export const getWriterWorksServerFn = createServerFn({ method: 'GET' })
       const updatedDate = w.last_activity_at || w.updated_at || w.created_at
       const formattedDate = updatedDate ? new Date(updatedDate).toLocaleDateString() : 'Recently'
 
+      const rawChapters = Array.isArray(w.chapters) ? w.chapters : []
+      const sortedChapters = [...rawChapters].sort(
+        (a: any, b: any) => (a.chapter_number || 0) - (b.chapter_number || 0)
+      )
+      const mappedChapters: Chapter[] = sortedChapters.map((ch: any) => ({
+        id: ch.id,
+        number: ch.chapter_number || 1,
+        title: ch.title || 'Untitled Chapter',
+        subtitle: ch.subtitle || '',
+        status: (ch.status === 'published' ? 'published' : 'draft') as 'published' | 'draft',
+        wordCount: ch.word_count || 0,
+        readTimeMinutes: ch.reading_time_minutes || 1,
+        content: ch.content || '',
+        updatedAt: ch.updated_at || undefined,
+      }))
+
+      const firstChapterId = mappedChapters[0]?.id
+      const draftChapter = mappedChapters.find((c) => c.status === 'draft')
+      const activeChapterId = draftChapter?.id || mappedChapters[mappedChapters.length - 1]?.id || firstChapterId
+
       return {
         id: w.id,
         title: w.title,
@@ -143,10 +178,13 @@ export const getWriterWorksServerFn = createServerFn({ method: 'GET' })
         categorySlug: catObj?.slug || 'novels',
         genre: 'Literary Fiction',
         genreSlug: 'literary-fiction',
-        chaptersCount: w.chapter_count || 0,
+        chaptersCount: mappedChapters.length || w.chapter_count || 0,
         totalReads: viewCountNum.toLocaleString(),
         totalSaves: saveCountNum,
         lastUpdated: formattedDate,
+        firstChapterId,
+        activeChapterId,
+        chapters: mappedChapters,
       }
     })
 
@@ -170,6 +208,7 @@ export interface CreateWriterWorkPayload {
   language?: string
   status?: 'Ongoing' | 'Completed'
   visibility?: 'Public' | 'Unlisted' | 'Draft'
+  includeInitialAct?: boolean
 }
 
 export interface ExecuteCreateWriterWorkOptions {
@@ -444,30 +483,35 @@ export async function executeCreateWriterWork(
     }
   }
 
-  // 7. Insert Act 1 into acts table
-  const { data: actRow, error: actErr } = await admin
-    .from('acts')
-    .insert({
-      work_id: newWork.id,
-      act_number: 1,
-      title: 'Act I',
-      slug: `act-1-${uniqueSuffix}`,
-      description: 'First Movement',
-      status: 'published',
-      display_order: 1,
-      created_at: nowIso,
-      updated_at: nowIso,
-    })
-    .select('id')
-    .single()
+  // 7. Insert Act 1 into acts table ONLY if includeInitialAct is not false
+  // Acts are completely optional so stories do not force Act 1 by default
+  let initialActId: string | null = null
+  if (data.includeInitialAct !== false) {
+    const { data: actRow, error: actErr } = await admin
+      .from('acts')
+      .insert({
+        work_id: newWork.id,
+        act_number: 1,
+        title: 'Act I',
+        slug: `act-1-${uniqueSuffix}`,
+        description: 'First Movement',
+        status: 'published',
+        display_order: 1,
+        created_at: nowIso,
+        updated_at: nowIso,
+      })
+      .select('id')
+      .single()
 
-  if (actErr || !actRow?.id) {
-    console.error('[executeCreateWriterWork] Act insert failed:', actErr?.message)
-    handleManuscriptCreationFailure(
-      newWork.id,
-      'create initial Act I',
-      new Error(actErr?.message || 'Unknown act creation error')
-    )
+    if (actErr || !actRow?.id) {
+      console.error('[executeCreateWriterWork] Act insert failed:', actErr?.message)
+      handleManuscriptCreationFailure(
+        newWork.id,
+        'create initial Act I',
+        new Error(actErr?.message || 'Unknown act creation error')
+      )
+    }
+    initialActId = actRow.id
   }
 
   // 8. Insert initial Chapter 1
@@ -480,7 +524,7 @@ export async function executeCreateWriterWork(
     .from('chapters')
     .insert({
       work_id: newWork.id,
-      act_id: actRow.id,
+      act_id: initialActId,
       chapter_number: 1,
       title: 'Chapter One',
       slug: `chapter-1-${uniqueSuffix}`,
@@ -640,7 +684,9 @@ export const getWriterWorkDetailsServerFn = createServerFn({ method: 'GET' })
       tags: ['Serialized'],
       language: dbWork.language || 'English',
       status: dbWork.status === 'completed' ? 'Completed' : 'Ongoing',
-      visibility: (dbWork.visibility === 'public' ? 'Public' : 'Unlisted') as any,
+      visibility: (dbWork.visibility === 'public' ? 'Public' : dbWork.visibility === 'draft' ? 'Draft' : 'Unlisted') as any,
+      publicationStatus: (dbWork.publication_status === 'published' ? 'Published' : dbWork.publication_status === 'archived' ? 'Archived' : 'Draft') as any,
+      publishedAt: dbWork.published_at || null,
       isMature: false,
       synopsis: dbWork.description || '',
       fullDescription: dbWork.description || '',
@@ -671,11 +717,12 @@ export const getWriterWorkDetailsServerFn = createServerFn({ method: 'GET' })
 export interface SaveWriterChapterPayload {
   workId: string
   chapterId: string
-  title: string
+  title?: string
   subtitle?: string
-  content: string
+  content?: string
   status?: 'draft' | 'published'
   bannerImage?: string | null
+  actId?: string | null
 }
 
 /**
@@ -685,15 +732,17 @@ export const saveWriterChapterServerFn = createServerFn({ method: 'POST' })
   .validator((params: SaveWriterChapterPayload) => {
     if (!params.workId?.trim()) throw new Error('Work ID is required')
     if (!params.chapterId?.trim()) throw new Error('Chapter ID is required')
-    if (!params.title?.trim()) throw new Error('Chapter title is required')
     return params
   })
   .handler(async ({ data }) => {
     const admin = createAdminClient()
     const nowIso = new Date().toISOString()
-    const wordCount = data.content.trim().split(/\s+/).filter(Boolean).length
-    const readingTime = Math.max(1, Math.ceil(wordCount / 220))
-    const status = data.status || 'draft'
+    const hasContent = typeof data.content === 'string'
+    // Robust server-side sanitization: strip any markdown hard-break trailing backslashes
+    const cleanContent = hasContent ? data.content!.replace(/\\+[ \t]*(?=\r?\n|$)/g, '') : undefined
+    const wordCount = cleanContent !== undefined ? cleanContent.trim().split(/\s+/).filter(Boolean).length : undefined
+    const readingTime = wordCount !== undefined ? Math.max(1, Math.ceil(wordCount / 220)) : undefined
+    const status = data.status
 
     // 1. Resolve work ID (if passed as slug)
     let workUuid = data.workId
@@ -708,19 +757,30 @@ export const saveWriterChapterServerFn = createServerFn({ method: 'POST' })
 
     if (isChapterUuid) {
       const updateData: Record<string, any> = {
-        title: data.title.trim(),
-        subtitle: data.subtitle?.trim() || null,
-        content: data.content,
-        word_count: wordCount,
-        reading_time_minutes: readingTime,
-        status,
         updated_at: nowIso,
       }
-      if (status === 'published') {
-        updateData.published_at = nowIso
+      if (data.title !== undefined && data.title.trim()) {
+        updateData.title = data.title.trim()
+      }
+      if (data.subtitle !== undefined) {
+        updateData.subtitle = data.subtitle?.trim() || null
+      }
+      if (hasContent) {
+        updateData.content = cleanContent
+        updateData.word_count = wordCount
+        updateData.reading_time_minutes = readingTime
+      }
+      if (status !== undefined) {
+        updateData.status = status
+        if (status === 'published') {
+          updateData.published_at = nowIso
+        }
       }
       if (data.bannerImage !== undefined) {
         updateData.banner_image_path = data.bannerImage?.trim() || null
+      }
+      if (data.actId !== undefined) {
+        updateData.act_id = data.actId || null
       }
 
       const { error: chErr } = await admin
@@ -750,13 +810,13 @@ export const saveWriterChapterServerFn = createServerFn({ method: 'POST' })
         .insert({
           work_id: workUuid,
           chapter_number: nextNum,
-          title: data.title.trim(),
+          title: data.title?.trim() || 'Untitled Chapter',
           subtitle: data.subtitle?.trim() || null,
           slug: chSlug,
-          content: data.content,
-          word_count: wordCount,
-          reading_time_minutes: readingTime,
-          status,
+          content: cleanContent || '',
+          word_count: wordCount || 0,
+          reading_time_minutes: readingTime || 1,
+          status: status || 'draft',
           published_at: status === 'published' ? nowIso : null,
           created_at: nowIso,
           updated_at: nowIso,
@@ -788,9 +848,9 @@ export const saveWriterChapterServerFn = createServerFn({ method: 'POST' })
           last_activity_at: nowIso,
           last_activity_type: status === 'published' ? 'chapter_published' : 'chapter_updated',
           last_activity_detail: {
-            chapterTitle: data.title.trim(),
+            chapterTitle: data.title?.trim() || 'Chapter',
             updatedAt: nowIso,
-            summaryText: `Chapter "${data.title.trim()}" ${status === 'published' ? 'published' : 'updated'}`,
+            summaryText: `Chapter "${data.title?.trim() || 'Chapter'}" ${status === 'published' ? 'published' : 'updated'}`,
           },
           updated_at: nowIso,
         })
@@ -844,19 +904,10 @@ export const createWriterChapterServerFn = createServerFn({ method: 'POST' })
     const uniqueSuffix = Math.random().toString(36).substring(2, 6)
     const slug = `ch-${nextNumber}-${uniqueSuffix}`
 
-    // 3. Resolve act_id if provided or default
+    // 3. Resolve act_id if provided (Do not force latest act if not provided; chapters can be unassigned)
     let actId: string | null = null
     if (data.actId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.actId)) {
       actId = data.actId
-    } else {
-      const { data: latestAct } = await admin
-        .from('acts')
-        .select('id')
-        .eq('work_id', workUuid)
-        .order('act_number', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      if (latestAct?.id) actId = latestAct.id
     }
 
     const { data: createdCh, error: createErr } = await admin
@@ -920,4 +971,463 @@ export const createWriterChapterServerFn = createServerFn({ method: 'POST' })
         content: '',
       },
     }
+  })
+
+export interface DeleteWriterChapterPayload {
+  workId: string
+  chapterId: string
+}
+
+/**
+ * Core business logic to delete a chapter safely from PostgreSQL and recalculate aggregate stats
+ */
+export async function executeDeleteWriterChapter(
+  data: DeleteWriterChapterPayload,
+  adminClient?: any
+) {
+  if (!data.workId?.trim()) throw new Error('Work ID is required')
+  if (!data.chapterId?.trim()) throw new Error('Chapter ID is required')
+
+  const admin = adminClient || createAdminClient()
+  const nowIso = new Date().toISOString()
+
+  // 1. Resolve work UUID
+  let workUuid = data.workId.trim()
+  const isWorkUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(workUuid)
+  if (!isWorkUuid) {
+    const { data: wRow } = await admin.from('works').select('id').eq('slug', workUuid.toLowerCase()).maybeSingle()
+    if (wRow?.id) workUuid = wRow.id
+  }
+
+  // 2. Fetch chapter to verify ownership and get title
+  const { data: targetCh } = await admin
+    .from('chapters')
+    .select('id, title, chapter_number')
+    .eq('id', data.chapterId)
+    .eq('work_id', workUuid)
+    .maybeSingle()
+
+  if (!targetCh) {
+    throw new Error('Chapter not found or does not belong to this manuscript')
+  }
+
+  // 3. Delete the chapter
+  const { error: delErr } = await admin
+    .from('chapters')
+    .delete()
+    .eq('id', data.chapterId)
+    .eq('work_id', workUuid)
+
+  if (delErr) {
+    console.error('[deleteWriterChapterServerFn] Error deleting chapter:', delErr.message)
+    throw new Error(`Failed to delete chapter: ${delErr.message}`)
+  }
+
+  // 4. Recalculate remaining chapter counts and word counts
+  const { data: remainingChs } = await admin
+    .from('chapters')
+    .select('word_count, reading_time_minutes')
+    .eq('work_id', workUuid)
+
+  const remainingCount = remainingChs?.length || 0
+  const totalWords = (remainingChs || []).reduce((sum, c) => sum + (c.word_count || 0), 0)
+  const totalMinutes = (remainingChs || []).reduce((sum, c) => sum + (c.reading_time_minutes || 0), 0)
+
+  await admin
+    .from('works')
+    .update({
+      chapter_count: remainingCount,
+      word_count: totalWords,
+      reading_time_minutes: totalMinutes,
+      last_activity_at: nowIso,
+      last_activity_type: 'work_metadata_updated',
+      last_activity_detail: {
+        chapterId: targetCh.id,
+        chapterTitle: targetCh.title,
+        updatedAt: nowIso,
+        summaryText: `Chapter "${targetCh.title}" removed`,
+      },
+      updated_at: nowIso,
+    })
+    .eq('id', workUuid)
+
+  return { success: true, remainingCount }
+}
+
+/**
+ * 5.1 Delete a Chapter safely from PostgreSQL and recalculate aggregate stats
+ */
+export const deleteWriterChapterServerFn = createServerFn({ method: 'POST' })
+  .validator((params: DeleteWriterChapterPayload) => {
+    if (!params.workId?.trim()) throw new Error('Work ID is required')
+    if (!params.chapterId?.trim()) throw new Error('Chapter ID is required')
+    return params
+  })
+  .handler(async ({ data }) => {
+    return executeDeleteWriterChapter(data)
+  })
+
+export interface CreateWriterActPayload {
+  workId: string
+  title: string
+  description?: string
+  actNumber?: number
+  assignedChapterIds?: string[]
+}
+
+export interface UpdateWriterActPayload {
+  workId: string
+  actId: string
+  title: string
+  description?: string
+}
+
+export interface DeleteWriterActPayload {
+  workId: string
+  actId: string
+}
+
+/**
+ * 6. Create a new Act for a serialized manuscript
+ */
+export const createWriterActServerFn = createServerFn({ method: 'POST' })
+  .validator((params: CreateWriterActPayload) => {
+    if (!params.workId?.trim()) throw new Error('Work ID is required')
+    if (!params.title?.trim()) throw new Error('Act title is required')
+    return params
+  })
+  .handler(async ({ data }) => {
+    const admin = createAdminClient()
+    const nowIso = new Date().toISOString()
+
+    // 1. Resolve work UUID
+    let workUuid = data.workId
+    const isWorkUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.workId)
+    if (!isWorkUuid) {
+      const { data: wRow } = await admin.from('works').select('id').eq('slug', data.workId).maybeSingle()
+      if (wRow?.id) workUuid = wRow.id
+    }
+
+    // 2. Determine act number
+    let actNumber = data.actNumber
+    if (!actNumber || isNaN(actNumber)) {
+      const { data: existingActs } = await admin
+        .from('acts')
+        .select('act_number')
+        .eq('work_id', workUuid)
+        .order('act_number', { ascending: false })
+        .limit(1)
+
+      actNumber = ((existingActs?.[0]?.act_number) || 0) + 1
+    }
+
+    const uniqueSuffix = Math.random().toString(36).substring(2, 6)
+    const slug = `act-${actNumber}-${uniqueSuffix}`
+
+    const { data: createdAct, error: createErr } = await admin
+      .from('acts')
+      .insert({
+        work_id: workUuid,
+        act_number: actNumber,
+        title: data.title.trim(),
+        slug,
+        description: data.description?.trim() || null,
+        status: 'published',
+        display_order: actNumber,
+        created_at: nowIso,
+        updated_at: nowIso,
+      })
+      .select('*')
+      .single()
+
+    if (createErr || !createdAct) {
+      console.error('[createWriterActServerFn] Error creating act:', createErr?.message)
+      throw new Error(`Failed to create act: ${createErr?.message}`)
+    }
+
+    // 3. Reassign specified chapters to this new act if provided
+    if (Array.isArray(data.assignedChapterIds) && data.assignedChapterIds.length > 0) {
+      await admin
+        .from('chapters')
+        .update({ act_id: createdAct.id, updated_at: nowIso })
+        .in('id', data.assignedChapterIds)
+    }
+
+    // Update work's last activity
+    await admin
+      .from('works')
+      .update({
+        last_activity_at: nowIso,
+        last_activity_type: 'act_created',
+        last_activity_detail: {
+          actId: createdAct.id,
+          actNumber,
+          actTitle: data.title.trim(),
+          updatedAt: nowIso,
+          summaryText: `Act ${actNumber}: "${data.title.trim()}" added to manuscript`,
+        },
+        updated_at: nowIso,
+      })
+      .eq('id', workUuid)
+
+    return {
+      success: true,
+      act: {
+        id: createdAct.id,
+        number: createdAct.act_number,
+        title: createdAct.title,
+        slug: createdAct.slug,
+        description: createdAct.description || '',
+        status: createdAct.status || 'published',
+      },
+    }
+  })
+
+/**
+ * 7. Update an Act's title and description
+ */
+export const updateWriterActServerFn = createServerFn({ method: 'POST' })
+  .validator((params: UpdateWriterActPayload) => {
+    if (!params.actId?.trim()) throw new Error('Act ID is required')
+    if (!params.title?.trim()) throw new Error('Act title is required')
+    return params
+  })
+  .handler(async ({ data }) => {
+    const admin = createAdminClient()
+    const nowIso = new Date().toISOString()
+
+    const { data: updatedAct, error } = await admin
+      .from('acts')
+      .update({
+        title: data.title.trim(),
+        description: data.description?.trim() || null,
+        updated_at: nowIso,
+      })
+      .eq('id', data.actId)
+      .select('*')
+      .single()
+
+    if (error || !updatedAct) {
+      console.error('[updateWriterActServerFn] Error updating act:', error?.message)
+      throw new Error(`Failed to update act: ${error?.message}`)
+    }
+
+    return {
+      success: true,
+      act: {
+        id: updatedAct.id,
+        number: updatedAct.act_number,
+        title: updatedAct.title,
+        slug: updatedAct.slug,
+        description: updatedAct.description || '',
+        status: updatedAct.status || 'published',
+      },
+    }
+  })
+
+/**
+ * 8. Delete an Act safely (unlinks chapters to act_id = null instead of deleting them)
+ */
+export const deleteWriterActServerFn = createServerFn({ method: 'POST' })
+  .validator((params: DeleteWriterActPayload) => {
+    if (!params.actId?.trim()) throw new Error('Act ID is required')
+    return params
+  })
+  .handler(async ({ data }) => {
+    const admin = createAdminClient()
+    const nowIso = new Date().toISOString()
+
+    // 1. Unlink chapters belonging to this act (set act_id = null)
+    await admin
+      .from('chapters')
+      .update({ act_id: null, updated_at: nowIso })
+      .eq('act_id', data.actId)
+
+    // 2. Delete the act record
+    const { error } = await admin
+      .from('acts')
+      .delete()
+      .eq('id', data.actId)
+
+    if (error) {
+      console.error('[deleteWriterActServerFn] Error deleting act:', error.message)
+      throw new Error(`Failed to delete act: ${error.message}`)
+    }
+
+    return { success: true }
+  })
+
+export interface UpdateWriterWorkPublicationPayload {
+  workId: string
+  visibility: 'public' | 'unlisted' | 'draft' | 'private'
+  publicationStatus: 'published' | 'draft' | 'archived'
+  status?: 'ongoing' | 'completed' | 'on_hiatus' | 'cancelled'
+}
+
+/**
+ * Core business logic for updating a work's publication status and visibility.
+ */
+export async function executeWriterWorkPublication(
+  data: UpdateWriterWorkPublicationPayload,
+  adminClient?: any
+) {
+  if (!data.workId?.trim()) throw new Error('Work ID is required')
+  if (!data.visibility) throw new Error('Visibility is required')
+  if (!data.publicationStatus) throw new Error('Publication status is required')
+
+  const admin = adminClient || createAdminClient()
+  const nowIso = new Date().toISOString()
+
+  // 1. Resolve Work UUID
+  let workUuid = data.workId.trim()
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(workUuid)
+  if (!isUuid) {
+    const { data: wRow } = await admin.from('works').select('id').eq('slug', workUuid.toLowerCase()).maybeSingle()
+    if (wRow?.id) workUuid = wRow.id
+  }
+
+  const { data: currentWork } = await admin
+    .from('works')
+    .select('published_at, visibility, publication_status')
+    .eq('id', workUuid)
+    .maybeSingle()
+
+  const normalizedPubStatus = data.publicationStatus.toLowerCase() as 'published' | 'draft' | 'archived'
+  let normalizedVisibility = data.visibility.toLowerCase() as 'public' | 'unlisted' | 'draft' | 'private'
+
+  // When publishing, if visibility was set to draft/private, default to public
+  if (normalizedPubStatus === 'published' && (normalizedVisibility === 'draft' || normalizedVisibility === 'private')) {
+    normalizedVisibility = 'public'
+  }
+
+  const updatePayload: Record<string, any> = {
+    publication_status: normalizedPubStatus,
+    visibility: normalizedVisibility,
+    is_indexable: normalizedPubStatus === 'published' && normalizedVisibility === 'public',
+    updated_at: nowIso,
+    last_activity_at: nowIso,
+  }
+
+  if (data.status) {
+    updatePayload.status = data.status.toLowerCase()
+  }
+
+  if (normalizedPubStatus === 'published') {
+    if (!currentWork?.published_at) {
+      updatePayload.published_at = nowIso
+    }
+    updatePayload.last_published_at = nowIso
+    updatePayload.last_activity_type = 'work_metadata_updated'
+    updatePayload.last_activity_detail = {
+      summaryText: 'Manuscript published to readers',
+      updatedAt: nowIso,
+    }
+  } else {
+    updatePayload.last_activity_type = 'work_metadata_updated'
+    updatePayload.last_activity_detail = {
+      summaryText: `Manuscript updated (${normalizedPubStatus})`,
+      updatedAt: nowIso,
+    }
+  }
+
+  const { data: updatedWork, error } = await admin
+    .from('works')
+    .update(updatePayload)
+    .eq('id', workUuid)
+    .select('*')
+    .single()
+
+  if (error || !updatedWork) {
+    console.error('[executeWriterWorkPublication] Error updating work publication:', error?.message)
+    throw new Error(`Failed to update manuscript publication settings: ${error?.message}`)
+  }
+
+  return {
+    success: true,
+    workId: updatedWork.id,
+    visibility: updatedWork.visibility,
+    publicationStatus: updatedWork.publication_status,
+    status: updatedWork.status,
+    publishedAt: updatedWork.published_at,
+  }
+}
+
+/**
+ * 9. Update a Work's publication status, visibility, and serialization status
+ */
+export const updateWriterWorkPublicationServerFn = createServerFn({ method: 'POST' })
+  .validator((params: UpdateWriterWorkPublicationPayload) => {
+    if (!params.workId?.trim()) throw new Error('Work ID is required')
+    if (!params.visibility) throw new Error('Visibility is required')
+    if (!params.publicationStatus) throw new Error('Publication status is required')
+    return params
+  })
+  .handler(async ({ data }) => {
+    return executeWriterWorkPublication(data)
+  })
+
+export interface UpdateWriterWorkCoverPayload {
+  workId: string
+  coverImageUrl: string
+}
+
+/**
+ * Core business logic to update a work's cover image in PostgreSQL
+ */
+export async function executeWriterWorkCover(
+  data: UpdateWriterWorkCoverPayload,
+  adminClient?: any
+) {
+  if (!data.workId?.trim()) throw new Error('Work ID is required')
+  if (!data.coverImageUrl?.trim()) throw new Error('Cover image URL is required')
+
+  const admin = adminClient || createAdminClient()
+  const nowIso = new Date().toISOString()
+
+  let workUuid = data.workId.trim()
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(workUuid)
+  if (!isUuid) {
+    const { data: wRow } = await admin.from('works').select('id').eq('slug', workUuid.toLowerCase()).maybeSingle()
+    if (wRow?.id) workUuid = wRow.id
+  }
+
+  const { data: updatedWork, error } = await admin
+    .from('works')
+    .update({
+      cover_image_path: data.coverImageUrl.trim(),
+      last_activity_at: nowIso,
+      last_activity_type: 'work_metadata_updated',
+      last_activity_detail: {
+        summaryText: 'Cover image updated',
+        updatedAt: nowIso,
+      },
+      updated_at: nowIso,
+    })
+    .eq('id', workUuid)
+    .select('id, cover_image_path')
+    .single()
+
+  if (error || !updatedWork) {
+    console.error('[executeWriterWorkCover] Error updating cover:', error?.message)
+    throw new Error(`Failed to update manuscript cover: ${error?.message || 'Database error'}`)
+  }
+
+  return {
+    success: true,
+    workId: updatedWork.id,
+    cover: updatedWork.cover_image_path,
+  }
+}
+
+/**
+ * 10. Update a Work's cover image
+ */
+export const updateWriterWorkCoverServerFn = createServerFn({ method: 'POST' })
+  .validator((params: UpdateWriterWorkCoverPayload) => {
+    if (!params.workId?.trim()) throw new Error('Work ID is required')
+    if (!params.coverImageUrl?.trim()) throw new Error('Cover image URL is required')
+    return params
+  })
+  .handler(async ({ data }) => {
+    return executeWriterWorkCover(data)
   })

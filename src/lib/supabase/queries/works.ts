@@ -119,7 +119,7 @@ export async function getDiscoverWorks(options?: {
   limit?: number
   offset?: number
 }) {
-  const { categoryId, status, limit = 20, offset = 0 } = options || {}
+  const { categoryId, status, limit = 14, offset = 0 } = options || {}
   const boundedLimit = Math.min(Math.max(1, limit), 50)
 
   let query = supabase

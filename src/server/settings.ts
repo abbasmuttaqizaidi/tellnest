@@ -3,6 +3,7 @@ import { auth } from '@clerk/tanstack-react-start/server'
 import { createAdminClient } from '../lib/supabase/server.ts'
 import type { Database } from '../lib/supabase/types'
 import { GLOBAL_CATEGORIES, GLOBAL_GENRES } from '../lib/taxonomy.ts'
+import { invalidateProfileCache } from './authors.ts'
 
 export interface SettingsAccountProfile {
   id: string
@@ -77,6 +78,14 @@ export interface SettingsDataPayload {
   notifications: SettingsNotificationPreferences
   privacy: {
     isPublic: boolean
+    worksVisibility: 'public' | 'hidden'
+    showAvatar: boolean
+    showName: boolean
+    showUsername: boolean
+    showReads: boolean
+    showFollowers: boolean
+    showWorksCount: boolean
+    showReadingHistory: boolean
     adultContentEnabled: boolean
     blockedUsers: BlockedUserItem[]
     readingHistoryCount: number
@@ -128,7 +137,7 @@ export async function executeGetSettingsData(deps: {
       location: null,
       pronouns: null,
       gender: null,
-      is_public: true,
+      is_public: false,
       account_status: 'active',
       preferences: {},
       created_at: new Date().toISOString(),
@@ -212,6 +221,7 @@ export async function executeGetSettingsData(deps: {
   }
 
   const pJson = (profile.preferences && typeof profile.preferences === 'object') ? profile.preferences : {}
+  const privJson = (pJson.privacy && typeof pJson.privacy === 'object') ? pJson.privacy : {}
   const rJson = (pJson.reading && typeof pJson.reading === 'object') ? pJson.reading : {}
   const uxJson = (pJson.readerUx && typeof pJson.readerUx === 'object') ? pJson.readerUx : {}
   const nJson = (pJson.notifications && typeof pJson.notifications === 'object') ? pJson.notifications : {}
@@ -231,7 +241,7 @@ export async function executeGetSettingsData(deps: {
       gender: profile.gender || null,
       interestedInWriting: Boolean(pJson.interestedInWriting ?? false),
       onboardingCompleted: Boolean(profile.onboarding_completed ?? false),
-      isPublic: profile.is_public ?? true,
+      isPublic: profile.is_public ?? false,
       accountStatus: profile.account_status || 'active',
       createdAt: profile.created_at || new Date().toISOString(),
     },
@@ -278,7 +288,15 @@ export async function executeGetSettingsData(deps: {
       securityAnnouncements: true, // Always true and locked for security
     },
     privacy: {
-      isPublic: profile.is_public ?? true,
+      isPublic: profile.is_public ?? false,
+      worksVisibility: (privJson.worksVisibility === 'hidden' ? 'hidden' : 'public') as 'public' | 'hidden',
+      showAvatar: privJson.showAvatar !== undefined ? Boolean(privJson.showAvatar) : true,
+      showName: privJson.showName !== undefined ? Boolean(privJson.showName) : true,
+      showUsername: privJson.showUsername !== undefined ? Boolean(privJson.showUsername) : true,
+      showReads: Boolean(privJson.showReads ?? false),
+      showFollowers: Boolean(privJson.showFollowers ?? false),
+      showWorksCount: Boolean(privJson.showWorksCount ?? false),
+      showReadingHistory: Boolean(privJson.showReadingHistory ?? false),
       adultContentEnabled: Boolean(userPrefRow?.adult_content_enabled ?? pJson.adult_content_enabled ?? false),
       blockedUsers,
       readingHistoryCount,
@@ -397,12 +415,40 @@ export async function executeUpdateAccountProfile(deps: {
     }
   }
 
-  const { data: updated, error } = await admin
+  let { data: updated, error } = await admin
     .from('profiles')
     .update(updates)
     .eq('clerk_user_id', clerkUserId)
     .select('*')
     .single()
+
+  // Gracefully self-heal if profile record did not exist yet in database
+  if (error && (error.code === 'PGRST116' || error.message?.includes('0 rows'))) {
+    const upsertRes = await admin
+      .from('profiles')
+      .upsert(
+        {
+          clerk_user_id: clerkUserId,
+          username: updates.username || ('user_' + clerkUserId.slice(-6).toLowerCase()),
+          display_name: updates.display_name || 'HatchPen Member',
+          avatar_path: updates.avatar_path || null,
+          bio: updates.bio || null,
+          location: updates.location || null,
+          website_url: updates.website_url || null,
+          pronouns: updates.pronouns || null,
+          gender: updates.gender || null,
+          is_public: false,
+          account_status: 'active',
+          preferences: updates.preferences || {},
+          updated_at: updates.updated_at,
+        },
+        { onConflict: 'clerk_user_id' }
+      )
+      .select('*')
+      .single()
+    updated = upsertRes.data
+    error = upsertRes.error
+  }
 
   if (error) {
     if (error.code === '23505') {
@@ -411,10 +457,87 @@ export async function executeUpdateAccountProfile(deps: {
     throw new Error(`Failed to update profile: ${error.message}`)
   }
 
+  invalidateProfileCache(clerkUserId)
+
   return {
     ...updated,
     success: true,
     profile: updated,
+  }
+}
+
+export async function executeCheckUsernameAvailability(deps: {
+  adminClient?: any
+  username: string
+  currentClerkUserId?: string | null
+}) {
+  const admin = deps.adminClient || createAdminClient()
+  const raw = (deps.username || '').trim().toLowerCase()
+  const normalized = raw.replace(/[^a-z0-9_]/g, '')
+
+  if (!normalized || normalized.length < 3) {
+    return {
+      available: false,
+      normalized,
+      error: 'Username must be at least 3 characters and contain only lowercase letters, numbers, and underscores.',
+      message: 'Username must be at least 3 characters.',
+    }
+  }
+
+  if (normalized.length > 30) {
+    return {
+      available: false,
+      normalized,
+      error: 'Username cannot exceed 30 characters.',
+      message: 'Username cannot exceed 30 characters.',
+    }
+  }
+
+  // Check if this username belongs to current user
+  if (deps.currentClerkUserId) {
+    const { data: myProfile } = await admin
+      .from('profiles')
+      .select('username')
+      .eq('clerk_user_id', deps.currentClerkUserId)
+      .maybeSingle()
+
+    if (myProfile && myProfile.username?.toLowerCase() === normalized) {
+      return {
+        available: true,
+        normalized,
+        isCurrent: true,
+        isTaken: false,
+        message: `@${normalized} is your current handle.`,
+      }
+    }
+  }
+
+  // Check in usernames table
+  const { data: takenInUsernames, error: errUsernames } = await admin
+    .from('usernames')
+    .select('username')
+    .eq('username', normalized)
+    .maybeSingle()
+
+  if (errUsernames) {
+    console.error('[CheckUsername] Error querying usernames table:', errUsernames)
+    throw new Error('Failed to verify username availability.')
+  }
+
+  if (takenInUsernames) {
+    return {
+      available: false,
+      normalized,
+      isTaken: true,
+      message: `@${normalized} is already taken.`,
+    }
+  }
+
+  return {
+    available: true,
+    normalized,
+    isTaken: false,
+    message: `@${normalized} is available!`,
   }
 }
 
@@ -701,7 +824,15 @@ export async function executeUpdatePrivacySettings(deps: {
   adminClient?: any
   data: {
     isPublic: boolean
-    adultContentEnabled: boolean
+    worksVisibility?: 'public' | 'hidden'
+    showAvatar?: boolean
+    showName?: boolean
+    showUsername?: boolean
+    showReads?: boolean
+    showFollowers?: boolean
+    showWorksCount?: boolean
+    showReadingHistory?: boolean
+    adultContentEnabled?: boolean
   }
 }) {
   const authState = await deps.getAuthState()
@@ -721,16 +852,39 @@ export async function executeUpdatePrivacySettings(deps: {
 
   const isPublic = Boolean(deps.data.isPublic)
   const adultContentEnabled = Boolean(deps.data.adultContentEnabled)
+  const worksVisibility = deps.data.worksVisibility === 'hidden' ? 'hidden' : 'public'
   const currentPrefs = (profile.preferences && typeof profile.preferences === 'object') ? profile.preferences : {}
+  const currentPrivacy = (currentPrefs.privacy && typeof currentPrefs.privacy === 'object') ? currentPrefs.privacy : {}
+
+  const showAvatar = deps.data.showAvatar !== undefined ? Boolean(deps.data.showAvatar) : (currentPrivacy.showAvatar !== undefined ? Boolean(currentPrivacy.showAvatar) : true)
+  const showName = deps.data.showName !== undefined ? Boolean(deps.data.showName) : (currentPrivacy.showName !== undefined ? Boolean(currentPrivacy.showName) : true)
+  const showUsername = deps.data.showUsername !== undefined ? Boolean(deps.data.showUsername) : (currentPrivacy.showUsername !== undefined ? Boolean(currentPrivacy.showUsername) : true)
+  const showReads = Boolean(deps.data.showReads)
+  const showFollowers = Boolean(deps.data.showFollowers)
+  const showWorksCount = Boolean(deps.data.showWorksCount)
+  const showReadingHistory = Boolean(deps.data.showReadingHistory)
+
+  const updatedPrefs = {
+    ...currentPrefs,
+    adult_content_enabled: adultContentEnabled,
+    privacy: {
+      ...currentPrivacy,
+      worksVisibility,
+      showAvatar,
+      showName,
+      showUsername,
+      showReads,
+      showFollowers,
+      showWorksCount,
+      showReadingHistory,
+    },
+  }
 
   await admin
     .from('profiles')
     .update({
       is_public: isPublic,
-      preferences: {
-        ...currentPrefs,
-        adult_content_enabled: adultContentEnabled,
-      },
+      preferences: updatedPrefs,
       updated_at: new Date().toISOString(),
     })
     .eq('id', profile.id)
@@ -743,7 +897,19 @@ export async function executeUpdatePrivacySettings(deps: {
       updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id' })
 
-  return { isPublic, adultContentEnabled }
+  return {
+    success: true,
+    isPublic,
+    adultContentEnabled,
+    worksVisibility,
+    showAvatar,
+    showName,
+    showUsername,
+    showReads,
+    showFollowers,
+    showWorksCount,
+    showReadingHistory,
+  }
 }
 
 export async function executeUnblockUser(deps: {
@@ -878,6 +1044,16 @@ export const updateAccountProfileServerFn = createServerFn({ method: 'POST' })
     })
   })
 
+export const verifyUsernameAvailabilityServerFn = createServerFn({ method: 'POST' })
+  .validator((params: { username: string }) => params)
+  .handler(async ({ data }) => {
+    const authState = await auth()
+    return executeCheckUsernameAvailability({
+      username: data.username,
+      currentClerkUserId: authState?.userId,
+    })
+  })
+
 export const updateReadingPreferencesServerFn = createServerFn({ method: 'POST' })
   .validator((params: {
     favoriteGenres: string[]
@@ -932,7 +1108,15 @@ export const updateNotificationPreferencesServerFn = createServerFn({ method: 'P
 export const updatePrivacySettingsServerFn = createServerFn({ method: 'POST' })
   .validator((params: {
     isPublic: boolean
-    adultContentEnabled: boolean
+    worksVisibility?: 'public' | 'hidden'
+    showAvatar?: boolean
+    showName?: boolean
+    showUsername?: boolean
+    showReads?: boolean
+    showFollowers?: boolean
+    showWorksCount?: boolean
+    showReadingHistory?: boolean
+    adultContentEnabled?: boolean
   }) => params)
   .handler(async ({ data }) => {
     return executeUpdatePrivacySettings({

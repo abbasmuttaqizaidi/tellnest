@@ -8,7 +8,7 @@ import {
   publishWork,
 } from '../lib/supabase/queries/works.ts'
 import type { WorkStatus } from '../lib/supabase/types.ts'
-import { getUtcWeekBoundaries } from '../lib/discover/filters.ts'
+import { getUtcWeekBoundaries, filterAndSortWorks } from '../lib/discover/filters.ts'
 
 /**
  * Server Function: Get a full public work (with acts and chapters) by id or slug.
@@ -215,22 +215,28 @@ export const getPublicAuthorServerFn = createServerFn({ method: 'GET' })
 
     let query = supabase
       .from('profiles')
-      .select('id, username, display_name, avatar_path, bio, location, is_verified')
+      .select('id, username, display_name, avatar_path, bio, location, is_verified, is_public, preferences')
 
     if (isUuid) {
       query = query.or(`id.eq.${clean},username.eq.${clean}`)
     } else {
-      query = query.eq('username', clean)
+      query = query.or(`username.eq.${clean},clerk_user_id.eq.${clean}`)
     }
 
     const { data, error } = await query.maybeSingle()
     if (error || !data) return null
 
     // Query live followers and authored works count
-    const [{ count: followersCount }, { count: worksCount }] = await Promise.all([
+    const [{ count: followersCount }, { count: worksCount }, { data: worksData }] = await Promise.all([
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', data.id),
       supabase.from('works').select('*', { count: 'exact', head: true }).eq('author_id', data.id),
+      supabase.from('works').select('view_count').eq('author_id', data.id),
     ])
+
+    const totalReadsNum = (worksData || []).reduce((acc: number, w: any) => acc + (Number(w.view_count) || 0), 0)
+
+    const pJson = (data.preferences && typeof data.preferences === 'object') ? data.preferences : {}
+    const pPriv = (pJson.privacy && typeof pJson.privacy === 'object') ? pJson.privacy : {}
 
     return {
       id: data.id,
@@ -241,11 +247,115 @@ export const getPublicAuthorServerFn = createServerFn({ method: 'GET' })
         'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
       bio: data.bio || '',
       location: data.location || '',
-      worksCount: worksCount ?? 1,
+      worksCount: worksCount ?? 0,
       followersCount: followersCount ?? 0,
-      totalReads: '0',
+      totalReads: String(totalReadsNum),
       verified: Boolean(data.is_verified),
+      isPublic: data.is_public ?? false,
+      worksVisibility: (pPriv.worksVisibility === 'hidden' ? 'hidden' : 'public') as 'public' | 'hidden',
+      showAvatar: pPriv.showAvatar !== undefined ? Boolean(pPriv.showAvatar) : true,
+      showName: pPriv.showName !== undefined ? Boolean(pPriv.showName) : true,
+      showUsername: pPriv.showUsername !== undefined ? Boolean(pPriv.showUsername) : true,
+      showReads: Boolean(pPriv.showReads ?? false),
+      showFollowers: Boolean(pPriv.showFollowers ?? false),
+      showWorksCount: Boolean(pPriv.showWorksCount ?? false),
+      showReadingHistory: Boolean(pPriv.showReadingHistory ?? false),
     }
+  })
+
+export interface PaginatedDiscoverParams {
+  page?: number
+  limit?: number
+  tab?: 'all' | 'new_this_week' | 'new_chapters' | 'trending' | 'rising'
+  category?: string
+  genre?: string
+  status?: string
+  search?: string
+}
+
+export interface PaginatedDiscoverResponse {
+  works: any[]
+  totalCount: number
+  page: number
+  pageSize: number
+  totalPages: number
+  hasNextPage: boolean
+  hasPrevPage: boolean
+}
+
+export async function executeGetPaginatedDiscoverWorks(
+  params: PaginatedDiscoverParams = {},
+  dependencies: PlatformWorksDependencies = {}
+): Promise<PaginatedDiscoverResponse> {
+  const allWorks = await executeGetPlatformWorks(dependencies)
+
+  const authFn = dependencies.getAuthState || (async () => {
+    try {
+      const { auth } = await import('@clerk/tanstack-react-start/server')
+      return await auth()
+    } catch {
+      return null
+    }
+  })
+  let authState = null
+  try {
+    authState = await authFn()
+  } catch {}
+  const isSignedIn = Boolean(authState?.userId)
+
+  const tab = params.tab || 'all'
+  const category = params.category || 'all'
+  const genre = params.genre || 'all'
+  const status = params.status || 'all'
+  const search = params.search || ''
+
+  const filtered = filterAndSortWorks(allWorks, {
+    activeTab: tab as any,
+    selectedCategory: category,
+    selectedGenre: genre,
+    selectedStatus: status,
+    searchTerm: search,
+    sortBy: 'popularity',
+    isSignedIn,
+  })
+
+  const pageSize = Math.min(Math.max(1, params.limit || 14), 50)
+  const totalCount = filtered.length
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+  const requestedPage = Math.max(1, params.page || 1)
+  const safePage = Math.min(requestedPage, totalPages)
+  const offset = (safePage - 1) * pageSize
+  const paginatedWorks = filtered.slice(offset, offset + pageSize)
+
+  return {
+    works: paginatedWorks,
+    totalCount,
+    page: safePage,
+    pageSize,
+    totalPages,
+    hasNextPage: safePage < totalPages,
+    hasPrevPage: safePage > 1,
+  }
+}
+
+/**
+ * Server Function: Get paginated discovery feed with full filtering and deterministic order.
+ * Fetches exactly 14 manuscripts per page by default.
+ */
+export const getPaginatedDiscoverWorksServerFn = createServerFn({ method: 'GET' })
+  .validator((params?: PaginatedDiscoverParams) => {
+    return {
+      page: Math.max(1, Number(params?.page) || 1),
+      limit: Math.min(Math.max(1, Number(params?.limit) || 14), 50),
+      tab: params?.tab,
+      category: params?.category,
+      genre: params?.genre,
+      status: params?.status,
+      search: params?.search,
+    }
+  })
+  .handler(async ({ data }) => {
+    return await executeGetPaginatedDiscoverWorks(data)
   })
 
 /**
@@ -254,7 +364,7 @@ export const getPublicAuthorServerFn = createServerFn({ method: 'GET' })
  */
 export const getDiscoverWorksServerFn = createServerFn({ method: 'GET' })
   .validator((params?: { categoryId?: string; status?: WorkStatus; limit?: number; offset?: number }) => {
-    const limit = Math.min(Math.max(1, params?.limit || 20), 50)
+    const limit = Math.min(Math.max(1, params?.limit || 14), 50)
     const offset = Math.max(0, params?.offset || 0)
     return {
       categoryId: params?.categoryId,
@@ -720,8 +830,34 @@ export async function executeGetPlatformWorks(
             followersCount: '0',
             createdAt: row.author_created_at ? new Date(row.author_created_at).toISOString() : undefined,
           },
-          acts: row.acts || [],
-          chapters: row.chapters || [],
+          acts: Array.isArray(row.acts)
+            ? row.acts.map((act: any) => ({
+                id: act.id,
+                workId: act.work_id || row.id,
+                number: act.act_number ?? act.number ?? 1,
+                title: act.title || `Act ${act.act_number || 1}`,
+                slug: act.slug || '',
+                description: act.description || '',
+                status: act.status || 'published',
+                viewCount: Number(act.view_count || 0),
+              }))
+            : [],
+          chapters: Array.isArray(row.chapters)
+            ? row.chapters.map((ch: any) => ({
+                id: ch.id,
+                number: ch.chapter_number ?? ch.number ?? 1,
+                title: ch.title || 'Untitled Chapter',
+                subtitle: ch.subtitle || '',
+                bannerImage: ch.banner_image_path || ch.bannerImage || undefined,
+                actId: ch.act_id || ch.actId || undefined,
+                status: (ch.status === 'published' ? 'published' : 'draft') as 'published' | 'draft',
+                wordCount: Number(ch.word_count ?? ch.wordCount ?? 0),
+                readTimeMinutes: Number(ch.reading_time_minutes ?? ch.readTimeMinutes ?? 1),
+                viewCount: Number(ch.view_count || 0),
+                publishedAt: ch.published_at ? new Date(ch.published_at).toLocaleDateString() : undefined,
+                content: ch.content || '',
+              }))
+            : [],
         }
       })
 
