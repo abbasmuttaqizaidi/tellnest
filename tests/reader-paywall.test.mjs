@@ -125,3 +125,42 @@ test('Reader Paywall: Reader route shows dismissible modal on Chapter 1 and comp
     'flushPendingSave must guard against unauthenticated or compulsory gated readers'
   )
 })
+
+test('Search Auth Gate: Strictly triggers sign in/up auth modal on search clicks for public users', () => {
+  const headerContent = fs.readFileSync(path.resolve('src/components/Header.tsx'), 'utf-8')
+  const searchRouteContent = fs.readFileSync(path.resolve('src/routes/search.tsx'), 'utf-8')
+  const mobileStoriesContent = fs.readFileSync(path.resolve('src/components/PublicMobileStories.tsx'), 'utf-8')
+  const routeHeaderContent = fs.readFileSync(path.resolve('src/components/RouteHeader.tsx'), 'utf-8')
+
+  // Header.tsx checks
+  assert.ok(
+    headerContent.includes('if (!isSignedIn) {\n          openAuthModal(undefined, {\n            canClose: true,\n            title: \'Sign In to Search\','),
+    'Cmd+K shortcut in Header.tsx must strictly open auth modal for public users'
+  )
+  assert.ok(
+    headerContent.includes('onClickCapture={(e) => {\n                if (!isSignedIn) {\n                  e.preventDefault()'),
+    'OmniSearch in Header.tsx must intercept clicks with onClickCapture to open auth modal for public users'
+  )
+
+  // PublicMobileStories.tsx checks
+  assert.ok(
+    mobileStoriesContent.includes('onOpenAuth()') && mobileStoriesContent.includes('<span>Search</span>'),
+    'Public mobile drawer Search button must trigger onOpenAuth()'
+  )
+
+  // RouteHeader.tsx checks
+  assert.ok(
+    routeHeaderContent.includes('if (!isSignedIn) {\n                  openAuthModal(undefined, {\n                    canClose: true,\n                    title: \'Sign In to Search\','),
+    'RouteHeader quick search button must strictly open auth modal for public users'
+  )
+
+  // search.tsx checks
+  assert.ok(
+    searchRouteContent.includes('// Strictly open auth modal if an unauthenticated user lands directly on /search'),
+    'search.tsx must include direct landing auth check'
+  )
+  assert.ok(
+    searchRouteContent.includes('if (!enforceAuth()) return'),
+    'search.tsx must enforce auth on input changes and form submissions'
+  )
+})

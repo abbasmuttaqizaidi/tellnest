@@ -181,6 +181,31 @@ function SearchPage() {
     return names.join(', ')
   }, [stagedGenreSlugs, genres])
 
+  // Helper to enforce authentication modal strictly on search interactions for public users
+  const enforceAuth = (callback?: () => void) => {
+    if (!isSignedIn) {
+      openAuthModal(undefined, {
+        canClose: true,
+        title: 'Sign In to Search',
+        reason: 'Create a free account or sign in to search across all Hatchpen manuscripts and authors.',
+      })
+      return false
+    }
+    callback?.()
+    return true
+  }
+
+  // Strictly open auth modal if an unauthenticated user lands directly on /search
+  useEffect(() => {
+    if (!isSignedIn) {
+      openAuthModal(undefined, {
+        canClose: true,
+        title: 'Sign In to Search',
+        reason: 'Create a free account or sign in to search across all Hatchpen manuscripts and authors.',
+      })
+    }
+  }, [isSignedIn, openAuthModal])
+
   // Draft input in the active search bar
   const [searchInput, setSearchInput] = useState(() => (searchMode === 'genre' ? '' : submittedQuery))
   const [searchError, setSearchError] = useState<string | null>(null)
@@ -350,6 +375,7 @@ function SearchPage() {
 
   // Handle user typing (without auto-debouncing: search triggers strictly on Enter or search button click)
   const handleInputChange = (val: string) => {
+    if (!enforceAuth()) return
     setSearchInput(val)
     if (searchError && val.trim().length >= 2) {
       setSearchError(null)
@@ -361,6 +387,7 @@ function SearchPage() {
 
   // Handle explicit form submission (triggered strictly on Enter keypress or Search submit button click)
   const handleFormSubmit = (val: string) => {
+    if (!enforceAuth()) return
     const trimmed = val.trim()
     if (searchMode === 'genre') {
       if (stagedGenreSlugs.length === 0) {
@@ -398,6 +425,7 @@ function SearchPage() {
 
   // Handle mode change via SearchModeDropdown
   const handleModeChange = (newMode: SearchMode) => {
+    if (!enforceAuth()) return
     if (newMode === 'genre') {
       navigate({
         to: '/search',
@@ -1014,45 +1042,56 @@ function SearchPage() {
             </div>
 
             {/* Main Centered Search Input */}
-            <OmniSearch
-              expandMode="responsive"
-              size="lg"
-              value={searchInput}
-              isLoading={isSearching}
-              onChange={handleInputChange}
-              onSubmit={(val) => handleFormSubmit(val)}
-              onClear={handleClear}
-              defaultExpanded={true}
-              isExpanded={true}
-              collapseOnBlur={false}
-              autoFocus
-              shortcut="/"
-              placeholders={
-                searchMode === 'genre'
-                  ? [
-                      'Search stories in selected genre(s)... (press Enter)',
-                      'Type story title or keyword & hit Enter...',
-                    ]
-                  : searchMode === 'author'
-                  ? ['Search by author name or handle...', 'Search "Elena Rostova"...']
-                  : [
-                      'Search stories (min 2 letters)...',
-                      "Search 'A Winter in Kyoto'...",
-                      "Search 'The Cold Perimeter'...",
-                      'Search by title, genre, or premise...',
-                    ]
-              }
-              leftSlot={
-                <SearchModeDropdown
-                  mode={searchMode}
-                  selectedGenreSlugs={stagedGenreSlugs}
-                  genres={genres}
-                  onModeChange={handleModeChange}
-                  onGenresChange={handleGenresChange}
-                  onSearchSubmit={() => handleFormSubmit(searchInput)}
-                />
-              }
-            />
+            <div
+              className="w-full"
+              onClickCapture={(e) => {
+                if (!isSignedIn) {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  enforceAuth()
+                }
+              }}
+            >
+              <OmniSearch
+                expandMode="responsive"
+                size="lg"
+                value={searchInput}
+                isLoading={isSearching}
+                onChange={handleInputChange}
+                onSubmit={(val) => handleFormSubmit(val)}
+                onClear={handleClear}
+                defaultExpanded={true}
+                isExpanded={true}
+                collapseOnBlur={false}
+                autoFocus
+                shortcut="/"
+                placeholders={
+                  searchMode === 'genre'
+                    ? [
+                        'Search stories in selected genre(s)... (press Enter)',
+                        'Type story title or keyword & hit Enter...',
+                      ]
+                    : searchMode === 'author'
+                    ? ['Search by author name or handle...', 'Search "Elena Rostova"...']
+                    : [
+                        'Search stories (min 2 letters)...',
+                        "Search 'A Winter in Kyoto'...",
+                        "Search 'The Cold Perimeter'...",
+                        'Search by title, genre, or premise...',
+                      ]
+                }
+                leftSlot={
+                  <SearchModeDropdown
+                    mode={searchMode}
+                    selectedGenreSlugs={stagedGenreSlugs}
+                    genres={genres}
+                    onModeChange={handleModeChange}
+                    onGenresChange={handleGenresChange}
+                    onSearchSubmit={() => handleFormSubmit(searchInput)}
+                  />
+                }
+              />
+            </div>
 
             {/* Validation Feedback & Character Counter */}
             {searchError ? (
@@ -1070,10 +1109,11 @@ function SearchPage() {
               <button
                 type="button"
                 onClick={() => {
+                  if (!enforceAuth()) return
                   setIsQuestionnaireOpen(true)
                   setCurrentStepIndex(0)
                 }}
-                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] text-xs text-[var(--ink-secondary)] transition-colors shadow-xs"
+                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] text-xs text-[var(--ink-secondary)] transition-colors shadow-xs cursor-pointer"
               >
                 <span>Not sure what to read?</span>
                 <span className="font-medium text-[var(--ink-primary)] flex items-center gap-1">
@@ -1093,7 +1133,16 @@ function SearchPage() {
           className="w-full space-y-3 sm:space-y-5"
         >
           {/* Top Search Refinement Bar */}
-          <div className="max-w-2xl mx-auto pt-2 pb-4">
+          <div
+            className="max-w-2xl mx-auto pt-2 pb-4"
+            onClickCapture={(e) => {
+              if (!isSignedIn) {
+                e.preventDefault()
+                e.stopPropagation()
+                enforceAuth()
+              }
+            }}
+          >
             <OmniSearch
               expandMode="responsive"
               size="md"

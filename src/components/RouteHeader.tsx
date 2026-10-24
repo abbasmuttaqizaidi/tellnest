@@ -35,6 +35,7 @@ export function RouteHeader({ title, subtitle, rightExtra, className = '' }: Rou
   const { isSignedIn } = useUser()
   const {
     openPublicWriteModal,
+    openAuthModal,
     siteTheme,
     setSiteTheme,
     setMobileDrawerOpen,
@@ -212,7 +213,19 @@ export function RouteHeader({ title, subtitle, rightExtra, className = '' }: Rou
                         to={r.path}
                         preload="render"
                         preloadDelay={0}
-                        onClick={() => setRouteMenuOpen(false)}
+                        onClick={(e) => {
+                          if (r.path === '/search' && !isSignedIn) {
+                            e.preventDefault()
+                            setRouteMenuOpen(false)
+                            openAuthModal(undefined, {
+                              canClose: true,
+                              title: 'Sign In to Search',
+                              reason: 'Create a free account or sign in to search across all Hatchpen manuscripts and authors.',
+                            })
+                            return
+                          }
+                          setRouteMenuOpen(false)
+                        }}
                         className={`flex items-center justify-between px-3 py-2 transition-colors no-underline cursor-pointer ${
                           isActive
                             ? 'bg-[var(--bg-subtle)] text-[var(--ink-primary)] font-semibold'
@@ -261,7 +274,17 @@ export function RouteHeader({ title, subtitle, rightExtra, className = '' }: Rou
             {/* 1. Search */}
             <button
               type="button"
-              onClick={() => navigate({ to: '/search' as any })}
+              onClick={() => {
+                if (!isSignedIn) {
+                  openAuthModal(undefined, {
+                    canClose: true,
+                    title: 'Sign In to Search',
+                    reason: 'Create a free account or sign in to search across all Hatchpen manuscripts and authors.',
+                  })
+                  return
+                }
+                navigate({ to: '/search' as any })
+              }}
               className="flex h-8 w-8 items-center justify-center rounded-full bg-white dark:bg-neutral-900 text-black dark:text-white border border-neutral-200/80 dark:border-neutral-800 shadow-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all cursor-pointer shrink-0"
               title="Search"
               aria-label="Search"

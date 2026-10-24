@@ -104,12 +104,20 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault()
+        if (!isSignedIn) {
+          openAuthModal(undefined, {
+            canClose: true,
+            title: 'Sign In to Search',
+            reason: 'Create a free account or sign in to search across all Hatchpen manuscripts and authors.',
+          })
+          return
+        }
         setPaletteOpen((prev) => !prev)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
+  }, [isSignedIn, openAuthModal])
 
   // Don't show regular header in focused reading mode or focused chapter editor mode
   const isReaderMode = currentPath.startsWith('/read/')
@@ -231,6 +239,16 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
               <Link
                 to="/search"
                 preload="intent"
+                onClick={(e) => {
+                  if (!isSignedIn) {
+                    e.preventDefault()
+                    openAuthModal(undefined, {
+                      canClose: true,
+                      title: 'Sign In to Search',
+                      reason: 'Create a free account or sign in to search across all Hatchpen manuscripts and authors.',
+                    })
+                  }
+                }}
                 className={`px-3 py-1.5 rounded transition-colors hover:text-[var(--ink-primary)] ${
                   currentPath.startsWith('/search') ? 'text-[var(--ink-primary)] font-semibold' : ''
                 }`}
@@ -276,6 +294,17 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
           {/* Responsive Expansion OmniSearch on Nav Menu (Hidden on public homepage) */}
           {!isPublicHome && (
             <div
+              onClickCapture={(e) => {
+                if (!isSignedIn) {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  openAuthModal(undefined, {
+                    canClose: true,
+                    title: 'Sign In to Search',
+                    reason: 'Create a free account or sign in to search across all Hatchpen manuscripts and authors.',
+                  })
+                }
+              }}
               className={`transition-[flex-grow,max-width] duration-160 ease-[cubic-bezier(0.2,0,0,1)] min-w-0 ${
                 isNavSearchOpen
                   ? 'flex-1 max-w-xs sm:max-w-sm md:max-w-md w-full'
@@ -289,9 +318,27 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
                 value={navSearchQuery}
                 onChange={setNavSearchQuery}
                 isExpanded={isNavSearchOpen}
-                onExpand={() => setIsNavSearchOpen(true)}
+                onExpand={() => {
+                  if (!isSignedIn) {
+                    openAuthModal(undefined, {
+                      canClose: true,
+                      title: 'Sign In to Search',
+                      reason: 'Create a free account or sign in to search across all Hatchpen manuscripts and authors.',
+                    })
+                    return
+                  }
+                  setIsNavSearchOpen(true)
+                }}
                 onCollapse={() => setIsNavSearchOpen(false)}
                 onSubmit={(q) => {
+                  if (!isSignedIn) {
+                    openAuthModal(undefined, {
+                      canClose: true,
+                      title: 'Sign In to Search',
+                      reason: 'Create a free account or sign in to search across all Hatchpen manuscripts and authors.',
+                    })
+                    return
+                  }
                   const trimmed = q.trim()
                   if (!trimmed) return
                   if (trimmed.length < 2) {

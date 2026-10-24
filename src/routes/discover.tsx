@@ -138,7 +138,7 @@ export const Route = createFileRoute('/discover')({
 
 function DiscoverPage() {
   const { isSignedIn, isLoaded } = useUser()
-  const { allWorks, categories: appCategories, genres: appGenres, isWorksLoading } = useApp()
+  const { allWorks, categories: appCategories, genres: appGenres, isWorksLoading, openAuthModal } = useApp()
   const loaderData = Route.useLoaderData()
   const routeSearch = Route.useSearch()
   const navigate = Route.useNavigate()
@@ -373,12 +373,35 @@ function DiscoverPage() {
         {/* ── MOBILE SEARCH & FILTER BAR ── */}
         <div className="block md:hidden space-y-2">
           {/* Mobile Search Bar */}
-          <div className="relative w-full">
+          <div
+            className="relative w-full"
+            onClickCapture={(e) => {
+              if (!isSignedIn) {
+                e.preventDefault()
+                e.stopPropagation()
+                openAuthModal(undefined, {
+                  canClose: true,
+                  title: 'Sign In to Search',
+                  reason: 'Create a free account or sign in to search across all Hatchpen manuscripts and authors.',
+                })
+              }
+            }}
+          >
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--ink-muted)] pointer-events-none" />
             <input
               type="text"
               value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
+              onChange={(e) => {
+                if (!isSignedIn) {
+                  openAuthModal(undefined, {
+                    canClose: true,
+                    title: 'Sign In to Search',
+                    reason: 'Create a free account or sign in to search across all Hatchpen manuscripts and authors.',
+                  })
+                  return
+                }
+                setSearchInput(e.target.value)
+              }}
               onKeyDown={handleSearchKeyDown}
               placeholder="Search manuscripts, authors, tags..."
               className="w-full pl-8.5 pr-8 py-1.5 text-xs rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--ink-primary)] placeholder:text-[var(--ink-muted)] focus:outline-none focus:border-[var(--ink-primary)] transition-colors"
@@ -521,12 +544,35 @@ function DiscoverPage() {
 
           {/* Search + Flipkart Filter Trigger Button on Desktop */}
           <div className="flex items-center gap-2.5 shrink-0">
-            <div className="relative w-52 lg:w-64">
+            <div
+              className="relative w-52 lg:w-64"
+              onClickCapture={(e) => {
+                if (!isSignedIn) {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  openAuthModal(undefined, {
+                    canClose: true,
+                    title: 'Sign In to Search',
+                    reason: 'Create a free account or sign in to search across all Hatchpen manuscripts and authors.',
+                  })
+                }
+              }}
+            >
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--ink-muted)] pointer-events-none" />
               <input
                 type="text"
                 value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
+                onChange={(e) => {
+                  if (!isSignedIn) {
+                    openAuthModal(undefined, {
+                      canClose: true,
+                      title: 'Sign In to Search',
+                      reason: 'Create a free account or sign in to search across all Hatchpen manuscripts and authors.',
+                    })
+                    return
+                  }
+                  setSearchInput(e.target.value)
+                }}
                 onKeyDown={handleSearchKeyDown}
                 placeholder="Search manuscripts, authors, tags..."
                 className="w-full pl-8.5 pr-7 py-1 text-xs rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--ink-primary)] placeholder:text-[var(--ink-muted)] focus:outline-none focus:border-[var(--ink-primary)] transition-colors"

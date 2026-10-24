@@ -1705,14 +1705,17 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
               <span>Explore Stories</span>
             </Link>
 
-            <Link
-              to="/search"
-              onClick={() => setMenuOpen(false)}
-              className="flex items-center gap-2 py-1.5 px-2.5 rounded-lg text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false)
+                onOpenAuth()
+              }}
+              className="flex items-center gap-2 w-full text-left py-1.5 px-2.5 rounded-lg text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
             >
               <Search className="h-4 w-4" />
               <span>Search</span>
-            </Link>
+            </button>
 
             <button
               type="button"
