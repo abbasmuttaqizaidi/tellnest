@@ -256,25 +256,6 @@ function WorkDetailPage() {
 
   return (
     <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-      
-      {/* Editorial Breadcrumbs */}
-      <div className="flex items-center gap-2 text-xs font-mono text-[var(--ink-muted)] mb-8">
-        <Link to="/discover" preload="intent" className="hover:text-[var(--ink-primary)] text-inherit no-underline">
-          Library
-        </Link>
-        <span>/</span>
-        <Link
-          to="/category/$slug"
-          params={{ slug: categorySlug }}
-          preload="intent"
-          className="hover:text-[var(--ink-primary)] text-inherit no-underline"
-        >
-          {work.category || 'Novels'}
-        </Link>
-        <span>/</span>
-        <span className="text-[var(--ink-primary)] font-semibold truncate max-w-xs">{work.title}</span>
-      </div>
-
       {/* Main Work Header */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-12 pb-12 border-b border-[var(--border-subtle)]">
         
