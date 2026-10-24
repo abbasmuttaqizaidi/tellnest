@@ -346,11 +346,11 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
           )}
 
 
-          {/* Dark Mode Quick Toggle (Hidden on public homepage) */}
+          {/* Dark Mode Quick Toggle (Hidden on public homepage and on mobile screen) */}
           {!isPublicHome && (
             <button
               onClick={() => setSiteTheme(siteTheme === 'dark' ? 'light' : 'dark')}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-black dark:bg-neutral-900 dark:text-white border border-neutral-200/80 dark:border-neutral-800 shadow-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all flex-shrink-0 cursor-pointer"
+              className="hidden sm:flex h-8 w-8 items-center justify-center rounded-full bg-white text-black dark:bg-neutral-900 dark:text-white border border-neutral-200/80 dark:border-neutral-800 shadow-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all flex-shrink-0 cursor-pointer"
               title={mounted && siteTheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
               aria-label="Toggle dark mode"
             >
@@ -498,7 +498,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
               <button
                 type="button"
                 onClick={() => openAuthModal()}
-                className="inline-flex items-center justify-center rounded-full bg-white text-[#18181B] border border-neutral-200/80 px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-[13px] font-medium hover:bg-neutral-100 transition-all shadow-xs cursor-pointer"
+                className="hidden sm:inline-flex items-center justify-center rounded-full bg-white text-[#18181B] border border-neutral-200/80 px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-[13px] font-medium hover:bg-neutral-100 transition-all shadow-xs cursor-pointer"
               >
                 <span>Log in</span>
               </button>
