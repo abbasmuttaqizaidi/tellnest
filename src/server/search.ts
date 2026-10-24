@@ -55,6 +55,47 @@ export interface GlobalSearchOptions {
   page?: number
 }
 
+const hasSupabaseAdmin = Boolean(
+  (typeof process !== 'undefined' && process.env?.SUPABASE_SERVICE_ROLE_KEY && process.env?.SUPABASE_SERVICE_ROLE_KEY !== 'placeholder-service-key') ||
+  (typeof import.meta !== 'undefined' && (import.meta as any).env?.SUPABASE_SERVICE_ROLE_KEY && (import.meta as any).env?.SUPABASE_SERVICE_ROLE_KEY !== 'placeholder-service-key')
+)
+
+function mapMockWorkToSearchResult(w: any): SearchStoriesResultItem {
+  const genreList: string[] = Array.isArray(w.genres)
+    ? w.genres.map((g: any) => (typeof g === 'string' ? g : g.name || g.slug)).filter(Boolean)
+    : [w.genre || 'Fiction']
+
+  const primaryGenreSlug = (w.genreSlug || (typeof w.genres?.[0] === 'object' ? w.genres[0].slug : '') || 'fiction').toLowerCase()
+  const primaryGenreName = w.genre || (typeof w.genres?.[0] === 'object' ? w.genres[0].name : '') || 'Fiction'
+
+  return {
+    id: w.id,
+    title: w.title,
+    subtitle: w.subtitle,
+    slug: w.slug || getWorkSlug(w),
+    synopsis: w.synopsis || w.description || '',
+    cover: w.cover || w.cover_image_path || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80',
+    category: w.category || 'Novels',
+    categorySlug: (w.categorySlug || 'novels').toLowerCase(),
+    genre: primaryGenreName,
+    genreSlug: primaryGenreSlug,
+    genres: genreList.length > 0 ? genreList : [primaryGenreName],
+    status: (w.status === 'Completed' || w.status === 'completed' ? 'Completed' : 'In Progress') as any,
+    readingTimeMinutes: w.readingTimeMinutes || w.reading_time_minutes || 5,
+    wordCount: w.wordCount || w.word_count || 1000,
+    viewCount: w.totalReads || w.viewCount || 0,
+    ratingScore: w.ratingScore || 4.8,
+    ratingCount: w.ratingCount || w.like_count || 0,
+    author: {
+      id: w.author?.id || 'author-unknown',
+      name: w.author?.name || 'Hatchpen Author',
+      handle: w.author?.handle || w.author?.username || 'author',
+      avatar: w.author?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+      bio: w.author?.bio || '',
+    },
+  }
+}
+
 /**
  * Execute fast global story search against Supabase with in-memory mock fallback.
  * Supports three modes: stories (ILIKE text search), author (profile search), genre (two-step genre filter).
@@ -96,45 +137,47 @@ export async function executeGlobalSearch({
       return { query: clean, type: 'author', stories: [], authors: [], totalCount: 0, page: validPage, hasMore: false }
     }
 
-    try {
-      const { createAdminClient } = await import('../lib/supabase/server.ts')
-      const admin = createAdminClient()
-      const sanitized = clean.replace(/[,()]/g, ' ').trim()
+    if (hasSupabaseAdmin) {
+      try {
+        const { createAdminClient } = await import('../lib/supabase/server.ts')
+        const admin = createAdminClient()
+        const sanitized = clean.replace(/[,()]/g, ' ').trim()
 
-      const { data: rows, error, count } = await admin
-        .from('profiles')
-        .select('id, username, display_name, avatar_path, bio, preferences', { count: 'exact' })
-        .eq('is_public', true)
-        .or(`display_name.ilike.%${sanitized}%,username.ilike.%${sanitized}%,bio.ilike.%${sanitized}%`)
-        .not('display_name', 'is', null)
-        .range(from, to)
+        const { data: rows, error, count } = await admin
+          .from('profiles')
+          .select('id, username, display_name, avatar_path, bio, preferences', { count: 'exact' })
+          .eq('is_public', true)
+          .or(`display_name.ilike.%${sanitized}%,username.ilike.%${sanitized}%,bio.ilike.%${sanitized}%`)
+          .not('display_name', 'is', null)
+          .range(from, to)
 
-      if (!error && Array.isArray(rows)) {
-        if (count !== null && count !== undefined) totalCount = count
-        authors = (rows as any[])
-          .filter((p: any) => p.display_name || p.username)
-          .map((p: any) => {
-            const priv = (p.preferences && typeof p.preferences === 'object' && p.preferences.privacy) || {}
-            const showAvatar = priv.showAvatar !== false
-            const showName = priv.showName !== false
-            const showUsername = priv.showUsername !== false
-            return {
-              id: p.id,
-              username: p.username || '',
-              displayName: showName
-                ? (p.display_name || p.username || '')
-                : showUsername && p.username
-                  ? `@${p.username}`
-                  : 'Anonymous Author',
-              avatar: showAvatar
-                ? (p.avatar_path || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80')
-                : '/unisex-avatar.svg',
-              bio: p.bio || undefined,
-            }
-          })
+        if (!error && Array.isArray(rows)) {
+          if (count !== null && count !== undefined) totalCount = count
+          authors = (rows as any[])
+            .filter((p: any) => p.display_name || p.username)
+            .map((p: any) => {
+              const priv = (p.preferences && typeof p.preferences === 'object' && p.preferences.privacy) || {}
+              const showAvatar = priv.showAvatar !== false
+              const showName = priv.showName !== false
+              const showUsername = priv.showUsername !== false
+              return {
+                id: p.id,
+                username: p.username || '',
+                displayName: showName
+                  ? (p.display_name || p.username || '')
+                  : showUsername && p.username
+                    ? `@${p.username}`
+                    : 'Anonymous Author',
+                avatar: showAvatar
+                  ? (p.avatar_path || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80')
+                  : '/unisex-avatar.svg',
+                bio: p.bio || undefined,
+              }
+            })
+        }
+      } catch (e: any) {
+        console.warn('[executeGlobalSearch] Author DB query notice:', e?.message)
       }
-    } catch (e: any) {
-      console.warn('[executeGlobalSearch] Author DB query notice:', e?.message)
     }
 
     // Offline / Mock fallback resilience when DB returns 0 authors
@@ -178,69 +221,70 @@ export async function executeGlobalSearch({
     let dbStories: SearchStoriesResultItem[] = []
     let totalDbCount = 0
 
-    try {
-      const { createAdminClient } = await import('../lib/supabase/server.ts')
-      const admin = createAdminClient()
+    if (hasSupabaseAdmin) {
+      try {
+        const { createAdminClient } = await import('../lib/supabase/server.ts')
+        const admin = createAdminClient()
 
-      // Step 1: Resolve genre slugs → genre IDs
-      const { data: genreRows, error: genreErr } = await admin
-        .from('genres')
-        .select('id')
-        .in('slug', genreSlugs)
+        // Step 1: Resolve genre slugs → genre IDs
+        const { data: genreRows, error: genreErr } = await admin
+          .from('genres')
+          .select('id')
+          .in('slug', genreSlugs)
 
-      if (!genreErr && Array.isArray(genreRows) && genreRows.length > 0) {
-        const genreIds = genreRows.map((g: any) => g.id)
+        if (!genreErr && Array.isArray(genreRows) && genreRows.length > 0) {
+          const genreIds = genreRows.map((g: any) => g.id)
 
-        // Step 2: Resolve genre IDs → work IDs via work_genres join table
-        const { data: wgRows, error: wgErr } = await admin
-          .from('work_genres')
-          .select('work_id')
-          .in('genre_id', genreIds)
+          // Step 2: Resolve genre IDs → work IDs via work_genres join table
+          const { data: wgRows, error: wgErr } = await admin
+            .from('work_genres')
+            .select('work_id')
+            .in('genre_id', genreIds)
 
-        if (!wgErr && Array.isArray(wgRows) && wgRows.length > 0) {
-          const workIds = [...new Set(wgRows.map((r: any) => r.work_id))]
+          if (!wgErr && Array.isArray(wgRows) && wgRows.length > 0) {
+            const workIds = [...new Set(wgRows.map((r: any) => r.work_id))]
 
-          // Step 3: Fetch works with full projection + optional text search filter
-          let worksQuery = admin
-            .from('works')
-            .select(`
-              id,
-              title,
-              slug,
-              description,
-              cover_image_path,
-              status,
-              word_count,
-              reading_time_minutes,
-              view_count,
-              like_count,
-              created_at,
-              profiles:author_id (id, username, display_name, avatar_path, bio),
-              categories:category_id (id, name, slug),
-              work_genres (genres (id, name, slug)),
-              work_tags (tags (id, name, slug))
-            `, { count: 'exact' })
-            .in('id', workIds)
-            .eq('visibility', 'public')
-            .eq('publication_status', 'published')
+            // Step 3: Fetch works with full projection + optional text search filter
+            let worksQuery = admin
+              .from('works')
+              .select(`
+                id,
+                title,
+                slug,
+                description,
+                cover_image_path,
+                status,
+                word_count,
+                reading_time_minutes,
+                view_count,
+                like_count,
+                created_at,
+                profiles:author_id (id, username, display_name, avatar_path, bio),
+                categories:category_id (id, name, slug),
+                work_genres (genres (id, name, slug)),
+                work_tags (tags (id, name, slug))
+              `, { count: 'exact' })
+              .in('id', workIds)
+              .eq('visibility', 'public')
+              .eq('publication_status', 'published')
 
-          if (clean.length >= 2) {
-            const sanitized = clean.replace(/[,()]/g, ' ').trim()
-            if (isParameterVariant) {
-              const altSanitized = sanitized.replace(/parameter/gi, 'perimeter')
-              worksQuery = worksQuery.or(`title.ilike.%${sanitized}%,title.ilike.%${altSanitized}%`)
-            } else {
-              worksQuery = worksQuery.ilike('title', `%${sanitized}%`)
+            if (clean.length >= 2) {
+              const sanitized = clean.replace(/[,()]/g, ' ').trim()
+              if (isParameterVariant) {
+                const altSanitized = sanitized.replace(/parameter/gi, 'perimeter')
+                worksQuery = worksQuery.or(`title.ilike.%${sanitized}%,title.ilike.%${altSanitized}%`)
+              } else {
+                worksQuery = worksQuery.ilike('title', `%${sanitized}%`)
+              }
             }
-          }
 
-          const { data: rows, error, count } = await worksQuery
-            .order('view_count', { ascending: false })
-            .range(from, to)
+            const { data: rows, error, count } = await worksQuery
+              .order('view_count', { ascending: false })
+              .range(from, to)
 
-          if (count !== null && count !== undefined) {
-            totalDbCount = count
-          }
+            if (count !== null && count !== undefined) {
+              totalDbCount = count
+            }
 
             if (!error && Array.isArray(rows) && rows.length > 0) {
               dbStories = rows.map((w: any) => {
@@ -288,6 +332,36 @@ export async function executeGlobalSearch({
       } catch (e: any) {
         console.warn('[executeGlobalSearch] Genre DB query notice:', e?.message)
       }
+    }
+
+    // Offline / Mock fallback resilience when DB returns 0 stories
+    if (dbStories.length === 0) {
+      const lowerGenreSlugs = genreSlugs.map((s) => s.toLowerCase())
+      dbStories = WORKS.filter((w) => {
+        const primarySlug = (w.genreSlug || (typeof w.genres?.[0] === 'object' ? w.genres[0].slug : '') || '').toLowerCase()
+        const primaryName = (w.genre || (typeof w.genres?.[0] === 'object' ? w.genres[0].name : '') || '').toLowerCase()
+        const allG = (Array.isArray(w.genres) ? w.genres : []).map((g: any) => {
+          if (typeof g === 'string') return g.toLowerCase()
+          return `${g.slug || ''} ${g.name || ''}`.toLowerCase()
+        })
+        return lowerGenreSlugs.some((slug) => {
+          const simplified = slug.replace(/-/g, ' ')
+          return (
+            primarySlug === slug ||
+            primarySlug.includes(slug) ||
+            primaryName.includes(simplified) ||
+            allG.some((g: string) => g.includes(simplified) || g.includes(slug))
+          )
+        })
+      })
+      .filter((w) => {
+        if (clean.length >= 2) {
+          return matchesTitle(w.title)
+        }
+        return true
+      })
+      .map(mapMockWorkToSearchResult)
+    }
 
       const effectiveTotal = Math.max(totalDbCount, dbStories.length)
 
@@ -320,94 +394,107 @@ export async function executeGlobalSearch({
   let dbStories: SearchStoriesResultItem[] = []
   let totalDbCount = 0
 
-  try {
-    const { createAdminClient } = await import('../lib/supabase/server.ts')
-    const admin = createAdminClient()
+  if (hasSupabaseAdmin) {
+    try {
+      const { createAdminClient } = await import('../lib/supabase/server.ts')
+      const admin = createAdminClient()
 
-    // PostgreSQL ILIKE search with strict projection (Least Data Principle)
-    // Uses idx_works_title_trgm and idx_works_description_trgm GIN indexes for fast sub-50ms lookup
-    let worksQuery = admin
-      .from('works')
-      .select(`
-        id,
-        title,
-        slug,
-        description,
-        cover_image_path,
-        status,
-        word_count,
-        reading_time_minutes,
-        view_count,
-        like_count,
-        created_at,
-        profiles:author_id (id, username, display_name, avatar_path, bio),
-        categories:category_id (id, name, slug),
-        work_genres (genres (id, name, slug)),
-        work_tags (tags (id, name, slug))
-      `, { count: 'exact' })
-      .eq('visibility', 'public')
-      .eq('publication_status', 'published')
+      // PostgreSQL ILIKE search with strict projection (Least Data Principle)
+      // Uses idx_works_title_trgm and idx_works_description_trgm GIN indexes for fast sub-50ms lookup
+      let worksQuery = admin
+        .from('works')
+        .select(`
+          id,
+          title,
+          slug,
+          description,
+          cover_image_path,
+          status,
+          word_count,
+          reading_time_minutes,
+          view_count,
+          like_count,
+          created_at,
+          profiles:author_id (id, username, display_name, avatar_path, bio),
+          categories:category_id (id, name, slug),
+          work_genres (genres (id, name, slug)),
+          work_tags (tags (id, name, slug))
+        `, { count: 'exact' })
+        .eq('visibility', 'public')
+        .eq('publication_status', 'published')
 
-    if (isParameterVariant) {
-      const altSanitized = sanitized.replace(/parameter/gi, 'perimeter')
-      worksQuery = worksQuery.or(`title.ilike.%${sanitized}%,title.ilike.%${altSanitized}%`)
-    } else {
-      worksQuery = worksQuery.ilike('title', `%${sanitized}%`)
+      if (isParameterVariant) {
+        const altSanitized = sanitized.replace(/parameter/gi, 'perimeter')
+        worksQuery = worksQuery.or(`title.ilike.%${sanitized}%,description.ilike.%${sanitized}%,title.ilike.%${altSanitized}%`)
+      } else {
+        worksQuery = worksQuery.or(`title.ilike.%${sanitized}%,description.ilike.%${sanitized}%`)
+      }
+
+      const { data: rows, error, count } = await worksQuery
+        .order('view_count', { ascending: false })
+        .range(from, to)
+
+      if (count !== null && count !== undefined) {
+        totalDbCount = count
+      }
+
+      if (!error && Array.isArray(rows) && rows.length > 0) {
+        dbStories = rows.map((w: any) => {
+          const authorProfile = Array.isArray(w.profiles) ? w.profiles[0] : w.profiles
+          const category = Array.isArray(w.categories) ? w.categories[0] : w.categories
+          const genreList: any[] = (w.work_genres || []).map((wg: any) => wg.genres).filter(Boolean)
+          const tagList: any[] = (w.work_tags || []).map((wt: any) => wt.tags).filter(Boolean)
+          const primaryGenre = genreList[0]
+
+          return {
+            id: w.id,
+            title: w.title,
+            slug: w.slug || w.id,
+            synopsis: w.description || '',
+            cover: w.cover_image_path || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80',
+            category: category?.name || 'Novels',
+            categorySlug: category?.slug || 'novels',
+            genre: primaryGenre?.name || 'Fiction',
+            genreSlug: primaryGenre?.slug || 'fiction',
+            genres: [
+              ...genreList.map((g: any) => g.name || g.slug),
+              ...tagList.map((t: any) => t.name || t.slug),
+            ],
+            status: (w.status === 'completed' ? 'Completed' : 'In Progress') as any,
+            readingTimeMinutes: w.reading_time_minutes || 5,
+            wordCount: w.word_count || 1000,
+            viewCount: w.view_count || 0,
+            ratingScore: 4.8,
+            ratingCount: w.like_count || 0,
+            author: {
+              id: authorProfile?.id || w.author_id || 'author-unknown',
+              name: authorProfile?.display_name || authorProfile?.username || 'Hatchpen Author',
+              handle: authorProfile?.username || 'author',
+              avatar: authorProfile?.avatar_path || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+              bio: authorProfile?.bio || '',
+            },
+          }
+        }).filter((s) => matchesTitle(s.title))
+
+        // Sort by view count
+        dbStories.sort((a, b) => {
+          return Number(b.viewCount || 0) - Number(a.viewCount || 0)
+        })
+      }
+    } catch (e: any) {
+      console.warn('[executeGlobalSearch] DB query notice:', e?.message)
     }
+  }
 
-    const { data: rows, error, count } = await worksQuery
-      .order('view_count', { ascending: false })
-      .range(from, to)
+  // Offline / Mock fallback resilience when DB returns 0 stories
+  if (dbStories.length === 0) {
+    dbStories = WORKS.filter((w) => matchesTitle(w.title))
+      .map(mapMockWorkToSearchResult)
 
-    if (count !== null && count !== undefined) {
-      totalDbCount = count
-    }
-
-    if (!error && Array.isArray(rows) && rows.length > 0) {
-      dbStories = rows.map((w: any) => {
-        const authorProfile = Array.isArray(w.profiles) ? w.profiles[0] : w.profiles
-        const category = Array.isArray(w.categories) ? w.categories[0] : w.categories
-        const genreList: any[] = (w.work_genres || []).map((wg: any) => wg.genres).filter(Boolean)
-        const tagList: any[] = (w.work_tags || []).map((wt: any) => wt.tags).filter(Boolean)
-        const primaryGenre = genreList[0]
-
-        return {
-          id: w.id,
-          title: w.title,
-          slug: w.slug || w.id,
-          synopsis: w.description || '',
-          cover: w.cover_image_path || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80',
-          category: category?.name || 'Novels',
-          categorySlug: category?.slug || 'novels',
-          genre: primaryGenre?.name || 'Fiction',
-          genreSlug: primaryGenre?.slug || 'fiction',
-          genres: [
-            ...genreList.map((g: any) => g.name || g.slug),
-            ...tagList.map((t: any) => t.name || t.slug),
-          ],
-          status: (w.status === 'completed' ? 'Completed' : 'In Progress') as any,
-          readingTimeMinutes: w.reading_time_minutes || 5,
-          wordCount: w.word_count || 1000,
-          viewCount: w.view_count || 0,
-          ratingScore: 4.8,
-          ratingCount: w.like_count || 0,
-          author: {
-            id: authorProfile?.id || w.author_id || 'author-unknown',
-            name: authorProfile?.display_name || authorProfile?.username || 'Hatchpen Author',
-            handle: authorProfile?.username || 'author',
-            avatar: authorProfile?.avatar_path || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
-            bio: authorProfile?.bio || '',
-          },
-        }
-      }).filter((s) => matchesTitle(s.title))
-
-      // Sort by view count
-      dbStories.sort((a, b) => {
-        return Number(b.viewCount || 0) - Number(a.viewCount || 0)
-      })
-    }
-  } catch (e: any) {
-    console.warn('[executeGlobalSearch] DB query notice:', e?.message)
+    // Sort by view count
+    dbStories.sort((a, b) => {
+      return Number(b.viewCount || 0) - Number(a.viewCount || 0)
+    })
   }
 
   const effectiveTotal = Math.max(totalDbCount, dbStories.length)
@@ -551,72 +638,74 @@ export async function executeGetQuestionnaireRecommendations({
 
   let dbStories: SearchStoriesResultItem[] = []
 
-  try {
-    const { createAdminClient } = await import('../lib/supabase/server.ts')
-    const admin = createAdminClient()
+  if (hasSupabaseAdmin) {
+    try {
+      const { createAdminClient } = await import('../lib/supabase/server.ts')
+      const admin = createAdminClient()
 
-    const { data: rows, error } = await admin
-      .from('works')
-      .select(`
-        id,
-        title,
-        slug,
-        description,
-        cover_image_path,
-        status,
-        word_count,
-        reading_time_minutes,
-        view_count,
-        like_count,
-        created_at,
-        profiles:author_id (id, username, display_name, avatar_path, bio),
-        categories:category_id (id, name, slug),
-        work_genres (genres (id, name, slug)),
-        work_tags (tags (id, name, slug))
-      `)
-      .eq('visibility', 'public')
-      .eq('publication_status', 'published')
+      const { data: rows, error } = await admin
+        .from('works')
+        .select(`
+          id,
+          title,
+          slug,
+          description,
+          cover_image_path,
+          status,
+          word_count,
+          reading_time_minutes,
+          view_count,
+          like_count,
+          created_at,
+          profiles:author_id (id, username, display_name, avatar_path, bio),
+          categories:category_id (id, name, slug),
+          work_genres (genres (id, name, slug)),
+          work_tags (tags (id, name, slug))
+        `)
+        .eq('visibility', 'public')
+        .eq('publication_status', 'published')
 
-    if (!error && Array.isArray(rows) && rows.length > 0) {
-      for (const w of rows as any[]) {
-        const authorProfile = Array.isArray(w.profiles) ? w.profiles[0] : w.profiles
-        const category = Array.isArray(w.categories) ? w.categories[0] : w.categories
-        const genreList: any[] = (w.work_genres || []).map((wg: any) => wg.genres).filter(Boolean)
-        const tagList: any[] = (w.work_tags || []).map((wt: any) => wt.tags).filter(Boolean)
-        const primaryGenre = genreList[0]
+      if (!error && Array.isArray(rows) && rows.length > 0) {
+        for (const w of rows as any[]) {
+          const authorProfile = Array.isArray(w.profiles) ? w.profiles[0] : w.profiles
+          const category = Array.isArray(w.categories) ? w.categories[0] : w.categories
+          const genreList: any[] = (w.work_genres || []).map((wg: any) => wg.genres).filter(Boolean)
+          const tagList: any[] = (w.work_tags || []).map((wt: any) => wt.tags).filter(Boolean)
+          const primaryGenre = genreList[0]
 
-        dbStories.push({
-          id: w.id,
-          title: w.title,
-          slug: w.slug || w.id,
-          synopsis: w.description || '',
-          cover: w.cover_image_path || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80',
-          category: category?.name || 'Novels',
-          categorySlug: (category?.slug || 'novels').toLowerCase(),
-          genre: primaryGenre?.name || 'Fiction',
-          genreSlug: (primaryGenre?.slug || 'fiction').toLowerCase(),
-          genres: [
-            ...genreList.map((g: any) => g.name || g.slug),
-            ...tagList.map((t: any) => t.name || t.slug),
-          ],
-          status: (w.status === 'completed' ? 'Completed' : 'In Progress') as any,
-          readingTimeMinutes: w.reading_time_minutes || 5,
-          wordCount: w.word_count || 1000,
-          viewCount: w.view_count || 0,
-          ratingScore: 4.8,
-          ratingCount: w.like_count || 0,
-          author: {
-            id: authorProfile?.id || w.author_id || 'author-unknown',
-            name: authorProfile?.display_name || authorProfile?.username || 'Hatchpen Author',
-            handle: authorProfile?.username || 'author',
-            avatar: authorProfile?.avatar_path || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
-            bio: authorProfile?.bio || '',
-          },
-        })
+          dbStories.push({
+            id: w.id,
+            title: w.title,
+            slug: w.slug || w.id,
+            synopsis: w.description || '',
+            cover: w.cover_image_path || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80',
+            category: category?.name || 'Novels',
+            categorySlug: (category?.slug || 'novels').toLowerCase(),
+            genre: primaryGenre?.name || 'Fiction',
+            genreSlug: (primaryGenre?.slug || 'fiction').toLowerCase(),
+            genres: [
+              ...genreList.map((g: any) => g.name || g.slug),
+              ...tagList.map((t: any) => t.name || t.slug),
+            ],
+            status: (w.status === 'completed' ? 'Completed' : 'In Progress') as any,
+            readingTimeMinutes: w.reading_time_minutes || 5,
+            wordCount: w.word_count || 1000,
+            viewCount: w.view_count || 0,
+            ratingScore: 4.8,
+            ratingCount: w.like_count || 0,
+            author: {
+              id: authorProfile?.id || w.author_id || 'author-unknown',
+              name: authorProfile?.display_name || authorProfile?.username || 'Hatchpen Author',
+              handle: authorProfile?.username || 'author',
+              avatar: authorProfile?.avatar_path || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+              bio: authorProfile?.bio || '',
+            },
+          })
+        }
       }
+    } catch (err: any) {
+      console.warn('[executeGetQuestionnaireRecommendations] DB query notice:', err?.message)
     }
-  } catch (err: any) {
-    console.warn('[executeGetQuestionnaireRecommendations] DB query notice:', err?.message)
   }
 
   // Candidate pool: DB stories augmented with catalog works, deduplicated by ID & slug
