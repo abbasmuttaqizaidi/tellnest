@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import EmptyState from '../components/EmptyState'
 import { FilterDisclosure, AnimatedSearch } from '../design-system'
@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   PenLine,
   Plus,
+  ChevronDown,
   Eye,
   BarChart3,
   Settings,
@@ -25,7 +26,9 @@ import {
   ShieldAlert,
   Archive,
   FileText,
-  Camera
+  Camera,
+  Search,
+  X
 } from 'lucide-react'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { generateMeta } from '../lib/seo'
@@ -163,6 +166,44 @@ function WorkManagementPage() {
   const [coverUrl, setCoverUrl] = useState<string>(work?.cover || '')
   const [coverModalOpen, setCoverModalOpen] = useState(false)
   const [isSavingCover, setIsSavingCover] = useState(false)
+
+  // Add Button Dropdown State (+ Chapter / + Act)
+  const [addDropdownOpen, setAddDropdownOpen] = useState(false)
+  const addDropdownRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (addDropdownRef.current && !addDropdownRef.current.contains(e.target as Node)) {
+        setAddDropdownOpen(false)
+      }
+    }
+    if (addDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [addDropdownOpen])
+
+  // Act 3-dots Menu & Delete Confirmation State
+  const [openActMenuId, setOpenActMenuId] = useState<string | null>(null)
+  const [deleteActTarget, setDeleteActTarget] = useState<{ id: string; title: string; chapterCount: number } | null>(null)
+  const [isDeletingAct, setIsDeletingAct] = useState(false)
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null
+      if (!target?.closest('.act-menu-container')) {
+        setOpenActMenuId(null)
+      }
+    }
+    if (openActMenuId) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [openActMenuId])
 
   // Always refresh latest manuscript state directly from DB on mount/return
   useEffect(() => {
@@ -337,14 +378,10 @@ function WorkManagementPage() {
     setActModalOpen(true)
   }
 
-  const handleDeleteAct = async (actId: string, actTitle: string) => {
-    if (
-      !window.confirm(
-        `Are you sure you want to remove "${actTitle}"? Chapters inside this Act will NOT be deleted; they will safely remain in your manuscript as unassigned chapters.`
-      )
-    ) {
-      return
-    }
+  const handleConfirmDeleteAct = async () => {
+    if (!deleteActTarget) return
+    setIsDeletingAct(true)
+    const { id: actId, title: actTitle } = deleteActTarget
 
     try {
       await deleteWriterActServerFn({
@@ -362,9 +399,12 @@ function WorkManagementPage() {
         )
       )
       showToast(`Act "${actTitle}" removed`)
+      setDeleteActTarget(null)
     } catch (err: any) {
-      console.error('[handleDeleteAct] Error:', err)
+      console.error('[handleConfirmDeleteAct] Error:', err)
       showToast(err?.message || 'Failed to remove act')
+    } finally {
+      setIsDeletingAct(false)
     }
   }
 
@@ -594,261 +634,320 @@ function WorkManagementPage() {
     showToast('Chapters ordered chronologically')
   }
 
-  return (
-    <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-      
-      {/* Back button */}
-      <Link
-        to="/write"
-        className="inline-flex items-center gap-1.5 text-xs font-mono text-[var(--ink-muted)] hover:text-[var(--ink-primary)] mb-6 no-underline"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" />
-        <span>Back to Writer Dashboard</span>
-      </Link>
+  // Calculate total manuscript word count across all chapters
+  const totalWordCount = useMemo(() => {
+    return chapters.reduce((acc, c) => acc + (c.wordCount ?? (c as any).word_count ?? 0), 0)
+  }, [chapters])
 
-      {/* Work Overview Card */}
-      <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 sm:p-8 mb-10 shadow-xs">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 pb-6 border-b border-[var(--border-subtle)]">
-          <div className="flex items-center gap-4">
+  const publishedChaptersCount = useMemo(() => {
+    return chapters.filter((c) => c.status === 'published').length
+  }, [chapters])
+
+  const draftChaptersCount = useMemo(() => {
+    return chapters.filter((c) => c.status === 'draft').length
+  }, [chapters])
+
+  return (
+    <div className="min-h-screen py-8 sm:py-10 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
+      
+      {/* Top Breadcrumb Navigation */}
+      <div className="flex items-center justify-between mb-6">
+        <Link
+          to="/write"
+          className="inline-flex items-center gap-1.5 text-xs font-mono text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors no-underline group"
+        >
+          <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5" />
+          <span>Back to Writer Dashboard</span>
+        </Link>
+
+        {/* Reading preview link if manuscript has published chapters */}
+        {publishedChaptersCount > 0 && (
+          <Link
+            to="/works/$workId"
+            params={{ workId: getWorkSlug(work) }}
+            className="inline-flex items-center gap-1 text-xs font-mono text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors no-underline"
+          >
+            <span>View Reader Folio</span>
+            <ExternalLink className="h-3 w-3" />
+          </Link>
+        )}
+      </div>
+
+      {/* Manuscript Overview Hero Card */}
+      <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5 sm:p-7 mb-8 shadow-xs">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          
+          {/* Left: Book Cover + Details */}
+          <div className="flex items-start sm:items-center gap-4 sm:gap-5 w-full md:w-auto">
+            {/* Interactive Cover Thumbnail */}
             <div className="relative group shrink-0">
               <img
                 src={coverUrl || work.cover}
                 alt={work.title}
-                className="h-20 w-14 sm:h-24 sm:w-16 rounded object-cover border border-[var(--border-strong)] shadow-2xs"
+                className="h-24 w-16 sm:h-28 sm:w-20 rounded-lg object-cover border border-[var(--border-strong)] shadow-xs transition-transform group-hover:scale-[1.02]"
               />
               <button
                 type="button"
                 onClick={() => setCoverModalOpen(true)}
-                className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 bg-black/60 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity text-[9px] font-mono cursor-pointer"
+                className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/60 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-mono cursor-pointer backdrop-blur-2xs"
                 title="Change Manuscript Cover"
               >
-                <Camera className="h-3.5 w-3.5" />
+                <Camera className="h-4 w-4" />
                 <span>Change</span>
               </button>
             </div>
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                {/* Publication Status Badge */}
-                {publicationStatus === 'Published' ? (
-                  <span className="inline-flex items-center gap-1 rounded bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 font-mono text-[9px] font-semibold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">
-                    <Globe className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
-                    Published
-                  </span>
-                ) : publicationStatus === 'Archived' ? (
-                  <span className="inline-flex items-center gap-1 rounded bg-stone-500/15 border border-stone-500/30 px-2 py-0.5 font-mono text-[9px] font-semibold text-stone-700 dark:text-stone-300 uppercase tracking-wider">
-                    <Archive className="h-3 w-3" />
-                    Archived
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 rounded bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 font-mono text-[9px] font-semibold text-amber-700 dark:text-amber-300 uppercase tracking-wider">
-                    <FileText className="h-3 w-3 text-amber-600 dark:text-amber-400" />
-                    Draft
-                  </span>
-                )}
 
-                {/* Visibility Badge */}
-                <span className="inline-flex items-center gap-1 rounded bg-[var(--bg-subtle)] border border-[var(--border-subtle)] px-2 py-0.5 font-mono text-[9px] text-[var(--ink-muted)] uppercase tracking-wider">
-                  {visibility === 'Public' ? (
-                    <>
-                      <Eye className="h-3 w-3" />
-                      Public Discovery
-                    </>
-                  ) : visibility === 'Unlisted' ? (
-                    <>
-                      <Lock className="h-3 w-3" />
-                      Unlisted (Direct Link)
-                    </>
-                  ) : (
-                    <>
-                      <ShieldAlert className="h-3 w-3 text-amber-600 dark:text-amber-400" />
-                      Private
-                    </>
-                  )}
-                </span>
+            {/* Title, Taxonomy, Interactive Badges & Inline Stats */}
+            <div className="space-y-1.5 min-w-0 flex-1">
+              {/* Badges & Category Row */}
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                {/* Clickable Publication Status Pill */}
+                <button
+                  type="button"
+                  onClick={openPubModal}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-mono text-[10px] font-semibold tracking-wider uppercase transition-all cursor-pointer ${
+                    publicationStatus === 'Published'
+                      ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25'
+                      : publicationStatus === 'Archived'
+                      ? 'bg-stone-500/15 text-stone-700 dark:text-stone-300 border border-stone-500/30 hover:bg-stone-500/25'
+                      : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/25'
+                  }`}
+                  title="Click to change Publication & Visibility settings"
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${
+                    publicationStatus === 'Published' ? 'bg-emerald-500' : publicationStatus === 'Archived' ? 'bg-stone-400' : 'bg-amber-500 animate-pulse'
+                  }`} />
+                  <span>{publicationStatus}</span>
+                  <span className="text-[9px] opacity-60">({visibility})</span>
+                </button>
 
-                {/* Work Lifecycle Badge (Ongoing / Completed) */}
-                <span className="rounded bg-[var(--bg-subtle)] border border-[var(--border-subtle)] px-2 py-0.5 font-mono text-[9px] font-medium text-[var(--ink-secondary)] uppercase tracking-wider">
+                {/* Work Lifecycle Badge */}
+                <span className="rounded-full bg-[var(--bg-subtle)] border border-[var(--border-subtle)] px-2.5 py-0.5 font-mono text-[10px] text-[var(--ink-secondary)] uppercase tracking-wider">
                   {workStatus}
                 </span>
 
-                <span className="font-mono text-xs text-[var(--ink-muted)]">{work.category}</span>
+                {work.category && (
+                  <span className="font-mono text-xs text-[var(--ink-muted)] hidden sm:inline">
+                    • {work.category}
+                  </span>
+                )}
               </div>
-              <h1 className="font-serif text-2xl sm:text-3xl font-semibold text-[var(--ink-primary)] mt-1">
+
+              {/* Manuscript Title */}
+              <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] tracking-tight truncate">
                 {work.title}
               </h1>
-              <p className="font-mono text-xs text-[var(--ink-muted)] mt-0.5">
-                {chapters.length} Chapters • <span title={`${formatViewCount(work.totalReads, false)} Lifetime Reads`}>{formatViewCount(work.totalReads, true)} Lifetime Reads</span>
-              </p>
+
+              {/* Clean Inline Metrics Strip */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs text-[var(--ink-muted)] pt-0.5">
+                <span className="font-semibold text-[var(--ink-primary)]">
+                  {chapters.length} {chapters.length === 1 ? 'Chapter' : 'Chapters'}
+                </span>
+                <span>•</span>
+                <span>{totalWordCount.toLocaleString()} words</span>
+                <span>•</span>
+                <span title={`${formatViewCount(work.totalReads, false)} Lifetime Reads`}>
+                  {formatViewCount(work.totalReads, true)} reads
+                </span>
+                {work.totalSaves > 0 && (
+                  <>
+                    <span>•</span>
+                    <span>{work.totalSaves} saves</span>
+                  </>
+                )}
+                {acts.length > 0 && (
+                  <>
+                    <span>•</span>
+                    <span className="text-amber-600 dark:text-amber-400 font-medium">
+                      {acts.length} {acts.length === 1 ? 'Act' : 'Acts'}
+                    </span>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Action CTAs */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Quick Publish CTA if in Draft */}
+          {/* Right: Streamlined Action Cluster */}
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-[var(--border-subtle)]">
+            {/* Quick Publish CTA if manuscript is still in Draft */}
             {publicationStatus === 'Draft' && (
               <button
                 type="button"
                 onClick={handleQuickPublish}
                 disabled={isUpdatingPub}
-                className="inline-flex items-center gap-1.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 text-xs font-semibold shadow-xs transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 text-xs font-semibold shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
                 title="Publish entire manuscript to readers"
               >
                 <Globe className="h-3.5 w-3.5" />
-                <span>{isUpdatingPub ? 'Publishing...' : 'Publish Manuscript'}</span>
+                <span>{isUpdatingPub ? 'Publishing...' : 'Publish'}</span>
               </button>
             )}
 
-            {/* Publication & Visibility Settings Button */}
+            {/* Publication & Visibility Settings */}
             <button
               type="button"
               onClick={openPubModal}
-              className="inline-flex items-center gap-1.5 rounded border border-[var(--border-strong)] bg-[var(--bg-canvas)] px-3.5 py-2 text-xs font-medium text-[var(--ink-secondary)] hover:border-[var(--ink-primary)] hover:text-[var(--ink-primary)] transition-colors shadow-2xs"
-              title="Change visibility, publication status, or serialization"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2 text-xs font-medium text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:border-[var(--border-strong)] transition-colors cursor-pointer shadow-2xs"
+              title="Configure audience visibility and publication state"
             >
-              <Globe className="h-3.5 w-3.5 text-[var(--ink-primary)]" />
-              <span>Publication & Visibility</span>
+              <Settings className="h-3.5 w-3.5 text-black dark:text-white" />
+              <span>Visibility</span>
             </button>
 
+            {/* Analytics */}
             <Link
               to="/write/analytics/$workId"
               params={{ workId: work.id }}
-              className="inline-flex items-center gap-1.5 rounded border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3.5 py-2 text-xs font-medium text-[var(--ink-secondary)] hover:border-[var(--border-strong)] no-underline"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2 text-xs font-medium text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:border-[var(--border-strong)] transition-colors no-underline shadow-2xs"
             >
-              <BarChart3 className="h-3.5 w-3.5" />
-              <span>Analytics</span>
+              <BarChart3 className="h-3.5 w-3.5 text-black dark:text-white" />
+              <span className="hidden sm:inline">Analytics</span>
             </Link>
 
-            <button
-              onClick={openCreateActModal}
-              className="inline-flex items-center gap-1.5 rounded border border-[var(--border-strong)] bg-[var(--bg-canvas)] px-3.5 py-2 text-xs font-medium text-[var(--ink-secondary)] hover:border-[var(--ink-primary)] hover:text-[var(--ink-primary)] transition-colors shadow-2xs"
-            >
-              <Layers className="h-3.5 w-3.5" />
-              <span>{acts.length > 0 ? '+ Add Act' : '+ Add Act Divider'}</span>
-            </button>
+            {/* Add Button with Popup Dropdown */}
+            <div className="relative" ref={addDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setAddDropdownOpen((prev) => !prev)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-canvas)] hover:bg-[var(--bg-subtle)] px-3.5 py-2 text-xs font-semibold text-[var(--ink-primary)] shadow-2xs transition-colors cursor-pointer"
+                title="Add Chapter or Act"
+                aria-expanded={addDropdownOpen}
+              >
+                <Plus className="h-4 w-4 text-black dark:text-white" strokeWidth={2.5} />
+                <span>Add</span>
+                <ChevronDown className={`h-3 w-3 text-black dark:text-white transition-transform duration-150 ${addDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
 
-            <button
-              onClick={() => openCreateChapterModal()}
-              className="inline-flex items-center gap-1.5 rounded border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-4 py-2 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 shadow-xs"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>Write Chapter</span>
-            </button>
-          </div>
-        </div>
+              {addDropdownOpen && (
+                <div className="absolute right-0 top-full mt-1.5 w-44 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-1.5 shadow-xl z-30 animate-in fade-in zoom-in-95 duration-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAddDropdownOpen(false)
+                      openCreateChapterModal()
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors text-left cursor-pointer"
+                  >
+                    <Plus className="h-4 w-4 text-black dark:text-white shrink-0" strokeWidth={2.5} />
+                    <span className="font-semibold">Chapter</span>
+                  </button>
 
-        {/* Quick Work Stats Summary */}
-        <div className={`pt-6 grid grid-cols-2 ${acts.length > 0 ? 'sm:grid-cols-5' : 'sm:grid-cols-4'} gap-4 font-mono text-xs text-center`}>
-          {acts.length > 0 && (
-            <div>
-              <p className="font-semibold text-base text-[var(--ink-primary)]">{acts.length}</p>
-              <p className="text-[10px] text-[var(--ink-muted)] uppercase">Acts / Movements</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAddDropdownOpen(false)
+                      openCreateActModal()
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors text-left cursor-pointer"
+                  >
+                    <Plus className="h-4 w-4 text-black dark:text-white shrink-0" strokeWidth={2.5} />
+                    <span className="font-semibold">Act</span>
+                  </button>
+                </div>
+              )}
             </div>
-          )}
-          <div>
-            <p className="font-semibold text-base text-[var(--ink-primary)]">{chapters.filter(c => c.status === 'published').length}</p>
-            <p className="text-[10px] text-[var(--ink-muted)] uppercase">Published</p>
           </div>
-          <div>
-            <p className="font-semibold text-base text-[var(--ink-primary)]">{chapters.filter(c => c.status === 'draft').length}</p>
-            <p className="text-[10px] text-[var(--ink-muted)] uppercase">Drafts</p>
-          </div>
-          <div>
-            <p className="font-semibold text-base text-[var(--ink-primary)]">{work.totalSaves}</p>
-            <p className="text-[10px] text-[var(--ink-muted)] uppercase">Library Saves</p>
-          </div>
-          <div>
-            <p className="font-semibold text-base text-[var(--ink-primary)]">{work.ratingScore ? work.ratingScore.toFixed(1) : '5.0'} / 5.0</p>
-            <p className="text-[10px] text-[var(--ink-muted)] uppercase">Editorial Score</p>
-          </div>
+
         </div>
       </div>
 
-      {/* Chapters Table */}
+      {/* Chapters Folio Workspace */}
       <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[var(--border-subtle)] gap-4">
-          <div>
-            <h2 className="font-serif text-xl font-semibold text-[var(--ink-primary)]">
-              {acts.length > 0 ? 'Manuscript Folio & Chapters' : 'Manuscript Chapters'}
-            </h2>
-            <p className="text-xs text-[var(--ink-muted)]">
-              {acts.length > 0
-                ? 'Organize your chapters into Acts, manage publication status, or launch the writing canvas.'
-                : 'Reorder chapters, manage publish status, or launch the writing canvas.'}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2.5 text-xs">
-            {/* View Mode Toggle: Only shown when story has Acts */}
-            {acts.length > 0 && (
-              <div className="flex items-center gap-0.5 bg-[var(--bg-canvas)] p-0.5 rounded-lg border border-[var(--border-subtle)]">
-                <button
-                  type="button"
-                  onClick={() => setViewMode('grouped')}
-                  className={`px-2.5 py-1 rounded text-[11px] font-mono transition-colors ${
-                    viewMode === 'grouped'
-                      ? 'bg-[var(--bg-surface)] text-[var(--ink-primary)] font-semibold shadow-2xs'
-                      : 'text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
-                  }`}
-                >
-                  By Acts
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode('flat')}
-                  className={`px-2.5 py-1 rounded text-[11px] font-mono transition-colors ${
-                    viewMode === 'flat'
-                      ? 'bg-[var(--bg-surface)] text-[var(--ink-primary)] font-semibold shadow-2xs'
-                      : 'text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
-                  }`}
-                >
-                  All Chapters
-                </button>
-              </div>
-            )}
-
-            <FilterDisclosure
-              label="Status"
-              activeId={chapterFilter}
-              onChange={setChapterFilter}
-              items={[
-                { id: 'all', label: `All (${chapters.length})` },
-                { id: 'published', label: 'Published' },
-                { id: 'draft', label: 'Drafts' },
-              ]}
-            />
-
-            <FilterDisclosure
-              label="Sort"
-              activeId={chapterSort}
-              onChange={setChapterSort}
-              items={[
-                { id: 'number', label: 'Chapter Order' },
-                { id: 'wordCount', label: 'Longest First' },
-                { id: 'title', label: 'Title (A-Z)' },
-              ]}
-            />
-
-            <AnimatedSearch
-              variant="expandable"
-              placeholder="Find chapter..."
-              value={searchQuery}
-              onChange={setSearchQuery}
-              shortcut="/"
-            />
+        
+        {/* Workspace Toolbar: Full-Width Tabs with Right-Aligned Search */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border-subtle)]">
+          
+          {/* Left: Full Tabs */}
+          <div className="flex items-center gap-2 sm:gap-6 overflow-x-auto -mb-px">
+            <button
+              type="button"
+              onClick={() => setChapterFilter('all')}
+              className={`flex items-center gap-2 pb-3 pt-1 text-xs sm:text-sm font-medium border-b-2 transition-all cursor-pointer whitespace-nowrap ${
+                chapterFilter === 'all'
+                  ? 'border-[var(--ink-primary)] text-[var(--ink-primary)] font-semibold'
+                  : 'border-transparent text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:border-[var(--border-subtle)]'
+              }`}
+            >
+              <span>All</span>
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-semibold ${
+                chapterFilter === 'all'
+                  ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)]'
+                  : 'bg-[var(--bg-subtle)] text-[var(--ink-muted)]'
+              }`}>
+                {chapters.length}
+              </span>
+            </button>
 
             <button
-              onClick={handleReorder}
-              className="inline-flex items-center gap-1 text-xs font-mono text-[var(--ink-muted)] hover:text-[var(--ink-primary)] px-2 py-1.5 rounded border border-[var(--border-subtle)]"
+              type="button"
+              onClick={() => setChapterFilter('published')}
+              className={`flex items-center gap-2 pb-3 pt-1 text-xs sm:text-sm font-medium border-b-2 transition-all cursor-pointer whitespace-nowrap ${
+                chapterFilter === 'published'
+                  ? 'border-emerald-600 text-emerald-700 dark:text-emerald-300 font-semibold'
+                  : 'border-transparent text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:border-[var(--border-subtle)]'
+              }`}
             >
-              <ArrowUpDown className="h-3 w-3" />
-              <span>Reset</span>
+              <span>Published</span>
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-semibold ${
+                chapterFilter === 'published'
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-[var(--bg-subtle)] text-[var(--ink-muted)]'
+              }`}>
+                {publishedChaptersCount}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setChapterFilter('draft')}
+              className={`flex items-center gap-2 pb-3 pt-1 text-xs sm:text-sm font-medium border-b-2 transition-all cursor-pointer whitespace-nowrap ${
+                chapterFilter === 'draft'
+                  ? 'border-amber-600 text-amber-700 dark:text-amber-300 font-semibold'
+                  : 'border-transparent text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:border-[var(--border-subtle)]'
+              }`}
+            >
+              <span>Draft</span>
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-semibold ${
+                chapterFilter === 'draft'
+                  ? 'bg-amber-600 text-white'
+                  : 'bg-[var(--bg-subtle)] text-[var(--ink-muted)]'
+              }`}>
+                {draftChaptersCount}
+              </span>
             </button>
           </div>
+
+          {/* Right: Search Input Only */}
+          <div className="flex items-center pb-2.5 sm:pb-2 sm:w-64 w-full">
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--ink-muted)] pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search chapters..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full text-xs font-sans bg-[var(--bg-canvas)] text-[var(--ink-primary)] placeholder-[var(--ink-muted)] border border-[var(--border-subtle)] hover:border-[var(--border-strong)] focus:border-[var(--ink-primary)] focus:ring-1 focus:ring-[var(--ink-primary)] rounded-full pl-8.5 pr-8 py-1.5 shadow-2xs focus:outline-none transition-all"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+                  title="Clear search"
+                  aria-label="Clear search"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          </div>
+
         </div>
 
+        {/* Chapters Content Display */}
         {acts.length > 0 && viewMode === 'grouped' ? (
           /* Grouped by Acts View */
-          <div className="space-y-6">
+          <div className="space-y-5">
             {acts.map((act) => {
               const actChapters = displayedChapters.filter(
                 (ch) => ch.actId === act.id || ch.actNumber === act.number
@@ -858,68 +957,101 @@ function WorkManagementPage() {
               return (
                 <div
                   key={act.id}
-                  className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] overflow-hidden shadow-2xs"
+                  className={`rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-xs ${
+                    openActMenuId === act.id ? 'relative z-30 overflow-visible' : 'overflow-hidden'
+                  }`}
                 >
-                  {/* Act Header */}
-                  <div className="p-4 sm:px-5 sm:py-3.5 bg-[var(--bg-canvas)]/70 border-b border-[var(--border-subtle)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="space-y-0.5">
-                      <h3 className="font-serif text-base font-semibold text-[var(--ink-primary)]">
-                        {act.title || `Act ${act.number}`}
-                      </h3>
-                      {act.description && (
-                        <p className="text-xs text-[var(--ink-muted)] font-serif italic">
-                          {act.description}
-                        </p>
-                      )}
+                  {/* Clean Act Header */}
+                  <div className="px-4 sm:px-5 py-3.5 bg-[var(--bg-canvas)]/60 border-b border-[var(--border-subtle)] flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="h-6 w-6 rounded-full bg-black text-white flex items-center justify-center font-mono text-xs font-bold shrink-0 shadow-xs">
+                        {act.number}
+                      </span>
+                      <div className="min-w-0">
+                        <h3 className="font-serif text-base font-semibold text-[var(--ink-primary)] truncate">
+                          {act.title || `Act ${act.number}`}
+                        </h3>
+                        {act.description && (
+                          <p className="text-xs text-[var(--ink-muted)] font-serif italic truncate max-w-md">
+                            {act.description}
+                          </p>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-2.5 font-mono text-[11px] text-[var(--ink-muted)]">
-                      <span>{actChapters.length} {actChapters.length === 1 ? 'chapter' : 'chapters'}</span>
-                      <span>•</span>
-                      <span>{Number(actWordCount || 0).toLocaleString()} words</span>
-
-                      <div className="flex items-center gap-1.5 ml-2 border-l border-[var(--border-subtle)] pl-3">
+                    <div className="flex items-center shrink-0">
+                      <div className="relative act-menu-container">
                         <button
                           type="button"
-                          onClick={() => openEditActModal(act)}
-                          className="p-1 rounded text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)]"
-                          title="Edit Act Details"
+                          onClick={() => setOpenActMenuId((prev) => (prev === act.id ? null : act.id))}
+                          className="p-1.5 rounded-lg text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+                          title="Act options"
+                          aria-label="Act options"
+                          aria-expanded={openActMenuId === act.id}
                         >
-                          <Edit3 className="h-3.5 w-3.5" />
+                          <MoreVertical className="h-4 w-4 text-black dark:text-white" />
                         </button>
 
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteAct(act.id, act.title)}
-                          className="p-1 rounded text-[var(--ink-muted)] hover:text-red-600 hover:bg-[var(--bg-subtle)]"
-                          title="Remove Act (chapters will remain safely in manuscript)"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        {openActMenuId === act.id && (
+                          <div className="absolute right-0 top-full mt-1 w-48 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-1.5 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-100">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenActMenuId(null)
+                                openEditActModal(act)
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors text-left cursor-pointer"
+                            >
+                              <Edit3 className="h-3.5 w-3.5 text-black dark:text-white shrink-0" />
+                              <span>Edit Act</span>
+                            </button>
 
-                        <button
-                          type="button"
-                          onClick={() => openCreateChapterModal(act.id)}
-                          className="inline-flex items-center gap-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-1 text-[11px] font-medium text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:border-[var(--border-strong)] transition-colors shadow-2xs"
-                        >
-                          <Plus className="h-3 w-3" />
-                          <span>Chapter</span>
-                        </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenActMenuId(null)
+                                openCreateChapterModal(act.id)
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors text-left cursor-pointer"
+                            >
+                              <Plus className="h-3.5 w-3.5 text-black dark:text-white shrink-0" strokeWidth={2.2} />
+                              <span>Add Chapter</span>
+                            </button>
+
+                            <div className="my-1 border-t border-[var(--border-subtle)]" />
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenActMenuId(null)
+                                setDeleteActTarget({
+                                  id: act.id,
+                                  title: act.title || `Act ${act.number}`,
+                                  chapterCount: actChapters.length,
+                                })
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-red-600 hover:bg-red-500/10 transition-colors text-left cursor-pointer"
+                            >
+                              <Trash2 className="h-3.5 w-3.5 text-black dark:text-white shrink-0" />
+                              <span>Delete Act</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
 
-                  {/* Act Chapters */}
+                  {/* Act Chapter Rows */}
                   {actChapters.length === 0 ? (
-                    <div className="p-6 text-center text-xs font-serif text-[var(--ink-muted)] space-y-2">
-                      <p>No chapters filed under this Act yet.</p>
+                    <div className="p-8 text-center text-xs font-serif text-[var(--ink-muted)] space-y-2">
+                      <p>No chapters filed under {act.title} yet.</p>
                       <button
                         type="button"
                         onClick={() => openCreateChapterModal(act.id)}
-                        className="inline-flex items-center gap-1 text-xs font-mono font-medium text-[var(--ink-primary)] underline hover:opacity-80"
+                        className="inline-flex items-center gap-1 text-xs font-mono font-medium text-[var(--ink-primary)] hover:underline"
                       >
                         <Plus className="h-3 w-3" />
-                        <span>Pen first chapter for {act.title}</span>
+                        <span>Pen first chapter for this Act</span>
                       </button>
                     </div>
                   ) : (
@@ -927,113 +1059,106 @@ function WorkManagementPage() {
                       {actChapters.map((ch) => (
                         <div
                           key={ch.id}
-                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 hover:bg-[var(--bg-canvas)]/50 transition-colors"
+                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:px-5 hover:bg-[var(--bg-canvas)]/40 transition-colors group"
                         >
-                          <div className="flex items-start sm:items-center gap-4">
-                            <span className="font-mono text-sm font-bold text-[var(--ink-faint)] w-8">
+                          {/* Chapter Identification (Clickable title navigates straight to editor) */}
+                          <div className="flex items-center gap-3.5 min-w-0">
+                            <span className="font-mono text-xs font-bold text-[var(--ink-muted)] w-6 text-center shrink-0">
                               {String(ch.number).padStart(2, '0')}
                             </span>
-                            <div>
-                              <h4 className="font-serif text-base font-semibold text-[var(--ink-primary)]">
+                            <div className="min-w-0">
+                              <Link
+                                to="/write/editor/$workId/$chapterId"
+                                params={{ workId: work.id, chapterId: ch.id }}
+                                className="font-serif text-sm sm:text-base font-semibold text-[var(--ink-primary)] hover:underline truncate block no-underline"
+                              >
                                 {ch.title}
-                              </h4>
+                              </Link>
                               {ch.subtitle && (
-                                <p className="text-xs text-[var(--ink-muted)] font-serif italic">
+                                <p className="text-xs text-[var(--ink-muted)] font-serif italic truncate">
                                   {ch.subtitle}
                                 </p>
                               )}
-                              <div className="flex items-center gap-3 font-mono text-[10px] text-[var(--ink-faint)] mt-1">
+                              <div className="flex items-center gap-2 font-mono text-[10px] text-[var(--ink-faint)] mt-0.5">
                                 <span>{Number(ch.wordCount ?? (ch as any).word_count ?? 0).toLocaleString()} words</span>
                                 <span>•</span>
-                                <span>{ch.readTimeMinutes ?? (ch as any).reading_time_minutes ?? 1} min read</span>
-                                {ch.publishedAt && <span>• Published {ch.publishedAt}</span>}
+                                <span>{ch.readTimeMinutes ?? (ch as any).reading_time_minutes ?? 1} min</span>
+                                {ch.publishedAt && <span>• {ch.publishedAt}</span>}
                               </div>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-3 sm:justify-end">
-                            {/* Quick Act Mover (shown if multiple acts exist) */}
+                          {/* Chapter Action Controls */}
+                          <div className="flex items-center gap-2 sm:justify-end shrink-0 pl-9 sm:pl-0">
+                            {/* Move Act Dropdown (Only if multiple acts exist) */}
                             {acts.length > 1 && (
-                              <div className="flex items-center gap-1 text-[11px] font-mono text-[var(--ink-muted)]">
-                                <span className="text-[10px] uppercase text-[var(--ink-faint)] hidden sm:inline">Move:</span>
-                                <select
-                                  value={ch.actId || ''}
-                                  onChange={(e) => handleAssignChapterAct(ch.id, e.target.value || null)}
-                                  className="text-[11px] font-mono bg-[var(--bg-canvas)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] border border-[var(--border-subtle)] hover:border-[var(--border-strong)] rounded px-2 py-0.5 cursor-pointer focus:outline-none"
-                                  title="Move Chapter to another Act"
-                                >
-                                  {acts.map((a) => (
-                                    <option key={a.id} value={a.id}>
-                                      Act {a.number}: {a.title}
-                                    </option>
-                                  ))}
-                                  <option value="">(Remove from Act)</option>
-                                </select>
-                              </div>
+                              <select
+                                value={ch.actId || ''}
+                                onChange={(e) => handleAssignChapterAct(ch.id, e.target.value || null)}
+                                className="text-[11px] font-mono bg-[var(--bg-canvas)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)] border border-[var(--border-subtle)] rounded px-1.5 py-1 cursor-pointer focus:outline-none"
+                                title="Move Chapter to another Act"
+                              >
+                                {acts.map((a) => (
+                                  <option key={a.id} value={a.id}>
+                                    Act {a.number}
+                                  </option>
+                                ))}
+                                <option value="">(Unassign)</option>
+                              </select>
                             )}
 
+                            {/* Status Toggle Pill */}
                             <button
+                              type="button"
                               onClick={() => handleToggleStatus(ch.id)}
-                              className={`rounded px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+                              className={`rounded-full px-2.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider transition-colors cursor-pointer ${
                                 ch.status === 'published'
-                                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
-                                  : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'
+                                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25'
+                                  : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/25'
                               }`}
-                              title="Click to toggle publish status"
+                              title="Click to toggle chapter publish status"
                             >
                               {ch.status}
                             </button>
 
+                            {/* Edit Button */}
                             <Link
                               to="/write/editor/$workId/$chapterId"
                               params={{ workId: work.id, chapterId: ch.id }}
-                              className="rounded border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-3 py-1 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 no-underline shadow-2xs"
+                              className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-canvas)] hover:border-[var(--border-strong)] px-2.5 py-1 text-xs font-medium text-[var(--ink-primary)] no-underline shadow-2xs transition-colors"
                             >
-                              Edit Chapter
+                              Edit
                             </Link>
 
+                            {/* Preview Reader */}
                             <Link
                               to="/read/$workId/$chapterId"
                               params={{ workId: work.id, chapterId: ch.id }}
-                              className="p-1.5 text-[var(--ink-muted)] hover:text-[var(--ink-primary)]"
+                              className="p-1.5 text-[var(--ink-muted)] hover:text-[var(--ink-primary)] rounded hover:bg-[var(--bg-subtle)] transition-colors"
                               title="Preview Reading View"
                             >
-                              <ExternalLink className="h-4 w-4" />
+                              <ExternalLink className="h-3.5 w-3.5" />
                             </Link>
 
+                            {/* Delete Button */}
                             <button
                               type="button"
                               onClick={() => handleDeleteChapter(ch.id, ch.title)}
-                              className="p-1.5 text-[var(--ink-muted)] hover:text-red-600 rounded hover:bg-[var(--bg-subtle)] transition-colors"
+                              className="p-1.5 text-[var(--ink-muted)] hover:text-red-600 rounded hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
                               title="Delete Chapter"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           </div>
                         </div>
                       ))}
                     </div>
                   )}
-
-                  {/* Pen chapter in this Act footer */}
-                  <div className="p-2.5 bg-[var(--bg-canvas)]/40 border-t border-[var(--border-subtle)] flex items-center justify-between text-xs font-mono">
-                    <span className="text-[11px] text-[var(--ink-faint)]">
-                      Act {act.number} • {actChapters.length} {actChapters.length === 1 ? 'Chapter' : 'Chapters'}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => openCreateChapterModal(act.id)}
-                      className="inline-flex items-center gap-1.5 text-xs text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] px-2.5 py-1 rounded border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] transition-colors shadow-2xs"
-                    >
-                      <Plus className="h-3 w-3" />
-                      <span>Add Chapter to Act {act.number}</span>
-                    </button>
-                  </div>
                 </div>
               )
             })}
 
-            {/* Unassigned Chapters Section (if any chapters are not assigned to an Act) */}
+            {/* Unassigned Chapters (If any chapters are floating without an Act) */}
             {(() => {
               const unassigned = displayedChapters.filter(
                 (ch) => !ch.actId || !acts.some((a) => a.id === ch.actId || a.number === ch.actNumber)
@@ -1041,14 +1166,14 @@ function WorkManagementPage() {
               if (unassigned.length === 0) return null
 
               return (
-                <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)] overflow-hidden shadow-2xs">
-                  <div className="p-4 bg-[var(--bg-canvas)]/40 border-b border-[var(--border-subtle)] flex items-center justify-between">
+                <div className="rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)] overflow-hidden shadow-xs">
+                  <div className="px-5 py-3 bg-[var(--bg-canvas)]/40 border-b border-[var(--border-subtle)] flex items-center justify-between">
                     <div>
                       <h4 className="font-serif text-sm font-semibold text-[var(--ink-primary)]">
                         Unassigned Chapters ({unassigned.length})
                       </h4>
                       <p className="text-xs text-[var(--ink-muted)]">
-                        These chapters are not assigned to any narrative movement yet.
+                        Chapters waiting to be grouped into an Act.
                       </p>
                     </div>
                   </div>
@@ -1057,50 +1182,52 @@ function WorkManagementPage() {
                     {unassigned.map((ch) => (
                       <div
                         key={ch.id}
-                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 hover:bg-[var(--bg-canvas)]/50 transition-colors"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:px-5 hover:bg-[var(--bg-canvas)]/40 transition-colors"
                       >
-                        <div className="flex items-start sm:items-center gap-4">
-                          <span className="font-mono text-sm font-bold text-[var(--ink-faint)] w-8">
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          <span className="font-mono text-xs font-bold text-[var(--ink-muted)] w-6 text-center shrink-0">
                             {String(ch.number).padStart(2, '0')}
                           </span>
-                          <div>
-                            <h4 className="font-serif text-base font-semibold text-[var(--ink-primary)]">
+                          <div className="min-w-0">
+                            <Link
+                              to="/write/editor/$workId/$chapterId"
+                              params={{ workId: work.id, chapterId: ch.id }}
+                              className="font-serif text-sm sm:text-base font-semibold text-[var(--ink-primary)] hover:underline truncate block no-underline"
+                            >
                               {ch.title}
-                            </h4>
+                            </Link>
                             {ch.subtitle && (
-                              <p className="text-xs text-[var(--ink-muted)] font-serif italic">
+                              <p className="text-xs text-[var(--ink-muted)] font-serif italic truncate">
                                 {ch.subtitle}
                               </p>
                             )}
-                            <div className="flex items-center gap-3 font-mono text-[10px] text-[var(--ink-faint)] mt-1">
+                            <div className="flex items-center gap-2 font-mono text-[10px] text-[var(--ink-faint)] mt-0.5">
                               <span>{Number(ch.wordCount ?? (ch as any).word_count ?? 0).toLocaleString()} words</span>
                               <span>•</span>
-                              <span>{ch.readTimeMinutes ?? (ch as any).reading_time_minutes ?? 1} min read</span>
-                              {ch.publishedAt && <span>• Published {ch.publishedAt}</span>}
+                              <span>{ch.readTimeMinutes ?? (ch as any).reading_time_minutes ?? 1} min</span>
+                              {ch.publishedAt && <span>• {ch.publishedAt}</span>}
                             </div>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-3 sm:justify-end">
-                          <div className="flex items-center gap-1 text-[11px] font-mono text-[var(--ink-muted)]">
-                            <span className="text-[10px] uppercase text-[var(--ink-faint)] hidden sm:inline">Assign:</span>
-                            <select
-                              value=""
-                              onChange={(e) => handleAssignChapterAct(ch.id, e.target.value)}
-                              className="text-[11px] font-mono bg-[var(--bg-canvas)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] border border-[var(--border-subtle)] hover:border-[var(--border-strong)] rounded px-2 py-0.5 cursor-pointer focus:outline-none"
-                            >
-                              <option value="" disabled>Choose Act...</option>
-                              {acts.map((a) => (
-                                <option key={a.id} value={a.id}>
-                                  Act {a.number}: {a.title}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
+                        <div className="flex items-center gap-2 sm:justify-end shrink-0 pl-9 sm:pl-0">
+                          <select
+                            value=""
+                            onChange={(e) => handleAssignChapterAct(ch.id, e.target.value)}
+                            className="text-[11px] font-mono bg-[var(--bg-canvas)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)] border border-[var(--border-subtle)] rounded px-1.5 py-1 cursor-pointer focus:outline-none"
+                          >
+                            <option value="" disabled>Assign to Act...</option>
+                            {acts.map((a) => (
+                              <option key={a.id} value={a.id}>
+                                Act {a.number}: {a.title}
+                              </option>
+                            ))}
+                          </select>
 
                           <button
+                            type="button"
                             onClick={() => handleToggleStatus(ch.id)}
-                            className={`rounded px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+                            className={`rounded-full px-2.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider transition-colors cursor-pointer ${
                               ch.status === 'published'
                                 ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
                                 : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'
@@ -1112,18 +1239,18 @@ function WorkManagementPage() {
                           <Link
                             to="/write/editor/$workId/$chapterId"
                             params={{ workId: work.id, chapterId: ch.id }}
-                            className="rounded border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-3 py-1 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 no-underline shadow-2xs"
+                            className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-canvas)] hover:border-[var(--border-strong)] px-2.5 py-1 text-xs font-medium text-[var(--ink-primary)] no-underline shadow-2xs"
                           >
-                            Edit Chapter
+                            Edit
                           </Link>
 
                           <button
                             type="button"
                             onClick={() => handleDeleteChapter(ch.id, ch.title)}
-                            className="p-1.5 text-[var(--ink-muted)] hover:text-red-600 rounded hover:bg-[var(--bg-subtle)] transition-colors"
+                            className="p-1.5 text-[var(--ink-muted)] hover:text-red-600 rounded hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
                             title="Delete Chapter"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
                       </div>
@@ -1133,160 +1260,145 @@ function WorkManagementPage() {
               )
             })()}
 
-            {/* Add Next Act CTA Divider */}
+            {/* Quick Add Next Act Divider */}
             <button
               type="button"
               onClick={openCreateActModal}
-              className="w-full py-4 border-2 border-dashed border-[var(--border-subtle)] hover:border-[var(--border-strong)] rounded-xl text-center text-xs font-mono font-medium text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-surface)]/50 transition-colors flex items-center justify-center gap-2 shadow-2xs"
+              className="w-full py-3.5 border border-dashed border-[var(--border-subtle)] hover:border-[var(--border-strong)] rounded-xl text-center text-xs font-mono font-medium text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-surface)] transition-colors flex items-center justify-center gap-2 cursor-pointer"
             >
-              <Layers className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <Layers className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
               <span>+ Add Act {['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][acts.length] || String(acts.length + 1)} Divider</span>
             </button>
           </div>
         ) : (
-          /* Flat All Chapters View (Used when acts === 0 or when author selects All Chapters) */
+          /* Flat All Chapters View */
           <div className="space-y-4">
             {displayedChapters.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)] p-8 text-center space-y-3">
-                <p className="font-serif text-sm text-[var(--ink-muted)]">
-                  {searchQuery || chapterFilter !== 'all'
-                    ? 'No chapters found matching your filter.'
-                    : 'Your manuscript folio is waiting for its first chapter.'}
+              <div className="rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)] p-10 text-center space-y-3">
+                <FileText className="h-8 w-8 text-[var(--ink-muted)] mx-auto opacity-50" />
+                <h3 className="font-serif text-base font-semibold text-[var(--ink-primary)]">
+                  {searchQuery ? 'No chapters match your search query' : 'No chapters in this manuscript yet'}
+                </h3>
+                <p className="text-xs text-[var(--ink-muted)] max-w-sm mx-auto">
+                  {searchQuery
+                    ? 'Try clearing the search or changing your filter criteria.'
+                    : 'Every epic begins with a single sentence. Pen your first chapter now.'}
                 </p>
-                {!searchQuery && chapterFilter === 'all' && (
+                {searchQuery ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('')
+                      setChapterFilter('all')
+                    }}
+                    className="inline-flex items-center gap-1.5 text-xs font-mono text-[var(--ink-primary)] underline cursor-pointer"
+                  >
+                    Clear Search
+                  </button>
+                ) : (
                   <button
                     type="button"
                     onClick={() => openCreateChapterModal()}
-                    className="inline-flex items-center gap-1.5 rounded bg-[var(--ink-primary)] px-4 py-2 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 shadow-xs"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--ink-primary)] text-[var(--accent-contrast)] px-4 py-2 text-xs font-semibold shadow-xs cursor-pointer"
                   >
                     <Plus className="h-3.5 w-3.5" />
-                    <span>Pen First Chapter</span>
+                    <span>+ Chapter</span>
                   </button>
                 )}
               </div>
             ) : (
-              <div className="divide-y divide-[var(--border-subtle)] border border-[var(--border-subtle)] rounded-xl bg-[var(--bg-surface)] overflow-hidden">
-                {displayedChapters.map((ch) => {
-                  const matchedAct = acts.find((a) => a.id === ch.actId || a.number === ch.actNumber)
-                  return (
-                    <div
-                      key={ch.id}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 hover:bg-[var(--bg-canvas)] transition-colors"
-                    >
-                      <div className="flex items-start sm:items-center gap-4">
-                        <span className="font-mono text-sm font-bold text-[var(--ink-faint)] w-8">
-                          {String(ch.number).padStart(2, '0')}
-                        </span>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-serif text-base font-semibold text-[var(--ink-primary)]">
-                              {ch.title}
-                            </h4>
-                            {matchedAct && (
-                              <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--ink-muted)] bg-[var(--bg-canvas)] px-1.5 py-0.5 rounded border border-[var(--border-subtle)]">
-                                Act {matchedAct.number}
-                              </span>
-                            )}
-                          </div>
-                          {ch.subtitle && (
-                            <p className="text-xs text-[var(--ink-muted)] font-serif italic">
-                              {ch.subtitle}
-                            </p>
-                          )}
-                          <div className="flex items-center gap-3 font-mono text-[10px] text-[var(--ink-faint)] mt-1">
-                            <span>{Number(ch.wordCount ?? (ch as any).word_count ?? 0).toLocaleString()} words</span>
-                            <span>•</span>
-                            <span>{ch.readTimeMinutes ?? (ch as any).reading_time_minutes ?? 1} min read</span>
-                            {ch.publishedAt && <span>• Published {ch.publishedAt}</span>}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Status and Actions */}
-                      <div className="flex items-center gap-3 sm:justify-end">
-                        {acts.length > 0 && (
-                          <div className="flex items-center gap-1 text-[11px] font-mono text-[var(--ink-muted)]">
-                            <span className="text-[10px] uppercase text-[var(--ink-faint)] hidden sm:inline">Move:</span>
-                            <select
-                              value={ch.actId || ''}
-                              onChange={(e) => handleAssignChapterAct(ch.id, e.target.value || null)}
-                              className="text-[11px] font-mono bg-[var(--bg-canvas)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] border border-[var(--border-subtle)] hover:border-[var(--border-strong)] rounded px-2 py-0.5 cursor-pointer focus:outline-none"
-                              title="Move Chapter to Act"
-                            >
-                              <option value="">No Act</option>
-                              {acts.map((a) => (
-                                <option key={a.id} value={a.id}>
-                                  Act {a.number}: {a.title}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        )}
-
-                        <button
-                          onClick={() => handleToggleStatus(ch.id)}
-                          className={`rounded px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider transition-colors ${
-                            ch.status === 'published'
-                              ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
-                              : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'
-                          }`}
-                          title="Click to toggle publish status"
-                        >
-                          {ch.status}
-                        </button>
-
+              <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] overflow-hidden shadow-xs divide-y divide-[var(--border-subtle)]">
+                {displayedChapters.map((ch) => (
+                  <div
+                    key={ch.id}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:px-5 hover:bg-[var(--bg-canvas)]/40 transition-colors group"
+                  >
+                    {/* Chapter Info */}
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <span className="font-mono text-xs font-bold text-[var(--ink-muted)] w-6 text-center shrink-0">
+                        {String(ch.number).padStart(2, '0')}
+                      </span>
+                      <div className="min-w-0">
                         <Link
                           to="/write/editor/$workId/$chapterId"
                           params={{ workId: work.id, chapterId: ch.id }}
-                          className="rounded border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-3 py-1 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 no-underline shadow-2xs"
+                          className="font-serif text-sm sm:text-base font-semibold text-[var(--ink-primary)] hover:underline truncate block no-underline"
                         >
-                          Edit Chapter
+                          {ch.title}
                         </Link>
-
-                        <Link
-                          to="/read/$workId/$chapterId"
-                          params={{ workId: work.id, chapterId: ch.id }}
-                          className="p-1.5 text-[var(--ink-muted)] hover:text-[var(--ink-primary)]"
-                          title="Preview Reading View"
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </Link>
-
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteChapter(ch.id, ch.title)}
-                          className="p-1.5 text-[var(--ink-muted)] hover:text-red-600 rounded hover:bg-[var(--bg-subtle)] transition-colors"
-                          title="Delete Chapter"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        {ch.subtitle && (
+                          <p className="text-xs text-[var(--ink-muted)] font-serif italic truncate">
+                            {ch.subtitle}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-2 font-mono text-[10px] text-[var(--ink-faint)] mt-0.5">
+                          <span>{Number(ch.wordCount ?? (ch as any).word_count ?? 0).toLocaleString()} words</span>
+                          <span>•</span>
+                          <span>{ch.readTimeMinutes ?? (ch as any).reading_time_minutes ?? 1} min</span>
+                          {ch.publishedAt && <span>• {ch.publishedAt}</span>}
+                          {ch.actTitle && (
+                            <span className="text-amber-600 dark:text-amber-400 font-medium">
+                              • {ch.actTitle}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  )
-                })}
-              </div>
-            )}
 
-            {/* Subtle bottom prompt to introduce Acts when manuscript has multiple chapters and 0 acts */}
-            {acts.length === 0 && chapters.length > 1 && (
-              <div className="rounded-xl border border-dashed border-[var(--border-subtle)] p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[var(--ink-muted)] bg-[var(--bg-surface)]/40">
-                <div className="flex items-center gap-2">
-                  <Layers className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                  <span>Planning a longer narrative arc? You can divide chapters into overarching narrative Acts anytime.</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={openCreateActModal}
-                  className="inline-flex items-center gap-1.5 font-mono text-xs font-medium text-[var(--ink-primary)] hover:underline whitespace-nowrap"
-                >
-                  <Plus className="h-3 w-3" />
-                  <span>Add Act Divider</span>
-                </button>
+                    {/* Chapter Actions */}
+                    <div className="flex items-center gap-2 sm:justify-end shrink-0 pl-9 sm:pl-0">
+                      {/* Status Toggle Pill */}
+                      <button
+                        type="button"
+                        onClick={() => handleToggleStatus(ch.id)}
+                        className={`rounded-full px-2.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider transition-colors cursor-pointer ${
+                          ch.status === 'published'
+                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25'
+                            : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/25'
+                        }`}
+                        title="Click to toggle publish status"
+                      >
+                        {ch.status}
+                      </button>
+
+                      {/* Edit Button */}
+                      <Link
+                        to="/write/editor/$workId/$chapterId"
+                        params={{ workId: work.id, chapterId: ch.id }}
+                        className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-canvas)] hover:border-[var(--border-strong)] px-2.5 py-1 text-xs font-medium text-[var(--ink-primary)] no-underline shadow-2xs transition-colors"
+                      >
+                        Edit
+                      </Link>
+
+                      {/* Preview Reading View */}
+                      <Link
+                        to="/read/$workId/$chapterId"
+                        params={{ workId: work.id, chapterId: ch.id }}
+                        className="p-1.5 text-[var(--ink-muted)] hover:text-[var(--ink-primary)] rounded hover:bg-[var(--bg-subtle)] transition-colors"
+                        title="Preview Reading View"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </Link>
+
+                      {/* Delete Chapter */}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteChapter(ch.id, ch.title)}
+                        className="p-1.5 text-[var(--ink-muted)] hover:text-red-600 rounded hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+                        title="Delete Chapter"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
         )}
+
       </div>
+
 
       {/* New / Edit Act Modal */}
       {actModalOpen && (
@@ -1799,6 +1911,60 @@ function WorkManagementPage() {
                   Close
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Act Confirmation Modal */}
+      {deleteActTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3.5">
+              <div className="p-2.5 rounded-xl bg-red-500/10 text-red-600 shrink-0">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="font-serif text-lg font-semibold text-[var(--ink-primary)]">
+                  Delete Act?
+                </h3>
+                <p className="text-xs text-[var(--ink-muted)] mt-0.5">
+                  Are you sure you want to delete <span className="font-semibold text-[var(--ink-primary)] font-serif">"{deleteActTarget.title}"</span>?
+                </p>
+              </div>
+            </div>
+
+            {/* Informational Banner */}
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 dark:bg-amber-950/20 p-3.5 flex items-start gap-3 text-xs">
+              <Info className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-semibold text-amber-900 dark:text-amber-200">
+                  Chapters will NOT be deleted
+                </p>
+                <p className="text-[11px] leading-relaxed text-[var(--ink-secondary)]">
+                  Yeh Act delete karne se kewal Act delete hoga, chapters delete nahi honge. Is Act ke andar ke tamaam {deleteActTarget.chapterCount} chapter(s) manuscript mein <strong>Unassigned Chapters</strong> ke taur par mehfooz rahenge.
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border-subtle)]">
+              <button
+                type="button"
+                disabled={isDeletingAct}
+                onClick={() => setDeleteActTarget(null)}
+                className="px-4 py-2 rounded-lg text-xs font-medium text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingAct}
+                onClick={handleConfirmDeleteAct}
+                className="rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-700 shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {isDeletingAct ? 'Deleting...' : 'Delete Act'}
+              </button>
             </div>
           </div>
         </div>
