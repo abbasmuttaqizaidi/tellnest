@@ -60,6 +60,12 @@ export interface ReadingProgress {
   lastReadAt: string
 }
 
+export interface AuthModalOptions {
+  canClose?: boolean
+  title?: string
+  reason?: string
+}
+
 interface AppContextType {
   // Theme & Reading Settings
   readerSettings: ReaderSettings
@@ -119,6 +125,9 @@ interface AppContextType {
   showToast: (msg: string) => void
 
   // Custom Avatar & User Identity
+  user: any
+  isSignedIn: boolean | undefined
+  isUserLoaded: boolean
   userDisplayName: string | null
   setUserDisplayName: (name: string | null) => void
   userProfileUsername: string | null
@@ -128,8 +137,11 @@ interface AppContextType {
 
   // Auth Modal
   isAuthModalOpen: boolean
-  openAuthModal: (returnUrl?: string) => void
-  closeAuthModal: () => void
+  authModalCanClose: boolean
+  authModalTitle: string | null
+  authModalReason: string | null
+  openAuthModal: (returnUrl?: string, options?: AuthModalOptions) => void
+  closeAuthModal: (force?: boolean) => void
   authReturnUrl: string | null
 
   // Public Write Modal
@@ -834,8 +846,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
   const [authReturnUrl, setAuthReturnUrl] = useState<string | null>(null)
+  const [authModalCanClose, setAuthModalCanClose] = useState(true)
+  const [authModalTitle, setAuthModalTitle] = useState<string | null>(null)
+  const [authModalReason, setAuthModalReason] = useState<string | null>(null)
 
-  const openAuthModal = (returnUrl?: string) => {
+  const openAuthModal = useCallback((returnUrl?: string, options?: AuthModalOptions) => {
     if (
       returnUrl &&
       returnUrl !== 'sign-in' &&
@@ -850,13 +865,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } else {
       setAuthReturnUrl('/')
     }
+    setAuthModalCanClose(options?.canClose !== false)
+    setAuthModalTitle(options?.title || null)
+    setAuthModalReason(options?.reason || null)
     setIsAuthModalOpen(true)
-  }
+  }, [])
 
-  const closeAuthModal = () => {
+  const closeAuthModal = useCallback((force = false) => {
+    if (!force && !authModalCanClose && !isSignedIn) return
     setIsAuthModalOpen(false)
+    setAuthModalCanClose(true)
     setAuthReturnUrl(null)
-  }
+    setAuthModalTitle(null)
+    setAuthModalReason(null)
+  }, [authModalCanClose, isSignedIn])
+
+  // Automatically dismiss auth modal and reset closure locks once reader logs in
+  useEffect(() => {
+    if (isSignedIn && isAuthModalOpen) {
+      closeAuthModal(true)
+    }
+  }, [isSignedIn, isAuthModalOpen, closeAuthModal])
 
   const [isPublicWriteModalOpen, setIsPublicWriteModalOpen] = useState(false)
   const openPublicWriteModal = () => setIsPublicWriteModalOpen(true)
@@ -1698,6 +1727,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         addNotification,
         toastMessage,
         showToast,
+        user,
+        isSignedIn,
+        isUserLoaded,
         userDisplayName,
         setUserDisplayName,
         userProfileUsername,
@@ -1705,6 +1737,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         customAvatarUrl,
         setCustomAvatarUrl,
         isAuthModalOpen,
+        authModalCanClose,
+        authModalTitle,
+        authModalReason,
         openAuthModal,
         closeAuthModal,
         authReturnUrl,

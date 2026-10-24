@@ -132,6 +132,7 @@ export const saveUserOnboardingServerFn = createServerFn({ method: 'POST' })
           pronouns: data.pronouns || null,
           gender: data.gender || null,
           onboarding_completed: true,
+          is_username_verified: true,
           preferences: preferencesPayload,
           is_public: true,
           account_status: 'active',
@@ -139,7 +140,7 @@ export const saveUserOnboardingServerFn = createServerFn({ method: 'POST' })
         },
         { onConflict: 'clerk_user_id' }
       )
-      .select('id, clerk_user_id, username, display_name, avatar_path, bio, pronouns, gender, onboarding_completed, preferences, is_public, account_status')
+      .select('id, clerk_user_id, username, display_name, avatar_path, bio, pronouns, gender, onboarding_completed, is_username_verified, preferences, is_public, account_status')
       .single()
 
     if (error) {
@@ -156,6 +157,15 @@ export const saveUserOnboardingServerFn = createServerFn({ method: 'POST' })
       } catch (prefErr) {
         console.warn('[saveUserOnboardingServerFn] Non-blocking user_preferences init:', prefErr)
       }
+    }
+
+    // Ensure username is recorded in the dedicated usernames table
+    try {
+      await admin
+        .from('usernames')
+        .upsert({ username: data.username.toLowerCase().trim() }, { onConflict: 'username' })
+    } catch (uErr) {
+      console.warn('[saveUserOnboardingServerFn] Non-blocking usernames reservation:', uErr)
     }
 
     // Also update Clerk public metadata so Clerk token immediately reflects onboarding status

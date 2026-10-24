@@ -243,7 +243,14 @@ export default function PublicHome() {
 
   return (
     <>
-    <div className="min-h-screen bg-[#FDFBF7] dark:bg-[#121316] text-[#201F1D] dark:text-[#F4F4F5] selection:bg-[#B94F37] selection:text-white transition-colors duration-200">
+      {/* Mobile-First Dedicated Public Experience (Hero slide, mood explorer, surprise book) */}
+      <PublicMobileStories
+        onOpenAuth={openAuthModal}
+        onOpenWriteModal={openPublicWriteModal}
+      />
+
+      {/* Desktop Editorial Homepage (md and above) */}
+      <div className="hidden md:block min-h-screen bg-[#FDFBF7] dark:bg-[#121316] text-[#201F1D] dark:text-[#F4F4F5] selection:bg-[#B94F37] selection:text-white transition-colors duration-200">
       
       {/* =========================================================================
           1. HERO REGION — The HatchPen Editorial Manifest
@@ -662,12 +669,7 @@ export default function PublicHome() {
       </section>
 
       {/* =========================================================================
-          4. PUBLIC MOBILE STORIES
-          ========================================================================= */}
-      <PublicMobileStories />
-
-      {/* =========================================================================
-          5. COMMUNITY VOICE & FINAL CTA
+          4. COMMUNITY VOICE & FINAL CTA
           ========================================================================= */}
       <section className="py-16 sm:py-24 border-t border-[#D7CFC3]/50 dark:border-neutral-800" style={{ contentVisibility: 'auto', containIntrinsicSize: '400px' }}>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">

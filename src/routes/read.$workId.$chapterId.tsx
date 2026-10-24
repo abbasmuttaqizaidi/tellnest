@@ -16,6 +16,7 @@ import {
   MessageSquare,
   Share2,
   Eye,
+  Lock,
 } from 'lucide-react'
 import { getWorkSlug } from '../data/mockData'
 import { generateMeta } from '../lib/seo'
@@ -240,6 +241,7 @@ function ReaderPage() {
     isOwnWork,
     showToast,
     isSignedIn,
+    isUserLoaded,
     openAuthModal,
   } = useApp()
 
@@ -300,6 +302,51 @@ function ReaderPage() {
   const prevChapter = currentChapterIndex > 0 ? work?.chapters[currentChapterIndex - 1] : null
   const nextChapter = work && currentChapterIndex < work.chapters.length - 1 ? work.chapters[currentChapterIndex + 1] : null
 
+  // Public reader gatekeeper & registration wall logic
+  const totalChapters = work?.chapters?.length || 0
+  const isFirstChapter = currentChapterIndex === 0
+  const isSingleChapterStory = totalChapters === 1
+  const isCompulsoryAuth = Boolean(isUserLoaded && !isSignedIn && (isSingleChapterStory || !isFirstChapter))
+  const hasPromptedChapter1Ref = useRef(false)
+
+  // Reset chapter 1 prompt lock if navigating to a different story
+  useEffect(() => {
+    hasPromptedChapter1Ref.current = false
+  }, [work?.id])
+
+  useEffect(() => {
+    // Only apply to confirmed public (unauthenticated) readers once auth state, work, and chapter are loaded
+    if (!isUserLoaded || isSignedIn || !work || !chapter) return
+
+    const currentPath = typeof window !== 'undefined' ? window.location.pathname : undefined
+
+    if (isSingleChapterStory) {
+      // Single chapter story: Compulsory on page load, cannot be closed
+      openAuthModal(currentPath, {
+        canClose: false,
+        title: 'Sign In to Read Story',
+        reason: 'Create a free account or sign in to read this story on Hatchpen.',
+      })
+    } else if (isFirstChapter) {
+      // Chapter 1 of multi-chapter story: Show once on page load; user can dismiss to read Chapter 1 for free
+      if (!hasPromptedChapter1Ref.current) {
+        hasPromptedChapter1Ref.current = true
+        openAuthModal(currentPath, {
+          canClose: true,
+          title: 'Sign In to Hatchpen',
+          reason: 'Enjoy reading Chapter 1 for free. Sign in to save bookmarks and sync your reading progress.',
+        })
+      }
+    } else {
+      // Chapter 2+: Compulsory upon moving to chapter 2, cannot be closed
+      openAuthModal(currentPath, {
+        canClose: false,
+        title: 'Create Account to Continue',
+        reason: `You have completed your free preview of Chapter 1. Create a free account or sign in to read ${chapter.title} and beyond.`,
+      })
+    }
+  }, [isUserLoaded, isSignedIn, work?.id, chapter?.id, isFirstChapter, isSingleChapterStory, openAuthModal])
+
   // Reset banner state and scroll to top when navigating to another chapter
   useEffect(() => {
     setBannerImageFailed(false)
@@ -357,7 +404,7 @@ function ReaderPage() {
 
   // 5. Atomic Save Dispatcher: Flushes pending eligible batch to server
   const flushPendingSave = async () => {
-    if (!work || !chapter || isOwnWork(work.id)) return
+    if (!work || !chapter || !isSignedIn || isCompulsoryAuth || isOwnWork(work.id)) return
     const state = useReadingProgressStore.getState()
     const batch = state.pendingBatch
 
@@ -505,6 +552,7 @@ function ReaderPage() {
   // 8. Strict Zero-Duplicate View Tracking (Book, Chapter, and implicit Act)
   useEffect(() => {
     if (!work || !chapter) return
+    if (isCompulsoryAuth) return // Do not track views on locked paywall chapters until authenticated
     if (typeof window === 'undefined') return
 
     let viewerKey = localStorage.getItem('hatchpen_viewer_uuid') || localStorage.getItem('tellnest_viewer_uuid')
@@ -521,9 +569,7 @@ function ReaderPage() {
         chapterId: chapter.id,
       },
     }).catch(() => {})
-  }, [work?.id, chapter?.id])
-
-  // SEO Canonical URL Enforcement:
+  }, [work?.id, chapter?.id, isCompulsoryAuth])
   // If user accesses reading route with raw UUID, auto-update URL bar to canonical slug
   useEffect(() => {
     if (work && chapter) {
@@ -554,7 +600,7 @@ function ReaderPage() {
           customTitle="Chapter Not Found"
           customDescription="This chapter has either not been published yet or the link is invalid."
           actionLabel="Return to Work Overview"
-          actionHref="/discover"
+          actionHref={work ? `/works/${canonicalSlug || work.id}` : "/discover"}
         />
       </div>
     )
@@ -623,8 +669,9 @@ function ReaderPage() {
   // Keyboard shortcut: Press 'T' to toggle Chapter Table of Contents drawer
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger if user is typing in an input, textarea, or contentEditable
+      // Don't trigger if auth modal is open or if user is typing in an input
       if (
+        isAuthModalOpen ||
         ['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName) ||
         (e.target as HTMLElement)?.isContentEditable
       ) {
@@ -637,7 +684,7 @@ function ReaderPage() {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
+  }, [isAuthModalOpen])
 
   // 1. Atmosphere Theme Resolution
   // Prioritize active reader theme or siteTheme: linen -> theme-sepia theme-linen, sage -> theme-sage, paper -> theme-paper, obsidian/dark -> dark
@@ -878,7 +925,7 @@ function ReaderPage() {
         </div>
 
         {/* Optional "Resume Reading" Prompt for Readers Returning Mid-Chapter */}
-        {resumePromptVisible && existingChapterPercent > 0 && (
+        {resumePromptVisible && existingChapterPercent > 0 && !isCompulsoryAuth && (
           <div className="mb-6 p-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/80 backdrop-blur-xs flex items-center justify-between gap-3 text-xs font-mono text-[var(--ink-secondary)] animate-in fade-in">
             <div className="flex items-center gap-2 truncate">
               <span className="h-1.5 w-1.5 rounded-full bg-[var(--ink-primary)] shrink-0" />
@@ -956,7 +1003,63 @@ function ReaderPage() {
           style={{ lineHeight: activeLineHeight }}
           className={`${fontClass} ${sizeClasses} text-[var(--ink-secondary)] select-text break-words`}
         >
-          {currentChapterParagraphs.length === 0 ? (
+          {isCompulsoryAuth ? (
+            <div className="space-y-6">
+              {/* Preview of first paragraph fading into blur */}
+              {rawParagraphTexts.length > 0 && (
+                <div className="relative overflow-hidden max-h-36 select-none">
+                  <p
+                    style={{
+                      marginBottom: activeParagraphGap,
+                      lineHeight: activeLineHeight,
+                    }}
+                    className={`whitespace-pre-line break-words ${
+                      readerSettings.fontFamily === 'serif'
+                        ? 'first-letter:font-serif first-letter:text-4xl first-letter:float-left first-letter:pr-2.5 first-letter:leading-none first-letter:text-[var(--ink-primary)] first-letter:font-bold'
+                        : ''
+                    }`}
+                  >
+                    {renderChapterParagraph(rawParagraphTexts[0] || '')}
+                  </p>
+                  <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[var(--bg-canvas)]/80 to-[var(--bg-canvas)] pointer-events-none" />
+                </div>
+              )}
+
+              {/* Locked Story Gate Card */}
+              <div className="my-6 p-6 sm:p-8 rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] text-center space-y-4 shadow-lg animate-in fade-in">
+                <div className="w-12 h-12 rounded-full bg-[var(--ink-primary)] text-[var(--bg-canvas)] flex items-center justify-center mx-auto shadow-sm">
+                  <Lock className="w-5 h-5" />
+                </div>
+                <div className="space-y-1.5 max-w-md mx-auto">
+                  <h3 className="font-serif text-xl sm:text-2xl font-bold text-[var(--ink-primary)] tracking-tight">
+                    {isSingleChapterStory ? 'Sign In to Read Full Story' : `Create Free Account to Read Chapter ${chapter?.number || 2}`}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-[var(--ink-secondary)] leading-relaxed">
+                    {isSingleChapterStory
+                      ? 'Sign in or create a free Hatchpen account to access this complete work and support the author.'
+                      : 'You have reached the end of your free preview chapter. Join Hatchpen for free to continue reading and unlock the rest of the manuscript.'}
+                  </p>
+                </div>
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openAuthModal(typeof window !== 'undefined' ? window.location.pathname : undefined, {
+                        canClose: false,
+                        title: isSingleChapterStory ? 'Sign In to Read Story' : 'Create Account to Continue',
+                        reason: isSingleChapterStory
+                          ? 'Create a free account or sign in to read this serialized release.'
+                          : `You have completed your free preview of Chapter 1. Create a free account or sign in to read ${chapter.title} and beyond.`,
+                      })
+                    }
+                    className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-full bg-[var(--ink-primary)] text-[var(--bg-canvas)] text-xs sm:text-sm font-semibold hover:opacity-90 transition-opacity cursor-pointer shadow-xs"
+                  >
+                    Sign In / Sign Up to Continue
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : currentChapterParagraphs.length === 0 ? (
             <div className="py-12 text-center text-[var(--ink-muted)] italic font-serif">
               This chapter has no narrative prose content yet.
             </div>
@@ -1012,7 +1115,7 @@ function ReaderPage() {
               aria-label={`Advance to Next Chapter: ${nextChapter.number}. ${nextChapter.title}`}
             >
               <span className="flex items-center gap-1 text-[11px] font-mono text-[var(--ink-muted)]">
-                Next Chapter
+                Next Chapter {!isSignedIn && <Lock className="h-3 w-3 text-amber-500 inline ml-0.5" />}
                 <ChevronRight className="h-3 w-3" />
               </span>
               <span className="mt-1 font-serif text-sm sm:text-base font-semibold text-[var(--ink-primary)] group-hover:underline truncate w-full">
@@ -1062,7 +1165,7 @@ function ReaderPage() {
           </div>
         )}
         {/* Reader Comments / Marginalia Section Toggle */}
-        {inlineMarginaliaEnabled ? (
+        {inlineMarginaliaEnabled && !isCompulsoryAuth ? (
           <div className="mt-8 flex flex-col items-center gap-3">
             <button
               onClick={() => setCommentsVisible(!commentsVisible)}

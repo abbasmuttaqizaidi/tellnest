@@ -27,7 +27,8 @@ import {
   type SelectOption,
 } from '../design-system'
 import { saveUserOnboardingServerFn, getUserProfileServerFn } from '../server/authors'
-import { Check, ArrowRight, ArrowLeft, ExternalLink, PenLine, Sparkles, BookOpen } from 'lucide-react'
+import { verifyUsernameAvailabilityServerFn } from '../server/settings'
+import { Check, ArrowRight, ArrowLeft, ExternalLink, PenLine, Sparkles, BookOpen, Loader2 } from 'lucide-react'
 import { GLOBAL_CATEGORIES, GLOBAL_GENRES } from '../lib/taxonomy'
 import { calculateFiveMonthExpiration } from '../lib/recommendations/newVoices'
 
@@ -81,6 +82,12 @@ export function UserOnboardingModal() {
   const [pronounOption, setPronounOption] = useState<SelectOption>(PRONOUN_OPTIONS[0])
   const [genderOption, setGenderOption] = useState<SelectOption>(GENDER_OPTIONS[0])
   const [termsAccepted, setTermsAccepted] = useState(false)
+  const [isVerifyingUsername, setIsVerifyingUsername] = useState(false)
+  const [usernameVerification, setUsernameVerification] = useState<{
+    available: boolean
+    message: string
+    verifiedHandle?: string
+  } | null>(null)
 
   // Step 2 State (empty by default so user makes active choice):
   const [selectedGenres, setSelectedGenres] = useState<Array<{ id: string; name: string }>>([])
@@ -136,8 +143,9 @@ export function UserOnboardingModal() {
       }
 
       // Check database directly
+      let existingProfile: any = null
       try {
-        const existingProfile = await getUserProfileServerFn({ data: user.id })
+        existingProfile = await getUserProfileServerFn({ data: user.id })
         if (existingProfile && existingProfile.onboarding_completed) {
           localStorage.setItem(key, 'true')
           return
@@ -152,6 +160,22 @@ export function UserOnboardingModal() {
         user.primaryEmailAddress?.emailAddress?.split('@')[0]?.replace(/[^a-z0-9_]/gi, '')?.toLowerCase() ||
         ''
       setUsername((prev) => prev || defaultUser)
+
+      // Restore verified status directly from DB if previously verified (Zero browser storage reliance)
+      if (
+        existingProfile &&
+        (existingProfile.is_username_verified || existingProfile.preferences?.username_verified) &&
+        existingProfile.preferences?.verified_username &&
+        existingProfile.preferences?.verified_username === (defaultUser || existingProfile.username)
+      ) {
+        const verifiedHandle = existingProfile.preferences?.verified_username || defaultUser
+        setUsername(verifiedHandle)
+        setUsernameVerification({
+          available: true,
+          message: `@${verifiedHandle} is available!`,
+          verifiedHandle,
+        })
+      }
 
       const initialName =
         user.fullName ||
@@ -181,29 +205,75 @@ export function UserOnboardingModal() {
     checkOnboardingStatus()
   }, [isLoaded, isSignedIn, user])
 
+  const isUsernameVerified =
+    Boolean(usernameVerification?.available) &&
+    usernameVerification?.verifiedHandle === username.trim().toLowerCase()
+
+  const handleVerifyUsername = async () => {
+    const handle = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '')
+    if (!handle || handle.length < 3) {
+      const msg = 'Username must be at least 3 characters (letters, numbers, underscores).'
+      setUsernameVerification({
+        available: false,
+        message: msg,
+      })
+      return
+    }
+
+    setIsVerifyingUsername(true)
+    setUsernameVerification(null)
+    setErrorMessage(null)
+
+    try {
+      const res = await verifyUsernameAvailabilityServerFn({
+        data: { username: handle },
+      })
+      setUsernameVerification({
+        available: res.available,
+        message: res.message,
+        verifiedHandle: handle,
+      })
+    } catch (err: any) {
+      const msg = err?.message || 'Failed to verify username availability.'
+      setUsernameVerification({
+        available: false,
+        message: msg,
+      })
+    } finally {
+      setIsVerifyingUsername(false)
+    }
+  }
+
   // Validation for Step 1
   const isStep1Valid =
     username.trim().length >= 3 &&
     /^[a-z0-9_]{3,30}$/i.test(username.trim()) &&
+    isUsernameVerified &&
     termsAccepted
 
-  // Validation for Step 2: requires between 3 and 5 genres, and at most 3 categories
+  // Validation for Step 2: maximum 5 genres and maximum 3 categories (ceiling metric)
   const isStep2Valid =
-    selectedGenres.length >= 3 &&
     selectedGenres.length <= 5 &&
     selectedCategories.length <= 3
 
   const handleProceedToStep2 = () => {
-    if (!isStep1Valid) {
-      if (!termsAccepted) {
-        setErrorMessage('Please accept the Hatchpen Terms & Publishing Conditions to continue.')
-      } else if (username.trim().length < 3) {
-        setErrorMessage('Username must be at least 3 characters.')
-      } else {
-        setErrorMessage('Username may only contain letters, numbers, and underscores (3-30 chars).')
-      }
+    if (!username.trim() || username.trim().length < 3) {
+      setErrorMessage('Username must be at least 3 characters.')
       return
     }
+    if (!/^[a-z0-9_]{3,30}$/i.test(username.trim())) {
+      setErrorMessage('Username may only contain letters, numbers, and underscores (3-30 chars).')
+      return
+    }
+    if (!isUsernameVerified) {
+      setErrorMessage('Please verify your username before proceeding to Step 2.')
+      return
+    }
+    if (!termsAccepted) {
+      setErrorMessage('Please accept the Hatchpen Terms & Publishing Conditions to continue.')
+      return
+    }
+
     setErrorMessage(null)
     setStep(2)
   }
@@ -237,8 +307,12 @@ export function UserOnboardingModal() {
   // Submission handler for Step 2
   const handleCompleteOnboarding = async () => {
     if (!user) return
-    if (selectedGenres.length < 3) {
-      setErrorMessage('Please select at least 3 genres to personalize your reading feed.')
+    if (selectedGenres.length > 5) {
+      setErrorMessage('You may select a maximum of 5 genres.')
+      return
+    }
+    if (selectedCategories.length > 3) {
+      setErrorMessage('You may select a maximum of 3 categories.')
       return
     }
 
@@ -345,7 +419,7 @@ export function UserOnboardingModal() {
                 variant="primary"
                 className="w-full py-2.5 text-sm font-medium"
                 onClick={handleProceedToStep2}
-                disabled={!isStep1Valid}
+                disabled={!termsAccepted || isVerifyingUsername}
                 rightIcon={<ArrowRight className="h-4 w-4" />}
               >
                 Continue to Reading Feed
@@ -474,8 +548,31 @@ export function UserOnboardingModal() {
                     Unique Username <span className="text-rose-500">*</span>
                   </label>
 
-                  {/* Exclamation badge with black background, white icon & responsive tooltip */}
-                  <div className="relative" ref={usernameRulesRef}>
+                  <div className="flex items-center gap-2">
+                    {/* Verify button identical to settings/profile */}
+                    <button
+                      type="button"
+                      onClick={handleVerifyUsername}
+                      disabled={isVerifyingUsername || !username.trim()}
+                      className="inline-flex items-center justify-center gap-1.5 px-2.5 py-0.5 text-[11px] font-medium rounded-md border border-[var(--border-strong)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      {isVerifyingUsername ? (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin text-[var(--ink-muted)]" />
+                          <span>Verifying...</span>
+                        </>
+                      ) : isUsernameVerified ? (
+                        <>
+                          <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                          <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Verified</span>
+                        </>
+                      ) : (
+                        <span>Verify</span>
+                      )}
+                    </button>
+
+                    {/* Exclamation badge with black background, white icon & responsive tooltip */}
+                    <div className="relative" ref={usernameRulesRef}>
                     <button
                       type="button"
                       onClick={() => setShowUsernameRules((prev) => !prev)}
@@ -533,7 +630,8 @@ export function UserOnboardingModal() {
                     )}
                   </div>
                 </div>
-                <div className="relative">
+              </div>
+              <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-xs text-[var(--ink-faint)]">
                     @
                   </span>
@@ -542,12 +640,26 @@ export function UserOnboardingModal() {
                     value={username}
                     onChange={(e) => {
                       setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))
+                      setUsernameVerification(null)
                       setErrorMessage(null)
                     }}
                     placeholder="julian_thorne"
                     className="w-full pl-8 pr-4 py-2.5 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-canvas)] text-sm font-mono text-[var(--ink-primary)] focus:outline-none focus:border-[var(--ink-primary)] transition-colors"
                   />
                 </div>
+
+                {usernameVerification && (
+                  <p
+                    className={`mt-1.5 text-xs font-medium flex items-center gap-1 ${
+                      usernameVerification.available
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-rose-500 dark:text-rose-400'
+                    }`}
+                  >
+                    {usernameVerification.available && <Check className="w-3.5 h-3.5 shrink-0" />}
+                    <span>{usernameVerification.message}</span>
+                  </p>
+                )}
               </div>
 
               {/* Pronouns and Gender row */}
@@ -622,21 +734,15 @@ export function UserOnboardingModal() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-mono font-semibold uppercase tracking-wider text-[var(--ink-secondary)]">
-                    Favorite Genres <span className="text-rose-500">*</span>
+                    Favorite Genres
                   </label>
-                  <span className="text-[11px] font-mono">
-                    {selectedGenres.length < 3 ? (
-                      <span className="text-[var(--ink-muted)]">
-                        Select 3 to 5 ({selectedGenres.length}/5)
-                      </span>
-                    ) : selectedGenres.length === 5 ? (
+                  <span className="text-[11px] font-mono text-[var(--ink-muted)]">
+                    {selectedGenres.length === 5 ? (
                       <span className="text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1">
                         <Check className="h-3 w-3" /> 5/5 selected (max)
                       </span>
                     ) : (
-                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
-                        <Check className="h-3 w-3" /> {selectedGenres.length}/5 selected
-                      </span>
+                      <span>{selectedGenres.length}/5 selected</span>
                     )}
                   </span>
                 </div>

@@ -103,8 +103,8 @@
 
 ### 8.3. Step 2: Reading Taxonomy & Writer Intent
 - **Default State**: Both Genres and Categories start completely empty (`[]`) by default, requiring active user selection.
-- **Favorite Genres**: Mandatory minimum 3, strictly capped at maximum 5.
-  - Counter format: `Select 3 to 5 (X/5)` when `< 3`; `X/5 selected` when 3–4; `5/5 selected (max)` when 5.
+- **Favorite Genres**: Strictly capped at maximum 5 (0–5 allowed, no mandatory minimum).
+  - Counter format: `{selectedGenres.length}/5 selected` (or `5/5 selected (max)` when 5).
   - Silent ceiling: Clicking beyond 5 is ignored silently without intrusive error banners; excess chips are dimmed.
 - **Preferred Categories**: Strictly capped at maximum 3 (0–3 allowed).
   - Counter format: Simplified `{selectedCategories.length}/3 selected` (e.g., `2/3 selected`).

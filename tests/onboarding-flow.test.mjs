@@ -125,14 +125,10 @@ test('Onboarding Logic: Username validation strictly enforces 3-30 letters/numbe
   assert.strictEqual(regex.test('julian-thorne'), false, 'Hyphen must be rejected')
 })
 
-test('Onboarding Logic: Step 2 Genre limits strictly enforce min 3 and max 5', () => {
+test('Onboarding Logic: Step 2 limits strictly enforce max 5 genres and max 3 categories', () => {
   const content = fs.readFileSync(MODAL_FILE_PATH, 'utf-8')
   
   // Verify Step 2 valid definition
-  assert.ok(
-    content.includes('selectedGenres.length >= 3'),
-    'Validation requires at least 3 genres'
-  )
   assert.ok(
     content.includes('selectedGenres.length <= 5'),
     'Validation requires at most 5 genres'
@@ -240,6 +236,10 @@ test('Onboarding Lock: Server function atomically saves preferences and onboardi
     'saveUserOnboardingServerFn must set onboarding_completed to true'
   )
   assert.ok(
+    content.includes('is_username_verified: true'),
+    'saveUserOnboardingServerFn must set is_username_verified to true'
+  )
+  assert.ok(
     content.includes('interestedInWriting: Boolean(data.interestedInWriting)'),
     'saveUserOnboardingServerFn must persist interestedInWriting flag'
   )
@@ -254,5 +254,33 @@ test('Onboarding Lock: Server function atomically saves preferences and onboardi
   assert.ok(
     content.includes('categories: data.categories'),
     'saveUserOnboardingServerFn must persist categories'
+  )
+})
+
+// ── Invariant 7: Terms Acceptance & Step 1 Verification Gate ─────────────────
+
+test('Onboarding Lock: Continue button disabled without terms, and unverified username blocks Step 2', () => {
+  const content = fs.readFileSync(MODAL_FILE_PATH, 'utf-8')
+  assert.ok(
+    content.includes('disabled={!termsAccepted || isVerifyingUsername}'),
+    'Continue button must be disabled until terms are accepted'
+  )
+  assert.ok(
+    content.includes("setErrorMessage('Please verify your username before proceeding to Step 2.')"),
+    'Must display top banner error if user tries to continue without verifying username'
+  )
+})
+
+// ── Invariant 8: DB Persistence of Username Verification ──────────────────────
+
+test('Onboarding Lock: Username verification flag is saved directly in DB, not browser storage', () => {
+  const settingsContent = fs.readFileSync(path.resolve('src/server/settings.ts'), 'utf-8')
+  assert.ok(
+    settingsContent.includes('is_username_verified: true'),
+    'executeCheckUsernameAvailability must set is_username_verified in DB'
+  )
+  assert.ok(
+    settingsContent.includes('username_verified: true'),
+    'executeCheckUsernameAvailability must set preferences.username_verified in DB'
   )
 })

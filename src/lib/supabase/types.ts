@@ -76,6 +76,7 @@ export interface Database {
           pronouns: string | null
           gender: string | null
           onboarding_completed: boolean
+          is_username_verified: boolean
           preferences: Json
           is_mock: boolean
           created_at: string
@@ -97,6 +98,7 @@ export interface Database {
           pronouns?: string | null
           gender?: string | null
           onboarding_completed?: boolean
+          is_username_verified?: boolean
           preferences?: Json
           is_mock?: boolean
           created_at?: string
@@ -118,6 +120,7 @@ export interface Database {
           pronouns?: string | null
           gender?: string | null
           onboarding_completed?: boolean
+          is_username_verified?: boolean
           preferences?: Json
           is_mock?: boolean
           created_at?: string

@@ -493,7 +493,7 @@ export async function executeCheckUsernameAvailability(deps: {
     }
   }
 
-  // Check if this username belongs to current user
+  // 1. Check if this username belongs to the current user
   if (deps.currentClerkUserId) {
     const { data: myProfile } = await admin
       .from('profiles')
@@ -512,24 +512,120 @@ export async function executeCheckUsernameAvailability(deps: {
     }
   }
 
-  // Check in usernames table
-  const { data: takenInUsernames, error: errUsernames } = await admin
-    .from('usernames')
-    .select('username')
-    .eq('username', normalized)
-    .maybeSingle()
+  // 2. Check if username is already taken by someone else in profiles table (case-insensitive)
+  const profileSelect = admin.from('profiles').select('id, clerk_user_id, username')
+  if (typeof profileSelect.ilike === 'function') {
+    const { data: profileWithUsername, error: errProfile } = await profileSelect
+      .ilike('username', normalized)
+      .maybeSingle()
 
-  if (errUsernames) {
+    if (errProfile && errProfile.code !== 'PGRST116') {
+      console.error('[CheckUsername] Error querying profiles table:', errProfile)
+    }
+
+    if (profileWithUsername) {
+      if (deps.currentClerkUserId && profileWithUsername.clerk_user_id === deps.currentClerkUserId) {
+        return {
+          available: true,
+          normalized,
+          isCurrent: true,
+          isTaken: false,
+          message: `@${normalized} is your current handle.`,
+        }
+      }
+      if (deps.currentClerkUserId) {
+        try {
+          const profileTable = admin.from('profiles')
+          if (typeof profileTable.update === 'function') {
+            await profileTable.update({ is_username_verified: false }).eq('clerk_user_id', deps.currentClerkUserId)
+          }
+        } catch {}
+      }
+      return {
+        available: false,
+        normalized,
+        isTaken: true,
+        message: `@${normalized} is already taken.`,
+      }
+    }
+  }
+
+  // 3. Check in dedicated usernames table
+  const usernameLookup = admin.from('usernames').select('username')
+  const { data: takenInUsernames, error: errUsernames } = typeof usernameLookup.ilike === 'function'
+    ? await usernameLookup.ilike('username', normalized).maybeSingle()
+    : typeof usernameLookup.eq === 'function'
+    ? await usernameLookup.eq('username', normalized).maybeSingle()
+    : { data: null, error: null }
+
+  if (errUsernames && errUsernames.code !== 'PGRST116') {
     console.error('[CheckUsername] Error querying usernames table:', errUsernames)
-    throw new Error('Failed to verify username availability.')
   }
 
   if (takenInUsernames) {
+    if (deps.currentClerkUserId) {
+      try {
+        const profileTable = admin.from('profiles')
+        if (typeof profileTable.update === 'function') {
+          await profileTable.update({ is_username_verified: false }).eq('clerk_user_id', deps.currentClerkUserId)
+        }
+      } catch {}
+    }
     return {
       available: false,
       normalized,
       isTaken: true,
       message: `@${normalized} is already taken.`,
+    }
+  }
+
+  // 4. Persist username verified flag directly into database (Strict DB persistence)
+  if (deps.currentClerkUserId) {
+    try {
+      const profileTable = admin.from('profiles')
+      if (typeof profileTable.update === 'function' || typeof profileTable.upsert === 'function') {
+        const { data: existingProfile } = typeof profileTable.select === 'function'
+          ? await profileTable
+              .select('id, preferences')
+              .eq('clerk_user_id', deps.currentClerkUserId)
+              .maybeSingle()
+          : { data: null }
+
+        const currentPrefs = (existingProfile?.preferences && typeof existingProfile.preferences === 'object')
+          ? existingProfile.preferences
+          : {}
+
+        const updatedPrefs = {
+          ...currentPrefs,
+          username_verified: true,
+          verified_username: normalized,
+          username_verified_at: new Date().toISOString(),
+        }
+
+        if (existingProfile?.id && typeof profileTable.update === 'function') {
+          await profileTable
+            .update({
+              is_username_verified: true,
+              preferences: updatedPrefs,
+            })
+            .eq('clerk_user_id', deps.currentClerkUserId)
+        } else if (typeof profileTable.upsert === 'function') {
+          await profileTable
+            .upsert(
+              {
+                clerk_user_id: deps.currentClerkUserId,
+                username: normalized,
+                display_name: normalized,
+                is_username_verified: true,
+                preferences: updatedPrefs,
+                onboarding_completed: false,
+              },
+              { onConflict: 'clerk_user_id' }
+            )
+        }
+      }
+    } catch (saveErr) {
+      console.warn('[CheckUsername] Non-blocking DB verification flag write:', saveErr)
     }
   }
 

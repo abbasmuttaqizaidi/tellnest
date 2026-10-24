@@ -286,7 +286,12 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
         document.cookie = 'hatchpen_has_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
       } catch {}
     }
-    await signOut({ redirectUrl: '/' })
+    try {
+      await signOut()
+    } catch {}
+    if (typeof window !== 'undefined') {
+      window.location.href = '/'
+    }
   }, [signOut])
   const navigate = useNavigate()
   const router = useRouter()

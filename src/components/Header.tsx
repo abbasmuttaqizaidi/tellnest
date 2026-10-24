@@ -123,13 +123,12 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
     if (currentPath !== '/') return false
     if (searchView === 'public') return true
     if (searchView === 'signed-in') return false
-    if (serverAuthenticated) return false
-    if (isSignedIn) return false
+    if (isLoaded ? isSignedIn : serverAuthenticated) return false
     if (typeof window !== 'undefined' && window.localStorage.getItem('hatchpen_has_session') === 'true') {
       return false
     }
     return true
-  }, [currentPath, searchView, serverAuthenticated, isSignedIn])
+  }, [currentPath, searchView, serverAuthenticated, isSignedIn, isLoaded])
 
   const [hasScrolled, setHasScrolled] = useState(false)
 
@@ -468,7 +467,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
                     </Link>
                     <button
                       type="button"
-                      onClick={() => {
+                      onClick={async () => {
                         if (typeof window !== 'undefined') {
                           localStorage.removeItem('relay_auth_hint')
                           localStorage.removeItem('hatchpen_has_session')
@@ -478,7 +477,12 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
                           document.cookie = 'hatchpen_has_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
                         }
                         setUserMenuOpen(false)
-                        signOut({ redirectUrl: '/' })
+                        try {
+                          await signOut()
+                        } catch {}
+                        if (typeof window !== 'undefined') {
+                          window.location.href = '/'
+                        }
                       }}
                       className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-xs text-rose-600 dark:text-rose-400 hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
                     >
@@ -692,7 +696,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
             ) : (
               <button
                 type="button"
-                onClick={() => {
+                onClick={async () => {
                   if (typeof window !== 'undefined') {
                     localStorage.removeItem('relay_auth_hint')
                     localStorage.removeItem('hatchpen_has_session')
@@ -702,7 +706,12 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
                     document.cookie = 'hatchpen_has_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
                   }
                   setMobileDrawerOpen(false)
-                  signOut({ redirectUrl: '/' })
+                  try {
+                    await signOut()
+                  } catch {}
+                  if (typeof window !== 'undefined') {
+                    window.location.href = '/'
+                  }
                 }}
                 className="w-full text-left py-1.5 px-2.5 font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-2 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
               >

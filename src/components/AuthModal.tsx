@@ -5,7 +5,14 @@ import { useApp } from '../context/AppContext'
 import { HatchpenLogo } from './HatchpenLogo'
 
 export function AuthModal() {
-  const { isAuthModalOpen, closeAuthModal, authReturnUrl } = useApp()
+  const {
+    isAuthModalOpen,
+    closeAuthModal,
+    authReturnUrl,
+    authModalCanClose,
+    authModalTitle,
+    authModalReason,
+  } = useApp()
   const { isSignedIn } = useUser()
   const clerk = useClerk()
   const { signIn } = useSignIn()
@@ -29,14 +36,27 @@ export function AuthModal() {
           document.cookie = 'hatchpen_has_session=true; path=/; max-age=31536000; SameSite=Lax'
         } catch {}
       }
-      closeAuthModal()
+      closeAuthModal(true)
     }
   }, [isSignedIn, isAuthModalOpen, closeAuthModal])
 
-  // Handle escape key
+  // Prevent background scrolling when modal is open
+  useEffect(() => {
+    if (!isAuthModalOpen) return
+    const originalBodyOverflow = document.body.style.overflow
+    const originalHtmlOverflow = document.documentElement.style.overflow
+    document.body.style.overflow = 'hidden'
+    document.documentElement.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = originalBodyOverflow
+      document.documentElement.style.overflow = originalHtmlOverflow
+    }
+  }, [isAuthModalOpen])
+
+  // Handle escape key (disabled when auth is mandatory/compulsory)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isAuthModalOpen) {
+      if (authModalCanClose && e.key === 'Escape' && isAuthModalOpen) {
         closeAuthModal()
       }
     }
@@ -44,7 +64,7 @@ export function AuthModal() {
       window.addEventListener('keydown', handleKeyDown)
     }
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isAuthModalOpen, closeAuthModal])
+  }, [isAuthModalOpen, authModalCanClose, closeAuthModal])
 
   if (!isAuthModalOpen) return null
 
@@ -164,22 +184,24 @@ export function AuthModal() {
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
       onClick={(e) => {
-        if (e.target === e.currentTarget) closeAuthModal()
+        if (authModalCanClose && e.target === e.currentTarget) closeAuthModal()
       }}
     >
       <div className="relative w-full max-w-sm rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 shadow-2xl transition-all">
         {/* Clerk Smart Captcha anchor element */}
         <div id="clerk-captcha" />
 
-        {/* Close Button */}
-        <button
-          type="button"
-          onClick={closeAuthModal}
-          aria-label="Close modal"
-          className="absolute top-4 right-4 rounded-full p-1.5 text-[var(--ink-muted)] hover:bg-[var(--bg-subtle)] hover:text-[var(--ink-primary)] transition-colors cursor-pointer"
-        >
-          <X className="h-4 w-4" />
-        </button>
+        {/* Close Button (Hidden when auth is mandatory/compulsory) */}
+        {authModalCanClose && (
+          <button
+            type="button"
+            onClick={closeAuthModal}
+            aria-label="Close modal"
+            className="absolute top-4 right-4 rounded-full p-1.5 text-[var(--ink-muted)] hover:bg-[var(--bg-subtle)] hover:text-[var(--ink-primary)] transition-colors cursor-pointer"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
 
         {/* Brand Header */}
         <div className="flex flex-col items-center text-center mb-6">
@@ -187,10 +209,10 @@ export function AuthModal() {
             <HatchpenLogo size="lg" variant="full" />
           </div>
           <h2 className="font-serif text-xl font-bold tracking-tight text-[var(--ink-primary)]">
-            Sign In to Hatchpen
+            {authModalTitle || 'Sign In to Hatchpen'}
           </h2>
           <p className="mt-1 text-xs text-[var(--ink-muted)] max-w-xs">
-            Writings. Beyond the Hype. Serialized fiction, essays, and modern letters.
+            {authModalReason || 'Writings. Beyond the Hype. Serialized fiction, essays, and modern letters.'}
           </p>
         </div>
 
@@ -289,6 +311,30 @@ export function AuthModal() {
         <p className="mt-5 text-center text-[10px] text-[var(--ink-faint)]">
           By signing in, you agree to Hatchpen's Terms of Service and Privacy Policy.
         </p>
+
+        {/* Exit Hatch when unclosable: allow graceful return to story overview instead of dead-end trap */}
+        {!authModalCanClose && (
+          <div className="mt-3.5 pt-3 border-t border-[var(--border-subtle)] text-center">
+            <button
+              type="button"
+              onClick={() => {
+                closeAuthModal(true)
+                if (typeof window !== 'undefined') {
+                  const path = authReturnUrl || window.location.pathname
+                  const match = path.match(/\/read\/([^/]+)/)
+                  if (match && match[1]) {
+                    window.location.href = `/works/${match[1]}`
+                    return
+                  }
+                  window.location.href = '/discover'
+                }
+              }}
+              className="text-xs font-mono text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors inline-flex items-center gap-1 cursor-pointer"
+            >
+              ← Return to story overview
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

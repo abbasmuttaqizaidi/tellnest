@@ -190,6 +190,7 @@ export async function getUserProfileByClerkId(clerkUserId: string) {
       website_url,
       location,
       is_verified,
+      is_username_verified,
       pronouns,
       gender,
       onboarding_completed,
