@@ -243,6 +243,7 @@ function ReaderPage() {
     isSignedIn,
     isUserLoaded,
     openAuthModal,
+    isAuthModalOpen,
   } = useApp()
 
   const work = useMemo(() => {

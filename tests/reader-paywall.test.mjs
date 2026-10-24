@@ -115,7 +115,11 @@ test('Reader Paywall: Reader route shows dismissible modal on Chapter 1 and comp
     'Locked gate card must dynamically display current chapter number'
   )
 
-  // Invariant 5: Anonymous reading progress flush guard
+  // Invariant 5: Anonymous reading progress flush guard & useApp state exports
+  assert.ok(
+    routeContent.includes('isAuthModalOpen,'),
+    'read.$workId.$chapterId.tsx must destructure isAuthModalOpen from useApp()'
+  )
   assert.ok(
     routeContent.includes('if (!work || !chapter || !isSignedIn || isCompulsoryAuth || isOwnWork(work.id)) return'),
     'flushPendingSave must guard against unauthenticated or compulsory gated readers'
