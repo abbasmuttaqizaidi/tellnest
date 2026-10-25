@@ -49,9 +49,7 @@ import { getPublicWorkServerFn } from '../server/works'
 import { formatViewCount } from '../lib/utils'
 
 export const Route = createFileRoute('/write/manage/$workId')({
-  staleTime: 0,
-  gcTime: 0,
-  shouldReload: true,
+  staleTime: 30_000,
   loader: async ({ params }) => {
     try {
       const dbWork = await getWriterWorkDetailsServerFn({ data: { workId: params.workId } })

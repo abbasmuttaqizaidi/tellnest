@@ -6,7 +6,6 @@ import {
   ArrowLeft,
   CheckCircle2,
   Clock,
-  Eye,
   Save,
   Send,
   ListFilter,
@@ -133,6 +132,7 @@ function ChapterEditorPage() {
   const [autosaveStatus, setAutosaveStatus] = useState<'saved' | 'saving' | 'dirty'>('saved')
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [focusMode, setFocusMode] = useState(false)
+  const [isNavigating, setIsNavigating] = useState(false)
   const [duplicateTabOpen, setDuplicateTabOpen] = useState(false)
   const [loadedUpdatedAt, setLoadedUpdatedAt] = useState<string>(
     currentChapter?.updated_at || currentChapter?.updatedAt || new Date().toISOString()
@@ -247,6 +247,7 @@ function ChapterEditorPage() {
       const confirmLeave = window.confirm('You have unsaved changes. Do you want to leave without saving?')
       if (!confirmLeave) return
     }
+    setIsNavigating(true)
     navigate({ to: '/write/manage/$workId', params: { workId: work.id } })
   }
 
@@ -405,6 +406,8 @@ function ChapterEditorPage() {
         })
         setAutosaveStatus('saved')
         showToast('Chapter published to manuscript!')
+        setIsNavigating(true)
+        navigate({ to: '/write/manage/$workId', params: { workId: work.id } })
       } catch (e) {
         console.warn('[handlePublish] Error:', e)
         setAutosaveStatus('saved')
@@ -480,15 +483,12 @@ function ChapterEditorPage() {
                 return (
                   <div key={act.id} className="space-y-1">
                     <div className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-mono font-semibold uppercase tracking-wider text-[var(--ink-muted)] bg-[var(--bg-subtle)]/40 rounded">
-                      <Layers className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                      <Layers className="h-3 w-3 text-black dark:text-white" />
                       <span className="truncate">{act.title || `Act ${act.number}`}</span>
                     </div>
                     <div className="pl-1 space-y-0.5">
                       {actChapters.map((ch: any) => {
                         const isCurrent = ch.id === currentChapter.id
-                        const displayedTitle = isCurrent
-                          ? (title.trim() || 'Untitled Chapter')
-                          : (ch.title || 'Untitled Chapter')
                         return (
                           <Link
                             key={ch.id}
@@ -501,7 +501,7 @@ function ChapterEditorPage() {
                             }`}
                           >
                             <span className="truncate flex-1">
-                              {String(ch.number).padStart(2, '0')}. {displayedTitle}
+                              Chapter {ch.number}
                             </span>
                             {isCurrent && (
                               <span
@@ -528,15 +528,12 @@ function ChapterEditorPage() {
                 return (
                   <div className="space-y-1 pt-2 border-t border-[var(--border-subtle)]/70">
                     <div className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-mono font-semibold uppercase tracking-wider text-[var(--ink-muted)] bg-[var(--bg-subtle)]/40 rounded">
-                      <Layers className="h-3 w-3 text-[var(--ink-muted)]" />
+                      <Layers className="h-3 w-3 text-black dark:text-white" />
                       <span>Unassigned Chapters</span>
                     </div>
                     <div className="pl-1 space-y-0.5">
                       {unassignedChapters.map((ch: any) => {
                         const isCurrent = ch.id === currentChapter.id
-                        const displayedTitle = isCurrent
-                          ? (title.trim() || 'Untitled Chapter')
-                          : (ch.title || 'Untitled Chapter')
                         return (
                           <Link
                             key={ch.id}
@@ -549,7 +546,7 @@ function ChapterEditorPage() {
                             }`}
                           >
                             <span className="truncate flex-1">
-                              {String(ch.number).padStart(2, '0')}. {displayedTitle}
+                              Chapter {ch.number}
                             </span>
                             {isCurrent && (
                               <span
@@ -572,9 +569,6 @@ function ChapterEditorPage() {
             <div className="space-y-1">
               {work.chapters.map((ch: any) => {
                 const isCurrent = ch.id === currentChapter.id
-                const displayedTitle = isCurrent
-                  ? (title.trim() || 'Untitled Chapter')
-                  : (ch.title || 'Untitled Chapter')
                 return (
                   <Link
                     key={ch.id}
@@ -587,7 +581,7 @@ function ChapterEditorPage() {
                     }`}
                   >
                     <span className="truncate flex-1">
-                      {String(ch.number).padStart(2, '0')}. {displayedTitle}
+                      Chapter {ch.number}
                     </span>
                     {isCurrent && (
                       <span
@@ -722,6 +716,16 @@ function ChapterEditorPage() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Immediate Navigation Transition Feedback Overlay */}
+      {isNavigating && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--bg-canvas)]/80 backdrop-blur-xs animate-in fade-in duration-100">
+          <div className="flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-3 shadow-lg font-mono text-xs text-[var(--ink-secondary)]">
+            <span className="h-4 w-4 rounded-full border-2 border-amber-600 border-t-transparent animate-spin shrink-0" />
+            <span>Returning to Manuscript Manage...</span>
           </div>
         </div>
       )}

@@ -15,18 +15,14 @@ import {
   ListOrdered,
   Maximize2,
   Minimize2,
-  Eye,
   Columns,
-  PenLine,
   Undo,
   Redo,
   Save,
   CheckCircle2,
   Clock,
-  Sparkles,
   ArrowLeft,
   Type,
-  Layers,
 } from 'lucide-react'
 
 export interface StoryRichEditorProps {
@@ -387,13 +383,13 @@ export function StoryRichEditor({
       {/* 1. TOP WYSIWYG TOOLBAR                                   */}
       {/* ======================================================== */}
       <header className="sticky top-0 z-40 flex flex-wrap items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-2 gap-2 shadow-2xs">
-        {/* Left: Exit/Back + Work context */}
-        <div className="flex items-center gap-2.5">
+        {/* Left: Exit/Back + Chapter Title */}
+        <div className="flex items-center gap-2">
           {isFullscreen ? (
             <button
               type="button"
               onClick={toggleFullscreen}
-              className="inline-flex items-center gap-1.5 text-xs font-mono text-[var(--ink-muted)] hover:text-[var(--ink-primary)] px-2 py-1 rounded hover:bg-[var(--bg-subtle)] transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs font-mono text-[var(--ink-muted)] hover:text-[var(--ink-primary)] px-2 py-1 rounded hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
               title="Exit Zen Fullscreen (Esc)"
             >
               <Minimize2 className="h-3.5 w-3.5" />
@@ -404,20 +400,17 @@ export function StoryRichEditor({
               <button
                 type="button"
                 onClick={onExit}
-                className="inline-flex items-center gap-1.5 text-xs font-mono text-[var(--ink-muted)] hover:text-[var(--ink-primary)] px-2 py-1 rounded hover:bg-[var(--bg-subtle)] transition-colors"
+                className="p-1 rounded text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer shrink-0"
+                title="Back to Manage"
               >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">{workTitle || 'Back to Folio'}</span>
+                <ArrowLeft className="h-4 w-4" />
               </button>
             )
           )}
 
-          {actName && (
-            <span className="hidden md:inline-flex items-center gap-1 rounded bg-[var(--bg-subtle)] border border-[var(--border-subtle)] px-2 py-0.5 font-mono text-[10px] text-[var(--ink-muted)]">
-              <Layers className="h-3 w-3 text-amber-600 dark:text-amber-400" />
-              <span>{actName}</span>
-            </span>
-          )}
+          <span className="font-serif font-semibold text-sm text-[var(--ink-primary)] truncate max-w-[180px] sm:max-w-xs md:max-w-md">
+            {title.trim() || `Chapter ${chapterNumber || 1}`}
+          </span>
         </div>
 
         {/* Center: Live WYSIWYG Formatting Buttons */}
@@ -495,11 +488,10 @@ export function StoryRichEditor({
             <button
               type="button"
               onClick={insertSceneBreak}
-              className="px-2 py-1 rounded hover:bg-[var(--bg-surface)] text-[var(--ink-muted)] hover:text-amber-600 dark:hover:text-amber-400 transition-colors flex items-center gap-1 font-mono text-[11px]"
+              className="px-2 py-1 rounded hover:bg-[var(--bg-surface)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors flex items-center gap-1 font-mono text-[11px] cursor-pointer"
               title="Insert Ornamental Scene Break (✦ ✦ ✦)"
             >
-              <Sparkles className="h-3 w-3 text-amber-600 dark:text-amber-400" />
-              <span className="hidden sm:inline">Break</span>
+              <span>Break</span>
             </button>
             <button
               type="button"
@@ -653,45 +645,20 @@ export function StoryRichEditor({
 
         {/* Right: View Mode, Fullscreen, Save */}
         <div className="flex items-center gap-2">
-          {/* View Mode Toggle: Write / Split / Preview */}
-          <div className="flex items-center rounded-lg bg-[var(--bg-canvas)] p-0.5 border border-[var(--border-subtle)] text-xs font-mono">
-            <button
-              type="button"
-              onClick={() => setViewMode('write')}
-              className={`px-2 py-1 rounded transition-colors ${
-                viewMode === 'write'
-                  ? 'bg-[var(--bg-surface)] text-[var(--ink-primary)] font-semibold shadow-2xs'
-                  : 'text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
-              }`}
-              title="Drafting Canvas (Live WYSIWYG)"
-            >
-              <PenLine className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('split')}
-              className={`hidden md:block px-2 py-1 rounded transition-colors ${
-                viewMode === 'split'
-                  ? 'bg-[var(--bg-surface)] text-[var(--ink-primary)] font-semibold shadow-2xs'
-                  : 'text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
-              }`}
-              title="Side-by-Side Split Preview"
-            >
-              <Columns className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('preview')}
-              className={`px-2 py-1 rounded transition-colors ${
-                viewMode === 'preview'
-                  ? 'bg-[var(--bg-surface)] text-[var(--ink-primary)] font-semibold shadow-2xs'
-                  : 'text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
-              }`}
-              title="Live Reader Output"
-            >
-              <Eye className="h-3.5 w-3.5" />
-            </button>
-          </div>
+          {/* Preview Toggle Button (No Eye Icon, Fully Toggleable) */}
+          <button
+            type="button"
+            onClick={() => setViewMode((prev) => (prev === 'write' ? 'split' : 'write'))}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-mono transition-colors border cursor-pointer ${
+              viewMode !== 'write'
+                ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] border-[var(--ink-primary)] font-semibold shadow-2xs'
+                : 'bg-[var(--bg-canvas)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)] border-[var(--border-subtle)] hover:border-[var(--border-strong)]'
+            }`}
+            title={viewMode !== 'write' ? 'Close Reader Preview' : 'Toggle Reader Preview'}
+          >
+            <Columns className="h-3.5 w-3.5" />
+            <span>Preview</span>
+          </button>
 
           {/* Fullscreen Button */}
           <button
@@ -870,7 +837,7 @@ export function StoryRichEditor({
             >
               {viewMode === 'split' && (
                 <div className="flex items-center gap-2 pb-2 border-b border-[var(--border-subtle)] font-mono text-xs text-[var(--ink-muted)]">
-                  <Eye className="h-3.5 w-3.5" />
+                  <Columns className="h-3.5 w-3.5" />
                   <span>Live Reader Output</span>
                 </div>
               )}
