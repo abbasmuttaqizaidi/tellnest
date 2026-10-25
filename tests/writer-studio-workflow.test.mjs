@@ -503,3 +503,14 @@ test('Unified Prose Diff: revertDiffLine reverts added line and deleted line bac
   const afterRestoreDeleted = revertDiffLine(diffDeleted, 1, withDeleted, saved)
   assert.equal(afterRestoreDeleted, saved)
 })
+
+test('Unified Prose Diff: computeLineDiff normalizes trailing newlines and reports no changes when newline was added and removed', async () => {
+  const { computeLineDiff } = await import('../src/lib/diff.ts')
+  const saved = 'Chapter 1\nOnce upon a time.'
+  const withNewlineRemoved = 'Chapter 1\nOnce upon a time.\n\n'
+
+  const diff = computeLineDiff(saved, withNewlineRemoved)
+  assert.equal(diff.every((d) => d.type === 'unchanged'), true)
+  assert.equal(diff.some((d) => d.type === 'added'), false)
+  assert.equal(diff.some((d) => d.type === 'deleted'), false)
+})

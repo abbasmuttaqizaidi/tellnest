@@ -294,10 +294,19 @@ function ChapterEditorPage() {
     }
   }
 
+  // Check if current text differs from saved baseline (ignoring benign trailing newlines)
+  const checkIfDirty = (newT: string, newSub: string, newC: string) => {
+    const isTitleChanged = (savedSnapshot.title || '').trim() !== (newT || '').trim()
+    const isSubChanged = (savedSnapshot.subtitle || '').trim() !== (newSub || '').trim()
+    const normSaved = (savedSnapshot.content || '').replace(/\r\n/g, '\n').replace(/\n+$/, '')
+    const normCurrent = (newC || '').replace(/\r\n/g, '\n').replace(/\n+$/, '')
+    return isTitleChanged || isSubChanged || normSaved !== normCurrent
+  }
+
   // Pure state updates on typing - strictly NO background autosave timers and NO browser storage
   const handleTitleChange = (newTitle: string) => {
     setTitle(newTitle)
-    setAutosaveStatus('dirty')
+    setAutosaveStatus(checkIfDirty(newTitle, subtitle, content) ? 'dirty' : 'saved')
 
     // Optimistic update for sidebar preview
     if (work && currentChapter) {
@@ -311,12 +320,12 @@ function ChapterEditorPage() {
 
   const handleSubtitleChange = (newSub: string) => {
     setSubtitle(newSub)
-    setAutosaveStatus('dirty')
+    setAutosaveStatus(checkIfDirty(title, newSub, content) ? 'dirty' : 'saved')
   }
 
   const handleContentChange = (newVal: string) => {
     setContent(newVal)
-    setAutosaveStatus('dirty')
+    setAutosaveStatus(checkIfDirty(title, subtitle, newVal) ? 'dirty' : 'saved')
   }
 
   // Explicit save: Only executed when user manually clicks Save button or presses Cmd+S / Ctrl+S

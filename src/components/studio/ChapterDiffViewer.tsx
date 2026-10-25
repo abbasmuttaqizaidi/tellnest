@@ -80,8 +80,7 @@ export function ChapterDiffViewer({
     titleChanged ||
     subtitleChanged ||
     stats.additions > 0 ||
-    stats.deletions > 0 ||
-    autosaveStatus === 'dirty'
+    stats.deletions > 0
 
   const handleRevertLine = (idx: number) => {
     if (onRevertContent) {

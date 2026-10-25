@@ -11,11 +11,31 @@ export interface WordToken {
 }
 
 /**
+ * Normalizes prose text by standardizing line endings and removing trailing newlines.
+ */
+export function normalizeProse(t: string): string {
+  return (t || '').replace(/\r\n/g, '\n').replace(/\n+$/, '')
+}
+
+/**
  * Computes Longest Common Subsequence (LCS) line diff.
  */
 export function computeLineDiff(oldText: string, newText: string): DiffLine[] {
-  const oldLines = oldText.split('\n')
-  const newLines = newText.split('\n')
+  const normOld = normalizeProse(oldText)
+  const normNew = normalizeProse(newText)
+
+  if (normOld === normNew) {
+    if (!normNew) return []
+    return normNew.split('\n').map((text, idx) => ({
+      type: 'unchanged' as const,
+      text,
+      oldLineNumber: idx + 1,
+      newLineNumber: idx + 1,
+    }))
+  }
+
+  const oldLines = normOld.split('\n')
+  const newLines = normNew.split('\n')
   const m = oldLines.length
   const n = newLines.length
 
