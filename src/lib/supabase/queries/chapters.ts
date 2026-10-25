@@ -15,6 +15,7 @@ export async function getWorkChapters(workId: string) {
     .from('chapters')
     .select('id, work_id, chapter_number, title, slug, excerpt, word_count, reading_time_minutes, status, published_at, created_at')
     .eq('work_id', workId)
+    .eq('status', 'published')
     .order('chapter_number', { ascending: true })
 
   if (error) {
@@ -34,6 +35,7 @@ export async function getChapterByNumber(workId: string, chapterNumber: number) 
     .select('id, work_id, chapter_number, title, slug, content, excerpt, word_count, reading_time_minutes, status, published_at')
     .eq('work_id', workId)
     .eq('chapter_number', chapterNumber)
+    .eq('status', 'published')
     .single()
 
   if (error) {
@@ -51,6 +53,7 @@ export async function getChapterById(chapterId: string) {
     .from('chapters')
     .select('id, work_id, chapter_number, title, slug, content, excerpt, word_count, reading_time_minutes, status, published_at')
     .eq('id', chapterId)
+    .eq('status', 'published')
     .single()
 
   if (error) {

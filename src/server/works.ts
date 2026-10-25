@@ -9,9 +9,234 @@ import {
 } from '../lib/supabase/queries/works.ts'
 import type { WorkStatus } from '../lib/supabase/types.ts'
 import { getUtcWeekBoundaries, filterAndSortWorks } from '../lib/discover/filters.ts'
+import { GLOBAL_CATEGORIES, GLOBAL_GENRES } from '../lib/taxonomy.ts'
+import { isWorkIndexable } from './sitemap.ts'
 
 /**
  * Server Function: Get a full public work (with acts and chapters) by id or slug.
+ * Used by Route loader, SSR head, and Reader components so DB works are instantly resolved without flash or 404.
+ */
+export interface PublicWorkDependencies {
+  supabaseClient?: any
+}
+
+/**
+ * Core business logic: Fetch a public or unlisted published work by ID or slug.
+ * Strictly enforces:
+ *  - visibility IN ('public', 'unlisted')
+ *  - publication_status === 'published'
+ *  - only published chapters are returned
+ *  - only published acts are returned
+ *  - works with 0 published chapters return valid work metadata with empty chapters array
+ *  - draft and unpublished works return null
+ */
+export async function executeGetPublicWork(
+  idOrSlug: string,
+  dependencies: PublicWorkDependencies = {}
+) {
+  if (!idOrSlug || typeof idOrSlug !== 'string' || !idOrSlug.trim()) {
+    return null
+  }
+  const clean = idOrSlug.trim().toLowerCase()
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clean)
+
+  let client = dependencies.supabaseClient
+  if (!client) {
+    const { supabase } = await import('../lib/supabase/client.ts')
+    client = supabase
+  }
+
+  let query = client
+    .from('works')
+    .select(`
+      id,
+      title,
+      slug,
+      description,
+      cover_image_path,
+      language,
+      status,
+      visibility,
+      publication_status,
+      word_count,
+      chapter_count,
+      reading_time_minutes,
+      view_count,
+      like_count,
+      save_count,
+      created_at,
+      updated_at,
+      last_activity_at,
+      author:profiles!works_author_id_fkey(
+        id,
+        username,
+        display_name,
+        avatar_path,
+        bio
+      ),
+      category:categories(id, name, slug),
+      work_genres (genres (id, name, slug)),
+      acts(
+        id,
+        work_id,
+        act_number,
+        title,
+        slug,
+        description,
+        status
+      ),
+      chapters(
+        id,
+        work_id,
+        act_id,
+        chapter_number,
+        title,
+        subtitle,
+        slug,
+        content,
+        word_count,
+        reading_time_minutes,
+        status,
+        banner_image_path,
+        view_count,
+        published_at
+      )
+    `)
+    .in('visibility', ['public', 'unlisted'])
+    .eq('publication_status', 'published')
+
+  if (isUuid) {
+    query = query.or(`id.eq.${clean},slug.eq.${clean}`)
+  } else {
+    query = query.eq('slug', clean)
+  }
+
+  const { data, error } = await query.maybeSingle()
+  if (error || !data) return null
+
+  // Defense-in-depth: enforce allowed visibility and publication status
+  if (!['public', 'unlisted'].includes(data.visibility) || data.publication_status !== 'published') {
+    return null
+  }
+
+  let mappedStatus: 'Ongoing' | 'Completed' | 'On Hiatus' | 'Cancelled' = 'Ongoing'
+  if (data.status === 'completed') mappedStatus = 'Completed'
+  else if (data.status === 'on_hiatus') mappedStatus = 'On Hiatus'
+  else if (data.status === 'cancelled') mappedStatus = 'Cancelled'
+
+  const rawChapters = ((data as any).chapters || [])
+  const rawActs = ((data as any).acts || [])
+  const publishedActs = rawActs.filter((a: any) => (a.status || '').toLowerCase() === 'published')
+  const publishedActIds = new Set<string>(publishedActs.map((a: any) => a.id))
+
+  // Public readers strictly only see published chapters whose act is published (or null for standalone chapters)
+  const publishedChapters = rawChapters.filter((c: any) => {
+    if ((c.status || '').toLowerCase() !== 'published') return false
+    if (c.act_id && !publishedActIds.has(c.act_id)) return false
+    return true
+  })
+  const publishedCount = publishedChapters.length
+
+  const mappedActs = publishedActs
+    .sort((a: any, b: any) => (a.act_number || 0) - (b.act_number || 0))
+    .map((act: any) => {
+      const actChapters = publishedChapters.filter((c: any) => c.act_id === act.id)
+      const actViewCount = actChapters.reduce((sum: number, c: any) => sum + (c.view_count || 0), 0)
+      return {
+        id: act.id,
+        workId: act.work_id,
+        number: act.act_number,
+        title: act.title,
+        slug: act.slug,
+        description: act.description || '',
+        status: act.status || 'published',
+        viewCount: actViewCount,
+      }
+    })
+
+  const mappedChapters = publishedChapters
+    .sort((a: any, b: any) => (a.chapter_number || 0) - (b.chapter_number || 0))
+    .map((ch: any) => {
+      const parentAct = mappedActs.find((a: any) => a.id === ch.act_id)
+      return {
+        id: ch.id,
+        number: ch.chapter_number,
+        title: ch.title,
+        subtitle: ch.subtitle || '',
+        bannerImage: ch.banner_image_path || undefined,
+        actId: ch.act_id,
+        actNumber: parentAct ? parentAct.number : 1,
+        actTitle: parentAct ? parentAct.title : undefined,
+        status: ch.status || 'published',
+        wordCount: ch.word_count || 0,
+        readTimeMinutes: ch.reading_time_minutes || 1,
+        viewCount: Number(ch.view_count || 0),
+        publishedAt: ch.published_at ? new Date(ch.published_at).toLocaleDateString() : undefined,
+        content: ch.content || '',
+      }
+    })
+
+  const authorObj = (data as any).author
+  const categoryObj = (data as any).category
+  const genreList = ((data as any).work_genres || []).map((wg: any) => wg.genres).filter(Boolean)
+  const primaryGenre = genreList[0]
+
+  return {
+    id: data.id,
+    title: data.title,
+    slug: data.slug || '',
+    subtitle: '',
+    cover:
+      data.cover_image_path ||
+      'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80',
+    category: categoryObj?.name || 'Novels',
+    categorySlug: categoryObj?.slug || 'novels',
+    genre: primaryGenre?.name || 'Literary Fiction',
+    genreSlug: primaryGenre?.slug || 'literary-fiction',
+    tags: [
+      ...genreList.map((g: any) => g.name),
+      'Serialized',
+      'Archival',
+    ],
+    language: data.language || 'English',
+    status: mappedStatus,
+    visibility: (data.visibility === 'public' ? 'Public' : 'Unlisted') as any,
+    isMature: false,
+    featured: true,
+    trending: false,
+    rising: false,
+    editorPick: false,
+    synopsis: data.description || '',
+    fullDescription: data.description || '',
+    chaptersCount: publishedCount,
+    publishedChaptersCount: publishedCount,
+    totalReads: String(data.view_count || '0'),
+    totalSaves: Number(data.save_count || 0),
+    ratingScore: 5.0,
+    ratingCount: 0,
+    createdAt: data.created_at ? new Date(data.created_at).toISOString() : new Date().toISOString(),
+    updatedAt: data.updated_at ? new Date(data.updated_at).toISOString() : new Date().toISOString(),
+    lastActivityAt: data.last_activity_at ? new Date(data.last_activity_at).toISOString() : data.created_at,
+    author: {
+      id: authorObj?.id || 'author-unknown',
+      name: authorObj?.display_name || 'Hatchpen Author',
+      handle: authorObj?.username || 'author',
+      avatar:
+        authorObj?.avatar_path ||
+        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
+      bio: authorObj?.bio || '',
+      location: '',
+      worksCount: 1,
+      followersCount: 0,
+      totalReads: String(data.view_count || '0'),
+    },
+    acts: mappedActs,
+    chapters: mappedChapters,
+  }
+}
+
+/**
+ * Server Function: Get a single public or unlisted published work by ID or slug.
  * Used by Route loader, SSR head, and Reader components so DB works are instantly resolved without flash or 404.
  */
 export const getPublicWorkServerFn = createServerFn({ method: 'GET' })
@@ -22,183 +247,7 @@ export const getPublicWorkServerFn = createServerFn({ method: 'GET' })
     return idOrSlug.trim()
   })
   .handler(async ({ data: idOrSlug }) => {
-    const { supabase } = await import('../lib/supabase/client')
-    const clean = idOrSlug.trim().toLowerCase()
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clean)
-
-    let query = supabase
-      .from('works')
-      .select(`
-        id,
-        title,
-        slug,
-        description,
-        cover_image_path,
-        language,
-        status,
-        visibility,
-        publication_status,
-        word_count,
-        chapter_count,
-        reading_time_minutes,
-        view_count,
-        like_count,
-        save_count,
-        created_at,
-        updated_at,
-        last_activity_at,
-        author:profiles!works_author_id_fkey(
-          id,
-          username,
-          display_name,
-          avatar_path,
-          bio
-        ),
-        category:categories(id, name, slug),
-        work_genres (genres (id, name, slug)),
-        acts(
-          id,
-          work_id,
-          act_number,
-          title,
-          slug,
-          description,
-          status
-        ),
-        chapters(
-          id,
-          work_id,
-          act_id,
-          chapter_number,
-          title,
-          subtitle,
-          slug,
-          content,
-          word_count,
-          reading_time_minutes,
-          status,
-          banner_image_path,
-          view_count,
-          published_at
-        )
-      `)
-      .in('visibility', ['public', 'unlisted', 'draft'])
-
-    if (isUuid) {
-      query = query.or(`id.eq.${clean},slug.eq.${clean}`)
-    } else {
-      query = query.eq('slug', clean)
-    }
-
-    const { data, error } = await query.maybeSingle()
-    if (error || !data) return null
-
-    let mappedStatus: 'Ongoing' | 'Completed' | 'On Hiatus' | 'Cancelled' = 'Ongoing'
-    if (data.status === 'completed') mappedStatus = 'Completed'
-    else if (data.status === 'on_hiatus') mappedStatus = 'On Hiatus'
-    else if (data.status === 'cancelled') mappedStatus = 'Cancelled'
-
-    const rawChapters = ((data as any).chapters || [])
-    // Public readers strictly only see published chapters
-    const publishedChapters = rawChapters.filter((c: any) => c.status === 'published')
-    const publishedCount = publishedChapters.length || (data.chapter_count ?? 0)
-
-    const mappedActs = ((data as any).acts || [])
-      .sort((a: any, b: any) => (a.act_number || 0) - (b.act_number || 0))
-      .map((act: any) => {
-        const actChapters = publishedChapters.filter((c: any) => c.act_id === act.id)
-        const actViewCount = actChapters.reduce((sum: number, c: any) => sum + (c.view_count || 0), 0)
-        return {
-          id: act.id,
-          workId: act.work_id,
-          number: act.act_number,
-          title: act.title,
-          slug: act.slug,
-          description: act.description || '',
-          status: act.status || 'published',
-          viewCount: actViewCount,
-        }
-      })
-
-    const mappedChapters = publishedChapters
-      .sort((a: any, b: any) => (a.chapter_number || 0) - (b.chapter_number || 0))
-      .map((ch: any) => {
-        const parentAct = mappedActs.find((a: any) => a.id === ch.act_id)
-        return {
-          id: ch.id,
-          number: ch.chapter_number,
-          title: ch.title,
-          subtitle: ch.subtitle || '',
-          bannerImage: ch.banner_image_path || undefined,
-          actId: ch.act_id,
-          actNumber: parentAct ? parentAct.number : 1,
-          actTitle: parentAct ? parentAct.title : undefined,
-          status: ch.status || 'published',
-          wordCount: ch.word_count || 0,
-          readTimeMinutes: ch.reading_time_minutes || 1,
-          viewCount: Number(ch.view_count || 0),
-          publishedAt: ch.published_at ? new Date(ch.published_at).toLocaleDateString() : undefined,
-          content: ch.content || '',
-        }
-      })
-
-    const authorObj = (data as any).author
-    const categoryObj = (data as any).category
-    const genreList = ((data as any).work_genres || []).map((wg: any) => wg.genres).filter(Boolean)
-    const primaryGenre = genreList[0]
-
-    return {
-      id: data.id,
-      title: data.title,
-      slug: data.slug || '',
-      subtitle: '',
-      cover:
-        data.cover_image_path ||
-        'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80',
-      category: categoryObj?.name || 'Novels',
-      categorySlug: categoryObj?.slug || 'novels',
-      genre: primaryGenre?.name || 'Literary Fiction',
-      genreSlug: primaryGenre?.slug || 'literary-fiction',
-      tags: [
-        ...genreList.map((g: any) => g.name),
-        'Serialized',
-        'Archival',
-      ],
-      language: data.language || 'English',
-      status: mappedStatus,
-      visibility: (data.visibility === 'public' ? 'Public' : 'Unlisted') as any,
-      isMature: false,
-      featured: true,
-      trending: false,
-      rising: false,
-      editorPick: false,
-      synopsis: data.description || '',
-      fullDescription: data.description || '',
-      chaptersCount: publishedCount,
-      publishedChaptersCount: publishedCount,
-      totalReads: String(data.view_count || '0'),
-      totalSaves: Number(data.save_count || 0),
-      ratingScore: 5.0,
-      ratingCount: 0,
-      createdAt: data.created_at ? new Date(data.created_at).toISOString() : new Date().toISOString(),
-      updatedAt: data.updated_at ? new Date(data.updated_at).toISOString() : new Date().toISOString(),
-      lastActivityAt: data.last_activity_at ? new Date(data.last_activity_at).toISOString() : data.created_at,
-      author: {
-        id: authorObj?.id || 'author-unknown',
-        name: authorObj?.display_name || 'Hatchpen Author',
-        handle: authorObj?.username || 'author',
-        avatar:
-          authorObj?.avatar_path ||
-          'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
-        bio: authorObj?.bio || '',
-        location: '',
-        worksCount: 1,
-        followersCount: 0,
-        totalReads: String(data.view_count || '0'),
-      },
-      acts: mappedActs,
-      chapters: mappedChapters,
-    }
+    return await executeGetPublicWork(idOrSlug)
   })
 
 /**
@@ -750,10 +799,18 @@ export async function executeGetPlatformWorks(
         const pubDateMs = row.published_at ? new Date(row.published_at).getTime() : 0
         const isNewThisWeek = pubDateMs >= startUtc.getTime() && pubDateMs < endUtc.getTime()
 
+        // Acts and chapter publication eligibility
+        const rawActs = Array.isArray(row.acts) ? row.acts : []
+        const publishedActs = rawActs.filter((a: any) => (a.status || '').toLowerCase() === 'published')
+        const publishedActIds = new Set<string>(publishedActs.map((a: any) => a.id))
+
         let hasNewChaptersThisWeek = false
         if (!isNewThisWeek && Array.isArray(row.chapters)) {
           for (const ch of row.chapters) {
-            if (ch.status === 'published' && ch.publishedAt) {
+            const isPub = (ch.status || '').toLowerCase() === 'published'
+            const actId = ch.actId || ch.act_id
+            const isActValid = !actId || publishedActIds.has(actId)
+            if (isPub && isActValid && ch.publishedAt) {
               const chDateMs = new Date(ch.publishedAt).getTime()
               if (chDateMs >= startUtc.getTime() && chDateMs < endUtc.getTime()) {
                 hasNewChaptersThisWeek = true
@@ -777,7 +834,12 @@ export async function executeGetPlatformWorks(
         }
 
         const publishedChapters = Array.isArray(row.chapters)
-          ? row.chapters.filter((ch: any) => ch.status === 'published')
+          ? row.chapters.filter((ch: any) => {
+              if ((ch.status || '').toLowerCase() !== 'published') return false
+              const actId = ch.actId || ch.act_id
+              if (actId && !publishedActIds.has(actId)) return false
+              return true
+            })
           : []
         const publishedCount =
           publishedChapters.length > 0
@@ -799,6 +861,8 @@ export async function executeGetPlatformWorks(
           language: row.language || 'English',
           status: mappedStatus,
           visibility: (row.visibility === 'public' ? 'Public' : 'Unlisted') as any,
+          publicationStatus: row.publication_status || 'published',
+          isIndexable: row.is_indexable !== false,
           isMature: false,
           featured:
             rawCollections.includes('editor_picks') ||
@@ -890,6 +954,119 @@ export async function executeGetPlatformWorks(
 export const getPlatformWorksServerFn = createServerFn({ method: 'GET' })
   .handler(async () => {
     return await executeGetPlatformWorks()
+  })
+
+export interface CategoryPageData {
+  category: {
+    id: string
+    name: string
+    slug: string
+    description: string
+    accentLetter: string
+    displayOrder: number
+  } | null
+  works: any[]
+  isNotFound: boolean
+}
+
+/**
+ * Core business logic: Fetch category metadata and eligible published works.
+ * Strictly enforces:
+ *  - Only recognized canonical categories
+ *  - Only public, published, indexable works (visibility === 'Public', publication_status === 'published', isIndexable !== false)
+ */
+export async function executeGetCategoryPageData(
+  slug: string,
+  dependencies: PlatformWorksDependencies = {}
+): Promise<CategoryPageData> {
+  if (!slug || typeof slug !== 'string' || !slug.trim()) {
+    return { category: null, works: [], isNotFound: true }
+  }
+  const normalizedSlug = slug.trim().toLowerCase()
+  const category = GLOBAL_CATEGORIES.find((c) => c.slug.toLowerCase() === normalizedSlug) || null
+  if (!category) {
+    return { category: null, works: [], isNotFound: true }
+  }
+
+  const allWorks = await executeGetPlatformWorks(dependencies)
+  const categoryWorks = allWorks.filter((w: any) => {
+    const matchCategory =
+      (w.categorySlug && w.categorySlug.toLowerCase() === normalizedSlug) ||
+      (w.category && w.category.toLowerCase().replace(/\s+/g, '-') === normalizedSlug)
+    return matchCategory && isWorkIndexable(w)
+  })
+
+  return {
+    category,
+    works: categoryWorks,
+    isNotFound: false,
+  }
+}
+
+/**
+ * Server Function: Get category page data with preloaded SEO-eligible works.
+ */
+export const getCategoryPageDataServerFn = createServerFn({ method: 'GET' })
+  .validator((slug: string) => String(slug || ''))
+  .handler(async ({ data }) => {
+    return await executeGetCategoryPageData(data)
+  })
+
+export interface GenrePageData {
+  genre: {
+    id: string
+    name: string
+    slug: string
+    group: string
+    description: string
+    displayOrder: number
+  } | null
+  works: any[]
+  isNotFound: boolean
+}
+
+/**
+ * Core business logic: Fetch genre metadata and eligible published works.
+ * Strictly enforces:
+ *  - Only recognized canonical genres
+ *  - Only public, published, indexable works (visibility === 'Public', publication_status === 'published', isIndexable !== false)
+ */
+export async function executeGetGenrePageData(
+  slug: string,
+  dependencies: PlatformWorksDependencies = {}
+): Promise<GenrePageData> {
+  if (!slug || typeof slug !== 'string' || !slug.trim()) {
+    return { genre: null, works: [], isNotFound: true }
+  }
+  const normalizedSlug = slug.trim().toLowerCase()
+  const genre = GLOBAL_GENRES.find((g) => g.slug.toLowerCase() === normalizedSlug) || null
+  if (!genre) {
+    return { genre: null, works: [], isNotFound: true }
+  }
+
+  const allWorks = await executeGetPlatformWorks(dependencies)
+  const genreWorks = allWorks.filter((w: any) => {
+    const matchGenre =
+      (w.genreSlug && w.genreSlug.toLowerCase() === normalizedSlug) ||
+      (w.genre && w.genre.toLowerCase().replace(/\s+/g, '-') === normalizedSlug) ||
+      (Array.isArray(w.genres) && w.genres.some((g: any) => g.slug && g.slug.toLowerCase() === normalizedSlug))
+    return matchGenre && isWorkIndexable(w)
+  })
+
+  return {
+    genre,
+    works: genreWorks,
+    isNotFound: false,
+  }
+}
+
+/**
+ * Server Function: Get genre page data with preloaded SEO-eligible works.
+ */
+export const getGenrePageDataServerFn = createServerFn({ method: 'GET' })
+  .validator((slug: string) => String(slug || ''))
+  .handler(async ({ data }) => {
+    return await executeGetGenrePageData(data)
   })
 
 export interface NewVoicesDependencies {

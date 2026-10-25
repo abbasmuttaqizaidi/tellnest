@@ -37,6 +37,7 @@ import { HatchpenLoader } from '../components/TellnestLoader'
 import { GLOBAL_CATEGORIES, GLOBAL_GENRES } from '../lib/taxonomy'
 import { uploadToCloudinary } from '../lib/cloudinary'
 import { uploadImage, optimizeAvatarImage, convertFileToOptimizedDataUrl, STORAGE_BUCKETS } from '../lib/supabase/storage'
+import { generateMeta } from '../lib/seo'
 import {
   getSettingsDataServerFn,
   updateAccountProfileServerFn,
@@ -166,6 +167,12 @@ const DEMO_SETTINGS_DATA: SettingsDataPayload = {
 }
 
 export const Route = createFileRoute('/settings')({
+  head: () =>
+    generateMeta({
+      title: 'Account Settings',
+      description: 'Manage your Hatchpen account credentials, security preferences, and display settings.',
+      noindex: true,
+    }),
   staleTime: 5 * 60 * 1000, // 5 minutes cache lifetime (instant 0ms navigation on revisit)
   gcTime: 10 * 60 * 1000,    // Retain cached settings for 10 minutes
   validateSearch: (search: Record<string, unknown>): SettingsSearch => {

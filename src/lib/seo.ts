@@ -11,6 +11,18 @@ export const DEFAULT_DESCRIPTION =
   'Hatchpen is a digital literary publishing and reader platform for serialized fiction, long-form literature, essays, and poetry.'
 export const DEFAULT_OG_IMAGE = '/og-image.png'
 
+/**
+ * Resolves a URL or relative path to a fully qualified absolute URL with the canonical site origin.
+ */
+export function resolveAbsoluteUrl(urlOrPath?: string | null): string {
+  if (!urlOrPath || !urlOrPath.trim()) return `${DEFAULT_SITE_URL}/og-image.png`
+  const trimmed = urlOrPath.trim()
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed
+  }
+  return `${DEFAULT_SITE_URL}${trimmed.startsWith('/') ? trimmed : `/${trimmed}`}`
+}
+
 export interface SeoOptions {
   title?: string
   description?: string
@@ -29,8 +41,10 @@ export interface SeoOptions {
 export function generateMeta(options: SeoOptions = {}) {
   const title = options.title ? `${options.title} — ${SITE_NAME}` : DEFAULT_TITLE
   const description = options.description || DEFAULT_DESCRIPTION
-  const ogImage = options.ogImage || DEFAULT_OG_IMAGE
+  const rawOgImage = options.ogImage || DEFAULT_OG_IMAGE
+  const ogImage = resolveAbsoluteUrl(rawOgImage)
   const ogType = options.ogType || 'website'
+  const canonicalUrl = options.canonicalUrl ? resolveAbsoluteUrl(options.canonicalUrl) : undefined
 
   const meta: Array<{
     title?: string
@@ -61,8 +75,8 @@ export function generateMeta(options: SeoOptions = {}) {
     { name: 'twitter:image', content: ogImage },
   ]
 
-  if (options.canonicalUrl) {
-    meta.push({ property: 'og:url', content: options.canonicalUrl })
+  if (canonicalUrl) {
+    meta.push({ property: 'og:url', content: canonicalUrl })
   }
 
   if (options.keywords && options.keywords.length > 0) {
@@ -85,8 +99,8 @@ export function generateMeta(options: SeoOptions = {}) {
   }
 
   const links: Array<{ rel: string; href: string }> = []
-  if (options.canonicalUrl) {
-    links.push({ rel: 'canonical', href: options.canonicalUrl })
+  if (canonicalUrl) {
+    links.push({ rel: 'canonical', href: canonicalUrl })
   }
 
   const scripts: Array<{ type: string; children: string }> = []

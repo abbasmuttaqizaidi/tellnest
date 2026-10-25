@@ -28,6 +28,12 @@ const config = defineConfig({
     tanstackStart(),
     nitro({
       preset: 'vercel',
+      handlers: [
+        {
+          route: '/sitemap.xml',
+          handler: './src/server/sitemap-handler.ts',
+        },
+      ],
       errorHandler: './src/error.ts',
       vercel: {
         entryFormat: 'node',

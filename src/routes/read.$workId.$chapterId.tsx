@@ -74,7 +74,7 @@ export const Route = createFileRoute('/read/$workId/$chapterId')({
 
     const chapter =
       work?.chapters.find((c: any) => c.id === params.chapterId || c.number.toString() === params.chapterId) ||
-      work?.chapters[0]
+      (params.chapterId === 'first' || params.chapterId === 'default' ? work?.chapters[0] : undefined)
 
     if (!work || !chapter) {
       return generateMeta({
@@ -84,17 +84,25 @@ export const Route = createFileRoute('/read/$workId/$chapterId')({
     }
 
     const canonicalSlug = getWorkSlug(work)
+    const canonicalUrl = `https://hatchpen.com/read/${canonicalSlug}/${chapter.id}`
     const title = `${chapter.title} — ${work.title} by ${work.author.name}`
     const excerpt =
       (chapter.content || chapter.subtitle || work.synopsis).slice(0, 150).replace(/\n/g, ' ').trim() + '...'
+    const isPublicWork = (work.visibility || '').toLowerCase() === 'public'
+    const isChapterEligible =
+      isPublicWork &&
+      (work.is_indexable === true || (work as any).isIndexable === true) &&
+      (chapter.status || '').toLowerCase() === 'published' &&
+      (chapter.is_indexable === true || (chapter as any).isIndexable === true)
 
     return generateMeta({
       title,
       description: excerpt,
-      canonicalUrl: `https://hatchpen.com/read/${canonicalSlug}/${chapter.id}`,
+      canonicalUrl,
       ogType: 'article',
       ogImage: work.cover,
       author: work.author.name,
+      noindex: !isChapterEligible,
       keywords: [work.title, chapter.title, work.author.name, 'read chapter online', 'serialized fiction'],
       jsonLd: {
         '@context': 'https://schema.org',
@@ -112,7 +120,7 @@ export const Route = createFileRoute('/read/$workId/$chapterId')({
         },
         image: work.cover,
         description: excerpt,
-        mainEntityOfPage: `https://hatchpen.com/read/${work.id}/${chapter.id}`,
+        mainEntityOfPage: canonicalUrl,
       },
     })
   },
@@ -293,11 +301,13 @@ function ReaderPage() {
     return null
   })
 
-  // Find chapter with flexible ID or number matching, defaulting to first chapter if available
+  // Find chapter with flexible ID or number matching, defaulting to first chapter only if requested explicitly
   const currentChapterIndex = useMemo(() => {
     if (!work || !work.chapters.length) return -1
     const idx = work.chapters.findIndex((c) => c.id === chapterId || c.number.toString() === chapterId)
-    return idx !== -1 ? idx : 0
+    if (idx !== -1) return idx
+    if (chapterId === 'first' || chapterId === 'default') return 0
+    return -1
   }, [work, chapterId])
 
   const chapter = work?.chapters[currentChapterIndex]

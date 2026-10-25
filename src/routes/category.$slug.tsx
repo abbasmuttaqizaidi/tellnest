@@ -1,32 +1,102 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
-import { CATEGORIES } from '../data/mockData'
+import { GLOBAL_CATEGORIES } from '../lib/taxonomy'
 import WorkCard from '../components/WorkCard'
 import EmptyState from '../components/EmptyState'
 import { FilterDisclosure, AnimatedSearch } from '../design-system'
-import { ArrowLeft, BookOpen, SlidersHorizontal, Sparkles } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { generateMeta } from '../lib/seo'
 import { parseTotalReads } from '../lib/utils'
+import { getCategoryPageDataServerFn, type CategoryPageData } from '../server/works'
 
 export const Route = createFileRoute('/category/$slug')({
-  head: ({ params }) => {
-    const found = CATEGORIES.find((c) => c.slug === params.slug)
-    const categoryName =
-      found?.name ||
-      params.slug
-        .split('-')
-        .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-        .join(' ')
+  staleTime: 60_000,
+  gcTime: 5 * 60 * 1000,
+  loader: async ({ params }): Promise<CategoryPageData> => {
+    try {
+      const data = await getCategoryPageDataServerFn({ data: params.slug })
+      if (data) return data
+    } catch (err) {
+      console.warn('[Route /category/$slug] Loader lookup error:', err)
+    }
+
+    // Client/Offline fallback against canonical taxonomy
+    const normalized = (params.slug || '').trim().toLowerCase()
+    const found = GLOBAL_CATEGORIES.find((c) => c.slug.toLowerCase() === normalized)
+    if (found) {
+      return { category: found, works: [], isNotFound: false }
+    }
+    return { category: null, works: [], isNotFound: true }
+  },
+  head: ({ params, loaderData }) => {
+    if (loaderData?.isNotFound || !loaderData?.category) {
+      return generateMeta({
+        title: 'Category Not Found',
+        description: 'The requested literary category could not be found on Hatchpen.',
+        noindex: true,
+      })
+    }
+
+    const category = loaderData.category
+    const categoryName = category.name
+    const canonicalUrl = `https://hatchpen.com/category/${category.slug}`
+    const description =
+      category.description ||
+      `Curated literary works, manuscripts, and narratives in the ${categoryName} category on Hatchpen.`
+    const works = loaderData.works || []
+
+    const jsonLd = [
+      {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          {
+            '@type': 'ListItem',
+            position: 1,
+            name: 'Home',
+            item: 'https://hatchpen.com',
+          },
+          {
+            '@type': 'ListItem',
+            position: 2,
+            name: 'Discover',
+            item: 'https://hatchpen.com/discover',
+          },
+          {
+            '@type': 'ListItem',
+            position: 3,
+            name: categoryName,
+            item: canonicalUrl,
+          },
+        ],
+      },
+      {
+        '@context': 'https://schema.org',
+        '@type': 'CollectionPage',
+        name: `${categoryName} — Literary Archive`,
+        description,
+        url: canonicalUrl,
+        mainEntity: {
+          '@type': 'ItemList',
+          numberOfItems: works.length,
+          itemListElement: works.slice(0, 20).map((w: any, index: number) => ({
+            '@type': 'ListItem',
+            position: index + 1,
+            url: `https://hatchpen.com/works/${w.slug || w.id}`,
+            name: w.title,
+          })),
+        },
+      },
+    ]
 
     return generateMeta({
       title: `${categoryName} — Literary Archive`,
-      description:
-        found?.description ||
-        `Curated literary works, manuscripts, and narratives in the ${categoryName} category on Hatchpen.`,
-      canonicalUrl: `https://hatchpen.com/category/${params.slug}`,
+      description,
+      canonicalUrl,
       keywords: [categoryName, 'literary works', 'online fiction', 'serial publication'],
       ogType: 'website',
+      jsonLd,
     })
   },
   component: CategoryTemplatePage,
@@ -34,51 +104,72 @@ export const Route = createFileRoute('/category/$slug')({
 
 function CategoryTemplatePage() {
   const { slug } = Route.useParams()
-  const { allWorks, categories } = useApp()
+  const loaderData = Route.useLoaderData()
+  const { allWorks } = useApp()
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
   const [sortBy, setSortBy] = useState<'popularity' | 'updated'>('popularity')
   const [searchQuery, setSearchQuery] = useState<string>('')
 
-  // Find category meta from live DB taxonomy or fallback dynamic category
-  const categoryInfo = useMemo(() => {
-    const found = categories.find((c) => c.slug === slug)
-    if (found) return found
-    const humanName = slug.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')
-    return {
-      name: humanName,
-      slug,
-      description: `Curated literary works, manuscripts, and narratives in the ${humanName} category.`,
-      worksCount: 0,
-      accentLetter: humanName.charAt(0)
-    }
-  }, [slug, categories])
+  if (loaderData?.isNotFound || !loaderData?.category) {
+    return (
+      <div className="min-h-screen py-16 px-4 max-w-3xl mx-auto text-center space-y-4">
+        <h1 className="font-serif text-3xl sm:text-4xl font-semibold text-[var(--ink-primary)]">
+          Category Not Found
+        </h1>
+        <p className="text-sm leading-relaxed text-[var(--ink-muted)]">
+          The literary category &ldquo;{slug}&rdquo; does not exist or is not available.
+        </p>
+        <div className="pt-4">
+          <Link
+            to="/discover"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-sm font-medium hover:opacity-90 transition-opacity no-underline"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Return to Catalog</span>
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  const categoryInfo = loaderData.category
+
+  // Use client allWorks when available; otherwise use SSR preloaded loaderData.works
+  const baselineWorks = allWorks && allWorks.length > 0 ? allWorks : loaderData.works || []
 
   // Filter works matching this category
   const categoryWorks = useMemo(() => {
-    return allWorks.filter((w) => {
-      const matchCat = w.categorySlug === slug || w.category.toLowerCase().replace(/\s+/g, '-') === slug
-      if (!matchCat) return false
-      if (selectedStatus !== 'all' && w.status !== selectedStatus) return false
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase()
-        const matchesTitle = w.title.toLowerCase().includes(q)
-        const matchesAuthor = w.author.name.toLowerCase().includes(q)
-        const matchesSynopsis = w.synopsis.toLowerCase().includes(q)
-        if (!matchesTitle && !matchesAuthor && !matchesSynopsis) return false
-      }
-      return true
-    }).sort((a, b) => {
-      if (sortBy === 'updated') return a.updatedAt.localeCompare(b.updatedAt)
-      return parseTotalReads(b.totalReads) - parseTotalReads(a.totalReads)
-    })
-  }, [allWorks, slug, selectedStatus, sortBy, searchQuery])
+    return baselineWorks
+      .filter((w: any) => {
+        const matchCat =
+          w.categorySlug === slug ||
+          w.category?.toLowerCase().replace(/\s+/g, '-') === slug ||
+          w.category === categoryInfo.name
+        if (!matchCat) return false
+        if (selectedStatus !== 'all' && w.status !== selectedStatus) return false
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase()
+          const matchesTitle = (w.title || '').toLowerCase().includes(q)
+          const matchesAuthor = (w.author?.name || '').toLowerCase().includes(q)
+          const matchesSynopsis = (w.synopsis || w.description || '').toLowerCase().includes(q)
+          if (!matchesTitle && !matchesAuthor && !matchesSynopsis) return false
+        }
+        return true
+      })
+      .sort((a: any, b: any) => {
+        if (sortBy === 'updated') return String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''))
+        return parseTotalReads(b.totalReads) - parseTotalReads(a.totalReads)
+      })
+  }, [baselineWorks, slug, categoryInfo.name, selectedStatus, sortBy, searchQuery])
 
   return (
     <div className="min-h-screen py-3 sm:py-7 px-3 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-3 sm:space-y-5">
-      
       {/* Breadcrumb Navigation */}
       <div className="flex items-center gap-2 text-xs font-mono text-[var(--ink-muted)] mb-8">
-        <Link to="/discover" className="hover:text-[var(--ink-primary)] inline-flex items-center gap-1 text-inherit no-underline">
+        <Link
+          to="/discover"
+          className="hover:text-[var(--ink-primary)] inline-flex items-center gap-1 text-inherit no-underline"
+        >
           <ArrowLeft className="h-3 w-3" />
           <span>All Categories</span>
         </Link>
@@ -92,7 +183,7 @@ function CategoryTemplatePage() {
           <div className="space-y-3 max-w-2xl">
             <div className="flex items-center gap-2">
               <span className="flex h-6 w-6 items-center justify-center rounded border border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-mono text-xs font-bold">
-                {categoryInfo.accentLetter}
+                {categoryInfo.accentLetter || categoryInfo.name.charAt(0)}
               </span>
               <span className="font-mono text-xs uppercase tracking-wider text-[var(--ink-muted)]">
                 Category Archive
@@ -167,7 +258,6 @@ function CategoryTemplatePage() {
           ))}
         </div>
       )}
-
     </div>
   )
 }

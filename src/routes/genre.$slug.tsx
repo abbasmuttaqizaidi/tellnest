@@ -1,32 +1,102 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
-import { GENRES } from '../data/mockData'
+import { GLOBAL_GENRES } from '../lib/taxonomy'
 import WorkCard from '../components/WorkCard'
 import EmptyState from '../components/EmptyState'
 import { FilterDisclosure, AnimatedSearch } from '../design-system'
 import { ArrowLeft } from 'lucide-react'
 import { generateMeta } from '../lib/seo'
 import { parseTotalReads } from '../lib/utils'
+import { getGenrePageDataServerFn, type GenrePageData } from '../server/works'
 
 export const Route = createFileRoute('/genre/$slug')({
-  head: ({ params }) => {
-    const found = GENRES.find((g) => g.slug === params.slug)
-    const genreName =
-      found?.name ||
-      params.slug
-        .split('-')
-        .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-        .join(' ')
+  staleTime: 60_000,
+  gcTime: 5 * 60 * 1000,
+  loader: async ({ params }): Promise<GenrePageData> => {
+    try {
+      const data = await getGenrePageDataServerFn({ data: params.slug })
+      if (data) return data
+    } catch (err) {
+      console.warn('[Route /genre/$slug] Loader lookup error:', err)
+    }
+
+    // Client/Offline fallback against canonical taxonomy
+    const normalized = (params.slug || '').trim().toLowerCase()
+    const found = GLOBAL_GENRES.find((g) => g.slug.toLowerCase() === normalized)
+    if (found) {
+      return { genre: found, works: [], isNotFound: false }
+    }
+    return { genre: null, works: [], isNotFound: true }
+  },
+  head: ({ params, loaderData }) => {
+    if (loaderData?.isNotFound || !loaderData?.genre) {
+      return generateMeta({
+        title: 'Genre Not Found',
+        description: 'The requested literary genre could not be found on Hatchpen.',
+        noindex: true,
+      })
+    }
+
+    const genre = loaderData.genre
+    const genreName = genre.name
+    const canonicalUrl = `https://hatchpen.com/genre/${genre.slug}`
+    const description =
+      genre.description ||
+      `Curated literary manuscripts, serial fiction, and independent works in the ${genreName} genre on Hatchpen.`
+    const works = loaderData.works || []
+
+    const jsonLd = [
+      {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          {
+            '@type': 'ListItem',
+            position: 1,
+            name: 'Home',
+            item: 'https://hatchpen.com',
+          },
+          {
+            '@type': 'ListItem',
+            position: 2,
+            name: 'Discover',
+            item: 'https://hatchpen.com/discover',
+          },
+          {
+            '@type': 'ListItem',
+            position: 3,
+            name: genreName,
+            item: canonicalUrl,
+          },
+        ],
+      },
+      {
+        '@context': 'https://schema.org',
+        '@type': 'CollectionPage',
+        name: `${genreName} Stories & Serialized Literature`,
+        description,
+        url: canonicalUrl,
+        mainEntity: {
+          '@type': 'ItemList',
+          numberOfItems: works.length,
+          itemListElement: works.slice(0, 20).map((w: any, index: number) => ({
+            '@type': 'ListItem',
+            position: index + 1,
+            url: `https://hatchpen.com/works/${w.slug || w.id}`,
+            name: w.title,
+          })),
+        },
+      },
+    ]
 
     return generateMeta({
       title: `${genreName} Stories & Serialized Literature`,
-      description:
-        found?.description ||
-        `Curated literary manuscripts, serial fiction, and independent works in the ${genreName} genre on Hatchpen.`,
-      canonicalUrl: `https://hatchpen.com/genre/${params.slug}`,
+      description,
+      canonicalUrl,
       keywords: [genreName, `${genreName} fiction`, 'read novels', 'indie books', 'Hatchpen genre'],
       ogType: 'website',
+      jsonLd,
     })
   },
   component: GenreTemplatePage,
@@ -34,48 +104,71 @@ export const Route = createFileRoute('/genre/$slug')({
 
 function GenreTemplatePage() {
   const { slug } = Route.useParams()
-  const { allWorks, genres } = useApp()
+  const loaderData = Route.useLoaderData()
+  const { allWorks } = useApp()
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
   const [sortBy, setSortBy] = useState<'popularity' | 'updated'>('popularity')
   const [searchQuery, setSearchQuery] = useState<string>('')
 
-  const genreInfo = useMemo(() => {
-    const found = genres.find((g) => g.slug === slug)
-    if (found) return found
-    const humanName = slug.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')
-    return {
-      name: humanName,
-      slug,
-      description: `Curated narrative works in the ${humanName} genre.`,
-      worksCount: 0
-    }
-  }, [slug, genres])
+  if (loaderData?.isNotFound || !loaderData?.genre) {
+    return (
+      <div className="min-h-screen py-16 px-4 max-w-3xl mx-auto text-center space-y-4">
+        <h1 className="font-serif text-3xl sm:text-4xl font-semibold text-[var(--ink-primary)]">
+          Genre Not Found
+        </h1>
+        <p className="text-sm leading-relaxed text-[var(--ink-muted)]">
+          The literary genre &ldquo;{slug}&rdquo; does not exist or is not available.
+        </p>
+        <div className="pt-4">
+          <Link
+            to="/discover"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-sm font-medium hover:opacity-90 transition-opacity no-underline"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Return to Catalog</span>
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  const genreInfo = loaderData.genre
+
+  // Use client allWorks when available; otherwise use SSR preloaded loaderData.works
+  const baselineWorks = allWorks && allWorks.length > 0 ? allWorks : loaderData.works || []
 
   const genreWorks = useMemo(() => {
-    return allWorks.filter((w) => {
-      const matchGenre = w.genreSlug === slug || w.genre.toLowerCase().replace(/\s+/g, '-') === slug
-      if (!matchGenre) return false
-      if (selectedStatus !== 'all' && w.status !== selectedStatus) return false
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase()
-        const matchesTitle = w.title.toLowerCase().includes(q)
-        const matchesAuthor = w.author.name.toLowerCase().includes(q)
-        const matchesSynopsis = w.synopsis.toLowerCase().includes(q)
-        if (!matchesTitle && !matchesAuthor && !matchesSynopsis) return false
-      }
-      return true
-    }).sort((a, b) => {
-      if (sortBy === 'updated') return a.updatedAt.localeCompare(b.updatedAt)
-      return parseTotalReads(b.totalReads) - parseTotalReads(a.totalReads)
-    })
-  }, [allWorks, slug, selectedStatus, sortBy, searchQuery])
+    return baselineWorks
+      .filter((w: any) => {
+        const matchGenre =
+          w.genreSlug === slug ||
+          w.genre?.toLowerCase().replace(/\s+/g, '-') === slug ||
+          (Array.isArray(w.genres) && w.genres.some((g: any) => g.slug === slug))
+        if (!matchGenre) return false
+        if (selectedStatus !== 'all' && w.status !== selectedStatus) return false
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase()
+          const matchesTitle = (w.title || '').toLowerCase().includes(q)
+          const matchesAuthor = (w.author?.name || '').toLowerCase().includes(q)
+          const matchesSynopsis = (w.synopsis || w.description || '').toLowerCase().includes(q)
+          if (!matchesTitle && !matchesAuthor && !matchesSynopsis) return false
+        }
+        return true
+      })
+      .sort((a: any, b: any) => {
+        if (sortBy === 'updated') return String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''))
+        return parseTotalReads(b.totalReads) - parseTotalReads(a.totalReads)
+      })
+  }, [baselineWorks, slug, selectedStatus, sortBy, searchQuery])
 
   return (
     <div className="min-h-screen py-3 sm:py-7 px-3 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-3 sm:space-y-5">
-      
-      {/* Breadcrumb */}
+      {/* Breadcrumb Navigation */}
       <div className="flex items-center gap-2 text-xs font-mono text-[var(--ink-muted)] mb-8">
-        <Link to="/discover" className="hover:text-[var(--ink-primary)] inline-flex items-center gap-1 text-inherit no-underline">
+        <Link
+          to="/discover"
+          className="hover:text-[var(--ink-primary)] inline-flex items-center gap-1 text-inherit no-underline"
+        >
           <ArrowLeft className="h-3 w-3" />
           <span>All Genres</span>
         </Link>
@@ -83,7 +176,7 @@ function GenreTemplatePage() {
         <span className="text-[var(--ink-primary)] font-semibold">{genreInfo.name}</span>
       </div>
 
-      {/* Genre Header */}
+      {/* Genre Header Hero */}
       <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-8 sm:p-12 mb-10">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
           <div className="space-y-3 max-w-2xl">
@@ -159,7 +252,6 @@ function GenreTemplatePage() {
           ))}
         </div>
       )}
-
     </div>
   )
 }

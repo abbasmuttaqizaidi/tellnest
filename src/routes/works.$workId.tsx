@@ -70,6 +70,8 @@ export const Route = createFileRoute('/works/$workId')({
     const canonicalSlug = getWorkSlug(work)
     const authorName = work.author?.name || 'Hatchpen Author'
     const authorSlug = work.author?.handle || work.author?.id || 'author-unknown'
+    const isPublic = (work.visibility || '').toLowerCase() === 'public'
+    const isIndexable = isPublic && (work.is_indexable === true || (work as any).isIndexable === true)
 
     return generateMeta({
       title: `${work.title} by ${authorName}`,
@@ -79,6 +81,7 @@ export const Route = createFileRoute('/works/$workId')({
       ogImage: work.cover,
       ogImageAlt: `${work.title} cover art`,
       author: authorName,
+      noindex: !isIndexable,
       keywords: [
         work.title,
         work.genre || 'Literature',
