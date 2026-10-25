@@ -832,28 +832,49 @@ export const saveWriterChapterServerFn = createServerFn({ method: 'POST' })
     // 3. Recalculate and update aggregate word count, chapter count, and last activity on works table
     const { data: allChs } = await admin
       .from('chapters')
-      .select('word_count, reading_time_minutes')
+      .select('word_count, reading_time_minutes, status')
       .eq('work_id', workUuid)
 
+    let workRevertedToDraft = false
+
     if (allChs) {
-      const totalWords = allChs.reduce((sum, c) => sum + (c.word_count || 0), 0)
-      const totalMinutes = allChs.reduce((sum, c) => sum + (c.reading_time_minutes || 0), 0)
+      const totalWords = allChs.reduce((sum: number, c: any) => sum + (c.word_count || 0), 0)
+      const totalMinutes = allChs.reduce((sum: number, c: any) => sum + (c.reading_time_minutes || 0), 0)
+      const publishedCount = allChs.filter((c: any) => c.status === 'published').length
+
+      const workUpdatePayload: Record<string, any> = {
+        word_count: totalWords,
+        chapter_count: allChs.length,
+        reading_time_minutes: totalMinutes,
+        last_activity_at: nowIso,
+        last_activity_type: status === 'published' ? 'chapter_published' : 'chapter_updated',
+        last_activity_detail: {
+          chapterTitle: data.title?.trim() || 'Chapter',
+          updatedAt: nowIso,
+          summaryText: `Chapter "${data.title?.trim() || 'Chapter'}" ${status === 'published' ? 'published' : 'updated'}`,
+        },
+        updated_at: nowIso,
+      }
+
+      // If chapter was moved to draft and no published chapters remain, revert published manuscript to draft
+      if (status === 'draft') {
+        const { data: currentWork } = await admin
+          .from('works')
+          .select('publication_status')
+          .eq('id', workUuid)
+          .maybeSingle()
+
+        if (currentWork?.publication_status === 'published' && publishedCount === 0) {
+          workUpdatePayload.publication_status = 'draft'
+          workUpdatePayload.visibility = 'draft'
+          workUpdatePayload.is_indexable = false
+          workRevertedToDraft = true
+        }
+      }
 
       await admin
         .from('works')
-        .update({
-          word_count: totalWords,
-          chapter_count: allChs.length,
-          reading_time_minutes: totalMinutes,
-          last_activity_at: nowIso,
-          last_activity_type: status === 'published' ? 'chapter_published' : 'chapter_updated',
-          last_activity_detail: {
-            chapterTitle: data.title?.trim() || 'Chapter',
-            updatedAt: nowIso,
-            summaryText: `Chapter "${data.title?.trim() || 'Chapter'}" ${status === 'published' ? 'published' : 'updated'}`,
-          },
-          updated_at: nowIso,
-        })
+        .update(workUpdatePayload)
         .eq('id', workUuid)
     }
 
@@ -863,6 +884,7 @@ export const saveWriterChapterServerFn = createServerFn({ method: 'POST' })
       wordCount,
       readingTime,
       updatedAt: nowIso,
+      workRevertedToDraft,
     }
   })
 
@@ -1026,32 +1048,51 @@ export async function executeDeleteWriterChapter(
   // 4. Recalculate remaining chapter counts and word counts
   const { data: remainingChs } = await admin
     .from('chapters')
-    .select('word_count, reading_time_minutes')
+    .select('id, status, word_count, reading_time_minutes')
     .eq('work_id', workUuid)
 
   const remainingCount = remainingChs?.length || 0
-  const totalWords = (remainingChs || []).reduce((sum, c) => sum + (c.word_count || 0), 0)
-  const totalMinutes = (remainingChs || []).reduce((sum, c) => sum + (c.reading_time_minutes || 0), 0)
+  const publishedCount = (remainingChs || []).filter((c: any) => c.status === 'published').length
+  const totalWords = (remainingChs || []).reduce((sum: number, c: any) => sum + (c.word_count || 0), 0)
+  const totalMinutes = (remainingChs || []).reduce((sum: number, c: any) => sum + (c.reading_time_minutes || 0), 0)
+
+  // Fetch current work publication status to verify if revert to draft is required
+  const { data: currentWork } = await admin
+    .from('works')
+    .select('publication_status, visibility')
+    .eq('id', workUuid)
+    .maybeSingle()
+
+  let workRevertedToDraft = false
+  const workUpdatePayload: Record<string, any> = {
+    chapter_count: remainingCount,
+    word_count: totalWords,
+    reading_time_minutes: totalMinutes,
+    last_activity_at: nowIso,
+    last_activity_type: 'work_metadata_updated',
+    last_activity_detail: {
+      chapterId: targetCh.id,
+      chapterTitle: targetCh.title,
+      updatedAt: nowIso,
+      summaryText: `Chapter "${targetCh.title}" removed`,
+    },
+    updated_at: nowIso,
+  }
+
+  // If work was published but now has zero published chapters remaining, automatically revert to draft
+  if (currentWork?.publication_status === 'published' && publishedCount === 0) {
+    workUpdatePayload.publication_status = 'draft'
+    workUpdatePayload.visibility = 'draft'
+    workUpdatePayload.is_indexable = false
+    workRevertedToDraft = true
+  }
 
   await admin
     .from('works')
-    .update({
-      chapter_count: remainingCount,
-      word_count: totalWords,
-      reading_time_minutes: totalMinutes,
-      last_activity_at: nowIso,
-      last_activity_type: 'work_metadata_updated',
-      last_activity_detail: {
-        chapterId: targetCh.id,
-        chapterTitle: targetCh.title,
-        updatedAt: nowIso,
-        summaryText: `Chapter "${targetCh.title}" removed`,
-      },
-      updated_at: nowIso,
-    })
+    .update(workUpdatePayload)
     .eq('id', workUuid)
 
-  return { success: true, remainingCount }
+  return { success: true, remainingCount, publishedCount, workRevertedToDraft }
 }
 
 /**
@@ -1313,6 +1354,21 @@ export async function executeWriterWorkPublication(
   }
 
   if (normalizedPubStatus === 'published') {
+    const { data: pubChs, error: chErr } = await admin
+      .from('chapters')
+      .select('id')
+      .eq('work_id', workUuid)
+      .eq('status', 'published')
+
+    if (chErr) {
+      console.warn('[executeWriterWorkPublication] Error verifying published chapters:', chErr?.message)
+    }
+
+    const pubCount = Array.isArray(pubChs) ? pubChs.length : 0
+    if (pubCount === 0) {
+      throw new Error('Cannot publish manuscript without at least 1 published chapter. Please publish Chapter 1 first.')
+    }
+
     if (!currentWork?.published_at) {
       updatePayload.published_at = nowIso
     }

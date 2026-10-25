@@ -42,38 +42,95 @@ test('Writer Publication: Rejects request with missing visibility', async () => 
   )
 })
 
-test('Writer Publication: Promotes visibility from draft to public when publicationStatus is published', async () => {
-  let updatedPayload = null
+test('Writer Publication: Rejects publication when manuscript has 0 published chapters', async () => {
   const mockAdmin = {
-    from: (table) => ({
-      select: () => ({
-        eq: () => ({
-          maybeSingle: async () => ({
-            data: { id: 'work-123', published_at: null, visibility: 'draft', publication_status: 'draft' },
-            error: null,
-          }),
-        }),
-      }),
-      update: (payload) => {
-        updatedPayload = payload
+    from: (table) => {
+      if (table === 'chapters') {
         return {
-          eq: () => ({
-            select: () => ({
-              single: async () => ({
-                data: {
-                  id: 'work-123',
-                  publication_status: payload.publication_status,
-                  visibility: payload.visibility,
-                  status: payload.status || 'ongoing',
-                  published_at: payload.published_at,
-                },
+          select: () => ({
+            eq: () => ({
+              eq: async () => ({
+                data: [], // No published chapters
                 error: null,
               }),
             }),
           }),
         }
-      },
-    }),
+      }
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({
+              data: { id: 'work-123', published_at: null, visibility: 'draft', publication_status: 'draft' },
+              error: null,
+            }),
+          }),
+        }),
+      }
+    },
+  }
+
+  await assert.rejects(
+    async () => {
+      await executeWriterWorkPublication(
+        {
+          workId: 'work-123',
+          publicationStatus: 'published',
+          visibility: 'public',
+        },
+        mockAdmin
+      )
+    },
+    { message: /Cannot publish manuscript without at least 1 published chapter/ }
+  )
+})
+
+test('Writer Publication: Promotes visibility from draft to public when publicationStatus is published', async () => {
+  let updatedPayload = null
+  const mockAdmin = {
+    from: (table) => {
+      if (table === 'chapters') {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: async () => ({
+                data: [{ id: 'ch-1', status: 'published' }],
+                error: null,
+              }),
+            }),
+          }),
+        }
+      }
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({
+              data: { id: 'work-123', published_at: null, visibility: 'draft', publication_status: 'draft' },
+              error: null,
+            }),
+          }),
+        }),
+        update: (payload) => {
+          updatedPayload = payload
+          return {
+            eq: () => ({
+              select: () => ({
+                single: async () => ({
+                  data: {
+                    id: 'work-123',
+                    publication_status: payload.publication_status,
+                    visibility: payload.visibility,
+                    status: payload.status || 'ongoing',
+                    published_at: payload.published_at,
+                  },
+                  error: null,
+                }),
+              }),
+            }),
+          }
+        },
+      }
+    },
   }
 
   const result = await executeWriterWorkPublication(

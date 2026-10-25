@@ -45,6 +45,14 @@ export interface StoryRichEditorProps {
   actName?: string
   onExit?: () => void
   className?: string
+  recoveredDraft?: {
+    title?: string
+    subtitle?: string
+    content?: string
+    timestamp?: number
+  } | null
+  onRestoreDraft?: () => void
+  onDiscardDraft?: () => void
 }
 
 // Markdown parser helpers for Live Reader Preview
@@ -192,6 +200,9 @@ export function StoryRichEditor({
   actName,
   onExit,
   className = '',
+  recoveredDraft,
+  onRestoreDraft,
+  onDiscardDraft,
 }: StoryRichEditorProps) {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [viewMode, setViewMode] = useState<'write' | 'split' | 'preview'>('write')
@@ -810,6 +821,37 @@ export function StoryRichEditor({
           {/* Live WYSIWYG Drafting Column */}
           {(viewMode === 'write' || viewMode === 'split') && (
             <div className={`w-full ${viewMode === 'split' ? '' : 'max-w-3xl'} space-y-6`}>
+              {/* Recovered Interrupted Draft Banner */}
+              {recoveredDraft && (
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-200 animate-in fade-in slide-in-from-top-2 duration-200 shadow-xs">
+                  <div className="flex items-center gap-2.5 text-xs">
+                    <Sparkles className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                    <div>
+                      <p className="font-semibold text-[13px]">Unsaved draft recovered from an interrupted session</p>
+                      <p className="text-[11px] text-amber-700 dark:text-amber-300 font-mono">
+                        Saved locally at {new Date(recoveredDraft.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={onRestoreDraft}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-600 hover:bg-amber-700 text-white shadow-xs transition-colors cursor-pointer"
+                    >
+                      Restore Draft
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onDiscardDraft}
+                      className="px-2.5 py-1.5 text-xs font-medium rounded-lg text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 transition-colors cursor-pointer"
+                    >
+                      Discard
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Chapter Header Elements */}
               <div className="space-y-3 pb-6 border-b border-[var(--border-subtle)]">
                 <input

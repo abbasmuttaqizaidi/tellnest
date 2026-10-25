@@ -281,6 +281,10 @@ function WorkManagementPage() {
 
   const handleSavePublication = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
+    if (modalPubStatus === 'Published' && publishedChaptersCount === 0) {
+      showToast('Cannot publish manuscript without at least 1 published chapter. Please publish Chapter 1 first.')
+      return
+    }
     try {
       setIsUpdatingPub(true)
       const res = await updateWriterWorkPublicationServerFn({
@@ -324,6 +328,10 @@ function WorkManagementPage() {
   }
 
   const handleQuickPublish = async () => {
+    if (publishedChaptersCount === 0) {
+      showToast('Cannot publish manuscript without at least 1 published chapter. Please publish Chapter 1 first.')
+      return
+    }
     try {
       setIsUpdatingPub(true)
       const res = await updateWriterWorkPublicationServerFn({
@@ -584,13 +592,27 @@ function WorkManagementPage() {
     setChapters((prev) => prev.filter((c) => c.id !== chapterId))
 
     try {
-      await deleteWriterChapterServerFn({
+      const res = await deleteWriterChapterServerFn({
         data: {
           workId: work.id,
           chapterId,
         },
       })
-      showToast(`Chapter "${chapterTitle}" deleted`)
+      if (res?.workRevertedToDraft) {
+        setPublicationStatus('Draft')
+        setVisibility('Draft')
+        if (work) {
+          work.publicationStatus = 'Draft'
+          work.visibility = 'Draft'
+        }
+        await Promise.all([
+          reloadWriterWorksFromDb?.(),
+          reloadWorksFromDb?.(),
+        ])
+        showToast(`Chapter "${chapterTitle}" deleted. Manuscript reverted to Draft as no published chapters remain.`)
+      } else {
+        showToast(`Chapter "${chapterTitle}" deleted`)
+      }
     } catch (err: any) {
       console.error('[handleDeleteChapter] Error:', err)
       setChapters(prevChapters)
@@ -612,7 +634,7 @@ function WorkManagementPage() {
 
     // Persist to DB
     try {
-      await saveWriterChapterServerFn({
+      const res = await saveWriterChapterServerFn({
         data: {
           workId: work.id,
           chapterId,
@@ -620,6 +642,19 @@ function WorkManagementPage() {
           status: nextStatus,
         },
       })
+      if (res?.workRevertedToDraft) {
+        setPublicationStatus('Draft')
+        setVisibility('Draft')
+        if (work) {
+          work.publicationStatus = 'Draft'
+          work.visibility = 'Draft'
+        }
+        await Promise.all([
+          reloadWriterWorksFromDb?.(),
+          reloadWorksFromDb?.(),
+        ])
+        showToast('Manuscript reverted to Draft as no published chapters remain.')
+      }
     } catch (err: any) {
       console.error('[handleToggleStatus] Error updating status in DB:', err)
       // Rollback
@@ -774,9 +809,13 @@ function WorkManagementPage() {
               <button
                 type="button"
                 onClick={handleQuickPublish}
-                disabled={isUpdatingPub}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 text-xs font-semibold shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
-                title="Publish entire manuscript to readers"
+                disabled={isUpdatingPub || publishedChaptersCount === 0}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 text-xs font-semibold shadow-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                title={
+                  publishedChaptersCount === 0
+                    ? 'Publish at least 1 chapter before publishing manuscript'
+                    : 'Publish entire manuscript to readers'
+                }
               >
                 <Globe className="h-3.5 w-3.5" />
                 <span>{isUpdatingPub ? 'Publishing...' : 'Publish'}</span>
@@ -1575,18 +1614,28 @@ function WorkManagementPage() {
                   <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
                     Publication Status
                   </label>
+                  {publishedChaptersCount === 0 && (
+                    <div className="mb-2.5 p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-800 dark:text-amber-300">
+                      ⚠️ <strong>Cannot publish yet:</strong> Publish at least 1 chapter before making this story public.
+                    </div>
+                  )}
                   <div className="grid grid-cols-3 gap-2">
                     <button
                       type="button"
+                      disabled={publishedChaptersCount === 0}
                       onClick={() => {
+                        if (publishedChaptersCount === 0) return
                         setModalPubStatus('Published')
                         if (modalVisibility === 'Draft') setModalVisibility('Public')
                       }}
                       className={`p-2.5 rounded-xl border text-left transition-all ${
-                        modalPubStatus === 'Published'
-                          ? 'border-emerald-600 bg-emerald-500/10 text-[var(--ink-primary)] shadow-2xs'
-                          : 'border-[var(--border-subtle)] bg-[var(--bg-canvas)] text-[var(--ink-muted)] hover:border-[var(--border-strong)]'
+                        publishedChaptersCount === 0
+                          ? 'opacity-40 cursor-not-allowed border-[var(--border-subtle)] bg-[var(--bg-canvas)]'
+                          : modalPubStatus === 'Published'
+                          ? 'border-emerald-600 bg-emerald-500/10 text-[var(--ink-primary)] shadow-2xs cursor-pointer'
+                          : 'border-[var(--border-subtle)] bg-[var(--bg-canvas)] text-[var(--ink-muted)] hover:border-[var(--border-strong)] cursor-pointer'
                       }`}
+                      title={publishedChaptersCount === 0 ? 'Publish at least 1 chapter first' : undefined}
                     >
                       <div className="flex items-center gap-1.5 font-semibold text-xs text-emerald-700 dark:text-emerald-300">
                         <Globe className="h-3.5 w-3.5" />

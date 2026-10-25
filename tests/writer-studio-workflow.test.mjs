@@ -146,6 +146,14 @@ test('Workflow Audit: executeDeleteWriterChapter successfully deletes chapter an
     }
     if (table === 'works') {
       return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({
+              data: { publication_status: 'draft', visibility: 'draft' },
+              error: null,
+            }),
+          }),
+        }),
         update: (payload) => {
           updatedWorkPayload = payload
           return {
@@ -170,6 +178,68 @@ test('Workflow Audit: executeDeleteWriterChapter successfully deletes chapter an
   assert.equal(updatedWorkPayload.word_count, 500)
   assert.equal(updatedWorkPayload.reading_time_minutes, 3)
   assert.equal(updatedWorkPayload.last_activity_type, 'work_metadata_updated')
+})
+
+test('Workflow Audit: executeDeleteWriterChapter reverts published work to draft when last published chapter is deleted', async () => {
+  let updatedWorkPayload = null
+
+  const mockAdmin = {
+    from: (table) => {
+      if (table === 'chapters') {
+        return {
+          select: () => ({
+            eq: (f1, v1) => ({
+              eq: (f2, v2) => ({
+                maybeSingle: async () => ({
+                  data: { id: 'ch-pub-1', title: 'Chapter Published', chapter_number: 1 },
+                  error: null,
+                }),
+              }),
+              then: (resolve) => resolve({ data: [{ id: 'ch-draft-2', status: 'draft', word_count: 300, reading_time_minutes: 2 }] }),
+            }),
+          }),
+          delete: () => ({
+            eq: () => ({
+              eq: () => ({ error: null }),
+            }),
+          }),
+        }
+      }
+      if (table === 'works') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { publication_status: 'published', visibility: 'public' },
+                error: null,
+              }),
+            }),
+          }),
+          update: (payload) => {
+            updatedWorkPayload = payload
+            return {
+              eq: () => ({ error: null }),
+            }
+          },
+        }
+      }
+    },
+  }
+
+  const res = await executeDeleteWriterChapter(
+    {
+      workId: 'work-1',
+      chapterId: 'ch-pub-1',
+    },
+    mockAdmin
+  )
+
+  assert.equal(res.success, true)
+  assert.equal(res.workRevertedToDraft, true)
+  assert.equal(res.publishedCount, 0)
+  assert.equal(updatedWorkPayload.publication_status, 'draft')
+  assert.equal(updatedWorkPayload.visibility, 'draft')
+  assert.equal(updatedWorkPayload.is_indexable, false)
 })
 
 test('Workflow Audit: executeWriterWorkCover validates parameters and updates cover image', async () => {
