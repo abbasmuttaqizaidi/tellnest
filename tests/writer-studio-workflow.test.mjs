@@ -450,3 +450,28 @@ test('Concurrency Control: executeSaveWriterChapter bypasses conflict and overwr
   assert.equal(updatedData.title, 'Force Overwrite Title')
   assert.equal(updatedData.content, 'Force overwrite content')
 })
+
+test('Unified Prose Diff: computeLineDiff correctly classifies added, deleted, and unchanged lines', async () => {
+  const { computeLineDiff } = await import('../src/lib/diff.ts')
+  const saved = 'Chapter 1\nThe quick brown fox jumps.\nOld ending.'
+  const current = 'Chapter 1\nThe quick brown fox jumps high.\nBrand new line.\nOld ending.'
+
+  const diff = computeLineDiff(saved, current)
+  assert.ok(diff.length >= 4)
+  assert.ok(diff.some((d) => d.type === 'unchanged' && d.text === 'Chapter 1'))
+  assert.ok(diff.some((d) => d.type === 'deleted' && d.text === 'The quick brown fox jumps.'))
+  assert.ok(diff.some((d) => d.type === 'added' && d.text === 'The quick brown fox jumps high.'))
+  assert.ok(diff.some((d) => d.type === 'added' && d.text === 'Brand new line.'))
+  assert.ok(diff.some((d) => d.type === 'unchanged' && d.text === 'Old ending.'))
+})
+
+test('Unified Prose Diff: computeWordTokens identifies specific word changes inside modified lines', async () => {
+  const { computeWordTokens } = await import('../src/lib/diff.ts')
+  const oldLine = 'The quick brown fox'
+  const newLine = 'The quick spotted fox'
+
+  const { oldTokens, newTokens } = computeWordTokens(oldLine, newLine)
+  assert.ok(oldTokens.some((t) => t.type === 'deleted' && t.text === 'brown'))
+  assert.ok(newTokens.some((t) => t.type === 'added' && t.text === 'spotted'))
+  assert.ok(newTokens.some((t) => t.type === 'unchanged' && t.text === 'fox'))
+})

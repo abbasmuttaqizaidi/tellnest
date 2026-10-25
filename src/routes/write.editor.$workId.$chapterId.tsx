@@ -195,6 +195,17 @@ function ChapterEditorPage() {
     }
   }, [autosaveStatus])
 
+  // Track the baseline saved version of chapter for real-time diffing
+  const [savedSnapshot, setSavedSnapshot] = useState<{
+    title: string
+    subtitle: string
+    content: string
+  }>({
+    title: currentChapter?.title || '',
+    subtitle: currentChapter?.subtitle || '',
+    content: currentChapter?.content || '',
+  })
+
   // Track previous chapter ID
   const prevChapterIdRef = useRef<string | null>(currentChapter?.id || null)
 
@@ -202,13 +213,21 @@ function ChapterEditorPage() {
   useEffect(() => {
     if (currentChapter) {
       prevChapterIdRef.current = currentChapter.id
-      setTitle(currentChapter.title || 'Untitled Chapter')
-      setSubtitle(currentChapter.subtitle || '')
-      setContent(currentChapter.content || '')
+      const initialTitle = currentChapter.title || 'Untitled Chapter'
+      const initialSubtitle = currentChapter.subtitle || ''
+      const initialContent = currentChapter.content || ''
+      setTitle(initialTitle)
+      setSubtitle(initialSubtitle)
+      setContent(initialContent)
       setActId(currentChapter.actId || '')
       setLoadedUpdatedAt(currentChapter.updated_at || currentChapter.updatedAt || new Date().toISOString())
       setConflictModalData(null)
       setAutosaveStatus('saved')
+      setSavedSnapshot({
+        title: initialTitle,
+        subtitle: initialSubtitle,
+        content: initialContent,
+      })
     }
   }, [currentChapter?.id])
 
@@ -338,6 +357,11 @@ function ChapterEditorPage() {
       }
       setConflictModalData(null)
       setAutosaveStatus('saved')
+      setSavedSnapshot({
+        title,
+        subtitle,
+        content,
+      })
       showToast('Chapter saved to database')
     } catch (e: any) {
       console.error('[handleManualSave] Save error:', e)
@@ -347,6 +371,11 @@ function ChapterEditorPage() {
         setConflictModalData(null)
         setLoadedUpdatedAt(new Date().toISOString())
         setAutosaveStatus('saved')
+        setSavedSnapshot({
+          title,
+          subtitle,
+          content,
+        })
         showToast('Chapter saved to database')
         return
       }
@@ -647,6 +676,7 @@ function ChapterEditorPage() {
           onExit={handleExit}
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen(true)}
+          savedSnapshot={savedSnapshot}
         />
       </div>
 

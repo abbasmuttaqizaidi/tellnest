@@ -24,7 +24,9 @@ import {
   ArrowLeft,
   ChevronRight,
   Type,
+  GitCompare,
 } from 'lucide-react'
+import { ChapterDiffViewer } from './ChapterDiffViewer'
 
 export interface StoryRichEditorProps {
   title: string
@@ -44,6 +46,11 @@ export interface StoryRichEditorProps {
   sidebarOpen?: boolean
   onToggleSidebar?: () => void
   className?: string
+  savedSnapshot?: {
+    title: string
+    subtitle: string
+    content: string
+  }
 }
 
 // Markdown parser helpers for Live Reader Preview
@@ -193,9 +200,11 @@ export function StoryRichEditor({
   sidebarOpen,
   onToggleSidebar,
   className = '',
+  savedSnapshot,
 }: StoryRichEditorProps) {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [viewMode, setViewMode] = useState<'write' | 'split' | 'preview'>('write')
+  const [diffOpen, setDiffOpen] = useState(false)
   const [fontFamily, setFontFamily] = useState<'serif' | 'sans' | 'mono'>('serif')
   const [fontSize, setFontSize] = useState<'sm' | 'base' | 'lg' | 'xl'>('lg')
   const [showTypographyMenu, setShowTypographyMenu] = useState(false)
@@ -676,6 +685,21 @@ export function StoryRichEditor({
             <span>Preview</span>
           </button>
 
+          {/* Review Changes Panel Toggle Button */}
+          <button
+            type="button"
+            onClick={() => setDiffOpen(!diffOpen)}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-mono transition-colors border cursor-pointer ${
+              diffOpen
+                ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] border-[var(--ink-primary)] font-semibold shadow-2xs'
+                : 'bg-[var(--bg-canvas)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)] border-[var(--border-subtle)] hover:border-[var(--border-strong)]'
+            }`}
+            title={diffOpen ? 'Close Changes Panel' : 'Review Unsaved Changes'}
+          >
+            <GitCompare className="h-3.5 w-3.5" />
+            <span>Changes</span>
+          </button>
+
           {/* Fullscreen Button */}
           <button
             type="button"
@@ -803,12 +827,13 @@ export function StoryRichEditor({
       {/* ======================================================== */}
       {/* 3. MAIN WRITING & PREVIEW WORKSPACE                      */}
       {/* ======================================================== */}
-      <div className="flex-1 overflow-y-auto">
-        <div
-          className={`min-h-[calc(100vh-80px)] py-10 px-4 sm:px-8 ${
-            viewMode === 'split' ? 'grid grid-cols-1 md:grid-cols-2 gap-8 max-w-7xl mx-auto' : 'flex justify-center'
-          }`}
-        >
+      <div className="flex-1 flex min-h-0 overflow-hidden">
+        <div className="flex-1 overflow-y-auto min-w-0">
+          <div
+            className={`min-h-[calc(100vh-80px)] py-10 px-4 sm:px-8 ${
+              viewMode === 'split' ? 'grid grid-cols-1 md:grid-cols-2 gap-8 max-w-7xl mx-auto' : 'flex justify-center'
+            }`}
+          >
           {/* Live WYSIWYG Drafting Column */}
           {(viewMode === 'write' || viewMode === 'split') && (
             <div className={`w-full ${viewMode === 'split' ? '' : 'max-w-3xl'} space-y-6`}>
@@ -895,6 +920,24 @@ export function StoryRichEditor({
           )}
         </div>
       </div>
+
+      {/* Right-Side Unified Changes Diff Drawer */}
+      {diffOpen && (
+        <aside className="w-80 sm:w-96 lg:w-[420px] xl:w-[460px] border-l border-[var(--border-subtle)] bg-[var(--bg-surface)] flex flex-col h-full shrink-0 animate-in slide-in-from-right duration-200 z-30 shadow-lg">
+          <ChapterDiffViewer
+            savedTitle={savedSnapshot?.title ?? title}
+            currentTitle={title}
+            savedSubtitle={savedSnapshot?.subtitle ?? subtitle}
+            currentSubtitle={subtitle}
+            savedContent={savedSnapshot?.content ?? content}
+            currentContent={content}
+            autosaveStatus={autosaveStatus}
+            onManualSave={onManualSave}
+            onClose={() => setDiffOpen(false)}
+          />
+        </aside>
+      )}
+    </div>
 
       {/* ======================================================== */}
       {/* 4. BOTTOM STATUS BAR                                     */}
