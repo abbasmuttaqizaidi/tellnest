@@ -7,10 +7,12 @@ import {
   Plus,
   Minus,
   FileText,
+  RotateCcw,
 } from 'lucide-react'
 import {
   computeLineDiff,
   computeWordTokens,
+  revertDiffLine,
   type DiffLine,
   type WordToken,
 } from '../../lib/diff'
@@ -25,6 +27,9 @@ export interface ChapterDiffViewerProps {
   autosaveStatus: 'saved' | 'saving' | 'dirty'
   onManualSave: () => void
   onClose: () => void
+  onRevertTitle?: () => void
+  onRevertSubtitle?: () => void
+  onRevertContent?: (newContent: string) => void
 }
 
 export function ChapterDiffViewer({
@@ -37,6 +42,9 @@ export function ChapterDiffViewer({
   autosaveStatus,
   onManualSave,
   onClose,
+  onRevertTitle,
+  onRevertSubtitle,
+  onRevertContent,
 }: ChapterDiffViewerProps) {
   // Title & Subtitle diff status
   const titleChanged = (savedTitle || '').trim() !== (currentTitle || '').trim()
@@ -74,6 +82,13 @@ export function ChapterDiffViewer({
     stats.additions > 0 ||
     stats.deletions > 0 ||
     autosaveStatus === 'dirty'
+
+  const handleRevertLine = (idx: number) => {
+    if (onRevertContent) {
+      const reverted = revertDiffLine(diffLines, idx, currentContent, savedContent)
+      onRevertContent(reverted)
+    }
+  }
 
   return (
     <div className="flex flex-col h-full bg-[var(--bg-surface)] text-[var(--ink-primary)] select-text">
@@ -159,7 +174,20 @@ export function ChapterDiffViewer({
             <div className="p-2 space-y-2">
               {titleChanged && (
                 <div className="space-y-1">
-                  <div className="text-[10px] text-[var(--ink-faint)] uppercase">Title</div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-[var(--ink-faint)] uppercase">Title</span>
+                    {onRevertTitle && (
+                      <button
+                        type="button"
+                        onClick={onRevertTitle}
+                        className="inline-flex items-center gap-1 text-[10px] text-[var(--ink-muted)] hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-500/10 px-1.5 py-0.5 rounded transition-all cursor-pointer"
+                        title="Revert title back to saved"
+                      >
+                        <RotateCcw className="h-3 w-3" />
+                        <span>Revert</span>
+                      </button>
+                    )}
+                  </div>
                   <div className="rounded bg-rose-500/10 border-l-2 border-rose-500 px-2 py-1 text-rose-700 dark:text-rose-300">
                     <span className="font-bold select-none mr-1.5">-</span>
                     <span className="line-through">{savedTitle || '(Untitled Chapter)'}</span>
@@ -173,7 +201,20 @@ export function ChapterDiffViewer({
 
               {subtitleChanged && (
                 <div className="space-y-1 pt-1">
-                  <div className="text-[10px] text-[var(--ink-faint)] uppercase">Subtitle</div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-[var(--ink-faint)] uppercase">Subtitle</span>
+                    {onRevertSubtitle && (
+                      <button
+                        type="button"
+                        onClick={onRevertSubtitle}
+                        className="inline-flex items-center gap-1 text-[10px] text-[var(--ink-muted)] hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-500/10 px-1.5 py-0.5 rounded transition-all cursor-pointer"
+                        title="Revert subtitle back to saved"
+                      >
+                        <RotateCcw className="h-3 w-3" />
+                        <span>Revert</span>
+                      </button>
+                    )}
+                  </div>
                   <div className="rounded bg-rose-500/10 border-l-2 border-rose-500 px-2 py-1 text-rose-700 dark:text-rose-300">
                     <span className="font-bold select-none mr-1.5">-</span>
                     <span className="line-through">{savedSubtitle || '(empty)'}</span>
@@ -213,7 +254,7 @@ export function ChapterDiffViewer({
                 return (
                   <div
                     key={idx}
-                    className={`flex items-start transition-colors ${
+                    className={`group relative flex items-start transition-colors ${
                       isAdded
                         ? 'bg-emerald-500/10 border-l-2 border-emerald-500 text-emerald-900 dark:text-emerald-200'
                         : isDeleted
@@ -242,7 +283,7 @@ export function ChapterDiffViewer({
                     </div>
 
                     {/* Line Content */}
-                    <div className="flex-1 py-1 pr-3 break-words whitespace-pre-wrap">
+                    <div className="flex-1 py-1 pr-2 break-words whitespace-pre-wrap">
                       {isDeleted ? (
                         wordTokens ? (
                           <span>
@@ -290,6 +331,18 @@ export function ChapterDiffViewer({
                         <span>{line.text || ' '}</span>
                       )}
                     </div>
+
+                    {/* Revert icon button on changed line (recycle/revert icon) */}
+                    {(isAdded || isDeleted) && onRevertContent && (
+                      <button
+                        type="button"
+                        onClick={() => handleRevertLine(idx)}
+                        className="opacity-70 sm:opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 mr-1.5 my-0.5 rounded text-[var(--ink-muted)] hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-500/15 transition-all cursor-pointer shrink-0"
+                        title={isAdded ? "Revert: Remove this added line" : "Revert: Restore this deleted line"}
+                      >
+                        <RotateCcw className="h-3 w-3" />
+                      </button>
+                    )}
                   </div>
                 )
               })}

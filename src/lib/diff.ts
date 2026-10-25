@@ -133,3 +133,64 @@ export function computeWordTokens(oldLine: string, newLine: string): { oldTokens
     newTokens: newTokensRev.reverse(),
   }
 }
+
+/**
+ * Reverts a single diff line (addition, deletion, or replacement) back to the original baseline state.
+ */
+export function revertDiffLine(
+  diffLines: DiffLine[],
+  targetIdx: number,
+  currentText: string,
+  oldText: string
+): string {
+  const currentLines = currentText.split('\n')
+  const target = diffLines[targetIdx]
+  if (!target || target.type === 'unchanged') return currentText
+
+  if (target.type === 'added') {
+    if (target.newLineNumber !== undefined) {
+      const lineIdx = target.newLineNumber - 1
+      if (lineIdx >= 0 && lineIdx < currentLines.length) {
+        currentLines.splice(lineIdx, 1)
+        return currentLines.join('\n')
+      }
+    }
+    const idx = currentLines.indexOf(target.text)
+    if (idx !== -1) {
+      currentLines.splice(idx, 1)
+      return currentLines.join('\n')
+    }
+  }
+
+  if (target.type === 'deleted') {
+    // Check if next line is 'added' (i.e. replacement)
+    if (diffLines[targetIdx + 1]?.type === 'added' && diffLines[targetIdx + 1].newLineNumber !== undefined) {
+      const lineIdx = diffLines[targetIdx + 1].newLineNumber! - 1
+      if (lineIdx >= 0 && lineIdx < currentLines.length) {
+        currentLines[lineIdx] = target.text
+        return currentLines.join('\n')
+      }
+    }
+    // Check if previous line is 'added'
+    if (diffLines[targetIdx - 1]?.type === 'added' && diffLines[targetIdx - 1].newLineNumber !== undefined) {
+      const lineIdx = diffLines[targetIdx - 1].newLineNumber! - 1
+      if (lineIdx >= 0 && lineIdx < currentLines.length) {
+        currentLines[lineIdx] = target.text
+        return currentLines.join('\n')
+      }
+    }
+    // Pure insertion: find the nearest line in currentLines
+    let insertAfterLineIdx = -1
+    for (let k = targetIdx - 1; k >= 0; k--) {
+      if (diffLines[k].newLineNumber !== undefined) {
+        insertAfterLineIdx = diffLines[k].newLineNumber! - 1
+        break
+      }
+    }
+    currentLines.splice(insertAfterLineIdx + 1, 0, target.text)
+    return currentLines.join('\n')
+  }
+
+  return currentText
+}
+

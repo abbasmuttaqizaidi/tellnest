@@ -934,6 +934,19 @@ export function StoryRichEditor({
             autosaveStatus={autosaveStatus}
             onManualSave={onManualSave}
             onClose={() => setDiffOpen(false)}
+            onRevertTitle={() => {
+              if (savedSnapshot?.title !== undefined) {
+                setTitle(savedSnapshot.title)
+              }
+            }}
+            onRevertSubtitle={() => {
+              if (savedSnapshot?.subtitle !== undefined) {
+                setSubtitle(savedSnapshot.subtitle)
+              }
+            }}
+            onRevertContent={(newText) => {
+              onChange(newText)
+            }}
           />
         </aside>
       )}
