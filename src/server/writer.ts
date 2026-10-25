@@ -767,14 +767,14 @@ export async function executeSaveWriterChapter(data: SaveWriterChapterPayload, a
 
           // If DB version is newer by more than 1.5 seconds (to tolerate minor clock drift)
           if (dbTime - clientTime > 1500) {
-            return {
+            return JSON.parse(JSON.stringify({
               success: false,
               conflict: true,
-              serverUpdatedAt: existingCh.updated_at,
-              serverTitle: existingCh.title,
-              serverSubtitle: existingCh.subtitle || '',
-              serverContent: existingCh.content || '',
-            }
+              serverUpdatedAt: String(existingCh.updated_at),
+              serverTitle: String(existingCh.title || ''),
+              serverSubtitle: String(existingCh.subtitle || ''),
+              serverContent: String(existingCh.content || ''),
+            }))
           }
         }
       }
@@ -901,15 +901,15 @@ export async function executeSaveWriterChapter(data: SaveWriterChapterPayload, a
         .eq('id', workUuid)
     }
 
-  return {
+  return JSON.parse(JSON.stringify({
     success: true,
     conflict: false,
-    chapterId: data.chapterId,
-    wordCount,
-    readingTime,
-    updatedAt: nowIso,
-    workRevertedToDraft,
-  }
+    chapterId: String(data.chapterId),
+    wordCount: typeof wordCount === 'number' ? wordCount : 0,
+    readingTime: typeof readingTime === 'number' ? readingTime : 1,
+    updatedAt: String(nowIso),
+    workRevertedToDraft: Boolean(workRevertedToDraft),
+  }))
 }
 
 export const saveWriterChapterServerFn = createServerFn({ method: 'POST' })
@@ -1011,22 +1011,24 @@ export const createWriterChapterServerFn = createServerFn({ method: 'POST' })
       })
       .eq('id', workUuid)
 
-    return {
+    return JSON.parse(JSON.stringify({
       success: true,
       chapter: {
         id: createdCh.id,
         number: createdCh.chapter_number,
         title: createdCh.title,
         subtitle: createdCh.subtitle || '',
-        actId: createdCh.act_id,
-        status: 'draft' as const,
+        actId: createdCh.act_id || null,
+        status: 'draft',
         wordCount: 0,
         readTimeMinutes: 1,
         viewCount: 0,
-        publishedAt: undefined,
+        publishedAt: null,
         content: '',
+        updated_at: createdCh.updated_at || nowIso,
+        updatedAt: createdCh.updated_at || nowIso,
       },
-    }
+    }))
   })
 
 export interface DeleteWriterChapterPayload {
