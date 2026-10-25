@@ -647,3 +647,195 @@ test('Phase 3 Route Contract: category and genre routes define loaders, canonica
   assert.ok(genreCode.includes('noindex: true'), 'Genre route must emit noindex on not found')
 })
 
+test('Phase 4: Sitemap Dynamic Database Lifecycle — adds, removes, updates works, chapters, authors, and handles DB errors', async () => {
+  // Mutable in-memory DB simulating real Supabase database state across consecutive requests
+  let dbWorks = [
+    {
+      id: 'work-dynamic-1',
+      slug: 'the-sapphire-protocol',
+      title: 'The Sapphire Protocol',
+      updated_at: '2026-10-25T12:00:00Z',
+      published_at: '2026-10-20T12:00:00Z',
+      visibility: 'public',
+      publication_status: 'published',
+      is_indexable: true,
+      profiles: { id: 'author-uuid-sapphire', username: 'sapphire_scribe' },
+    },
+  ]
+
+  let dbActs = [
+    {
+      id: 'act-dyn-1',
+      work_id: 'work-dynamic-1',
+      status: 'published',
+    },
+  ]
+
+  let dbChapters = [
+    {
+      id: 'ch-dyn-1',
+      work_id: 'work-dynamic-1',
+      act_id: 'act-dyn-1',
+      title: 'Chapter 1: The Code',
+      status: 'published',
+      is_indexable: true,
+      updated_at: '2026-10-22T10:00:00Z',
+    },
+  ]
+
+  let shouldSimulateDbError = false
+
+  const mockDbClient = {
+    from: (table) => {
+      if (shouldSimulateDbError) {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                eq: () => ({
+                  order: async () => ({ data: null, error: new Error('Simulated Database Timeout') }),
+                }),
+              }),
+            }),
+            in: async () => ({ data: null, error: new Error('Simulated Database Timeout') }),
+          }),
+        }
+      }
+
+      if (table === 'works') {
+        return {
+          select: () => ({
+            eq: (f1, v1) => ({
+              eq: (f2, v2) => ({
+                eq: (f3, v3) => ({
+                  order: async () => {
+                    const filtered = dbWorks.filter(
+                      (w) => w[f1] === v1 && w[f2] === v2 && w[f3] === v3
+                    )
+                    return { data: filtered, error: null }
+                  },
+                }),
+              }),
+            }),
+          }),
+        }
+      }
+      if (table === 'acts') {
+        return {
+          select: () => ({
+            in: async (field, values) => {
+              const filtered = dbActs.filter((a) => values.includes(a.work_id))
+              return { data: filtered, error: null }
+            },
+          }),
+        }
+      }
+      if (table === 'chapters') {
+        return {
+          select: () => ({
+            in: (field, values) => ({
+              eq: (f2, v2) => ({
+                eq: async (f3, v3) => {
+                  const filtered = dbChapters.filter(
+                    (c) => values.includes(c.work_id) && c[f2] === v2 && c[f3] === v3
+                  )
+                  return { data: filtered, error: null }
+                },
+              }),
+            }),
+          }),
+        }
+      }
+      return { select: () => ({}) }
+    },
+  }
+
+  // --- Step 1: Initial Generation ---
+  const xml1 = await generateSitemapXml({ supabaseClient: mockDbClient })
+  assert.ok(xml1.includes('<loc>https://hatchpen.com/works/the-sapphire-protocol</loc>'))
+  assert.ok(xml1.includes('<loc>https://hatchpen.com/author/sapphire_scribe</loc>'))
+  assert.ok(xml1.includes('<loc>https://hatchpen.com/read/the-sapphire-protocol/ch-dyn-1</loc>'))
+
+  // Verify XML structure and zero duplicate URLs
+  const locs1 = [...xml1.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1])
+  assert.equal(new Set(locs1).size, locs1.length, 'Sitemap URLs must be unique')
+
+  // --- Step 2: Dynamic Addition — Writer publishes a 2nd story, author, and chapter ---
+  dbWorks.push({
+    id: 'work-dynamic-2',
+    slug: 'the-nebula-chronicles',
+    title: 'The Nebula Chronicles',
+    updated_at: '2026-10-26T01:00:00Z',
+    published_at: '2026-10-26T01:00:00Z',
+    visibility: 'public',
+    publication_status: 'published',
+    is_indexable: true,
+    profiles: { id: 'author-uuid-nebula', username: 'cosmic_poet' },
+  })
+  dbActs.push({
+    id: 'act-dyn-2',
+    work_id: 'work-dynamic-2',
+    status: 'published',
+  })
+  dbChapters.push({
+    id: 'ch-dyn-2',
+    work_id: 'work-dynamic-2',
+    act_id: 'act-dyn-2',
+    title: 'Chapter 1: Stardust',
+    status: 'published',
+    is_indexable: true,
+    updated_at: '2026-10-26T01:00:00Z',
+  })
+
+  // Calling generateSitemapXml on next uncached invocation immediately reflects new database content
+  const xml2 = await generateSitemapXml({ supabaseClient: mockDbClient })
+  assert.ok(xml2.includes('<loc>https://hatchpen.com/works/the-nebula-chronicles</loc>'), 'Newly published work must appear')
+  assert.ok(xml2.includes('<loc>https://hatchpen.com/author/cosmic_poet</loc>'), 'New author must appear')
+  assert.ok(xml2.includes('<loc>https://hatchpen.com/read/the-nebula-chronicles/ch-dyn-2</loc>'), 'New chapter must appear')
+
+  // --- Step 3: Dynamic Ineligibility — Story 1 changed to draft, Chapter 2 marked non-indexable ---
+  dbWorks[0].publication_status = 'draft' // unpublished!
+  dbChapters[1].is_indexable = false // marked noindex!
+
+  const xml3 = await generateSitemapXml({ supabaseClient: mockDbClient })
+  assert.ok(!xml3.includes('<loc>https://hatchpen.com/works/the-sapphire-protocol</loc>'), 'Draft work must be excluded')
+  assert.ok(!xml3.includes('<loc>https://hatchpen.com/author/sapphire_scribe</loc>'), 'Author without eligible works must be excluded')
+  assert.ok(!xml3.includes('<loc>https://hatchpen.com/read/the-sapphire-protocol/ch-dyn-1</loc>'), 'Chapters of draft work must be excluded')
+  assert.ok(!xml3.includes('<loc>https://hatchpen.com/read/the-nebula-chronicles/ch-dyn-2</loc>'), 'Non-indexable chapter must be excluded')
+  assert.ok(xml3.includes('<loc>https://hatchpen.com/works/the-nebula-chronicles</loc>'), 'Work 2 must still remain')
+
+  // --- Step 4: Act Hierarchy Lifecycle — Chapter under draft act vs published act ---
+  // Add Chapter 3 under a draft act
+  dbActs.push({
+    id: 'act-dyn-3-draft',
+    work_id: 'work-dynamic-2',
+    status: 'draft',
+  })
+  dbChapters.push({
+    id: 'ch-dyn-3',
+    work_id: 'work-dynamic-2',
+    act_id: 'act-dyn-3-draft',
+    title: 'Chapter 3: The Dark Void',
+    status: 'published',
+    is_indexable: true,
+    updated_at: '2026-10-26T02:00:00Z',
+  })
+
+  const xml4 = await generateSitemapXml({ supabaseClient: mockDbClient })
+  assert.ok(!xml4.includes('ch-dyn-3'), 'Chapter under draft act must be excluded')
+
+  // Promote Act 3 to published
+  dbActs[2].status = 'published'
+  const xml5 = await generateSitemapXml({ supabaseClient: mockDbClient })
+  assert.ok(xml5.includes('ch-dyn-3'), 'Chapter under now-published act must be included')
+
+  // --- Step 5: Database failure resilience ---
+  shouldSimulateDbError = true
+  const fallbackXml = await generateSitemapXml({ supabaseClient: mockDbClient })
+  assert.ok(fallbackXml.startsWith('<?xml version="1.0" encoding="UTF-8"?>'))
+  assert.ok(fallbackXml.includes('<loc>https://hatchpen.com/</loc>'))
+  assert.ok(fallbackXml.includes('<loc>https://hatchpen.com/discover</loc>'))
+  assert.ok(fallbackXml.includes('<loc>https://hatchpen.com/category/novels</loc>'))
+  assert.ok(fallbackXml.endsWith('</urlset>\n'), 'Must produce valid XML even when DB queries fail')
+})
+
