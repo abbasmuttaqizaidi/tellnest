@@ -130,40 +130,6 @@ function ChapterEditorPage() {
   const [autosaveStatus, setAutosaveStatus] = useState<'saved' | 'saving' | 'dirty'>('saved')
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [focusMode, setFocusMode] = useState(false)
-  const [recoveredDraft, setRecoveredDraft] = useState<{
-    title?: string
-    subtitle?: string
-    content?: string
-    timestamp?: number
-  } | null>(null)
-
-  const draftStorageKey = work && currentChapter ? `hatchpen_draft_${work.id}_${currentChapter.id}` : null
-
-  const saveLocalDraft = (dTitle: string, dSub: string, dContent: string) => {
-    if (!draftStorageKey || typeof window === 'undefined') return
-    try {
-      localStorage.setItem(
-        draftStorageKey,
-        JSON.stringify({
-          title: dTitle,
-          subtitle: dSub,
-          content: dContent,
-          timestamp: Date.now(),
-        })
-      )
-    } catch (err) {
-      console.warn('[saveLocalDraft] Error saving local draft:', err)
-    }
-  }
-
-  const clearLocalDraft = () => {
-    if (!draftStorageKey || typeof window === 'undefined') return
-    try {
-      localStorage.removeItem(draftStorageKey)
-    } catch (err) {
-      console.warn('[clearLocalDraft] Error removing local draft:', err)
-    }
-  }
 
   // Prevent accidental navigation/tab closing when editor changes are dirty or saving
   useEffect(() => {
@@ -180,62 +146,11 @@ function ChapterEditorPage() {
     }
   }, [autosaveStatus])
 
-  // Check for recovered draft from interrupted session on chapter load
-  useEffect(() => {
-    if (!draftStorageKey || typeof window === 'undefined' || !currentChapter) {
-      setRecoveredDraft(null)
-      return
-    }
-    try {
-      const raw = localStorage.getItem(draftStorageKey)
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        const isDiff =
-          (parsed.content && parsed.content.trim() !== (currentChapter.content || '').trim()) ||
-          (parsed.title && parsed.title.trim() !== (currentChapter.title || '').trim()) ||
-          (parsed.subtitle !== undefined && parsed.subtitle.trim() !== (currentChapter.subtitle || '').trim())
-
-        if (isDiff) {
-          setRecoveredDraft(parsed)
-        } else {
-          localStorage.removeItem(draftStorageKey)
-          setRecoveredDraft(null)
-        }
-      } else {
-        setRecoveredDraft(null)
-      }
-    } catch (e) {
-      console.warn('[draftRecovery] Error checking local draft:', e)
-      setRecoveredDraft(null)
-    }
-  }, [draftStorageKey, currentChapter?.id])
-
-  // Track previous chapter ID to safely flush changes before switching
+  // Track previous chapter ID
   const prevChapterIdRef = useRef<string | null>(currentChapter?.id || null)
 
-  // Sync state if resolved chapter changes, flushing any pending changes from previous chapter
+  // Sync state if resolved chapter changes
   useEffect(() => {
-    if (prevChapterIdRef.current && prevChapterIdRef.current !== currentChapter?.id && work) {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current)
-        saveTimeoutRef.current = null
-      }
-      const prevId = prevChapterIdRef.current
-      const { title: curTitle, subtitle: curSubtitle, content: curContent, actId: curActId, status: curStatus } =
-        latestStateRef.current
-      saveWriterChapterServerFn({
-        data: {
-          workId: work.id,
-          chapterId: prevId,
-          title: curTitle,
-          subtitle: curSubtitle,
-          content: curContent,
-          status: curStatus,
-          actId: curActId || undefined,
-        },
-      }).catch((e) => console.warn('[chapterSwitch] Flush error:', e))
-    }
-
     if (currentChapter) {
       prevChapterIdRef.current = currentChapter.id
       setTitle(currentChapter.title || 'Untitled Chapter')
@@ -255,18 +170,7 @@ function ChapterEditorPage() {
     return Math.max(1, Math.ceil(wordCount / 220))
   }, [wordCount])
 
-  // Autosave timer connecting directly to DB
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-
-  useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current)
-      }
-    }
-  }, [])
-
-  // Keep a ref of latest editor state for instant flushing when exiting or unmounting
+  // Keep a ref of latest editor state
   const latestStateRef = useRef({
     title,
     subtitle,
@@ -285,82 +189,12 @@ function ChapterEditorPage() {
     }
   }, [title, subtitle, content, actId, currentChapter?.status])
 
-  const flushSave = async () => {
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current)
-      saveTimeoutRef.current = null
+  const handleExit = () => {
+    if (autosaveStatus === 'dirty') {
+      const confirmLeave = window.confirm('You have unsaved changes. Do you want to leave without saving?')
+      if (!confirmLeave) return
     }
-    if (!work || !currentChapter) return
-
-    const { title: curTitle, subtitle: curSubtitle, content: curContent, actId: curActId, status: curStatus } =
-      latestStateRef.current
-
-    setAutosaveStatus('saving')
-    updateChapterContent(work.id, currentChapter.id, curTitle, curContent, curStatus)
-    if (Array.isArray(work.chapters)) {
-      const found = work.chapters.find((c: any) => c.id === currentChapter.id)
-      if (found) {
-        found.title = curTitle
-        found.subtitle = curSubtitle
-        found.status = curStatus
-        found.wordCount = curContent.trim().split(/\s+/).filter(Boolean).length
-      }
-    }
-
-    try {
-      await saveWriterChapterServerFn({
-        data: {
-          workId: work.id,
-          chapterId: currentChapter.id,
-          title: curTitle,
-          subtitle: curSubtitle,
-          content: curContent,
-          status: curStatus,
-          actId: curActId || undefined,
-        },
-      })
-      clearLocalDraft()
-      setAutosaveStatus('saved')
-    } catch (e) {
-      console.warn('[flushSave] Error saving chapter:', e)
-      setAutosaveStatus('saved')
-    }
-  }
-
-  // Flush any pending changes when exiting or unmounting
-  useEffect(() => {
-    return () => {
-      flushSave()
-    }
-  }, [])
-
-  const handleExit = async () => {
-    await flushSave()
     navigate({ to: '/write/manage/$workId', params: { workId: work.id } })
-  }
-
-  const handleRestoreDraft = () => {
-    if (!recoveredDraft) return
-    const restoredTitle = recoveredDraft.title ?? title
-    const restoredSubtitle = recoveredDraft.subtitle ?? subtitle
-    const restoredContent = recoveredDraft.content ?? content
-    setTitle(restoredTitle)
-    setSubtitle(restoredSubtitle)
-    setContent(restoredContent)
-    setAutosaveStatus('dirty')
-    setRecoveredDraft(null)
-    showToast('Unsaved draft restored')
-
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
-    saveTimeoutRef.current = setTimeout(async () => {
-      await flushSave()
-    }, 400)
-  }
-
-  const handleDiscardDraft = () => {
-    clearLocalDraft()
-    setRecoveredDraft(null)
-    showToast('Interrupted draft discarded')
   }
 
   const handleActChange = async (newActId: string) => {
@@ -385,12 +219,12 @@ function ChapterEditorPage() {
     }
   }
 
+  // Pure state updates on typing - strictly NO background autosave timers and NO browser storage
   const handleTitleChange = (newTitle: string) => {
     setTitle(newTitle)
     setAutosaveStatus('dirty')
-    saveLocalDraft(newTitle, subtitle, content)
 
-    // Instant optimistic update for sidebar & context so it previews live on every keystroke
+    // Optimistic update for sidebar preview
     if (work && currentChapter) {
       updateChapterContent(work.id, currentChapter.id, newTitle, content, currentChapter.status)
       if (Array.isArray(work.chapters)) {
@@ -398,102 +232,19 @@ function ChapterEditorPage() {
         if (found) found.title = newTitle
       }
     }
-
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
-    const targetChapterId = currentChapter.id
-    saveTimeoutRef.current = setTimeout(async () => {
-      if (prevChapterIdRef.current !== targetChapterId) return
-      setAutosaveStatus('saving')
-      try {
-        if (work && currentChapter) {
-          await saveWriterChapterServerFn({
-            data: {
-              workId: work.id,
-              chapterId: targetChapterId,
-              title: newTitle,
-              subtitle,
-              content,
-              status: currentChapter.status,
-              actId: actId || undefined,
-            },
-          })
-          clearLocalDraft()
-          setAutosaveStatus('saved')
-        }
-      } catch (e) {
-        console.warn('[handleTitleChange] DB autosave error:', e)
-        setAutosaveStatus('saved')
-      }
-    }, 1500)
   }
 
   const handleSubtitleChange = (newSub: string) => {
     setSubtitle(newSub)
     setAutosaveStatus('dirty')
-    saveLocalDraft(title, newSub, content)
-
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
-    const targetChapterId = currentChapter.id
-    saveTimeoutRef.current = setTimeout(async () => {
-      if (prevChapterIdRef.current !== targetChapterId) return
-      setAutosaveStatus('saving')
-      try {
-        if (work && currentChapter) {
-          await saveWriterChapterServerFn({
-            data: {
-              workId: work.id,
-              chapterId: targetChapterId,
-              title,
-              subtitle: newSub,
-              content,
-              status: currentChapter.status,
-              actId: actId || undefined,
-            },
-          })
-          clearLocalDraft()
-          setAutosaveStatus('saved')
-        }
-      } catch (e) {
-        console.warn('[handleSubtitleChange] DB autosave error:', e)
-        setAutosaveStatus('saved')
-      }
-    }, 1500)
   }
 
   const handleContentChange = (newVal: string) => {
     setContent(newVal)
     setAutosaveStatus('dirty')
-    saveLocalDraft(title, subtitle, newVal)
-
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
-    const targetChapterId = currentChapter.id
-    saveTimeoutRef.current = setTimeout(async () => {
-      if (prevChapterIdRef.current !== targetChapterId) return
-      setAutosaveStatus('saving')
-      try {
-        if (work && currentChapter) {
-          updateChapterContent(work.id, targetChapterId, title, newVal, currentChapter.status)
-          await saveWriterChapterServerFn({
-            data: {
-              workId: work.id,
-              chapterId: targetChapterId,
-              title,
-              subtitle,
-              content: newVal,
-              status: currentChapter.status,
-              actId: actId || undefined,
-            },
-          })
-          clearLocalDraft()
-          setAutosaveStatus('saved')
-        }
-      } catch (e) {
-        console.warn('[handleContentChange] DB autosave error:', e)
-        setAutosaveStatus('saved')
-      }
-    }, 1500)
   }
 
+  // Explicit save: Only executed when user manually clicks Save button or presses Cmd+S / Ctrl+S
   const handleManualSave = async () => {
     if (work && currentChapter) {
       setAutosaveStatus('saving')
@@ -510,10 +261,13 @@ function ChapterEditorPage() {
             actId: actId || undefined,
           },
         })
-        clearLocalDraft()
-      } catch (e) {}
-      setAutosaveStatus('saved')
-      showToast('Chapter saved to database')
+        setAutosaveStatus('saved')
+        showToast('Chapter saved to database')
+      } catch (e: any) {
+        console.error('[handleManualSave] Save error:', e)
+        setAutosaveStatus('dirty')
+        showToast(e?.message || 'Failed to save chapter')
+      }
     }
   }
 
@@ -779,9 +533,6 @@ function ChapterEditorPage() {
           chapterNumber={currentChapter.number}
           actName={actName}
           onExit={handleExit}
-          recoveredDraft={recoveredDraft}
-          onRestoreDraft={handleRestoreDraft}
-          onDiscardDraft={handleDiscardDraft}
         />
       </div>
     </div>

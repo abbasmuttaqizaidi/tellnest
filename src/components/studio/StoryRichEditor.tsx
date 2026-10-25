@@ -45,14 +45,6 @@ export interface StoryRichEditorProps {
   actName?: string
   onExit?: () => void
   className?: string
-  recoveredDraft?: {
-    title?: string
-    subtitle?: string
-    content?: string
-    timestamp?: number
-  } | null
-  onRestoreDraft?: () => void
-  onDiscardDraft?: () => void
 }
 
 // Markdown parser helpers for Live Reader Preview
@@ -200,9 +192,6 @@ export function StoryRichEditor({
   actName,
   onExit,
   className = '',
-  recoveredDraft,
-  onRestoreDraft,
-  onDiscardDraft,
 }: StoryRichEditorProps) {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [viewMode, setViewMode] = useState<'write' | 'split' | 'preview'>('write')
@@ -718,15 +707,34 @@ export function StoryRichEditor({
             {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
           </button>
 
-          {/* Manual Save Button */}
+          {/* Manual Save Button - Single Source of Truth for Persisting Draft */}
           <button
             type="button"
             onClick={onManualSave}
-            className="inline-flex items-center gap-1.5 rounded border border-[var(--border-strong)] bg-[var(--bg-surface)] px-2.5 py-1 text-xs font-mono font-medium text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors shadow-2xs"
-            title="Save Chapter (Cmd+S)"
+            disabled={autosaveStatus === 'saving'}
+            className={`inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-mono font-medium transition-all shadow-2xs ${
+              autosaveStatus === 'dirty'
+                ? 'bg-amber-600 hover:bg-amber-700 text-white border border-amber-600 font-semibold cursor-pointer animate-in fade-in duration-150'
+                : autosaveStatus === 'saving'
+                ? 'bg-[var(--bg-subtle)] text-[var(--ink-muted)] border border-[var(--border-subtle)] cursor-wait opacity-80'
+                : 'border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:border-[var(--border-strong)] cursor-pointer'
+            }`}
+            title="Save Chapter (Cmd+S / Ctrl+S)"
           >
-            <Save className="h-3 w-3" />
-            <span className="hidden sm:inline">Save</span>
+            {autosaveStatus === 'saving' ? (
+              <span className="h-3 w-3 rounded-full border-2 border-current border-t-transparent animate-spin shrink-0" />
+            ) : autosaveStatus === 'dirty' ? (
+              <span className="h-2 w-2 rounded-full bg-white animate-pulse shrink-0" />
+            ) : (
+              <CheckCircle2 className="h-3 w-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            )}
+            <span>
+              {autosaveStatus === 'saving'
+                ? 'Saving...'
+                : autosaveStatus === 'dirty'
+                ? 'Save Changes'
+                : 'Saved'}
+            </span>
           </button>
 
           {/* Publish Button */}
@@ -821,37 +829,6 @@ export function StoryRichEditor({
           {/* Live WYSIWYG Drafting Column */}
           {(viewMode === 'write' || viewMode === 'split') && (
             <div className={`w-full ${viewMode === 'split' ? '' : 'max-w-3xl'} space-y-6`}>
-              {/* Recovered Interrupted Draft Banner */}
-              {recoveredDraft && (
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-200 animate-in fade-in slide-in-from-top-2 duration-200 shadow-xs">
-                  <div className="flex items-center gap-2.5 text-xs">
-                    <Sparkles className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                    <div>
-                      <p className="font-semibold text-[13px]">Unsaved draft recovered from an interrupted session</p>
-                      <p className="text-[11px] text-amber-700 dark:text-amber-300 font-mono">
-                        Saved locally at {new Date(recoveredDraft.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={onRestoreDraft}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-600 hover:bg-amber-700 text-white shadow-xs transition-colors cursor-pointer"
-                    >
-                      Restore Draft
-                    </button>
-                    <button
-                      type="button"
-                      onClick={onDiscardDraft}
-                      className="px-2.5 py-1.5 text-xs font-medium rounded-lg text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 transition-colors cursor-pointer"
-                    >
-                      Discard
-                    </button>
-                  </div>
-                </div>
-              )}
-
               {/* Chapter Header Elements */}
               <div className="space-y-3 pb-6 border-b border-[var(--border-subtle)]">
                 <input
@@ -951,7 +928,7 @@ export function StoryRichEditor({
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-1.5 text-[11px]">
             {autosaveStatus === 'saving' && (
-              <span className="animate-pulse text-amber-600 dark:text-amber-400">Autosaving...</span>
+              <span className="animate-pulse text-amber-600 dark:text-amber-400">Saving...</span>
             )}
             {autosaveStatus === 'saved' && (
               <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
