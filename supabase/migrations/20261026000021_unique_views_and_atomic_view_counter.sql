@@ -53,3 +53,13 @@ BEGIN
     RETURN COALESCE(v_views, 0);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+-- Restrict RPC execution strictly to service_role to prevent public client PostgREST exploitation
+REVOKE ALL ON FUNCTION increment_work_view(UUID) FROM PUBLIC;
+REVOKE ALL ON FUNCTION increment_work_view(UUID) FROM anon;
+GRANT EXECUTE ON FUNCTION increment_work_view(UUID) TO service_role;
+
+REVOKE ALL ON FUNCTION increment_chapter_view(UUID) FROM PUBLIC;
+REVOKE ALL ON FUNCTION increment_chapter_view(UUID) FROM anon;
+GRANT EXECUTE ON FUNCTION increment_chapter_view(UUID) TO service_role;
+

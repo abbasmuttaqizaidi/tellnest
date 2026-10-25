@@ -984,7 +984,7 @@ async function incrementWorkViewAtomic(admin: any, workId: string) {
   if (process.env.DATABASE_URL) {
     try {
       const { Client } = await import('pg')
-      const client = new Client({ connectionString: process.env.DATABASE_URL })
+      const client = new Client({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 2500 })
       await client.connect()
       try {
         await client.query('UPDATE works SET view_count = COALESCE(view_count, 0) + 1 WHERE id = $1', [workId])
@@ -1014,7 +1014,7 @@ async function incrementChapterViewAtomic(admin: any, chapterId: string) {
   if (process.env.DATABASE_URL) {
     try {
       const { Client } = await import('pg')
-      const client = new Client({ connectionString: process.env.DATABASE_URL })
+      const client = new Client({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 2500 })
       await client.connect()
       try {
         await client.query('UPDATE chapters SET view_count = COALESCE(view_count, 0) + 1 WHERE id = $1', [chapterId])

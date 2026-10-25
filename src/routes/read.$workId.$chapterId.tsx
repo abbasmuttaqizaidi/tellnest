@@ -554,6 +554,7 @@ function ReaderPage() {
   // 8. Strict Zero-Duplicate View Tracking (Book, Chapter, and implicit Act)
   useEffect(() => {
     if (!work || !chapter) return
+    if (!isUserLoaded) return // MUST wait for auth state to resolve so logged-in users aren't falsely counted as anonymous first!
     if (isCompulsoryAuth) return // Do not track views on locked paywall chapters until authenticated
     if (typeof window === 'undefined') return
 
@@ -578,7 +579,7 @@ function ReaderPage() {
         chapterId: chapter.id,
       },
     }).catch(() => {})
-  }, [work?.id, chapter?.id, isCompulsoryAuth, user?.id])
+  }, [work?.id, chapter?.id, isCompulsoryAuth, isUserLoaded, user?.id])
   // If user accesses reading route with raw UUID, auto-update URL bar to canonical slug
   useEffect(() => {
     if (work && chapter) {
