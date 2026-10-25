@@ -229,6 +229,7 @@ function ReaderPage() {
   const loaderData = Route.useLoaderData()
   const navigate = useNavigate()
   const {
+    user,
     getWorkById,
     allWorks,
     isWorksLoading,
@@ -556,11 +557,18 @@ function ReaderPage() {
     if (isCompulsoryAuth) return // Do not track views on locked paywall chapters until authenticated
     if (typeof window === 'undefined') return
 
-    let viewerKey = localStorage.getItem('hatchpen_viewer_uuid') || localStorage.getItem('tellnest_viewer_uuid')
-    if (!viewerKey) {
-      viewerKey = 'v-' + Math.random().toString(36).substring(2) + Date.now().toString(36)
-      localStorage.setItem('hatchpen_viewer_uuid', viewerKey)
-      localStorage.setItem('tellnest_viewer_uuid', viewerKey)
+    let viewerKey: string
+    if (user?.id) {
+      // Deterministic cross-device identity for authenticated members (prevents duplicate reads on mobile vs laptop)
+      viewerKey = `u-${user.id}`
+    } else {
+      let stored = localStorage.getItem('hatchpen_viewer_uuid') || localStorage.getItem('tellnest_viewer_uuid')
+      if (!stored) {
+        stored = 'v-' + Math.random().toString(36).substring(2) + Date.now().toString(36)
+        localStorage.setItem('hatchpen_viewer_uuid', stored)
+        localStorage.setItem('tellnest_viewer_uuid', stored)
+      }
+      viewerKey = stored
     }
 
     trackStrictViewServerFn({
@@ -570,7 +578,7 @@ function ReaderPage() {
         chapterId: chapter.id,
       },
     }).catch(() => {})
-  }, [work?.id, chapter?.id, isCompulsoryAuth])
+  }, [work?.id, chapter?.id, isCompulsoryAuth, user?.id])
   // If user accesses reading route with raw UUID, auto-update URL bar to canonical slug
   useEffect(() => {
     if (work && chapter) {

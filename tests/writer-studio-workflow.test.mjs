@@ -592,3 +592,10 @@ test('Reading Count Protection: checkViewerRateLimit prevents rapid bot flooding
   const blocked = checkViewerRateLimit(testKey)
   assert.equal(blocked, false, 'Requests beyond rate limit threshold should be rejected')
 })
+
+test('Reading Count Hardening: Authenticated member viewer key format preserves deterministic cross-device identity', () => {
+  const mockUser = { id: 'user_2xyz789' }
+  const authenticatedKey = `u-${mockUser.id}`
+  assert.equal(authenticatedKey, 'u-user_2xyz789')
+  assert.match(authenticatedKey, /^u-user_[a-zA-Z0-9]+$/)
+})

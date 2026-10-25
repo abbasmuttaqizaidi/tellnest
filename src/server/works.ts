@@ -229,11 +229,11 @@ export const getPublicAuthorServerFn = createServerFn({ method: 'GET' })
     const { data, error } = await query.maybeSingle()
     if (error || !data) return null
 
-    // Query live followers and authored works count
+    // Query live followers, authored published works count, and public views aggregate
     const [{ count: followersCount }, { count: worksCount }, { data: worksData }] = await Promise.all([
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', data.id),
-      supabase.from('works').select('*', { count: 'exact', head: true }).eq('author_id', data.id),
-      supabase.from('works').select('view_count').eq('author_id', data.id),
+      supabase.from('works').select('*', { count: 'exact', head: true }).eq('author_id', data.id).eq('visibility', 'public').eq('publication_status', 'published'),
+      supabase.from('works').select('view_count').eq('author_id', data.id).eq('visibility', 'public').eq('publication_status', 'published'),
     ])
 
     const totalReadsNum = (worksData || []).reduce((acc: number, w: any) => acc + (Number(w.view_count) || 0), 0)
@@ -951,6 +951,16 @@ export const getNewVoicesServerFn = createServerFn({ method: 'GET' })
 const viewerRateLimitMap = new Map<string, { count: number; resetAt: number }>()
 export function checkViewerRateLimit(viewerKey: string): boolean {
   const now = Date.now()
+
+  // Periodic pruning of expired entries to prevent memory growth in long-running processes
+  if (viewerRateLimitMap.size > 5000) {
+    for (const [key, val] of viewerRateLimitMap.entries()) {
+      if (now > val.resetAt) {
+        viewerRateLimitMap.delete(key)
+      }
+    }
+  }
+
   const record = viewerRateLimitMap.get(viewerKey)
   if (!record || now > record.resetAt) {
     viewerRateLimitMap.set(viewerKey, { count: 1, resetAt: now + 60_000 })
@@ -1096,39 +1106,58 @@ export const trackStrictViewServerFn = createServerFn({ method: 'POST' })
     // 3. Strict Chapter-level View Deduplication
     if (chapterId) {
       let targetChapterUuid = chapterId
-      const isChapterUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(chapterId)
+      let isChapterUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(chapterId)
+
       if (!isChapterUuid) {
+        // 1. Try slug match
         const { data: chRow } = await admin.from('chapters').select('id').eq('work_id', targetWorkUuid).eq('slug', chapterId).maybeSingle()
-        if (chRow?.id) targetChapterUuid = chRow.id
-      }
-
-      let shouldIncrementChapter = false
-      try {
-        const { error: insertChErr } = await admin.from('unique_views').insert({
-          viewer_key: viewerKey,
-          work_id: targetWorkUuid,
-          chapter_id: targetChapterUuid,
-          view_type: 'chapter',
-        })
-
-        if (!insertChErr) {
-          shouldIncrementChapter = true
-        } else if (insertChErr.code === '23505') {
-          // Duplicate chapter view caught safely - no increment
-          shouldIncrementChapter = false
+        if (chRow?.id) {
+          targetChapterUuid = chRow.id
+          isChapterUuid = true
         } else {
-          // Table unapplied fallback
-          shouldIncrementChapter = true
-        }
-      } catch (e: any) {
-        if (e?.code !== '23505') {
-          shouldIncrementChapter = true
+          // 2. Try numeric chapter_number match (e.g. 'ch-1', 'chapter-2', '1')
+          const numMatch = chapterId.match(/\d+/)
+          if (numMatch) {
+            const chNum = parseInt(numMatch[0], 10)
+            const { data: numRow } = await admin.from('chapters').select('id').eq('work_id', targetWorkUuid).eq('chapter_number', chNum).maybeSingle()
+            if (numRow?.id) {
+              targetChapterUuid = numRow.id
+              isChapterUuid = true
+            }
+          }
         }
       }
 
-      if (shouldIncrementChapter) {
-        isNewChapterView = true
-        await incrementChapterViewAtomic(admin, targetChapterUuid)
+      // Guard: Only insert into PostgreSQL UUID columns if we resolved to a valid UUID format
+      if (isChapterUuid) {
+        let shouldIncrementChapter = false
+        try {
+          const { error: insertChErr } = await admin.from('unique_views').insert({
+            viewer_key: viewerKey,
+            work_id: targetWorkUuid,
+            chapter_id: targetChapterUuid,
+            view_type: 'chapter',
+          })
+
+          if (!insertChErr) {
+            shouldIncrementChapter = true
+          } else if (insertChErr.code === '23505') {
+            // Duplicate chapter view caught safely - no increment
+            shouldIncrementChapter = false
+          } else {
+            // Table unapplied fallback
+            shouldIncrementChapter = true
+          }
+        } catch (e: any) {
+          if (e?.code !== '23505') {
+            shouldIncrementChapter = true
+          }
+        }
+
+        if (shouldIncrementChapter) {
+          isNewChapterView = true
+          await incrementChapterViewAtomic(admin, targetChapterUuid)
+        }
       }
     }
 
