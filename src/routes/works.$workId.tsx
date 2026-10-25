@@ -443,7 +443,7 @@ function WorkDetailPage() {
               <p className="text-[10px] text-[var(--ink-muted)] uppercase tracking-wider">Library Saves</p>
             </div>
             <div>
-              <p className="text-lg font-semibold text-[var(--ink-primary)]">{work.chaptersCount || chaptersList.length || 1}</p>
+              <p className="text-lg font-semibold text-[var(--ink-primary)]">{chaptersList.length || work.publishedChaptersCount || work.chaptersCount || 0}</p>
               <p className="text-[10px] text-[var(--ink-muted)] uppercase tracking-wider">Chapters</p>
             </div>
             <div>

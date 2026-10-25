@@ -54,12 +54,13 @@ export function projectToCompactLibraryWork(raw: any): CompactLibraryWork {
     'Literary Fiction'
 
   const chaptersCount = Number(
-    raw.chaptersCount ||
-    raw.chapter_count ||
-    raw.chapters_count ||
-    raw.publishedChaptersCount ||
-    (Array.isArray(raw.chapters) ? raw.chapters.length : 1)
-  ) || 1
+    raw.publishedChaptersCount ??
+    (Array.isArray(raw.chapters) ? raw.chapters.filter((c: any) => c.status === 'published').length : null) ??
+    raw.chapter_count ??
+    raw.chapters_count ??
+    raw.chaptersCount ??
+    1
+  )
 
   return {
     id: String(raw.id),

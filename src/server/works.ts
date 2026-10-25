@@ -99,11 +99,14 @@ export const getPublicWorkServerFn = createServerFn({ method: 'GET' })
     else if (data.status === 'cancelled') mappedStatus = 'Cancelled'
 
     const rawChapters = ((data as any).chapters || [])
+    // Public readers strictly only see published chapters
+    const publishedChapters = rawChapters.filter((c: any) => c.status === 'published')
+    const publishedCount = publishedChapters.length || (data.chapter_count ?? 0)
 
     const mappedActs = ((data as any).acts || [])
       .sort((a: any, b: any) => (a.act_number || 0) - (b.act_number || 0))
       .map((act: any) => {
-        const actChapters = rawChapters.filter((c: any) => c.act_id === act.id)
+        const actChapters = publishedChapters.filter((c: any) => c.act_id === act.id)
         const actViewCount = actChapters.reduce((sum: number, c: any) => sum + (c.view_count || 0), 0)
         return {
           id: act.id,
@@ -117,7 +120,7 @@ export const getPublicWorkServerFn = createServerFn({ method: 'GET' })
         }
       })
 
-    const mappedChapters = rawChapters
+    const mappedChapters = publishedChapters
       .sort((a: any, b: any) => (a.chapter_number || 0) - (b.chapter_number || 0))
       .map((ch: any) => {
         const parentAct = mappedActs.find((a: any) => a.id === ch.act_id)
@@ -171,8 +174,8 @@ export const getPublicWorkServerFn = createServerFn({ method: 'GET' })
       editorPick: false,
       synopsis: data.description || '',
       fullDescription: data.description || '',
-      chaptersCount: mappedChapters.length || data.chapter_count || 1,
-      publishedChaptersCount: mappedChapters.filter((c: any) => c.status === 'published').length || 1,
+      chaptersCount: publishedCount,
+      publishedChaptersCount: publishedCount,
       totalReads: String(data.view_count || '0'),
       totalSaves: Number(data.save_count || 0),
       ratingScore: 5.0,
@@ -773,6 +776,14 @@ export async function executeGetPlatformWorks(
           }
         }
 
+        const publishedChapters = Array.isArray(row.chapters)
+          ? row.chapters.filter((ch: any) => ch.status === 'published')
+          : []
+        const publishedCount =
+          publishedChapters.length > 0
+            ? publishedChapters.length
+            : (Number(row.publishedChaptersCount || row.chapter_count) || 0)
+
         return {
           id: row.id,
           title: row.title,
@@ -805,8 +816,8 @@ export async function executeGetPlatformWorks(
               ),
           synopsis: row.description || '',
           fullDescription: row.description || '',
-          chaptersCount: row.chapters?.length || row.chapter_count || 1,
-          publishedChaptersCount: (row.chapters || []).filter((c: any) => c.status === 'published').length || 1,
+          chaptersCount: publishedCount,
+          publishedChaptersCount: publishedCount,
           totalReads: String(row.view_count || '0'),
           totalSaves: Number(row.save_count || 0),
           ratingScore: 5.0,
@@ -842,22 +853,20 @@ export async function executeGetPlatformWorks(
                 viewCount: Number(act.view_count || 0),
               }))
             : [],
-          chapters: Array.isArray(row.chapters)
-            ? row.chapters.map((ch: any) => ({
-                id: ch.id,
-                number: ch.chapter_number ?? ch.number ?? 1,
-                title: ch.title || 'Untitled Chapter',
-                subtitle: ch.subtitle || '',
-                bannerImage: ch.banner_image_path || ch.bannerImage || undefined,
-                actId: ch.act_id || ch.actId || undefined,
-                status: (ch.status === 'published' ? 'published' : 'draft') as 'published' | 'draft',
-                wordCount: Number(ch.word_count ?? ch.wordCount ?? 0),
-                readTimeMinutes: Number(ch.reading_time_minutes ?? ch.readTimeMinutes ?? 1),
-                viewCount: Number(ch.view_count || 0),
-                publishedAt: ch.published_at ? new Date(ch.published_at).toLocaleDateString() : undefined,
-                content: ch.content || '',
-              }))
-            : [],
+          chapters: publishedChapters.map((ch: any) => ({
+            id: ch.id,
+            number: ch.chapter_number ?? ch.number ?? 1,
+            title: ch.title || 'Untitled Chapter',
+            subtitle: ch.subtitle || '',
+            bannerImage: ch.banner_image_path || ch.bannerImage || undefined,
+            actId: ch.act_id || ch.actId || undefined,
+            status: 'published' as const,
+            wordCount: Number(ch.word_count ?? ch.wordCount ?? 0),
+            readTimeMinutes: Number(ch.reading_time_minutes ?? ch.readTimeMinutes ?? 1),
+            viewCount: Number(ch.view_count || 0),
+            publishedAt: ch.published_at ? new Date(ch.published_at).toLocaleDateString() : undefined,
+            content: ch.content || '',
+          })),
         }
       })
 

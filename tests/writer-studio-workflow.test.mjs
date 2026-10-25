@@ -131,7 +131,7 @@ test('Workflow Audit: executeDeleteWriterChapter successfully deletes chapter an
                   error: null,
                 }),
               }),
-              then: (resolve) => resolve({ data: [{ word_count: 500, reading_time_minutes: 3 }] }),
+              then: (resolve) => resolve({ data: [{ word_count: 500, reading_time_minutes: 3, status: 'published' }] }),
             }
           },
         }),
@@ -513,4 +513,39 @@ test('Unified Prose Diff: computeLineDiff normalizes trailing newlines and repor
   assert.equal(diff.every((d) => d.type === 'unchanged'), true)
   assert.equal(diff.some((d) => d.type === 'added'), false)
   assert.equal(diff.some((d) => d.type === 'deleted'), false)
+})
+
+test('Public Reader Invariant: executeGetPlatformWorks strictly reports ONLY published chapter count', async () => {
+  const { executeGetPlatformWorks } = await import('../src/server/works.ts')
+
+  const mockRows = [
+    {
+      id: 'work-test-published-count',
+      title: 'Story With Draft Chapters',
+      slug: 'story-with-draft-chapters',
+      visibility: 'public',
+      publication_status: 'published',
+      category_name: 'Novels',
+      category_slug: 'novels',
+      genres: [{ id: 'g1', name: 'Fantasy', slug: 'fantasy' }],
+      chapter_count: 3, // Legacy / raw column had 3 total chapters
+      chapters: [
+        { id: 'c1', chapter_number: 1, title: 'Chapter 1', status: 'published' },
+        { id: 'c2', chapter_number: 2, title: 'Chapter 2', status: 'draft' },
+        { id: 'c3', chapter_number: 3, title: 'Chapter 3', status: 'draft' },
+      ],
+      acts: [],
+    },
+  ]
+
+  const works = await executeGetPlatformWorks({
+    queryRows: async () => mockRows,
+  })
+
+  const story = works.find((w) => w.id === 'work-test-published-count')
+  assert.ok(story)
+  assert.equal(story.publishedChaptersCount, 1, 'publishedChaptersCount must be strictly 1')
+  assert.equal(story.chaptersCount, 1, 'chaptersCount exposed to public readers must be strictly 1')
+  assert.equal(story.chapters.length, 1, 'Public reader chapters array must only contain the 1 published chapter')
+  assert.equal(story.chapters[0].id, 'c1')
 })

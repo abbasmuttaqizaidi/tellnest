@@ -867,7 +867,7 @@ export async function executeSaveWriterChapter(data: SaveWriterChapterPayload, a
 
       const workUpdatePayload: Record<string, any> = {
         word_count: totalWords,
-        chapter_count: allChs.length,
+        chapter_count: publishedCount,
         reading_time_minutes: totalMinutes,
         last_activity_at: nowIso,
         last_activity_type: status === 'published' ? 'chapter_published' : 'chapter_updated',
@@ -992,12 +992,12 @@ export const createWriterChapterServerFn = createServerFn({ method: 'POST' })
       throw new Error(`Failed to create chapter: ${createErr?.message}`)
     }
 
-    // 4. Update work's chapter_count and last activity
-    const newCount = (existingChs?.length || 0) + 1
+    // 4. Update work's chapter_count (strictly published chapters) and last activity
+    const publishedCount = (existingChs || []).filter((c: any) => c.status === 'published').length
     await admin
       .from('works')
       .update({
-        chapter_count: newCount,
+        chapter_count: publishedCount,
         last_activity_at: nowIso,
         last_activity_type: 'chapter_drafted',
         last_activity_detail: {
@@ -1101,7 +1101,7 @@ export async function executeDeleteWriterChapter(
 
   let workRevertedToDraft = false
   const workUpdatePayload: Record<string, any> = {
-    chapter_count: remainingCount,
+    chapter_count: publishedCount,
     word_count: totalWords,
     reading_time_minutes: totalMinutes,
     last_activity_at: nowIso,

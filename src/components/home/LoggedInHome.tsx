@@ -610,7 +610,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
 
                     {/* Chapter count */}
                     <div className="absolute bottom-1.5 left-1.5 bg-black/75 text-white font-mono text-[8px] px-1.5 py-0.5 rounded backdrop-blur-2xs">
-                      {work.chaptersCount} Ch
+                      {work.publishedChaptersCount ?? work.chaptersCount} Ch
                     </div>
                   </div>
 
@@ -747,7 +747,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
 
                     {/* Chapter count */}
                     <div className="absolute bottom-2 left-2 bg-black/75 text-white font-mono text-[9px] px-1.5 py-0.5 rounded backdrop-blur-2xs">
-                      {work.chaptersCount} Ch
+                      {work.publishedChaptersCount ?? work.chaptersCount} Ch
                     </div>
                   </div>
 
@@ -896,7 +896,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
                   {/* Title & Season Info */}
                   <div className="absolute bottom-3 left-4 right-4 text-white">
                     <span className="font-mono text-[10px] tracking-wider uppercase text-white/80">
-                      Season 1 • {work.chaptersCount} Chapters
+                      Season 1 • {work.publishedChaptersCount ?? work.chaptersCount} Chapters
                     </span>
                     <h4 className="font-serif text-lg font-bold text-white leading-snug line-clamp-1 mt-0.5">
                       {work.title}
@@ -1007,7 +1007,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                     <div className="absolute top-2 left-2 bg-black/75 text-white font-mono text-[9px] px-1.5 py-0.5 rounded backdrop-blur-2xs">
-                      {work.chaptersCount} Ch
+                      {work.publishedChaptersCount ?? work.chaptersCount} Ch
                     </div>
                   </div>
                   <h5 className="font-serif text-xs sm:text-sm font-semibold text-[var(--ink-primary)] leading-snug line-clamp-1 group-hover:underline">
