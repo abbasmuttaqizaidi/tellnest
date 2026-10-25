@@ -723,19 +723,15 @@ export interface SaveWriterChapterPayload {
   status?: 'draft' | 'published'
   bannerImage?: string | null
   actId?: string | null
+  expectedUpdatedAt?: string
+  force?: boolean
 }
 
 /**
  * 4. Save/Autosave chapter content, word counts, reading time, and status to PostgreSQL
  */
-export const saveWriterChapterServerFn = createServerFn({ method: 'POST' })
-  .validator((params: SaveWriterChapterPayload) => {
-    if (!params.workId?.trim()) throw new Error('Work ID is required')
-    if (!params.chapterId?.trim()) throw new Error('Chapter ID is required')
-    return params
-  })
-  .handler(async ({ data }) => {
-    const admin = createAdminClient()
+export async function executeSaveWriterChapter(data: SaveWriterChapterPayload, adminClient?: any) {
+  const admin = adminClient || createAdminClient()
     const nowIso = new Date().toISOString()
     const hasContent = typeof data.content === 'string'
     // Robust server-side sanitization: strip any markdown hard-break trailing backslashes
@@ -756,6 +752,33 @@ export const saveWriterChapterServerFn = createServerFn({ method: 'POST' })
     const isChapterUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.chapterId)
 
     if (isChapterUuid) {
+      // Optimistic concurrency check: if client provided expectedUpdatedAt and did not force overwrite,
+      // verify that no other tab or device has saved a newer version in the interim.
+      if (data.expectedUpdatedAt && !data.force) {
+        const { data: existingCh } = await admin
+          .from('chapters')
+          .select('title, subtitle, content, updated_at')
+          .eq('id', data.chapterId)
+          .maybeSingle()
+
+        if (existingCh?.updated_at) {
+          const dbTime = new Date(existingCh.updated_at).getTime()
+          const clientTime = new Date(data.expectedUpdatedAt).getTime()
+
+          // If DB version is newer by more than 1.5 seconds (to tolerate minor clock drift)
+          if (dbTime - clientTime > 1500) {
+            return {
+              success: false,
+              conflict: true,
+              serverUpdatedAt: existingCh.updated_at,
+              serverTitle: existingCh.title,
+              serverSubtitle: existingCh.subtitle || '',
+              serverContent: existingCh.content || '',
+            }
+          }
+        }
+      }
+
       const updateData: Record<string, any> = {
         updated_at: nowIso,
       }
@@ -878,14 +901,25 @@ export const saveWriterChapterServerFn = createServerFn({ method: 'POST' })
         .eq('id', workUuid)
     }
 
-    return {
-      success: true,
-      chapterId: data.chapterId,
-      wordCount,
-      readingTime,
-      updatedAt: nowIso,
-      workRevertedToDraft,
-    }
+  return {
+    success: true,
+    conflict: false,
+    chapterId: data.chapterId,
+    wordCount,
+    readingTime,
+    updatedAt: nowIso,
+    workRevertedToDraft,
+  }
+}
+
+export const saveWriterChapterServerFn = createServerFn({ method: 'POST' })
+  .validator((params: SaveWriterChapterPayload) => {
+    if (!params.workId?.trim()) throw new Error('Work ID is required')
+    if (!params.chapterId?.trim()) throw new Error('Chapter ID is required')
+    return params
+  })
+  .handler(async ({ data }) => {
+    return executeSaveWriterChapter(data)
   })
 
 export interface CreateWriterChapterPayload {

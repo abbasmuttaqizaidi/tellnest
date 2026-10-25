@@ -13,6 +13,9 @@ import {
   Layers,
   ChevronLeft,
   ChevronRight,
+  AlertTriangle,
+  Copy,
+  RefreshCw,
 } from 'lucide-react'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { generateMeta } from '../lib/seo'
@@ -130,6 +133,54 @@ function ChapterEditorPage() {
   const [autosaveStatus, setAutosaveStatus] = useState<'saved' | 'saving' | 'dirty'>('saved')
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [focusMode, setFocusMode] = useState(false)
+  const [duplicateTabOpen, setDuplicateTabOpen] = useState(false)
+  const [loadedUpdatedAt, setLoadedUpdatedAt] = useState<string>(
+    currentChapter?.updated_at || currentChapter?.updatedAt || new Date().toISOString()
+  )
+  const [conflictModalData, setConflictModalData] = useState<{
+    serverUpdatedAt: string
+    serverTitle: string
+    serverSubtitle: string
+    serverContent: string
+  } | null>(null)
+
+  // Native inter-tab presence tracking via BroadcastChannel (Same Browser, Multiple Tabs)
+  useEffect(() => {
+    if (!work || !currentChapter || typeof window === 'undefined' || !('BroadcastChannel' in window)) return
+
+    const channelName = `hatchpen_tab_${work.id}_${currentChapter.id}`
+    const channel = new BroadcastChannel(channelName)
+    const myTabId = Math.random().toString(36).substring(2, 9)
+
+    // Announce my presence to any existing tabs
+    channel.postMessage({ type: 'ANNOUNCE', tabId: myTabId })
+
+    const handleMessage = (e: MessageEvent) => {
+      const msg = e.data
+      if (!msg || msg.tabId === myTabId) return
+
+      if (msg.type === 'ANNOUNCE') {
+        // Another tab just opened, reply so it detects us
+        channel.postMessage({ type: 'CONFIRM', tabId: myTabId })
+        setDuplicateTabOpen(true)
+      } else if (msg.type === 'CONFIRM') {
+        // An existing tab replied, we are a duplicate tab
+        setDuplicateTabOpen(true)
+      } else if (msg.type === 'CLOSED') {
+        setDuplicateTabOpen(false)
+      }
+    }
+
+    channel.addEventListener('message', handleMessage)
+
+    return () => {
+      try {
+        channel.postMessage({ type: 'CLOSED', tabId: myTabId })
+        channel.removeEventListener('message', handleMessage)
+        channel.close()
+      } catch (err) {}
+    }
+  }, [work?.id, currentChapter?.id])
 
   // Prevent accidental navigation/tab closing when editor changes are dirty or saving
   useEffect(() => {
@@ -157,6 +208,8 @@ function ChapterEditorPage() {
       setSubtitle(currentChapter.subtitle || '')
       setContent(currentChapter.content || '')
       setActId(currentChapter.actId || '')
+      setLoadedUpdatedAt(currentChapter.updated_at || currentChapter.updatedAt || new Date().toISOString())
+      setConflictModalData(null)
       setAutosaveStatus('saved')
     }
   }, [currentChapter?.id])
@@ -245,30 +298,79 @@ function ChapterEditorPage() {
   }
 
   // Explicit save: Only executed when user manually clicks Save button or presses Cmd+S / Ctrl+S
-  const handleManualSave = async () => {
-    if (work && currentChapter) {
-      setAutosaveStatus('saving')
-      updateChapterContent(work.id, currentChapter.id, title, content, currentChapter.status)
-      try {
-        await saveWriterChapterServerFn({
-          data: {
-            workId: work.id,
-            chapterId: currentChapter.id,
-            title,
-            subtitle,
-            content,
-            status: currentChapter.status,
-            actId: actId || undefined,
-          },
+  const handleManualSave = async (force: boolean = false) => {
+    if (!work || !currentChapter) return
+
+    setAutosaveStatus('saving')
+    updateChapterContent(work.id, currentChapter.id, title, content, currentChapter.status)
+
+    try {
+      const res = await saveWriterChapterServerFn({
+        data: {
+          workId: work.id,
+          chapterId: currentChapter.id,
+          title,
+          subtitle,
+          content,
+          status: currentChapter.status,
+          actId: actId || undefined,
+          expectedUpdatedAt: loadedUpdatedAt,
+          force,
+        },
+      })
+
+      if (res?.conflict) {
+        setConflictModalData({
+          serverUpdatedAt: res.serverUpdatedAt || new Date().toISOString(),
+          serverTitle: res.serverTitle || '',
+          serverSubtitle: res.serverSubtitle || '',
+          serverContent: res.serverContent || '',
         })
-        setAutosaveStatus('saved')
-        showToast('Chapter saved to database')
-      } catch (e: any) {
-        console.error('[handleManualSave] Save error:', e)
         setAutosaveStatus('dirty')
+        return
+      }
+
+      if (res?.updatedAt) {
+        setLoadedUpdatedAt(res.updatedAt)
+      }
+      setConflictModalData(null)
+      setAutosaveStatus('saved')
+      showToast('Chapter saved to database')
+    } catch (e: any) {
+      console.error('[handleManualSave] Save error:', e)
+      setAutosaveStatus('dirty')
+      if (typeof window !== 'undefined' && !window.navigator.onLine) {
+        showToast('Offline: Could not connect to server. Your text is safe on screen. Reconnect and click Save again.')
+      } else {
         showToast(e?.message || 'Failed to save chapter')
       }
     }
+  }
+
+  const handleCopyMyText = () => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(content).then(() => {
+        showToast('Current draft copied to clipboard!')
+      }).catch(() => {
+        showToast('Unable to copy to clipboard')
+      })
+    }
+  }
+
+  const handleKeepServerVersion = () => {
+    if (!conflictModalData) return
+    setTitle(conflictModalData.serverTitle || title)
+    setSubtitle(conflictModalData.serverSubtitle || '')
+    setContent(conflictModalData.serverContent || '')
+    setLoadedUpdatedAt(conflictModalData.serverUpdatedAt)
+    setAutosaveStatus('saved')
+    setConflictModalData(null)
+    showToast('Loaded latest version from server')
+  }
+
+  const handleForceOverwrite = async () => {
+    setConflictModalData(null)
+    await handleManualSave(true)
   }
 
   const handlePublish = async () => {
@@ -506,6 +608,23 @@ function ChapterEditorPage() {
 
       {/* Main Studio Area */}
       <div className="flex-1 flex flex-col min-w-0">
+        {duplicateTabOpen && (
+          <div className="flex items-center justify-between px-4 py-2 bg-amber-500/10 border-b border-amber-500/30 text-amber-800 dark:text-amber-300 text-xs font-mono">
+            <span className="flex items-center gap-1.5">
+              <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+              <span>This chapter is open in another tab on this browser. Please edit and save in one tab to avoid conflicts.</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setDuplicateTabOpen(false)}
+              className="text-amber-700 dark:text-amber-400 hover:text-amber-900 font-bold ml-2 px-1 rounded cursor-pointer"
+              title="Dismiss warning"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {!sidebarOpen && (
           <button
             type="button"
@@ -535,6 +654,77 @@ function ChapterEditorPage() {
           onExit={handleExit}
         />
       </div>
+
+      {/* Edit Conflict Resolution Modal */}
+      {conflictModalData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-2xl border border-amber-500/40 bg-[var(--bg-surface)] p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-2.5 text-amber-600 dark:text-amber-400">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              <h3 className="font-serif text-lg font-bold text-[var(--ink-primary)]">
+                Save Conflict Detected
+              </h3>
+            </div>
+
+            <p className="text-xs text-[var(--ink-secondary)] leading-relaxed">
+              This chapter was modified and saved in another tab or device at{' '}
+              <span className="font-mono font-semibold text-[var(--ink-primary)]">
+                {new Date(conflictModalData.serverUpdatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </span>
+              . Saving now would overwrite that version.
+            </p>
+
+            <div className="p-3 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-subtle)] space-y-1.5 text-xs font-mono">
+              <div className="flex items-center justify-between text-[11px] text-[var(--ink-muted)]">
+                <span>Server Title:</span>
+                <span className="font-semibold text-[var(--ink-primary)] truncate max-w-[200px]">{conflictModalData.serverTitle}</span>
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-[var(--ink-muted)]">
+                <span>Server Word Count:</span>
+                <span className="font-semibold text-[var(--ink-primary)]">
+                  {conflictModalData.serverContent.trim().split(/\s+/).filter(Boolean).length} words
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-[var(--ink-muted)]">
+                <span>Your Unsaved Draft:</span>
+                <span className="font-semibold text-amber-600 dark:text-amber-400">
+                  {wordCount} words
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                type="button"
+                onClick={handleCopyMyText}
+                className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-canvas)] px-3 py-2 text-xs font-semibold text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer shadow-2xs"
+              >
+                <Copy className="h-3.5 w-3.5" />
+                <span>Copy My Unsaved Text to Clipboard</span>
+              </button>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={handleKeepServerVersion}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2 text-xs font-medium text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:border-[var(--border-strong)] transition-colors cursor-pointer shadow-2xs"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  <span>Load Server Version</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleForceOverwrite}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
+                >
+                  <span>Overwrite Server</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

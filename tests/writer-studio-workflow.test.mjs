@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   executeDeleteWriterChapter,
+  executeSaveWriterChapter,
   executeWriterWorkCover,
 } from '../src/server/writer.ts'
 import { convertImageToWebP } from '../src/lib/cloudinary.ts'
@@ -324,4 +325,128 @@ test('Prose Sanitization: extractParagraphTexts gracefully splits single-spaced 
   assert.equal(paragraphs[0], 'Line 1')
   assert.equal(paragraphs[1], 'Line 2')
   assert.equal(paragraphs[2], 'Line 3')
+})
+
+test('Concurrency Control: executeSaveWriterChapter flags conflict when server chapter has newer timestamp', async () => {
+  const chapterId = '11111111-1111-1111-1111-111111111111'
+  const workId = '00000000-0000-0000-0000-000000000001'
+  const serverDbTime = '2026-10-25T12:00:10.000Z'
+  const staleClientTime = '2026-10-25T12:00:00.000Z'
+
+  let updateCalled = false
+  const mockAdmin = {
+    from: (table) => {
+      if (table === 'chapters') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: {
+                  title: 'Server Version Title',
+                  subtitle: 'Server Subtitle',
+                  content: 'Server content written from another tab.',
+                  updated_at: serverDbTime,
+                },
+                error: null,
+              }),
+            }),
+          }),
+          update: () => {
+            updateCalled = true
+            return {
+              eq: async () => ({ error: null }),
+            }
+          },
+        }
+      }
+      return {
+        select: () => ({
+          eq: async () => ({ data: [], error: null }),
+        }),
+      }
+    },
+  }
+
+  const result = await executeSaveWriterChapter(
+    {
+      workId,
+      chapterId,
+      title: 'Local Tab Title',
+      content: 'Local tab content that is stale',
+      expectedUpdatedAt: staleClientTime,
+      force: false,
+    },
+    mockAdmin
+  )
+
+  assert.equal(result.success, false)
+  assert.equal(result.conflict, true)
+  assert.equal(result.serverTitle, 'Server Version Title')
+  assert.equal(result.serverContent, 'Server content written from another tab.')
+  assert.equal(updateCalled, false, 'DB update must not be performed when conflict detected')
+})
+
+test('Concurrency Control: executeSaveWriterChapter bypasses conflict and overwrites when force is true', async () => {
+  const chapterId = '11111111-1111-1111-1111-111111111111'
+  const workId = '00000000-0000-0000-0000-000000000001'
+  const staleClientTime = '2026-10-25T12:00:00.000Z'
+
+  let updatedData = null
+  const mockAdmin = {
+    from: (table) => {
+      if (table === 'chapters') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: {
+                  title: 'Server Version Title',
+                  subtitle: '',
+                  content: 'Server content',
+                  updated_at: '2026-10-25T12:00:30.000Z',
+                },
+                error: null,
+              }),
+            }),
+          }),
+          update: (payload) => {
+            updatedData = payload
+            return {
+              eq: async () => ({ error: null }),
+            }
+          },
+        }
+      }
+      if (table === 'works') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: { publication_status: 'draft' }, error: null }),
+            }),
+          }),
+          update: () => ({
+            eq: async () => ({ error: null }),
+          }),
+        }
+      }
+      return {}
+    },
+  }
+
+  const result = await executeSaveWriterChapter(
+    {
+      workId,
+      chapterId,
+      title: 'Force Overwrite Title',
+      content: 'Force overwrite content',
+      expectedUpdatedAt: staleClientTime,
+      force: true,
+    },
+    mockAdmin
+  )
+
+  assert.equal(result.success, true)
+  assert.equal(result.conflict, false)
+  assert.equal(updatedData.title, 'Force Overwrite Title')
+  assert.equal(updatedData.content, 'Force overwrite content')
 })
