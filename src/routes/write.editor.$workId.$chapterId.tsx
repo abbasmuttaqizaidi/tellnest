@@ -3,7 +3,6 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import EmptyState from '../components/EmptyState'
 import {
-  ArrowLeft,
   CheckCircle2,
   Clock,
   Save,
@@ -11,7 +10,6 @@ import {
   ListFilter,
   Layers,
   ChevronLeft,
-  ChevronRight,
   AlertTriangle,
   Copy,
   RefreshCw,
@@ -446,26 +444,17 @@ function ChapterEditorPage() {
       {/* Optional Left Sidebar for Manuscript Navigation */}
       {sidebarOpen && (
         <aside className="w-64 border-r border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 hidden md:flex flex-col shrink-0 overflow-y-auto">
-          <div className="flex items-center justify-between pb-3 mb-3 border-b border-[var(--border-subtle)]">
-            <Link
-              to="/write/manage/$workId"
-              params={{ workId: work.id }}
-              onClick={async (e) => {
-                e.preventDefault()
-                await handleExit()
-              }}
-              className="flex items-center gap-1.5 text-xs font-mono text-[var(--ink-muted)] hover:text-[var(--ink-primary)] no-underline"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              <span className="truncate">{work.title}</span>
-            </Link>
+          <div className="flex items-center justify-between pb-3 mb-3 border-b border-[var(--border-subtle)] gap-2">
+            <span className="font-serif font-bold text-sm text-[var(--ink-primary)] truncate flex-1" title={work.title}>
+              {work.title}
+            </span>
             <button
               type="button"
               onClick={() => setSidebarOpen(false)}
-              className="p-1 rounded text-[var(--ink-muted)] hover:text-[var(--ink-primary)]"
-              title="Collapse Sidebar"
+              className="h-7 w-7 rounded-full flex items-center justify-center border border-[var(--border-subtle)] bg-[var(--bg-canvas)] hover:bg-[var(--bg-subtle)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)] shadow-2xs transition-all cursor-pointer shrink-0"
+              title="Collapse Manuscript Chapters"
             >
-              <ChevronLeft className="h-3.5 w-3.5" />
+              <ChevronLeft className="h-4 w-4" />
             </button>
           </div>
 
@@ -619,18 +608,6 @@ function ChapterEditorPage() {
           </div>
         )}
 
-        {!sidebarOpen && (
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(true)}
-            className="fixed left-2 bottom-3 z-30 hidden md:flex items-center gap-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2 py-1 text-xs font-mono text-[var(--ink-muted)] hover:text-[var(--ink-primary)] shadow-xs"
-            title="Expand Chapters Sidebar"
-          >
-            <ChevronRight className="h-3 w-3" />
-            <span>Folio Chapters</span>
-          </button>
-        )}
-
         <StoryRichEditor
           title={title}
           setTitle={handleTitleChange}
@@ -646,6 +623,8 @@ function ChapterEditorPage() {
           chapterNumber={currentChapter.number}
           actName={actName}
           onExit={handleExit}
+          sidebarOpen={sidebarOpen}
+          onToggleSidebar={() => setSidebarOpen(true)}
         />
       </div>
 

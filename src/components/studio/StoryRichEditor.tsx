@@ -22,6 +22,7 @@ import {
   CheckCircle2,
   Clock,
   ArrowLeft,
+  ChevronRight,
   Type,
 } from 'lucide-react'
 
@@ -40,6 +41,8 @@ export interface StoryRichEditorProps {
   chapterNumber?: number
   actName?: string
   onExit?: () => void
+  sidebarOpen?: boolean
+  onToggleSidebar?: () => void
   className?: string
 }
 
@@ -187,6 +190,8 @@ export function StoryRichEditor({
   chapterNumber,
   actName,
   onExit,
+  sidebarOpen,
+  onToggleSidebar,
   className = '',
 }: StoryRichEditorProps) {
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -385,6 +390,17 @@ export function StoryRichEditor({
       <header className="sticky top-0 z-40 flex flex-wrap items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-2 gap-2 shadow-2xs">
         {/* Left: Exit/Back + Chapter Title */}
         <div className="flex items-center gap-2">
+          {onToggleSidebar && !sidebarOpen && !isFullscreen && (
+            <button
+              type="button"
+              onClick={onToggleSidebar}
+              className="h-7 w-7 rounded-full flex items-center justify-center border border-[var(--border-subtle)] bg-[var(--bg-canvas)] hover:bg-[var(--bg-subtle)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)] shadow-2xs transition-all cursor-pointer shrink-0"
+              title="Expand Manuscript Chapters"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          )}
+
           {isFullscreen ? (
             <button
               type="button"
