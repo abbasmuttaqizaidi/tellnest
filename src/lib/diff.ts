@@ -134,8 +134,101 @@ export function computeWordTokens(oldLine: string, newLine: string): { oldTokens
   }
 }
 
+export interface DiffHunk {
+  type: 'change'
+  deletedLines: DiffLine[]
+  addedLines: DiffLine[]
+  startIdx: number
+}
+
+export type DiffBlock =
+  | { type: 'unchanged'; line: DiffLine }
+  | DiffHunk
+
 /**
- * Reverts a single diff line (addition, deletion, or replacement) back to the original baseline state.
+ * Groups raw diff lines into coherent change blocks (hunks) and unchanged context lines.
+ */
+export function groupDiffHunks(diffLines: DiffLine[]): DiffBlock[] {
+  const blocks: DiffBlock[] = []
+  let currentHunk: DiffHunk | null = null
+
+  for (let i = 0; i < diffLines.length; i++) {
+    const item = diffLines[i]
+    if (item.type === 'unchanged') {
+      if (currentHunk) {
+        blocks.push(currentHunk)
+        currentHunk = null
+      }
+      blocks.push({ type: 'unchanged', line: item })
+    } else {
+      if (!currentHunk) {
+        currentHunk = {
+          type: 'change',
+          deletedLines: [],
+          addedLines: [],
+          startIdx: i,
+        }
+      }
+      if (item.type === 'deleted') {
+        currentHunk.deletedLines.push(item)
+      } else if (item.type === 'added') {
+        currentHunk.addedLines.push(item)
+      }
+    }
+  }
+  if (currentHunk) {
+    blocks.push(currentHunk)
+  }
+  return blocks
+}
+
+/**
+ * Safely reverts an entire change hunk (modification, addition, or deletion) back to saved baseline.
+ */
+export function revertHunk(hunk: DiffHunk, currentText: string, savedText: string): string {
+  const currentLines = currentText.split('\n')
+  const oldTextLines = savedText.split('\n')
+
+  // Case 1: Modified lines (both deleted and added exist) -> Replace new lines with original lines
+  if (hunk.deletedLines.length > 0 && hunk.addedLines.length > 0) {
+    const startLineIdx = hunk.addedLines[0].newLineNumber ? hunk.addedLines[0].newLineNumber - 1 : 0
+    const deleteCount = hunk.addedLines.length
+    const originalTexts = hunk.deletedLines.map((l) => l.text)
+    currentLines.splice(startLineIdx, deleteCount, ...originalTexts)
+    return currentLines.join('\n')
+  }
+
+  // Case 2: Pure additions (only added lines) -> Remove added lines
+  if (hunk.addedLines.length > 0 && hunk.deletedLines.length === 0) {
+    const startLineIdx = hunk.addedLines[0].newLineNumber ? hunk.addedLines[0].newLineNumber - 1 : 0
+    const deleteCount = hunk.addedLines.length
+    currentLines.splice(startLineIdx, deleteCount)
+    return currentLines.join('\n')
+  }
+
+  // Case 3: Pure deletions (only deleted lines) -> Restore original lines
+  if (hunk.deletedLines.length > 0 && hunk.addedLines.length === 0) {
+    const originalTexts = hunk.deletedLines.map((l) => l.text)
+    const targetOldLine = hunk.deletedLines[0].oldLineNumber || 1
+    let insertIdx = 0
+    // Find closest previous line in oldText that exists in currentLines
+    for (let k = targetOldLine - 2; k >= 0; k--) {
+      const matchText = oldTextLines[k]
+      const foundIdx = currentLines.indexOf(matchText)
+      if (foundIdx !== -1) {
+        insertIdx = foundIdx + 1
+        break
+      }
+    }
+    currentLines.splice(insertIdx, 0, ...originalTexts)
+    return currentLines.join('\n')
+  }
+
+  return currentText
+}
+
+/**
+ * Reverts a single diff line safely by finding its hunk and restoring original text.
  */
 export function revertDiffLine(
   diffLines: DiffLine[],
@@ -143,54 +236,15 @@ export function revertDiffLine(
   currentText: string,
   oldText: string
 ): string {
-  const currentLines = currentText.split('\n')
-  const target = diffLines[targetIdx]
-  if (!target || target.type === 'unchanged') return currentText
-
-  if (target.type === 'added') {
-    if (target.newLineNumber !== undefined) {
-      const lineIdx = target.newLineNumber - 1
-      if (lineIdx >= 0 && lineIdx < currentLines.length) {
-        currentLines.splice(lineIdx, 1)
-        return currentLines.join('\n')
+  const hunks = groupDiffHunks(diffLines)
+  for (const block of hunks) {
+    if (block.type === 'change') {
+      const totalLines = block.deletedLines.length + block.addedLines.length
+      if (targetIdx >= block.startIdx && targetIdx < block.startIdx + totalLines) {
+        return revertHunk(block, currentText, oldText)
       }
-    }
-    const idx = currentLines.indexOf(target.text)
-    if (idx !== -1) {
-      currentLines.splice(idx, 1)
-      return currentLines.join('\n')
     }
   }
-
-  if (target.type === 'deleted') {
-    // Check if next line is 'added' (i.e. replacement)
-    if (diffLines[targetIdx + 1]?.type === 'added' && diffLines[targetIdx + 1].newLineNumber !== undefined) {
-      const lineIdx = diffLines[targetIdx + 1].newLineNumber! - 1
-      if (lineIdx >= 0 && lineIdx < currentLines.length) {
-        currentLines[lineIdx] = target.text
-        return currentLines.join('\n')
-      }
-    }
-    // Check if previous line is 'added'
-    if (diffLines[targetIdx - 1]?.type === 'added' && diffLines[targetIdx - 1].newLineNumber !== undefined) {
-      const lineIdx = diffLines[targetIdx - 1].newLineNumber! - 1
-      if (lineIdx >= 0 && lineIdx < currentLines.length) {
-        currentLines[lineIdx] = target.text
-        return currentLines.join('\n')
-      }
-    }
-    // Pure insertion: find the nearest line in currentLines
-    let insertAfterLineIdx = -1
-    for (let k = targetIdx - 1; k >= 0; k--) {
-      if (diffLines[k].newLineNumber !== undefined) {
-        insertAfterLineIdx = diffLines[k].newLineNumber! - 1
-        break
-      }
-    }
-    currentLines.splice(insertAfterLineIdx + 1, 0, target.text)
-    return currentLines.join('\n')
-  }
-
   return currentText
 }
 

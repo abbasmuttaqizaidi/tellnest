@@ -478,23 +478,28 @@ test('Unified Prose Diff: computeWordTokens identifies specific word changes ins
 
 test('Unified Prose Diff: revertDiffLine reverts added line and deleted line back to saved baseline', async () => {
   const { computeLineDiff, revertDiffLine } = await import('../src/lib/diff.ts')
-  const saved = 'Line 1\nLine 2\nLine 3'
-  const current = 'Line 1\nLine 2 modified\nLine 2.5 added\nLine 3'
+  const saved = 'Chapter 1\nThe quick brown fox jumps.\nOld ending.'
+  const current = 'Chapter 1\nThe quick red fox jumps.\nOld ending.'
 
-  let diff = computeLineDiff(saved, current)
+  const diff = computeLineDiff(saved, current)
 
-  // Revert replacement (Line 2 modified -> Line 2)
-  const afterRevertMod = revertDiffLine(diff, 1, current, saved)
-  assert.equal(afterRevertMod, 'Line 1\nLine 2\nLine 2.5 added\nLine 3')
+  // Clicking revert on green line (idx 2) restores original line, does NOT delete line!
+  const revertedGreen = revertDiffLine(diff, 2, current, saved)
+  assert.equal(revertedGreen, saved)
 
-  // Recompute diff and revert addition (Line 2.5 added -> removed)
-  let diff2 = computeLineDiff(saved, afterRevertMod)
-  const afterRevertAdd = revertDiffLine(diff2, 2, afterRevertMod, saved)
-  assert.equal(afterRevertAdd, saved)
+  // Clicking revert on red line (idx 1) also restores original line
+  const revertedRed = revertDiffLine(diff, 1, current, saved)
+  assert.equal(revertedRed, saved)
 
-  // Test reverting a deleted line
-  const textWithDeleted = 'Line 1\nLine 3'
-  const diffDeleted = computeLineDiff(saved, textWithDeleted)
-  const restored = revertDiffLine(diffDeleted, 1, textWithDeleted, saved)
-  assert.equal(restored, saved)
+  // Test pure insertion: reverting removes the insertion
+  const withAdded = 'Chapter 1\nBrand new line.\nThe quick brown fox jumps.\nOld ending.'
+  const diffAdded = computeLineDiff(saved, withAdded)
+  const afterRemoveAdded = revertDiffLine(diffAdded, 1, withAdded, saved)
+  assert.equal(afterRemoveAdded, saved)
+
+  // Test pure deletion: reverting restores the deleted line
+  const withDeleted = 'Chapter 1\nOld ending.'
+  const diffDeleted = computeLineDiff(saved, withDeleted)
+  const afterRestoreDeleted = revertDiffLine(diffDeleted, 1, withDeleted, saved)
+  assert.equal(afterRestoreDeleted, saved)
 })
