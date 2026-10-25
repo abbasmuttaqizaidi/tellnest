@@ -7,6 +7,7 @@ import EmptyState from '../components/EmptyState'
 import { FilterDisclosure, AnimatedSearch } from '../design-system'
 import { ArrowLeft } from 'lucide-react'
 import { generateMeta } from '../lib/seo'
+import { parseTotalReads } from '../lib/utils'
 
 export const Route = createFileRoute('/genre/$slug')({
   head: ({ params }) => {
@@ -65,7 +66,7 @@ function GenreTemplatePage() {
       return true
     }).sort((a, b) => {
       if (sortBy === 'updated') return a.updatedAt.localeCompare(b.updatedAt)
-      return parseInt(b.totalReads) - parseInt(a.totalReads)
+      return parseTotalReads(b.totalReads) - parseTotalReads(a.totalReads)
     })
   }, [allWorks, slug, selectedStatus, sortBy, searchQuery])
 

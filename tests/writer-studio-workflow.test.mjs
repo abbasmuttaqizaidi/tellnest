@@ -549,3 +549,46 @@ test('Public Reader Invariant: executeGetPlatformWorks strictly reports ONLY pub
   assert.equal(story.chapters.length, 1, 'Public reader chapters array must only contain the 1 published chapter')
   assert.equal(story.chapters[0].id, 'c1')
 })
+
+test('Reading Count Invariants: parseTotalReads correctly parses millions, thousands, and raw values', async () => {
+  const { parseTotalReads, formatViewCount } = await import('../src/lib/utils.ts')
+
+  assert.equal(parseTotalReads('1.2M'), 1200000)
+  assert.equal(parseTotalReads('2.4M'), 2400000)
+  assert.equal(parseTotalReads('640K'), 640000)
+  assert.equal(parseTotalReads('124.5K'), 124500)
+  assert.equal(parseTotalReads('500'), 500)
+  assert.equal(parseTotalReads(8500), 8500)
+  assert.equal(parseTotalReads('0'), 0)
+  assert.equal(parseTotalReads(''), 0)
+  assert.equal(parseTotalReads(null), 0)
+  assert.equal(parseTotalReads(undefined), 0)
+
+  // Verify formatViewCount full string formatting (compact=false)
+  assert.equal(formatViewCount('1.2M', false), '1,200,000')
+  assert.equal(formatViewCount('640K', false), '640,000')
+  assert.equal(formatViewCount(500, false), '500')
+
+  // Verify sorting invariant: 1.2M MUST be greater than 640K
+  const stories = [
+    { id: 'low', totalReads: '640K' },
+    { id: 'high', totalReads: '1.2M' },
+    { id: 'mid', totalReads: '124.5K' },
+  ]
+  const sorted = [...stories].sort((a, b) => parseTotalReads(b.totalReads) - parseTotalReads(a.totalReads))
+  assert.deepEqual(sorted.map((s) => s.id), ['high', 'low', 'mid'])
+})
+
+test('Reading Count Protection: checkViewerRateLimit prevents rapid bot flooding', async () => {
+  const { checkViewerRateLimit } = await import('../src/server/works.ts')
+
+  const testKey = 'test-bot-' + Date.now()
+  for (let i = 0; i < 30; i++) {
+    const allowed = checkViewerRateLimit(testKey)
+    assert.equal(allowed, true, `Request ${i + 1} within threshold should be allowed`)
+  }
+
+  // 31st request in the same minute should be blocked
+  const blocked = checkViewerRateLimit(testKey)
+  assert.equal(blocked, false, 'Requests beyond rate limit threshold should be rejected')
+})

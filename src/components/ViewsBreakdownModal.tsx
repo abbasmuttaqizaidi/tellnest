@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react'
 import { Eye, X, ChevronDown, ChevronRight, Plus, Minus, Save, Check } from 'lucide-react'
 import { type Work, type Act, type Chapter } from '../data/mockData'
 import { adminBatchSaveViewsServerFn } from '../server/admin'
+import { parseTotalReads } from '../lib/utils'
 
 interface ViewsBreakdownModalProps {
   isOpen: boolean
@@ -54,7 +55,7 @@ export const ViewsBreakdownModal: React.FC<ViewsBreakdownModalProps> = ({
 
     setLocalWork((prev) => {
       if (targetType === 'work') {
-        const current = Number(prev.totalReads || 0)
+        const current = parseTotalReads(prev.totalReads)
         const updated = Math.max(0, current + delta)
         return { ...prev, totalReads: String(updated) }
       } else {
@@ -112,7 +113,7 @@ export const ViewsBreakdownModal: React.FC<ViewsBreakdownModalProps> = ({
         data: {
           adminToken,
           workId: localWork.id,
-          workViews: Number(localWork.totalReads || 0),
+          workViews: parseTotalReads(localWork.totalReads),
           chapterViews: chapterViewsList,
         },
       })
@@ -130,7 +131,7 @@ export const ViewsBreakdownModal: React.FC<ViewsBreakdownModalProps> = ({
     }
   }
 
-  const bookViews = Number(localWork.totalReads || 0)
+  const bookViews = parseTotalReads(localWork.totalReads)
 
   // Map acts with chapters
   const actsList: Act[] = (localWork.acts && localWork.acts.length > 0)

@@ -947,6 +947,82 @@ export const getNewVoicesServerFn = createServerFn({ method: 'GET' })
     return await executeGetNewVoices()
   })
 
+// In-memory rate limiting to prevent spam loops from inflating views (max 30 view attempts per min per viewerKey)
+const viewerRateLimitMap = new Map<string, { count: number; resetAt: number }>()
+export function checkViewerRateLimit(viewerKey: string): boolean {
+  const now = Date.now()
+  const record = viewerRateLimitMap.get(viewerKey)
+  if (!record || now > record.resetAt) {
+    viewerRateLimitMap.set(viewerKey, { count: 1, resetAt: now + 60_000 })
+    return true
+  }
+  record.count++
+  if (record.count > 30) {
+    return false
+  }
+  return true
+}
+
+async function incrementWorkViewAtomic(admin: any, workId: string) {
+  // 1. Try atomic Postgres RPC
+  try {
+    const { error: rpcErr } = await admin.rpc('increment_work_view', { work_id: workId })
+    if (!rpcErr) return
+  } catch {}
+
+  // 2. Direct PG query fallback if available
+  if (process.env.DATABASE_URL) {
+    try {
+      const { Client } = await import('pg')
+      const client = new Client({ connectionString: process.env.DATABASE_URL })
+      await client.connect()
+      try {
+        await client.query('UPDATE works SET view_count = COALESCE(view_count, 0) + 1 WHERE id = $1', [workId])
+        return
+      } finally {
+        await client.end()
+      }
+    } catch {}
+  }
+
+  // 3. REST update fallback
+  try {
+    const { data: currentWork } = await admin.from('works').select('view_count').eq('id', workId).single()
+    const newWorkViews = (currentWork?.view_count || 0) + 1
+    await admin.from('works').update({ view_count: newWorkViews }).eq('id', workId)
+  } catch {}
+}
+
+async function incrementChapterViewAtomic(admin: any, chapterId: string) {
+  // 1. Try atomic Postgres RPC
+  try {
+    const { error: rpcErr } = await admin.rpc('increment_chapter_view', { chapter_id: chapterId })
+    if (!rpcErr) return
+  } catch {}
+
+  // 2. Direct PG query fallback if available
+  if (process.env.DATABASE_URL) {
+    try {
+      const { Client } = await import('pg')
+      const client = new Client({ connectionString: process.env.DATABASE_URL })
+      await client.connect()
+      try {
+        await client.query('UPDATE chapters SET view_count = COALESCE(view_count, 0) + 1 WHERE id = $1', [chapterId])
+        return
+      } finally {
+        await client.end()
+      }
+    } catch {}
+  }
+
+  // 3. REST update fallback
+  try {
+    const { data: currentChapter } = await admin.from('chapters').select('view_count').eq('id', chapterId).single()
+    const newChViews = (currentChapter?.view_count || 0) + 1
+    await admin.from('chapters').update({ view_count: newChViews }).eq('id', chapterId)
+  } catch {}
+}
+
 /**
  * Server Function: Track view strictly with zero duplicates across 3 layers:
  * 1. Book View: Triggered once per viewer per work (increments works.view_count)
@@ -968,6 +1044,10 @@ export const trackStrictViewServerFn = createServerFn({ method: 'POST' })
     }
   })
   .handler(async ({ data: { viewerKey, workId, chapterId } }) => {
+    if (!checkViewerRateLimit(viewerKey)) {
+      return { success: false, rateLimited: true, isNewWorkView: false, isNewChapterView: false }
+    }
+
     const { createAdminClient } = await import('../lib/supabase/server')
     const admin = createAdminClient()
 
@@ -984,6 +1064,7 @@ export const trackStrictViewServerFn = createServerFn({ method: 'POST' })
     let isNewChapterView = false
 
     // 2. Strict Book-level View Deduplication
+    let shouldIncrementWork = false
     try {
       const { error: insertWorkErr } = await admin.from('unique_views').insert({
         viewer_key: viewerKey,
@@ -992,15 +1073,24 @@ export const trackStrictViewServerFn = createServerFn({ method: 'POST' })
         view_type: 'work',
       })
 
-      // If insert succeeds without duplicate key violation (23505), increment work view_count
       if (!insertWorkErr) {
-        isNewWorkView = true
-        const { data: currentWork } = await admin.from('works').select('view_count').eq('id', targetWorkUuid).single()
-        const newWorkViews = (currentWork?.view_count || 0) + 1
-        await admin.from('works').update({ view_count: newWorkViews }).eq('id', targetWorkUuid)
+        shouldIncrementWork = true
+      } else if (insertWorkErr.code === '23505') {
+        // Duplicate constraint caught safely - no increment
+        shouldIncrementWork = false
+      } else {
+        // Table unapplied or other operational error: fallback to counting the view
+        shouldIncrementWork = true
       }
     } catch (e: any) {
-      // Duplicate constraint caught safely - no increment
+      if (e?.code !== '23505') {
+        shouldIncrementWork = true
+      }
+    }
+
+    if (shouldIncrementWork) {
+      isNewWorkView = true
+      await incrementWorkViewAtomic(admin, targetWorkUuid)
     }
 
     // 3. Strict Chapter-level View Deduplication
@@ -1012,6 +1102,7 @@ export const trackStrictViewServerFn = createServerFn({ method: 'POST' })
         if (chRow?.id) targetChapterUuid = chRow.id
       }
 
+      let shouldIncrementChapter = false
       try {
         const { error: insertChErr } = await admin.from('unique_views').insert({
           viewer_key: viewerKey,
@@ -1021,13 +1112,23 @@ export const trackStrictViewServerFn = createServerFn({ method: 'POST' })
         })
 
         if (!insertChErr) {
-          isNewChapterView = true
-          const { data: currentChapter } = await admin.from('chapters').select('view_count').eq('id', targetChapterUuid).single()
-          const newChViews = (currentChapter?.view_count || 0) + 1
-          await admin.from('chapters').update({ view_count: newChViews }).eq('id', targetChapterUuid)
+          shouldIncrementChapter = true
+        } else if (insertChErr.code === '23505') {
+          // Duplicate chapter view caught safely - no increment
+          shouldIncrementChapter = false
+        } else {
+          // Table unapplied fallback
+          shouldIncrementChapter = true
         }
       } catch (e: any) {
-        // Duplicate chapter view caught safely - no increment
+        if (e?.code !== '23505') {
+          shouldIncrementChapter = true
+        }
+      }
+
+      if (shouldIncrementChapter) {
+        isNewChapterView = true
+        await incrementChapterViewAtomic(admin, targetChapterUuid)
       }
     }
 

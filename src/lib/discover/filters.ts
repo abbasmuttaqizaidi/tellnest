@@ -1,29 +1,8 @@
 import type { Work } from '../../data/mockData.ts'
 import { getWorkLatestActivityDate } from '../../data/mockData.ts'
+import { parseTotalReads } from '../utils.ts'
 
-/**
- * Parses numeric reads count from formatted strings (e.g. '1.2M', '215K', '500')
- * or raw numbers into a reliable integer count.
- */
-export function parseTotalReads(totalReads?: string | number | null): number {
-  if (typeof totalReads === 'number') {
-    return isNaN(totalReads) ? 0 : Math.round(totalReads)
-  }
-  if (!totalReads || typeof totalReads !== 'string') {
-    return 0
-  }
-  const cleaned = totalReads.replace(/,/g, '').trim().toUpperCase()
-  if (cleaned.endsWith('M')) {
-    const num = parseFloat(cleaned.slice(0, -1))
-    return isNaN(num) ? 0 : Math.round(num * 1_000_000)
-  }
-  if (cleaned.endsWith('K')) {
-    const num = parseFloat(cleaned.slice(0, -1))
-    return isNaN(num) ? 0 : Math.round(num * 1_000)
-  }
-  const parsed = parseFloat(cleaned)
-  return isNaN(parsed) ? 0 : Math.round(parsed)
-}
+export { parseTotalReads }
 
 /**
  * Calculates the current UTC week boundary (Monday 00:00:00.000 UTC to next Monday 00:00:00.000 UTC).

@@ -25,7 +25,7 @@ import {
   Star,
   Eye,
 } from 'lucide-react'
-import { formatViewCount } from '../../lib/utils'
+import { formatViewCount, parseTotalReads } from '../../lib/utils'
 import {
   getUserRecommendationSignalsServerFn,
   type UserRecommendationSignals,
@@ -389,7 +389,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
 
   // Trending & community ranked serials
   const trendingSerials = useMemo(() => {
-    let list = works.filter((w) => w.trending || w.featured || w.totalReads > 50000)
+    let list = works.filter((w) => w.trending || w.featured || parseTotalReads(w.totalReads) > 50000)
     if (activeLeaderboardGenre !== 'all') {
       list = list.filter((w) => w.genre?.toLowerCase().includes(activeLeaderboardGenre.toLowerCase()))
     }
@@ -919,7 +919,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
                       </span>
                       <span className="flex items-center gap-1">
                         <Bookmark className="h-3 w-3 text-red-500" />
-                        {Math.round(work.totalReads * 0.08).toLocaleString()} Saves
+                        {Math.round(parseTotalReads(work.totalReads) * 0.08).toLocaleString()} Saves
                       </span>
                       <span className="flex items-center gap-1 font-semibold text-[var(--ink-primary)]">
                         <Star className="h-3 w-3 fill-amber-500 text-amber-500" />

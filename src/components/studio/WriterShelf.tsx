@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router'
 import type { WriterWorkSummary, Work } from '../../data/mockData'
 import { BookVolumeCard } from './BookVolumeCard'
 import { AnimatedTabs, AnimatedSearch, DropdownSelect, Button, type TabOption, type SelectOption } from '../../design-system'
+import { parseTotalReads } from '../../lib/utils'
 
 interface WriterShelfProps {
   works: WriterWorkSummary[]
@@ -62,9 +63,7 @@ export const WriterShelf: React.FC<WriterShelfProps> = ({
 
     return [...list].sort((a, b) => {
       if (sortBy === 'reads') {
-        const aVal = parseInt(a.totalReads.replace(/[^0-9]/g, '')) || 0
-        const bVal = parseInt(b.totalReads.replace(/[^0-9]/g, '')) || 0
-        return bVal - aVal
+        return parseTotalReads(b.totalReads) - parseTotalReads(a.totalReads)
       }
       if (sortBy === 'saves') return b.totalSaves - a.totalSaves
       if (sortBy === 'chapters') return b.chaptersCount - a.chaptersCount

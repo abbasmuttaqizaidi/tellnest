@@ -20,7 +20,7 @@ import {
 } from 'lucide-react'
 import { generateMeta } from '../lib/seo'
 import { getPublicAuthorServerFn } from '../server/works'
-import { formatViewCount } from '../lib/utils'
+import { formatViewCount, parseTotalReads } from '../lib/utils'
 
 export const Route = createFileRoute('/author/$authorId')({
   staleTime: 0,
@@ -153,7 +153,7 @@ function AuthorProfilePage() {
     return [...works].sort((a, b) => {
       if (sortBy === 'updated') return a.updatedAt.localeCompare(b.updatedAt)
       if (sortBy === 'title') return a.title.localeCompare(b.title)
-      return parseInt(b.totalReads) - parseInt(a.totalReads)
+      return parseTotalReads(b.totalReads) - parseTotalReads(a.totalReads)
     })
   }, [authorWorks, activeTab, sortBy, searchQuery])
 

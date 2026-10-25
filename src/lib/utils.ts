@@ -1,6 +1,30 @@
 export { cn } from "cn"
 
 /**
+ * Parses numeric reads count from formatted strings (e.g. '1.2M', '215K', '500')
+ * or raw numbers into a reliable integer count.
+ */
+export function parseTotalReads(totalReads?: string | number | null): number {
+  if (typeof totalReads === 'number') {
+    return isNaN(totalReads) ? 0 : Math.round(totalReads)
+  }
+  if (!totalReads || typeof totalReads !== 'string') {
+    return 0
+  }
+  const cleaned = totalReads.replace(/,/g, '').trim().toUpperCase()
+  if (cleaned.endsWith('M')) {
+    const num = parseFloat(cleaned.slice(0, -1))
+    return isNaN(num) ? 0 : Math.round(num * 1_000_000)
+  }
+  if (cleaned.endsWith('K')) {
+    const num = parseFloat(cleaned.slice(0, -1))
+    return isNaN(num) ? 0 : Math.round(num * 1_000)
+  }
+  const parsed = parseFloat(cleaned)
+  return isNaN(parsed) ? 0 : Math.round(parsed)
+}
+
+/**
  * Formats a view/read count into standard readable format.
  * - Under 1,000: exact number (e.g., "850")
  * - 1,000 to 999,999: compact notation with 1 decimal if needed (e.g., "1.2K", "45K", "125.4K")
@@ -11,15 +35,15 @@ export function formatViewCount(val: number | string | undefined | null, compact
   if (val === undefined || val === null || val === '') return '0'
 
   // If already formatted like '124K' or '1.2M' and we just want compact, preserve it
-  if (typeof val === 'string' && /[KMB]$/i.test(val.trim())) {
-    return compact ? val.trim().toUpperCase() : val.trim()
+  if (compact && typeof val === 'string' && /[KMB]$/i.test(val.trim())) {
+    return val.trim().toUpperCase()
   }
 
-  const num = typeof val === 'number' ? val : parseFloat(String(val).replace(/,/g, ''))
+  const num = typeof val === 'number' ? val : parseTotalReads(val)
   if (isNaN(num) || num <= 0) return '0'
 
   if (!compact) {
-    return Math.round(num).toLocaleString()
+    return Math.round(num).toLocaleString('en-US')
   }
 
   if (num < 1000) {

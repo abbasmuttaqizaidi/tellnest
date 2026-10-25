@@ -1,5 +1,6 @@
 import type { Work } from '../../data/mockData.ts'
 import { FOR_YOU_CONFIG, type ForYouConfig } from './config.ts'
+import { parseTotalReads } from '../utils.ts'
 
 export interface ReadingSessionRecord {
   workId: string
@@ -259,7 +260,7 @@ export function calculateForYouRecommendations(params: {
     }
 
     // Signal E: Organic Engagement Baseline (Reads/views quality tie-breaker)
-    const totalReadsNum = parseInt(String(work.totalReads || '0').replace(/[^0-9]/g, ''), 10) || 0
+    const totalReadsNum = parseTotalReads(work.totalReads)
     if (totalReadsNum > 5000 || work.featured || work.trending) {
       score += config.WEIGHTS.ORGANIC_ENGAGEMENT_BONUS
     }
@@ -279,8 +280,8 @@ export function calculateForYouRecommendations(params: {
   // 5. Sort descending by score, tie-break by total reads & recency, deduplicate, and limit to max 10
   const sorted = scoredItems.sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score
-    const readsA = parseInt(String(a.work.totalReads || '0').replace(/[^0-9]/g, ''), 10) || 0
-    const readsB = parseInt(String(b.work.totalReads || '0').replace(/[^0-9]/g, ''), 10) || 0
+    const readsA = parseTotalReads(a.work.totalReads)
+    const readsB = parseTotalReads(b.work.totalReads)
     return readsB - readsA
   })
 
