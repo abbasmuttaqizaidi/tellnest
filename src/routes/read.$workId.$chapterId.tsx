@@ -89,11 +89,11 @@ export const Route = createFileRoute('/read/$workId/$chapterId')({
     const excerpt =
       (chapter.content || chapter.subtitle || work.synopsis).slice(0, 150).replace(/\n/g, ' ').trim() + '...'
     const isPublicWork = (work.visibility || '').toLowerCase() === 'public'
-    const isChapterEligible =
-      isPublicWork &&
-      (work.is_indexable === true || (work as any).isIndexable === true) &&
-      (chapter.status || '').toLowerCase() === 'published' &&
-      (chapter.is_indexable === true || (chapter as any).isIndexable === true)
+    const isWorkPub = (work.publication_status || (work as any).publicationStatus || 'published').toLowerCase() === 'published'
+    const isWorkIdx = (work.is_indexable !== undefined ? work.is_indexable : (work as any).isIndexable) === true
+    const isChapterPub = (chapter.status || '').toLowerCase() === 'published'
+    const isChapterIdx = (chapter.is_indexable !== undefined ? chapter.is_indexable : (chapter as any).isIndexable) === true
+    const isChapterEligible = isPublicWork && isWorkPub && isWorkIdx && isChapterPub && isChapterIdx
 
     return generateMeta({
       title,

@@ -71,7 +71,9 @@ export const Route = createFileRoute('/works/$workId')({
     const authorName = work.author?.name || 'Hatchpen Author'
     const authorSlug = work.author?.handle || work.author?.id || 'author-unknown'
     const isPublic = (work.visibility || '').toLowerCase() === 'public'
-    const isIndexable = isPublic && (work.is_indexable === true || (work as any).isIndexable === true)
+    const isPublished = (work.publication_status || (work as any).publicationStatus || 'published').toLowerCase() === 'published'
+    const rawIndexable = work.is_indexable !== undefined ? work.is_indexable : (work as any).isIndexable
+    const isIndexable = isPublic && isPublished && rawIndexable === true
 
     return generateMeta({
       title: `${work.title} by ${authorName}`,

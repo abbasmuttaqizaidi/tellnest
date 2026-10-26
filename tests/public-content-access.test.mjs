@@ -48,6 +48,7 @@ const publishedWorkFixture = {
   status: 'ongoing',
   visibility: 'public',
   publication_status: 'published',
+  is_indexable: true,
   word_count: 12500,
   chapter_count: 2,
   reading_time_minutes: 45,
@@ -99,6 +100,7 @@ const publishedWorkFixture = {
       word_count: 2400,
       reading_time_minutes: 9,
       status: 'published',
+      is_indexable: true,
       banner_image_path: null,
       view_count: 950,
       published_at: '2026-09-02T08:00:00Z',
@@ -115,6 +117,7 @@ const publishedWorkFixture = {
       word_count: 3100,
       reading_time_minutes: 12,
       status: 'published',
+      is_indexable: true,
       banner_image_path: null,
       view_count: 470,
       published_at: '2026-09-15T08:00:00Z',
@@ -608,5 +611,184 @@ test('18. Direct Reader Resolution: Special first and default tokens resolve to 
   assert.equal(resolveChapter('first')?.id, 'ch-pub-1')
   assert.equal(resolveChapter('default')?.id, 'ch-pub-1')
   assert.equal(resolveChapter('invalid-random-uuid'), undefined)
+})
+
+// ---------------------------------------------------------------------------
+// Regression Suite: Robots Meta Directives for Stories & Chapters
+// ---------------------------------------------------------------------------
+
+function computeWorkRobotsDirective(work) {
+  if (!work) {
+    const meta = generateMeta({ title: 'Manuscript Not Found', noindex: true })
+    return meta.meta.find((m) => m.name === 'robots')?.content
+  }
+  const isPublic = (work.visibility || '').toLowerCase() === 'public'
+  const isPublished = (work.publication_status || work.publicationStatus || 'published').toLowerCase() === 'published'
+  const rawIndexable = work.is_indexable !== undefined ? work.is_indexable : work.isIndexable
+  const isIndexable = isPublic && isPublished && rawIndexable === true
+  const meta = generateMeta({
+    title: `${work.title}`,
+    canonicalUrl: `https://hatchpen.com/works/${work.slug || work.id}`,
+    noindex: !isIndexable,
+  })
+  return meta.meta.find((m) => m.name === 'robots')?.content
+}
+
+function computeChapterRobotsDirective(work, chapter) {
+  if (!work || !chapter) {
+    const meta = generateMeta({ title: 'Chapter Not Found', noindex: true })
+    return meta.meta.find((m) => m.name === 'robots')?.content
+  }
+  const isPublicWork = (work.visibility || '').toLowerCase() === 'public'
+  const isWorkPub = (work.publication_status || work.publicationStatus || 'published').toLowerCase() === 'published'
+  const isWorkIdx = (work.is_indexable !== undefined ? work.is_indexable : work.isIndexable) === true
+  const isChapterPub = (chapter.status || '').toLowerCase() === 'published'
+  const isChapterIdx = (chapter.is_indexable !== undefined ? chapter.is_indexable : chapter.isIndexable) === true
+  const isChapterEligible = isPublicWork && isWorkPub && isWorkIdx && isChapterPub && isChapterIdx
+
+  const meta = generateMeta({
+    title: `${chapter.title} — ${work.title}`,
+    canonicalUrl: `https://hatchpen.com/read/${work.slug || work.id}/${chapter.id}`,
+    noindex: !isChapterEligible,
+  })
+  return meta.meta.find((m) => m.name === 'robots')?.content
+}
+
+test('19. Story Robots Directive: Public published story with is_indexable: true emits index, follow', async () => {
+  const mockClient = createMockSupabase(publishedWorkFixture)
+  const work = await executeGetPublicWork('the-cartographer-of-kyoto', {
+    supabaseClient: mockClient,
+  })
+  assert.ok(work)
+  assert.equal(work.visibility, 'Public')
+  assert.equal(work.is_indexable, true)
+  assert.equal(work.isIndexable, true)
+  assert.equal(work.publication_status, 'published')
+
+  const robots = computeWorkRobotsDirective(work)
+  assert.equal(
+    robots,
+    'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
+    'Public published story must emit index, follow'
+  )
+})
+
+test('20. Story Robots Directive: Unlisted story strictly emits noindex, nofollow', async () => {
+  const unlistedRow = {
+    ...publishedWorkFixture,
+    visibility: 'unlisted',
+    publication_status: 'published',
+    is_indexable: true,
+  }
+  const mockClient = createMockSupabase(unlistedRow)
+  const work = await executeGetPublicWork('the-cartographer-of-kyoto', {
+    supabaseClient: mockClient,
+  })
+  assert.ok(work)
+  assert.equal(work.visibility, 'Unlisted')
+
+  const robots = computeWorkRobotsDirective(work)
+  assert.equal(robots, 'noindex, nofollow', 'Unlisted story must emit noindex, nofollow')
+})
+
+test('21. Story Robots Directive: Draft story is blocked and emits noindex, nofollow', async () => {
+  const draftRow = {
+    ...publishedWorkFixture,
+    visibility: 'draft',
+    publication_status: 'draft',
+  }
+  const mockClient = {
+    from: () => ({
+      select: () => ({
+        in: () => ({
+          eq: () => ({
+            or: () => ({ maybeSingle: async () => ({ data: draftRow, error: null }) }),
+            eq: () => ({ maybeSingle: async () => ({ data: draftRow, error: null }) }),
+          }),
+        }),
+      }),
+    }),
+  }
+  const work = await executeGetPublicWork('the-cartographer-of-kyoto', {
+    supabaseClient: mockClient,
+  })
+  assert.equal(work, null, 'Draft work returns null to public loader')
+
+  const robots = computeWorkRobotsDirective(work)
+  assert.equal(robots, 'noindex, nofollow', 'Draft story route must emit noindex, nofollow')
+})
+
+test('22. Story Robots Directive: Private story is blocked and emits noindex, nofollow', async () => {
+  const privateRow = {
+    ...publishedWorkFixture,
+    visibility: 'private',
+    publication_status: 'published',
+  }
+  const mockClient = {
+    from: () => ({
+      select: () => ({
+        in: () => ({
+          eq: () => ({
+            or: () => ({ maybeSingle: async () => ({ data: privateRow, error: null }) }),
+            eq: () => ({ maybeSingle: async () => ({ data: privateRow, error: null }) }),
+          }),
+        }),
+      }),
+    }),
+  }
+  const work = await executeGetPublicWork('the-cartographer-of-kyoto', {
+    supabaseClient: mockClient,
+  })
+  assert.equal(work, null)
+
+  const robots = computeWorkRobotsDirective(work)
+  assert.equal(robots, 'noindex, nofollow', 'Private story route must emit noindex, nofollow')
+})
+
+test('23. Story Robots Directive: Public work explicitly marked is_indexable: false emits noindex, nofollow', async () => {
+  const nonIndexableRow = {
+    ...publishedWorkFixture,
+    visibility: 'public',
+    publication_status: 'published',
+    is_indexable: false,
+  }
+  const mockClient = createMockSupabase(nonIndexableRow)
+  const work = await executeGetPublicWork('the-cartographer-of-kyoto', {
+    supabaseClient: mockClient,
+  })
+  assert.ok(work)
+  assert.equal(work.is_indexable, false)
+
+  const robots = computeWorkRobotsDirective(work)
+  assert.equal(robots, 'noindex, nofollow', 'Explicitly non-indexable work must emit noindex, nofollow')
+})
+
+test('24. Chapter Robots Directive: Indexable chapter under public work emits index, follow; non-indexable emits noindex', async () => {
+  const mockClient = createMockSupabase(publishedWorkFixture)
+  const work = await executeGetPublicWork('the-cartographer-of-kyoto', {
+    supabaseClient: mockClient,
+  })
+  assert.ok(work)
+
+  // Chapter 1 is published and is_indexable: true
+  const ch1 = work.chapters.find((c) => c.number === 1)
+  assert.ok(ch1)
+  assert.equal(ch1.is_indexable, true)
+  const robotsCh1 = computeChapterRobotsDirective(work, ch1)
+  assert.equal(
+    robotsCh1,
+    'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
+    'Indexable published chapter must emit index, follow'
+  )
+
+  // Chapter with is_indexable: false (like The Night I Forgot You chapters in DB)
+  const chNonIndexable = { ...ch1, is_indexable: false, isIndexable: false }
+  const robotsNonIdx = computeChapterRobotsDirective(work, chNonIndexable)
+  assert.equal(robotsNonIdx, 'noindex, nofollow', 'Chapter with is_indexable: false must emit noindex, nofollow')
+
+  // Chapter of unlisted parent work
+  const unlistedWork = { ...work, visibility: 'Unlisted' }
+  const robotsUnlistedCh = computeChapterRobotsDirective(unlistedWork, ch1)
+  assert.equal(robotsUnlistedCh, 'noindex, nofollow', 'Chapter of unlisted work must emit noindex, nofollow')
 })
 
