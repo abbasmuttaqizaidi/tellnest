@@ -25,8 +25,11 @@ import {
   ChevronRight,
   Type,
   GitCompare,
+  Image as ImageIcon,
+  X,
 } from 'lucide-react'
 import { ChapterDiffViewer } from './ChapterDiffViewer'
+import { CloudinaryImageUpload } from '../CloudinaryImageUpload'
 
 export interface StoryRichEditorProps {
   title: string
@@ -46,10 +49,13 @@ export interface StoryRichEditorProps {
   sidebarOpen?: boolean
   onToggleSidebar?: () => void
   className?: string
+  bannerImage?: string | null
+  onBannerChange?: (url: string | null) => void
   savedSnapshot?: {
     title: string
     subtitle: string
     content: string
+    bannerImage?: string | null
   }
 }
 
@@ -200,11 +206,14 @@ export function StoryRichEditor({
   sidebarOpen,
   onToggleSidebar,
   className = '',
+  bannerImage,
+  onBannerChange,
   savedSnapshot,
 }: StoryRichEditorProps) {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [viewMode, setViewMode] = useState<'write' | 'split' | 'preview'>('write')
   const [diffOpen, setDiffOpen] = useState(false)
+  const [isBannerModalOpen, setIsBannerModalOpen] = useState(false)
   const [fontFamily, setFontFamily] = useState<'serif' | 'sans' | 'mono'>('serif')
   const [fontSize, setFontSize] = useState<'sm' | 'base' | 'lg' | 'xl'>('lg')
   const [showTypographyMenu, setShowTypographyMenu] = useState(false)
@@ -837,6 +846,47 @@ export function StoryRichEditor({
           {/* Live WYSIWYG Drafting Column */}
           {(viewMode === 'write' || viewMode === 'split') && (
             <div className={`w-full ${viewMode === 'split' ? '' : 'max-w-3xl'} space-y-6`}>
+              {/* Chapter Banner Area */}
+              <div className="relative group">
+                {bannerImage ? (
+                  <div className="relative w-full h-36 sm:h-48 md:h-56 rounded-xl overflow-hidden border border-[var(--border-subtle)] bg-[var(--bg-subtle)] shadow-xs">
+                    <img
+                      src={bannerImage}
+                      alt="Chapter Banner"
+                      className="w-full h-full object-cover object-center"
+                    />
+                    <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 opacity-90 group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        onClick={() => setIsBannerModalOpen(true)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-black/75 hover:bg-black text-white text-xs font-mono backdrop-blur-md border border-white/20 transition-all cursor-pointer shadow-xs"
+                        title="Change Chapter Banner"
+                      >
+                        <ImageIcon className="h-3.5 w-3.5" />
+                        <span>Change Banner</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onBannerChange?.(null)}
+                        className="p-1 rounded-md bg-black/75 hover:bg-rose-600 text-white text-xs backdrop-blur-md border border-white/20 transition-colors cursor-pointer shadow-xs"
+                        title="Remove Banner"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsBannerModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-canvas)] hover:bg-[var(--bg-subtle)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)] text-xs font-mono transition-all cursor-pointer shadow-2xs"
+                  >
+                    <ImageIcon className="h-3.5 w-3.5" />
+                    <span>Add Chapter Banner</span>
+                  </button>
+                )}
+              </div>
+
               {/* Chapter Header Elements */}
               <div className="space-y-3 pb-6 border-b border-[var(--border-subtle)]">
                 <input
@@ -885,6 +935,15 @@ export function StoryRichEditor({
 
               {/* Preview Chapter Header */}
               <div className="space-y-3 pb-6 border-b border-[var(--border-subtle)]">
+                {bannerImage && (
+                  <div className="w-full h-32 sm:h-44 rounded-xl overflow-hidden border border-[var(--border-subtle)] shadow-xs mb-3">
+                    <img
+                      src={bannerImage}
+                      alt="Chapter Banner Preview"
+                      className="w-full h-full object-cover object-center"
+                    />
+                  </div>
+                )}
                 <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-semibold text-[var(--ink-primary)] leading-tight">
                   {title || 'Untitled Chapter'}
                 </h1>
@@ -986,6 +1045,59 @@ export function StoryRichEditor({
           </span>
         </div>
       </footer>
+
+      {/* Chapter Banner Upload Modal */}
+      {isBannerModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-lg rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5 sm:p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
+              <div>
+                <h3 className="font-serif text-base sm:text-lg font-bold text-[var(--ink-primary)]">
+                  Chapter Banner Image
+                </h3>
+                <p className="text-xs text-[var(--ink-muted)] font-mono mt-0.5">
+                  Cinematic wide banner displayed at the top of the chapter for readers.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsBannerModalOpen(false)}
+                className="p-1.5 rounded-lg text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <CloudinaryImageUpload
+              label="Select or Upload Chapter Banner"
+              folder="banners"
+              currentImageUrl={bannerImage}
+              onImageUploaded={(url) => {
+                onBannerChange?.(url)
+                setIsBannerModalOpen(false)
+              }}
+              onImageRemoved={() => {
+                onBannerChange?.(null)
+                setIsBannerModalOpen(false)
+              }}
+              recommendedDimensions="1200 × 450 px"
+              aspectRatioHint="Wide Landscape (~21:9)"
+              allowPlatformPicker={true}
+            />
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setIsBannerModalOpen(false)}
+                className="px-4 py-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] hover:bg-[var(--bg-subtle)] text-xs font-mono font-medium text-[var(--ink-primary)] cursor-pointer transition-colors shadow-2xs"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

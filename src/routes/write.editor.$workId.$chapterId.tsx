@@ -126,6 +126,9 @@ function ChapterEditorPage() {
   const [title, setTitle] = useState(currentChapter?.title || 'Untitled Chapter')
   const [subtitle, setSubtitle] = useState(currentChapter?.subtitle || '')
   const [content, setContent] = useState(currentChapter?.content || '')
+  const [bannerImage, setBannerImage] = useState<string | null>(
+    currentChapter?.bannerImage || currentChapter?.banner_image_path || null
+  )
   const [actId, setActId] = useState<string>(currentChapter?.actId || '')
   const [autosaveStatus, setAutosaveStatus] = useState<'saved' | 'saving' | 'dirty'>('saved')
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -200,10 +203,12 @@ function ChapterEditorPage() {
     title: string
     subtitle: string
     content: string
+    bannerImage?: string | null
   }>({
     title: currentChapter?.title || '',
     subtitle: currentChapter?.subtitle || '',
     content: currentChapter?.content || '',
+    bannerImage: currentChapter?.bannerImage || currentChapter?.banner_image_path || null,
   })
 
   // Track previous chapter ID
@@ -216,9 +221,11 @@ function ChapterEditorPage() {
       const initialTitle = currentChapter.title || 'Untitled Chapter'
       const initialSubtitle = currentChapter.subtitle || ''
       const initialContent = currentChapter.content || ''
+      const initialBanner = currentChapter.bannerImage || currentChapter.banner_image_path || null
       setTitle(initialTitle)
       setSubtitle(initialSubtitle)
       setContent(initialContent)
+      setBannerImage(initialBanner)
       setActId(currentChapter.actId || '')
       setLoadedUpdatedAt(currentChapter.updated_at || currentChapter.updatedAt || new Date().toISOString())
       setConflictModalData(null)
@@ -227,6 +234,7 @@ function ChapterEditorPage() {
         title: initialTitle,
         subtitle: initialSubtitle,
         content: initialContent,
+        bannerImage: initialBanner,
       })
     }
   }, [currentChapter?.id])
@@ -245,6 +253,7 @@ function ChapterEditorPage() {
     title,
     subtitle,
     content,
+    bannerImage,
     actId,
     status: currentChapter?.status || 'draft',
   })
@@ -254,10 +263,11 @@ function ChapterEditorPage() {
       title,
       subtitle,
       content,
+      bannerImage,
       actId,
       status: currentChapter?.status || 'draft',
     }
-  }, [title, subtitle, content, actId, currentChapter?.status])
+  }, [title, subtitle, content, bannerImage, actId, currentChapter?.status])
 
   const handleExit = () => {
     if (autosaveStatus === 'dirty') {
@@ -295,12 +305,29 @@ function ChapterEditorPage() {
   }
 
   // Check if current text differs from saved baseline (ignoring benign trailing newlines)
-  const checkIfDirty = (newT: string, newSub: string, newC: string) => {
+  const checkIfDirty = (newT: string, newSub: string, newC: string, newBanner?: string | null) => {
     const isTitleChanged = (savedSnapshot.title || '').trim() !== (newT || '').trim()
     const isSubChanged = (savedSnapshot.subtitle || '').trim() !== (newSub || '').trim()
     const normSaved = (savedSnapshot.content || '').replace(/\r\n/g, '\n').replace(/\n+$/, '')
     const normCurrent = (newC || '').replace(/\r\n/g, '\n').replace(/\n+$/, '')
-    return isTitleChanged || isSubChanged || normSaved !== normCurrent
+    const checkBanner = newBanner !== undefined ? newBanner : bannerImage
+    const isBannerChanged = (savedSnapshot.bannerImage || null) !== (checkBanner || null)
+    return isTitleChanged || isSubChanged || normSaved !== normCurrent || isBannerChanged
+  }
+
+  const handleBannerChange = (newBannerUrl: string | null) => {
+    setBannerImage(newBannerUrl)
+    setAutosaveStatus(checkIfDirty(title, subtitle, content, newBannerUrl) ? 'dirty' : 'saved')
+    if (work && currentChapter) {
+      updateChapterContent(work.id, currentChapter.id, title, content, currentChapter.status, newBannerUrl)
+      if (Array.isArray(work.chapters)) {
+        const found = work.chapters.find((c: any) => c.id === currentChapter.id)
+        if (found) {
+          found.bannerImage = newBannerUrl || undefined
+          found.banner_image_path = newBannerUrl || undefined
+        }
+      }
+    }
   }
 
   // Pure state updates on typing - strictly NO background autosave timers and NO browser storage
@@ -310,7 +337,7 @@ function ChapterEditorPage() {
 
     // Optimistic update for sidebar preview
     if (work && currentChapter) {
-      updateChapterContent(work.id, currentChapter.id, newTitle, content, currentChapter.status)
+      updateChapterContent(work.id, currentChapter.id, newTitle, content, currentChapter.status, bannerImage)
       if (Array.isArray(work.chapters)) {
         const found = work.chapters.find((c: any) => c.id === currentChapter.id)
         if (found) found.title = newTitle
@@ -333,7 +360,14 @@ function ChapterEditorPage() {
     if (!work || !currentChapter) return
 
     setAutosaveStatus('saving')
-    updateChapterContent(work.id, currentChapter.id, title, content, currentChapter.status)
+    updateChapterContent(work.id, currentChapter.id, title, content, currentChapter.status, bannerImage)
+    if (Array.isArray(work.chapters)) {
+      const found = work.chapters.find((c: any) => c.id === currentChapter.id)
+      if (found) {
+        found.bannerImage = bannerImage || undefined
+        found.banner_image_path = bannerImage || undefined
+      }
+    }
 
     try {
       const res = await saveWriterChapterServerFn({
@@ -345,6 +379,7 @@ function ChapterEditorPage() {
           content: String(content || ''),
           status: (currentChapter.status || 'draft') as 'draft' | 'published',
           actId: actId ? String(actId) : null,
+          bannerImage: bannerImage ? String(bannerImage).trim() : null,
           expectedUpdatedAt: loadedUpdatedAt ? String(loadedUpdatedAt) : new Date().toISOString(),
           force: Boolean(force),
         })),
@@ -370,6 +405,7 @@ function ChapterEditorPage() {
         title,
         subtitle,
         content,
+        bannerImage,
       })
       showToast('Chapter saved to database')
     } catch (e: any) {
@@ -384,6 +420,7 @@ function ChapterEditorPage() {
           title,
           subtitle,
           content,
+          bannerImage,
         })
         showToast('Chapter saved to database')
         return
@@ -431,13 +468,15 @@ function ChapterEditorPage() {
       const curSubtitle = latestStateRef.current.subtitle
       latestStateRef.current.status = 'published'
 
-      updateChapterContent(work.id, currentChapter.id, curTitle, curContent, 'published')
+      updateChapterContent(work.id, currentChapter.id, curTitle, curContent, 'published', bannerImage)
       if (Array.isArray(work.chapters)) {
         const found = work.chapters.find((c: any) => c.id === currentChapter.id)
         if (found) {
           found.status = 'published'
           found.title = curTitle
           found.subtitle = curSubtitle
+          found.bannerImage = bannerImage || undefined
+          found.banner_image_path = bannerImage || undefined
         }
       }
 
@@ -451,6 +490,7 @@ function ChapterEditorPage() {
             content: String(curContent || ''),
             status: 'published' as const,
             actId: actId ? String(actId) : null,
+            bannerImage: bannerImage ? String(bannerImage).trim() : null,
             expectedUpdatedAt: loadedUpdatedAt ? String(loadedUpdatedAt) : new Date().toISOString(),
             force: true,
           })),
@@ -685,6 +725,8 @@ function ChapterEditorPage() {
           onExit={handleExit}
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen(true)}
+          bannerImage={bannerImage}
+          onBannerChange={handleBannerChange}
           savedSnapshot={savedSnapshot}
         />
       </div>

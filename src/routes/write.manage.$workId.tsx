@@ -28,6 +28,7 @@ import {
   FileText,
   Camera,
   Search,
+  Image as ImageIcon,
   X
 } from 'lucide-react'
 import { ProtectedRoute } from '../components/ProtectedRoute'
@@ -1120,6 +1121,15 @@ function WorkManagementPage() {
                                 <span>{Number(ch.wordCount ?? (ch as any).word_count ?? 0).toLocaleString()} words</span>
                                 <span>•</span>
                                 <span>{ch.readTimeMinutes ?? (ch as any).reading_time_minutes ?? 1} min</span>
+                                {(ch.bannerImage || (ch as any).banner_image_path) && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="text-indigo-600 dark:text-indigo-400 font-semibold inline-flex items-center gap-0.5">
+                                      <ImageIcon className="h-3 w-3" />
+                                      <span>Banner</span>
+                                    </span>
+                                  </>
+                                )}
                                 {ch.publishedAt && <span>• {ch.publishedAt}</span>}
                               </div>
                             </div>
@@ -1242,6 +1252,15 @@ function WorkManagementPage() {
                               <span>{Number(ch.wordCount ?? (ch as any).word_count ?? 0).toLocaleString()} words</span>
                               <span>•</span>
                               <span>{ch.readTimeMinutes ?? (ch as any).reading_time_minutes ?? 1} min</span>
+                              {(ch.bannerImage || (ch as any).banner_image_path) && (
+                                <>
+                                  <span>•</span>
+                                  <span className="text-indigo-600 dark:text-indigo-400 font-semibold inline-flex items-center gap-0.5">
+                                    <ImageIcon className="h-3 w-3" />
+                                    <span>Banner</span>
+                                  </span>
+                                </>
+                              )}
                               {ch.publishedAt && <span>• {ch.publishedAt}</span>}
                             </div>
                           </div>
