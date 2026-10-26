@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { Heart, Reply, Flag, Trash2, Send, CornerDownRight, MessageSquare, Sparkles, AlertCircle } from 'lucide-react'
+import { Heart, Reply, Flag, Trash2, Send, CornerDownRight, MessageSquare, Sparkles, AlertCircle, Lock } from 'lucide-react'
 import { useUser, useClerk } from '@clerk/react'
 import { useApp } from '../context/AppContext'
 import { UnisexAvatar } from './UnisexAvatar'
@@ -355,10 +355,15 @@ export default function CommentsSection({
 
   // Report comment
   const handleReportComment = async (commentId: string) => {
+    if (!user) {
+      showToast('Sign in to report a reflection')
+      openSignIn?.()
+      return
+    }
     try {
       await reportChapterCommentServerFn({
         data: {
-          clerkUserId: user?.id || null,
+          clerkUserId: user.id,
           commentId,
         },
       })
@@ -426,16 +431,16 @@ export default function CommentsSection({
           </div>
         </form>
       ) : (
-        <div className="mb-10 rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-subtle)]/50 p-6 text-center space-y-3">
+        <div className="mb-10 rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-subtle)]/40 p-6 text-center space-y-3">
           <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--ink-muted)]">
-            <Sparkles className="h-4 w-4" />
+            <Lock className="h-4 w-4" />
           </div>
           <div className="space-y-1">
             <h4 className="font-serif text-sm font-semibold text-[var(--ink-primary)]">
-              Join the Conversation
+              Members-Only Discussion
             </h4>
-            <p className="text-xs text-[var(--ink-muted)] max-w-sm mx-auto">
-              Sign in with your pen name to leave reflections, annotate nuances, and reply to fellow readers.
+            <p className="text-xs text-[var(--ink-muted)] max-w-sm mx-auto leading-relaxed">
+              Public readers can freely browse reflections. To join the literary discourse, publish notes, reply, or heart reflections, please sign in.
             </p>
           </div>
           <button
@@ -557,7 +562,14 @@ export default function CommentsSection({
 
                   {/* Reply Button */}
                   <button
-                    onClick={() => setReplyingToId(replyingToId === comment.id ? null : comment.id)}
+                    onClick={() => {
+                      if (!user) {
+                        showToast('Sign in to reply to reflections')
+                        openSignIn?.()
+                        return
+                      }
+                      setReplyingToId(replyingToId === comment.id ? null : comment.id)
+                    }}
                     className="inline-flex items-center gap-1 text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors cursor-pointer"
                   >
                     <Reply className="h-3.5 w-3.5" />
