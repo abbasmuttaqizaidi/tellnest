@@ -14,7 +14,9 @@ import { Route as DesignSystemRouteImport } from './routes/design-system'
 import { Route as DiscoverRouteImport } from './routes/discover'
 import { Route as FollowingRouteImport } from './routes/following'
 import { Route as LibraryRouteImport } from './routes/library'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as NotificationsRouteImport } from './routes/notifications'
+import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SecretAdminpanelRouteImport } from './routes/secret-adminpanel'
@@ -57,9 +59,19 @@ const LibraryRoute = LibraryRouteImport.update({
   path: '/library',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const NotificationsRoute = NotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PricingRoute = PricingRouteImport.update({
+  id: '/pricing',
+  path: '/pricing',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProfileRoute = ProfileRouteImport.update({
@@ -150,7 +162,9 @@ export interface FileRoutesByFullPath {
   '/discover': typeof DiscoverRoute
   '/following': typeof FollowingRoute
   '/library': typeof LibraryRoute
+  '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
+  '/pricing': typeof PricingRoute
   '/profile': typeof ProfileRoute
   '/search': typeof SearchRoute
   '/secret-adminpanel': typeof SecretAdminpanelRoute
@@ -174,7 +188,9 @@ export interface FileRoutesByTo {
   '/discover': typeof DiscoverRoute
   '/following': typeof FollowingRoute
   '/library': typeof LibraryRoute
+  '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
+  '/pricing': typeof PricingRoute
   '/profile': typeof ProfileRoute
   '/search': typeof SearchRoute
   '/secret-adminpanel': typeof SecretAdminpanelRoute
@@ -199,7 +215,9 @@ export interface FileRoutesById {
   '/discover': typeof DiscoverRoute
   '/following': typeof FollowingRoute
   '/library': typeof LibraryRoute
+  '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
+  '/pricing': typeof PricingRoute
   '/profile': typeof ProfileRoute
   '/search': typeof SearchRoute
   '/secret-adminpanel': typeof SecretAdminpanelRoute
@@ -225,7 +243,9 @@ export interface FileRouteTypes {
     | '/discover'
     | '/following'
     | '/library'
+    | '/login'
     | '/notifications'
+    | '/pricing'
     | '/profile'
     | '/search'
     | '/secret-adminpanel'
@@ -249,7 +269,9 @@ export interface FileRouteTypes {
     | '/discover'
     | '/following'
     | '/library'
+    | '/login'
     | '/notifications'
+    | '/pricing'
     | '/profile'
     | '/search'
     | '/secret-adminpanel'
@@ -273,7 +295,9 @@ export interface FileRouteTypes {
     | '/discover'
     | '/following'
     | '/library'
+    | '/login'
     | '/notifications'
+    | '/pricing'
     | '/profile'
     | '/search'
     | '/secret-adminpanel'
@@ -298,7 +322,9 @@ export interface RootRouteChildren {
   DiscoverRoute: typeof DiscoverRoute
   FollowingRoute: typeof FollowingRoute
   LibraryRoute: typeof LibraryRoute
+  LoginRoute: typeof LoginRoute
   NotificationsRoute: typeof NotificationsRoute
+  PricingRoute: typeof PricingRoute
   ProfileRoute: typeof ProfileRoute
   SearchRoute: typeof SearchRoute
   SecretAdminpanelRoute: typeof SecretAdminpanelRoute
@@ -354,11 +380,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LibraryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/notifications': {
       id: '/notifications'
       path: '/notifications'
       fullPath: '/notifications'
       preLoaderRoute: typeof NotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pricing': {
+      id: '/pricing'
+      path: '/pricing'
+      fullPath: '/pricing'
+      preLoaderRoute: typeof PricingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/profile': {
@@ -482,7 +522,9 @@ const rootRouteChildren: RootRouteChildren = {
   DiscoverRoute: DiscoverRoute,
   FollowingRoute: FollowingRoute,
   LibraryRoute: LibraryRoute,
+  LoginRoute: LoginRoute,
   NotificationsRoute: NotificationsRoute,
+  PricingRoute: PricingRoute,
   ProfileRoute: ProfileRoute,
   SearchRoute: SearchRoute,
   SecretAdminpanelRoute: SecretAdminpanelRoute,

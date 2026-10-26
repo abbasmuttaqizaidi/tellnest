@@ -111,26 +111,28 @@ export const Route = createFileRoute('/discover')({
   },
   head: () =>
     generateMeta({
-      title: 'Discover Serialized Fiction & Literature',
+      title: 'Discover Stories & Serialized Literature',
       description:
-        'Explore trending serialized novels, rising indie authors, editorial recommendations, and diverse genre catalogs on Hatchpen.',
+        'Discover and read original serialized stories, novels, essays, and indie literature on HatchPen. Browse trending chapters, curated genres, and rising authors.',
       canonicalUrl: 'https://hatchpen.com/discover',
       keywords: [
+        'hatchpen stories',
         'discover stories',
         'serialized novels',
+        'read stories online',
+        'indie literature',
         'fantasy fiction',
         'sci-fi novels',
-        'literary essays',
         'reading catalog',
       ],
       ogType: 'website',
       jsonLd: {
         '@context': 'https://schema.org',
         '@type': 'CollectionPage',
-        name: 'Discover Serialized Fiction & Literature — HatchPen',
+        name: 'Discover Stories & Serialized Literature — HatchPen',
         url: 'https://hatchpen.com/discover',
         description:
-          'Explore trending serialized novels, rising indie authors, editorial recommendations, and diverse genre catalogs on HatchPen.',
+          'Discover and read original serialized stories, novels, essays, and indie literature on HatchPen. Browse trending chapters, curated genres, and rising authors.',
       },
     }),
   component: DiscoverPage,
@@ -365,8 +367,8 @@ function DiscoverPage() {
       
       {/* ── UNIFIED ROUTE HEADER (2 Parts: Left Title+Subtitle, Right Center-Aligned + New Button) ── */}
       <RouteHeader
-        title="Discover"
-        subtitle="Explore curated stories and manuscripts"
+        title="Discover Stories"
+        subtitle="Explore curated serialized fiction, novels, and manuscripts on HatchPen"
       />
 
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-2 sm:pt-4 space-y-3 sm:space-y-5">
@@ -1081,6 +1083,56 @@ function DiscoverPage() {
           </>
         )
       })()}
+
+        {/* ── SEO CRAWLABLE TAXONOMY INTERNAL LINKS ── */}
+        <section aria-labelledby="browse-catalog-heading" className="pt-10 sm:pt-14 border-t border-[var(--border-subtle)] space-y-6">
+          <div className="space-y-1">
+            <h2 id="browse-catalog-heading" className="font-serif text-lg sm:text-xl font-bold text-[var(--ink-primary)]">
+              Browse HatchPen Stories by Category & Genre
+            </h2>
+            <p className="text-xs text-[var(--ink-muted)]">
+              Discover serialized fiction, novels, and literature organized by editorial format and literary tradition.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2.5">
+              <h3 className="font-mono text-[10px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
+                Categories
+              </h3>
+              <div className="flex flex-wrap gap-1.5">
+                {categories.map((c) => (
+                  <Link
+                    key={c.slug}
+                    to="/category/$slug"
+                    params={{ slug: c.slug }}
+                    className="px-2.5 py-1 rounded-md text-xs border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--ink-primary)] hover:border-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors no-underline"
+                  >
+                    {c.name}
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2.5">
+              <h3 className="font-mono text-[10px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
+                Popular Genres
+              </h3>
+              <div className="flex flex-wrap gap-1.5">
+                {genres.slice(0, 16).map((g) => (
+                  <Link
+                    key={g.slug}
+                    to="/genre/$slug"
+                    params={{ slug: g.slug }}
+                    className="px-2.5 py-1 rounded-md text-xs border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--ink-primary)] hover:border-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors no-underline"
+                  >
+                    {g.name}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
 
       </div>
     </div>

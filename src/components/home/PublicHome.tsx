@@ -291,7 +291,7 @@ export default function PublicHome() {
               {/* Category / Mission Eyebrow Tag */}
               <div className="inline-flex items-center gap-2 mb-4">
                 <span className="inline-block px-3 py-1 rounded-full bg-[#EAE4D8]/80 dark:bg-neutral-800 text-[#5A544C] dark:text-[#D4D4D8] text-[11px] font-semibold tracking-wider uppercase">
-                  A SERIALIZED FICTION RETREAT
+                  HatchPen — A Serialized Fiction Retreat
                 </span>
               </div>
 
@@ -305,7 +305,7 @@ export default function PublicHome() {
 
               {/* Supporting Copy */}
               <p className="text-[16px] sm:text-[17.5px] leading-[1.58] text-[#5A544C] dark:text-[#A1A1AA] max-w-[350px] mb-8 font-normal">
-                Discover fresh voices, unexpected worlds, and stories that stay with you.
+                Discover fresh voices, unexpected worlds, and original stories that stay with you on HatchPen.
               </p>
 
               {/* Action Buttons */}
@@ -683,7 +683,7 @@ export default function PublicHome() {
           </h2>
 
           <p className="text-base sm:text-lg text-[#5A544C] dark:text-[#A1A1AA] max-w-xl mx-auto mb-8 font-normal">
-            Whether reading in quiet coffee breaks or writing your debut serial, HatchPen is your literary home.
+            Whether reading in quiet coffee breaks or serializing your debut novel, HatchPen is your literary home. Read in any browser across desktop, tablet, and mobile.
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-4">

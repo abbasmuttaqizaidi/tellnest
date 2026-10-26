@@ -543,13 +543,12 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
             </div>
           ) : (
             <div className="flex items-center gap-2 sm:gap-3">
-              <button
-                type="button"
-                onClick={() => openAuthModal()}
-                className="hidden sm:inline-flex items-center justify-center rounded-full bg-white text-[#18181B] border border-neutral-200/80 px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-[13px] font-medium hover:bg-neutral-100 transition-all shadow-xs cursor-pointer"
+              <Link
+                to="/login"
+                className="hidden sm:inline-flex items-center justify-center rounded-full bg-white text-[#18181B] border border-neutral-200/80 px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-[13px] font-medium hover:bg-neutral-100 transition-all shadow-xs no-underline cursor-pointer"
               >
                 <span>Log in</span>
-              </button>
+              </Link>
               <button
                 type="button"
                 onClick={() => openAuthModal()}
@@ -738,16 +737,13 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
           {/* Auth Button */}
           <div className="pt-2.5 border-t border-[var(--border-subtle)] mt-auto">
             {!isSignedIn ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileDrawerOpen(false)
-                  openAuthModal()
-                }}
-                className="w-full text-left py-1.5 px-2.5 font-semibold text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] rounded-lg transition-colors cursor-pointer"
+              <Link
+                to="/login"
+                onClick={() => setMobileDrawerOpen(false)}
+                className="w-full block text-left py-1.5 px-2.5 font-semibold text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] rounded-lg transition-colors no-underline"
               >
                 Sign In
-              </button>
+              </Link>
             ) : (
               <button
                 type="button"

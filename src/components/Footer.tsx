@@ -79,6 +79,14 @@ export default function Footer() {
             <ul className="flex flex-wrap gap-x-3 gap-y-1 md:block md:space-y-1 list-none p-0 m-0">
               <li>
                 <Link
+                  to="/discover"
+                  className="hover:text-[var(--ink-primary)] transition-colors no-underline text-inherit text-[11px] sm:text-xs py-0.5 inline-block"
+                >
+                  Discover Stories
+                </Link>
+              </li>
+              <li>
+                <Link
                   to="/write"
                   className="hover:text-[var(--ink-primary)] transition-colors no-underline text-inherit text-[11px] sm:text-xs py-0.5 inline-block"
                 >
@@ -87,16 +95,24 @@ export default function Footer() {
               </li>
               <li>
                 <Link
-                  to="/discover"
+                  to="/pricing"
                   className="hover:text-[var(--ink-primary)] transition-colors no-underline text-inherit text-[11px] sm:text-xs py-0.5 inline-block"
                 >
-                  Archives
+                  Pricing & Access
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/login"
+                  className="hover:text-[var(--ink-primary)] transition-colors no-underline text-inherit text-[11px] sm:text-xs py-0.5 inline-block font-medium"
+                >
+                  Sign In
                 </Link>
               </li>
               <li>
                 <Link
                   to="/settings"
-                  className="hover:text-[var(--ink-primary)] transition-colors no-underline text-inherit text-[11px] sm:text-xs py-0.5 inline-block font-medium"
+                  className="hover:text-[var(--ink-primary)] transition-colors no-underline text-inherit text-[11px] sm:text-xs py-0.5 inline-block"
                 >
                   Settings
                 </Link>
@@ -119,7 +135,7 @@ export default function Footer() {
         {/* Bottom Bar: Copyright & Platform Invariants */}
         <div className="pt-3 sm:pt-5 flex flex-col sm:flex-row items-center justify-between gap-2 text-[10px] sm:text-[11px] text-[var(--ink-faint)] font-mono text-center sm:text-left">
           <p className="m-0 leading-tight">
-            © {new Date().getFullYear()} Hatchpen Publishing. All rights reserved.
+            © {new Date().getFullYear()} HatchPen Publishing. All rights reserved.
           </p>
           <div className="flex flex-wrap items-center justify-center sm:justify-end gap-x-2 sm:gap-x-3 gap-y-0.5 text-[9px] sm:text-[10px]">
             <span>DISCOVERY</span>

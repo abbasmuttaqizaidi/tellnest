@@ -986,3 +986,98 @@ test('Brand Standard: Web app manifest specifies canonical HatchPen name', () =>
   assert.equal(manifest.short_name, 'HatchPen')
 })
 
+// ---------------------------------------------------------------------------
+// Phase 4: Six Target Brand Search Visibility Tests
+// ---------------------------------------------------------------------------
+
+test('Brand Search Visibility: Query A (hatchpen) & Query B (hatch pen) — Homepage title, canonical, and alternate names', () => {
+  const rootCode = fs.readFileSync(path.join(rootDir, 'src/routes/__root.tsx'), 'utf-8')
+  const indexCode = fs.readFileSync(path.join(rootDir, 'src/routes/index.tsx'), 'utf-8')
+
+  // Homepage canonical
+  assert.ok(indexCode.includes("canonicalUrl: 'https://hatchpen.com/'"), 'Homepage must define apex canonical')
+  assert.ok(indexCode.includes("title: 'HatchPen — A Quieter Place for Bolder Stories'"))
+
+  // WebSite structured data alternate names for spaced variant
+  const match = rootCode.match(/const GLOBAL_JSON_LD = JSON\.stringify\(([\s\S]*?\n\})\)/)
+  const jsonLd = new Function(`return ${match[1]}`)()
+  const webSite = jsonLd['@graph'].find((item) => item['@type'] === 'WebSite')
+  assert.ok(webSite.alternateName.includes('Hatch Pen'))
+  assert.ok(webSite.alternateName.includes('Hatchpen'))
+  assert.equal(webSite.name, 'HatchPen')
+})
+
+test('Brand Search Visibility: Query C (hatchpen stories) — Discover page metadata and crawlable internal links', () => {
+  const discoverCode = fs.readFileSync(path.join(rootDir, 'src/routes/discover.tsx'), 'utf-8')
+
+  assert.ok(discoverCode.includes("title: 'Discover Stories & Serialized Literature'"))
+  assert.ok(discoverCode.includes("canonicalUrl: 'https://hatchpen.com/discover'"))
+  assert.ok(discoverCode.includes('title="Discover Stories"'))
+  assert.ok(discoverCode.includes('Browse HatchPen Stories by Category & Genre'))
+  assert.ok(discoverCode.includes('to="/category/$slug"'))
+  assert.ok(discoverCode.includes('to="/genre/$slug"'))
+
+  const meta = generateMeta({
+    title: 'Discover Stories & Serialized Literature',
+    canonicalUrl: 'https://hatchpen.com/discover',
+  })
+  const title = meta.meta.find((m) => m.title)?.title
+  assert.equal(title, 'Discover Stories & Serialized Literature — HatchPen')
+})
+
+test('Brand Search Visibility: Query D (hatchpen app) — PWA manifest and browser web application fidelity', () => {
+  const manifestRaw = fs.readFileSync(path.join(rootDir, 'public/site.webmanifest'), 'utf-8')
+  const manifest = JSON.parse(manifestRaw)
+  assert.equal(manifest.name, 'HatchPen')
+  assert.equal(manifest.display, 'standalone')
+
+  const rootCode = fs.readFileSync(path.join(rootDir, 'src/routes/__root.tsx'), 'utf-8')
+  assert.ok(rootCode.includes('manifest'))
+
+  const pricingCode = fs.readFileSync(path.join(rootDir, 'src/routes/pricing.tsx'), 'utf-8')
+  assert.ok(pricingCode.includes('Modern Web App — Zero Download Required'))
+})
+
+test('Brand Search Visibility: Query E (hatchpen login) — Login route metadata, security, and crawlable header links', () => {
+  const loginCode = fs.readFileSync(path.join(rootDir, 'src/routes/login.tsx'), 'utf-8')
+  assert.ok(loginCode.includes("title: 'Sign In to HatchPen'"))
+  assert.ok(loginCode.includes("canonicalUrl: 'https://hatchpen.com/login'"))
+  assert.ok(loginCode.includes('sanitizeTargetPath'))
+
+  // Header and Footer crawlable links
+  const headerCode = fs.readFileSync(path.join(rootDir, 'src/components/Header.tsx'), 'utf-8')
+  assert.ok(headerCode.includes('to="/login"'))
+  const footerCode = fs.readFileSync(path.join(rootDir, 'src/components/Footer.tsx'), 'utf-8')
+  assert.ok(footerCode.includes('to="/login"'))
+
+  const meta = generateMeta({
+    title: 'Sign In to HatchPen',
+    canonicalUrl: 'https://hatchpen.com/login',
+  })
+  const robots = meta.meta.find((m) => m.name === 'robots')?.content
+  assert.equal(robots, 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1')
+  const canonical = meta.links.find((l) => l.rel === 'canonical')?.href
+  assert.equal(canonical, 'https://hatchpen.com/login')
+})
+
+test('Brand Search Visibility: Query F (hatchpen pricing) — Transparent zero-cost pricing page, sitemap entry, and crawlable links', async () => {
+  const pricingCode = fs.readFileSync(path.join(rootDir, 'src/routes/pricing.tsx'), 'utf-8')
+  assert.ok(pricingCode.includes("title: 'Pricing & Access — 100% Free for Readers & Writers'"))
+  assert.ok(pricingCode.includes("canonicalUrl: 'https://hatchpen.com/pricing'"))
+  assert.ok(pricingCode.includes('No Paywalls. No Subscriptions. Just Literature.'))
+  assert.ok(pricingCode.includes('$0'))
+  // Confirm no fake product/offer schemas
+  assert.ok(!pricingCode.includes("'@type': 'Offer'"))
+  assert.ok(!pricingCode.includes("'@type': 'Product'"))
+
+  // Footer crawlable link
+  const footerCode = fs.readFileSync(path.join(rootDir, 'src/components/Footer.tsx'), 'utf-8')
+  assert.ok(footerCode.includes('to="/pricing"'))
+
+  // Sitemap inclusion
+  const entries = await buildSitemapEntries()
+  const pricingEntry = entries.find((e) => e.loc === 'https://hatchpen.com/pricing')
+  assert.ok(pricingEntry, 'Sitemap must contain /pricing entry')
+  assert.equal(pricingEntry.loc, 'https://hatchpen.com/pricing')
+})
+
