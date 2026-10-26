@@ -2221,6 +2221,85 @@ export const adminUpdateUserProfileServerFn = createServerFn({ method: 'POST' })
     }
   })
 
+export interface AdminSendEmailInput {
+  adminToken: string
+  recipients: string[]
+  subject: string
+  headline?: string
+  message: string
+  ctaText?: string
+  ctaUrl?: string
+  fromSender?: string
+  replyTo?: string
+}
+
+/**
+ * Server Function: Send a direct email or broadcast from the Admin Panel.
+ * Validates admin HMAC session token, enforces hatchpen.com sender domain
+ * to avoid spam flags, and dispatches via Resend with dual HTML + PlainText MIME.
+ */
+export const adminSendEmailServerFn = createServerFn({ method: 'POST' })
+  .validator((data: AdminSendEmailInput) => {
+    if (!data.adminToken || !isValidAdminToken(data.adminToken)) {
+      throw new Error('Unauthorized: Invalid or expired admin session token.')
+    }
+    if (!data.recipients || !Array.isArray(data.recipients) || data.recipients.length === 0) {
+      throw new Error('At least one recipient email address is required.')
+    }
+    if (!data.subject || !data.subject.trim()) {
+      throw new Error('Email subject is required.')
+    }
+    if (!data.message || !data.message.trim()) {
+      throw new Error('Email message body is required.')
+    }
+    return data
+  })
+  .handler(async ({ data }) => {
+    const { sendAdminDirectEmail } = await import('../lib/email/resend')
+
+    // Clean and deduplicate recipients
+    const cleanRecipients = Array.from(
+      new Set(
+        data.recipients
+          .map((r) => r.trim().toLowerCase())
+          .filter((r) => r && r.includes('@'))
+      )
+    )
+
+    if (cleanRecipients.length === 0) {
+      throw new Error('No valid recipient email addresses found.')
+    }
+
+    // Deliverability hardening: sender must align with verified hatchpen.com domain to pass SPF/DKIM
+    let from = data.fromSender?.trim() || 'HatchPen <welcome@hatchpen.com>'
+    if (!from.includes('@hatchpen.com') && !from.includes('@resend.dev')) {
+      from = 'HatchPen <welcome@hatchpen.com>'
+    }
+
+    const result = await sendAdminDirectEmail({
+      to: cleanRecipients,
+      subject: data.subject.trim(),
+      headline: data.headline?.trim() || undefined,
+      message: data.message.trim(),
+      ctaText: data.ctaText?.trim() || undefined,
+      ctaUrl: data.ctaUrl?.trim() || undefined,
+      from,
+      replyTo: data.replyTo?.trim() || 'welcome@hatchpen.com',
+    })
+
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to dispatch email via Resend')
+    }
+
+    return {
+      success: true,
+      recipientsCount: cleanRecipients.length,
+      id: result.id,
+      simulated: result.simulated,
+    }
+  })
+
+
 
 
 

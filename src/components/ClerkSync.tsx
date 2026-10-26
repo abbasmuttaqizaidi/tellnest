@@ -65,6 +65,7 @@ export function ClerkSync() {
             username,
             displayName,
             avatarUrl: user.imageUrl || '/unisex-avatar.svg',
+            email: user.primaryEmailAddress?.emailAddress || undefined,
           },
         })
 

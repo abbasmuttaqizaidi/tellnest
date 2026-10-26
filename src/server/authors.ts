@@ -62,6 +62,7 @@ export const syncClerkUserServerFn = createServerFn({ method: 'POST' })
     username: string
     displayName: string
     avatarUrl?: string | null
+    email?: string | null
   }) => {
     if (!params.clerkUserId) throw new Error('clerkUserId is required')
     return params
@@ -80,6 +81,7 @@ export const saveUserOnboardingServerFn = createServerFn({ method: 'POST' })
     username: string
     displayName?: string
     avatarUrl?: string
+    email?: string
     pronouns: string
     gender: string
     termsAccepted: boolean
@@ -105,10 +107,12 @@ export const saveUserOnboardingServerFn = createServerFn({ method: 'POST' })
 
     const currentPrefs =
       existingProfile?.preferences && typeof existingProfile.preferences === 'object'
-        ? existingProfile.preferences
+        ? (existingProfile.preferences as Record<string, any>)
         : {}
 
-    const preferencesPayload = {
+    const displayName = (data.displayName && data.displayName.trim()) || data.username
+
+    const preferencesPayload: Record<string, any> = {
       ...currentPrefs,
       interests: data.interests,
       genres: data.genres,
@@ -118,7 +122,22 @@ export const saveUserOnboardingServerFn = createServerFn({ method: 'POST' })
       completedAt: new Date().toISOString(),
     }
 
-    const displayName = (data.displayName && data.displayName.trim()) || data.username
+    // Tareeqa B: Send Welcome Email via Resend on onboarding completion if not sent yet
+    const alreadySentWelcome = Boolean(currentPrefs.welcomeEmailSent)
+    if (!alreadySentWelcome && data.email && data.email.includes('@')) {
+      try {
+        const { sendWelcomeEmail } = await import('../lib/email/resend')
+        await sendWelcomeEmail({
+          email: data.email,
+          displayName,
+          username: data.username,
+        })
+        preferencesPayload.welcomeEmailSent = true
+        preferencesPayload.welcomeEmailSentAt = new Date().toISOString()
+      } catch (emailErr) {
+        console.warn('[saveUserOnboardingServerFn] Non-blocking welcome email dispatch error:', emailErr)
+      }
+    }
 
     // Upsert into Supabase `profiles` table to ensure record exists with dedicated columns
     const { data: profile, error } = await admin

@@ -91,6 +91,7 @@ export async function syncClerkUserToProfile(params: {
   displayName: string
   avatarUrl?: string | null
   bio?: string | null
+  email?: string | null
 }) {
   const admin = createAdminClient()
 

@@ -335,6 +335,7 @@ export function UserOnboardingModal() {
           genres: selectedGenres,
           categories: selectedCategories,
           interestedInWriting,
+          email: user.primaryEmailAddress?.emailAddress || undefined,
         },
       })
 
