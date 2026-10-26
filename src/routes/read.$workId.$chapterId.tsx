@@ -1196,7 +1196,12 @@ function ReaderPage() {
             </button>
             {commentsVisible && (
               <div className="w-full">
-                <CommentsSection workId={work.id} chapterId={chapter.id} />
+                <CommentsSection
+                  workId={work.id}
+                  chapterId={chapter.id}
+                  workAuthorId={work.author?.id}
+                  workAuthorHandle={work.author?.handle}
+                />
               </div>
             )}
           </div>

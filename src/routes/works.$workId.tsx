@@ -22,6 +22,7 @@ import { getWorkSlug } from '../data/mockData'
 import { generateMeta } from '../lib/seo'
 import { getPublicWorkServerFn } from '../server/works'
 import { formatViewCount } from '../lib/utils'
+import CommentsSection from '../components/CommentsSection'
 
 export const Route = createFileRoute('/works/$workId')({
   // In-Memory SWR (Desktop & Mobile): Keeps story details fresh in RAM for 60s; instant 0ms navigation
@@ -582,6 +583,17 @@ function WorkDetailPage() {
           })}
         />
         )}
+      </section>
+
+      {/* READER REFLECTIONS ON MANUSCRIPT */}
+      <section className="py-8">
+        <CommentsSection
+          workId={work.id}
+          workAuthorId={work.author?.id}
+          workAuthorHandle={work.author?.handle}
+          title="Manuscript Reflections"
+          subtitle="Community reviews, critique, and literary discourse on this complete work"
+        />
       </section>
 
     </div>
