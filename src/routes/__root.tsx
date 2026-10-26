@@ -25,7 +25,7 @@ const GLOBAL_JSON_LD = JSON.stringify({
     {
       '@type': 'Organization',
       '@id': 'https://hatchpen.com/#organization',
-      name: 'Hatchpen',
+      name: 'HatchPen',
       url: 'https://hatchpen.com',
       logo: 'https://hatchpen.com/icon-512.png',
       sameAs: [],
@@ -35,7 +35,8 @@ const GLOBAL_JSON_LD = JSON.stringify({
       '@type': 'WebSite',
       '@id': 'https://hatchpen.com/#website',
       url: 'https://hatchpen.com',
-      name: 'Hatchpen',
+      name: 'HatchPen',
+      alternateName: ['Hatchpen', 'Hatch Pen'],
       publisher: {
         '@id': 'https://hatchpen.com/#organization',
       },
@@ -75,12 +76,12 @@ export const Route = createRootRoute({
         content: 'width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover',
       },
       {
-        title: 'Hatchpen — Writings. Beyond the Hype.',
+        title: 'HatchPen — Writings. Beyond the Hype.',
       },
       {
         name: 'description',
         content:
-          'Hatchpen is a digital literary publishing and reader platform for original fiction, serialized novels, essays, and poetry.',
+          'HatchPen is a digital literary publishing and reader platform for original fiction, serialized novels, essays, and poetry.',
       },
       {
         name: 'keywords',
@@ -93,7 +94,7 @@ export const Route = createRootRoute({
       },
       {
         name: 'author',
-        content: 'Hatchpen',
+        content: 'HatchPen',
       },
       {
         name: 'robots',
@@ -102,7 +103,7 @@ export const Route = createRootRoute({
       // Open Graph
       {
         property: 'og:site_name',
-        content: 'Hatchpen',
+        content: 'HatchPen',
       },
       {
         property: 'og:type',
@@ -110,7 +111,7 @@ export const Route = createRootRoute({
       },
       {
         property: 'og:title',
-        content: 'Hatchpen — Writings. Beyond the Hype.',
+        content: 'HatchPen — Writings. Beyond the Hype.',
       },
       {
         property: 'og:description',
@@ -123,7 +124,7 @@ export const Route = createRootRoute({
       },
       {
         property: 'og:image:alt',
-        content: 'Hatchpen Literary Publishing Platform',
+        content: 'HatchPen Literary Publishing Platform',
       },
       // Twitter Card
       {
@@ -132,7 +133,7 @@ export const Route = createRootRoute({
       },
       {
         name: 'twitter:title',
-        content: 'Hatchpen — Writings. Beyond the Hype.',
+        content: 'HatchPen — Writings. Beyond the Hype.',
       },
       {
         name: 'twitter:description',

@@ -6,7 +6,10 @@ import { fileURLToPath } from 'node:url'
 import {
   generateMeta,
   resolveAbsoluteUrl,
+  formatPageTitle,
+  SITE_NAME,
   DEFAULT_SITE_URL,
+  DEFAULT_TITLE,
   DEFAULT_OG_IMAGE,
 } from '../src/lib/seo.ts'
 import { GLOBAL_CATEGORIES, GLOBAL_GENRES } from '../src/lib/taxonomy.ts'
@@ -837,5 +840,149 @@ test('Phase 4: Sitemap Dynamic Database Lifecycle — adds, removes, updates wor
   assert.ok(fallbackXml.includes('<loc>https://hatchpen.com/discover</loc>'))
   assert.ok(fallbackXml.includes('<loc>https://hatchpen.com/category/novels</loc>'))
   assert.ok(fallbackXml.endsWith('</urlset>\n'), 'Must produce valid XML even when DB queries fail')
+})
+
+// ---------------------------------------------------------------------------
+// Phase 3: Title Generation & Brand Standard Alignment Tests
+// ---------------------------------------------------------------------------
+
+test('Brand Standard: SITE_NAME is canonical HatchPen', () => {
+  assert.equal(SITE_NAME, 'HatchPen')
+})
+
+test('Brand Standard: formatPageTitle appends brand suffix when title does not contain brand', () => {
+  // Scenario 1: Title without brand receives the normal brand suffix
+  assert.equal(formatPageTitle('A Gentle Breeze'), 'A Gentle Breeze — HatchPen')
+  assert.equal(formatPageTitle('Romance Fiction & Novels'), 'Romance Fiction & Novels — HatchPen')
+})
+
+test('Brand Standard: formatPageTitle does NOT append duplicate suffix when title already contains brand', () => {
+  // Scenario 2: Title already containing the brand does not receive duplicate suffix
+  const input = 'HatchPen — A Quieter Place for Bolder Stories'
+  assert.equal(formatPageTitle(input), 'HatchPen — A Quieter Place for Bolder Stories')
+})
+
+test('Brand Standard: formatPageTitle handles brand casing and whitespace variations', () => {
+  // Scenario 3: Brand detection handles casing variations
+  assert.equal(formatPageTitle('Hatchpen — Fresh Literary Voices'), 'Hatchpen — Fresh Literary Voices')
+  assert.equal(formatPageTitle('hatchpen community stories'), 'hatchpen community stories')
+  assert.equal(formatPageTitle('Hatch Pen Community'), 'Hatch Pen Community')
+  assert.equal(formatPageTitle('HATCHPEN SERIALS'), 'HATCHPEN SERIALS')
+})
+
+test('Brand Standard: formatPageTitle falls back gracefully on empty or whitespace title', () => {
+  assert.equal(formatPageTitle(''), DEFAULT_TITLE)
+  assert.equal(formatPageTitle('   '), DEFAULT_TITLE)
+  assert.equal(formatPageTitle(null), DEFAULT_TITLE)
+  assert.equal(formatPageTitle(undefined), DEFAULT_TITLE)
+})
+
+test('Brand Standard: Story and chapter titles remain descriptive and retain the brand suffix', () => {
+  // Scenario 4: Normal story/chapter title remains descriptive and retains the brand suffix
+  const storyMeta = generateMeta({
+    title: 'The Night I Forgot You by Eleanor Vance',
+  })
+  const storyTitleTag = storyMeta.meta.find((m) => m.title)?.title
+  assert.equal(storyTitleTag, 'The Night I Forgot You by Eleanor Vance — HatchPen')
+
+  const chapterMeta = generateMeta({
+    title: 'Chapter 1: The First Encounter (The Night I Forgot You)',
+  })
+  const chapterTitleTag = chapterMeta.meta.find((m) => m.title)?.title
+  assert.equal(chapterTitleTag, 'Chapter 1: The First Encounter (The Night I Forgot You) — HatchPen')
+})
+
+test('Brand Standard: Homepage produces exact intended title without duplicate brand suffix', () => {
+  // Scenario 5: Homepage produces the exact intended title: HatchPen — A Quieter Place for Bolder Stories
+  const homepageMeta = generateMeta({
+    title: 'HatchPen — A Quieter Place for Bolder Stories',
+    description: 'Discover fresh voices, unexpected worlds, and stories that stay with you on HatchPen.',
+    canonicalUrl: 'https://hatchpen.com/',
+  })
+  const titleTag = homepageMeta.meta.find((m) => m.title)?.title
+  assert.equal(titleTag, 'HatchPen — A Quieter Place for Bolder Stories')
+
+  const ogTitle = homepageMeta.meta.find((m) => m.property === 'og:title')?.content
+  assert.equal(ogTitle, 'HatchPen — A Quieter Place for Bolder Stories')
+
+  const twitterTitle = homepageMeta.meta.find((m) => m.name === 'twitter:title')?.content
+  assert.equal(twitterTitle, 'HatchPen — A Quieter Place for Bolder Stories')
+
+  const ogSiteName = homepageMeta.meta.find((m) => m.property === 'og:site_name')?.content
+  assert.equal(ogSiteName, 'HatchPen')
+})
+
+test('Brand Standard: Canonical tags and robots directives remain correct across public and restricted options', () => {
+  // Scenario 6: Canonical tags and robots directives remain correct
+  const publicMeta = generateMeta({
+    title: 'Public Story',
+    canonicalUrl: 'https://hatchpen.com/works/public-story-abc12',
+    noindex: false,
+  })
+  const publicRobots = publicMeta.meta.find((m) => m.name === 'robots')?.content
+  assert.equal(publicRobots, 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1')
+  const publicCanonical = publicMeta.links.find((l) => l.rel === 'canonical')?.href
+  assert.equal(publicCanonical, 'https://hatchpen.com/works/public-story-abc12')
+
+  const restrictedMeta = generateMeta({
+    title: 'Draft Story',
+    canonicalUrl: 'https://hatchpen.com/works/draft-story-xyz99',
+    noindex: true,
+  })
+  const restrictedRobots = restrictedMeta.meta.find((m) => m.name === 'robots')?.content
+  assert.equal(restrictedRobots, 'noindex, nofollow')
+})
+
+test('Brand Standard: Public story and chapter indexability is unchanged', () => {
+  // Scenario 7: Public story/chapter indexability is unchanged
+  assert.equal(
+    isSitemapEligibleWork({ visibility: 'public', publication_status: 'published', is_indexable: true }),
+    true
+  )
+  assert.equal(
+    isSitemapEligibleWork({ visibility: 'unlisted', publication_status: 'published', is_indexable: true }),
+    false
+  )
+  assert.equal(
+    isSitemapEligibleChapter(
+      { status: 'published', is_indexable: true },
+      { visibility: 'public', publication_status: 'published', is_indexable: true }
+    ),
+    true
+  )
+  assert.equal(
+    isSitemapEligibleChapter(
+      { status: 'published', is_indexable: true },
+      { visibility: 'unlisted', publication_status: 'published', is_indexable: true }
+    ),
+    false
+  )
+})
+
+test('Brand Standard: Root WebSite and Organization JSON-LD contains canonical HatchPen and alternate names', () => {
+  // Scenario 8: WebSite structured data includes canonical name and supported alternate names
+  const rootCode = fs.readFileSync(path.join(rootDir, 'src/routes/__root.tsx'), 'utf-8')
+  
+  // Extract GLOBAL_JSON_LD definition
+  const match = rootCode.match(/const GLOBAL_JSON_LD = JSON\.stringify\(([\s\S]*?\n\})\)/)
+  assert.ok(match, 'GLOBAL_JSON_LD must be defined in __root.tsx')
+  const jsonLd = new Function(`return ${match[1]}`)()
+
+  const org = jsonLd['@graph'].find((item) => item['@type'] === 'Organization')
+  assert.ok(org, 'Organization must exist in root JSON-LD')
+  assert.equal(org.name, 'HatchPen')
+  assert.deepEqual(org.sameAs, [], 'sameAs must remain empty until verified handles exist')
+
+  const webSite = jsonLd['@graph'].find((item) => item['@type'] === 'WebSite')
+  assert.ok(webSite, 'WebSite must exist in root JSON-LD')
+  assert.equal(webSite.name, 'HatchPen')
+  assert.deepEqual(webSite.alternateName, ['Hatchpen', 'Hatch Pen'])
+})
+
+test('Brand Standard: Web app manifest specifies canonical HatchPen name', () => {
+  const manifestRaw = fs.readFileSync(path.join(rootDir, 'public/site.webmanifest'), 'utf-8')
+  const manifest = JSON.parse(manifestRaw)
+  assert.equal(manifest.name, 'HatchPen')
+  assert.equal(manifest.short_name, 'HatchPen')
 })
 

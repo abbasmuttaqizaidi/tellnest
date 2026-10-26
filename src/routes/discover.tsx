@@ -127,10 +127,10 @@ export const Route = createFileRoute('/discover')({
       jsonLd: {
         '@context': 'https://schema.org',
         '@type': 'CollectionPage',
-        name: 'Discover Serialized Fiction & Literature — Hatchpen',
+        name: 'Discover Serialized Fiction & Literature — HatchPen',
         url: 'https://hatchpen.com/discover',
         description:
-          'Explore trending serialized novels, rising indie authors, editorial recommendations, and diverse genre catalogs on Hatchpen.',
+          'Explore trending serialized novels, rising indie authors, editorial recommendations, and diverse genre catalogs on HatchPen.',
       },
     }),
   component: DiscoverPage,

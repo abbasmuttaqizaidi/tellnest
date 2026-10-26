@@ -33,7 +33,7 @@ export const Route = createFileRoute('/category/$slug')({
     if (loaderData?.isNotFound || !loaderData?.category) {
       return generateMeta({
         title: 'Category Not Found',
-        description: 'The requested literary category could not be found on Hatchpen.',
+        description: 'The requested literary category could not be found on HatchPen.',
         noindex: true,
       })
     }
@@ -43,7 +43,7 @@ export const Route = createFileRoute('/category/$slug')({
     const canonicalUrl = `https://hatchpen.com/category/${category.slug}`
     const description =
       category.description ||
-      `Curated literary works, manuscripts, and narratives in the ${categoryName} category on Hatchpen.`
+      `Curated literary works, manuscripts, and narratives in the ${categoryName} category on HatchPen.`
     const works = loaderData.works || []
 
     const jsonLd = [

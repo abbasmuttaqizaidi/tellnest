@@ -115,7 +115,7 @@ export const Route = createFileRoute('/read/$workId/$chapterId')({
         },
         publisher: {
           '@type': 'Organization',
-          name: 'Hatchpen',
+          name: 'HatchPen',
           url: 'https://hatchpen.com',
         },
         image: work.cover,

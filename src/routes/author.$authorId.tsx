@@ -69,7 +69,7 @@ export const Route = createFileRoute('/author/$authorId')({
 
     return generateMeta({
       title: `${metaAuthorName}${showMetaUsername && showMetaName ? ` (@${author.handle})` : ''} — Author Archive`,
-      description: author.bio || `Read serialized fiction and literary works by ${metaAuthorName} on Hatchpen.`,
+      description: author.bio || `Read serialized fiction and literary works by ${metaAuthorName} on HatchPen.`,
       canonicalUrl: `https://hatchpen.com/author/${author.handle || author.id}`,
       ogType: 'profile',
       ogImage: author.showAvatar !== false ? author.avatar : undefined,

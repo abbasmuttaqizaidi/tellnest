@@ -1,15 +1,31 @@
 /**
- * Hatchpen SEO Utility
+ * HatchPen SEO Utility
  * Generates unified metadata, OpenGraph tags, Twitter cards, and JSON-LD structured data
  * for TanStack Router routes.
  */
 
-export const SITE_NAME = 'Hatchpen'
+export const SITE_NAME = 'HatchPen'
 export const DEFAULT_SITE_URL = 'https://hatchpen.com'
-export const DEFAULT_TITLE = 'Hatchpen — Writings. Beyond the Hype.'
+export const DEFAULT_TITLE = 'HatchPen — Writings. Beyond the Hype.'
 export const DEFAULT_DESCRIPTION =
-  'Hatchpen is a digital literary publishing and reader platform for serialized fiction, long-form literature, essays, and poetry.'
+  'HatchPen is a digital literary publishing and reader platform for serialized fiction, long-form literature, essays, and poetry.'
 export const DEFAULT_OG_IMAGE = '/og-image.png'
+
+/**
+ * Formats a page title ensuring the canonical brand suffix is appended
+ * only when the title does not already contain the brand name.
+ * Handles casing and space variations (e.g., 'HatchPen', 'Hatchpen', 'hatchpen', 'Hatch Pen').
+ */
+export function formatPageTitle(rawTitle?: string | null): string {
+  if (!rawTitle || !rawTitle.trim()) {
+    return DEFAULT_TITLE
+  }
+  const trimmed = rawTitle.trim()
+  if (/\bhatch\s*pen\b/i.test(trimmed)) {
+    return trimmed
+  }
+  return `${trimmed} — ${SITE_NAME}`
+}
 
 /**
  * Resolves a URL or relative path to a fully qualified absolute URL with the canonical site origin.
@@ -39,7 +55,7 @@ export interface SeoOptions {
 }
 
 export function generateMeta(options: SeoOptions = {}) {
-  const title = options.title ? `${options.title} — ${SITE_NAME}` : DEFAULT_TITLE
+  const title = formatPageTitle(options.title)
   const description = options.description || DEFAULT_DESCRIPTION
   const rawOgImage = options.ogImage || DEFAULT_OG_IMAGE
   const ogImage = resolveAbsoluteUrl(rawOgImage)
