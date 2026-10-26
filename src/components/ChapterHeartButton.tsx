@@ -11,12 +11,14 @@ interface ChapterHeartButtonProps {
   workId: string
   chapterId: string
   chapterTitle?: string
+  variant?: 'badge' | 'card'
 }
 
 export function ChapterHeartButton({
   workId,
   chapterId,
   chapterTitle,
+  variant = 'badge',
 }: ChapterHeartButtonProps) {
   const { user } = useUser()
   const { openSignIn } = useClerk()
@@ -98,6 +100,31 @@ export function ChapterHeartButton({
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  if (variant === 'badge') {
+    return (
+      <button
+        type="button"
+        onClick={handleToggleHeart}
+        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono border transition-all cursor-pointer shadow-2xs group ${
+          userHearted
+            ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] border-[var(--ink-primary)]'
+            : 'bg-[var(--bg-subtle)] hover:bg-[var(--bg-surface)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] border-[var(--border-subtle)] hover:border-[var(--border-strong)]'
+        }`}
+        title={userHearted ? 'Remove heart' : 'Heart this chapter'}
+        aria-label={userHearted ? 'Remove heart from chapter' : 'Heart this chapter'}
+      >
+        <Heart
+          className={`h-3.5 w-3.5 transition-transform group-hover:scale-110 ${
+            userHearted
+              ? 'fill-current text-[var(--accent-contrast)] scale-105'
+              : 'text-[var(--ink-muted)] group-hover:text-[var(--ink-primary)]'
+          }`}
+        />
+        <span className="font-semibold">{heartCount.toLocaleString()}</span>
+      </button>
+    )
   }
 
   return (

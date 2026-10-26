@@ -923,8 +923,8 @@ function ReaderPage() {
               {chapter.title}
             </h1>
 
-            {/* Right side: Views Count Badge - Clickable to open Breakdown Modal */}
-            <div className="flex items-center shrink-0 pt-0.5">
+            {/* Right side: Views Count Badge & Chapter Heart Button */}
+            <div className="flex items-center shrink-0 pt-0.5 gap-2">
               <button
                 type="button"
                 onClick={() => setViewsModalOpen(true)}
@@ -935,6 +935,13 @@ function ReaderPage() {
                 <Eye className="h-3.5 w-3.5 text-[var(--ink-muted)] group-hover:text-[var(--ink-primary)] transition-colors" />
                 <span className="font-semibold">{formatViewCount(work.totalReads, true)}</span>
               </button>
+
+              <ChapterHeartButton
+                workId={work.id}
+                chapterId={chapter.id}
+                chapterTitle={chapter.title}
+                variant="badge"
+              />
             </div>
           </div>
 
@@ -1171,31 +1178,6 @@ function ReaderPage() {
             </div>
           )}
         </div>
-
-        {/* Continuous Chapter Progression Notice */}
-        {continuousScrollEnabled && nextChapter && (
-          <div className="mt-6 p-4 rounded-lg border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 text-center font-mono text-xs text-[var(--ink-muted)] flex items-center justify-between gap-4">
-            <span>Continuous Progression is Active</span>
-            <Link
-              to="/read/$workId/$chapterId"
-              params={{ workId: canonicalSlug, chapterId: nextChapter.id }}
-              className="text-[var(--ink-primary)] font-semibold hover:underline flex items-center gap-1"
-            >
-              Proceed to Ch. {nextChapter.number} →
-            </Link>
-          </div>
-        )}
-
-        {/* Chapter Appreciation Heart Action */}
-        {!isCompulsoryAuth && (
-          <div className="mt-12 w-full max-w-2xl mx-auto">
-            <ChapterHeartButton
-              workId={work.id}
-              chapterId={chapter.id}
-              chapterTitle={chapter.title}
-            />
-          </div>
-        )}
 
         {/* Reader Comments / Marginalia Section Toggle */}
         {inlineMarginaliaEnabled && !isCompulsoryAuth ? (

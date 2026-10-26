@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import React, { useState, useMemo, useEffect } from 'react'
-import { useUser } from '@clerk/react'
+import { useUser, useClerk } from '@clerk/react'
 import { useApp } from '../context/AppContext'
 import EmptyState from '../components/EmptyState'
 import { TellnestLoader } from '../components/TellnestLoader'
@@ -22,6 +22,7 @@ import {
 import { getWorkSlug } from '../data/mockData'
 import { generateMeta } from '../lib/seo'
 import { getPublicWorkServerFn } from '../server/works'
+import { getWorkHeartStatusServerFn, toggleWorkHeartServerFn } from '../server/hearts'
 import { formatViewCount } from '../lib/utils'
 import CommentsSection from '../components/CommentsSection'
 
@@ -207,6 +208,83 @@ function WorkDetailPage() {
 
   const [chapterSearch, setChapterSearch] = useState('')
 
+  const { openSignIn } = useClerk()
+  const [workHearted, setWorkHearted] = useState<boolean>(false)
+  const [workHeartCount, setWorkHeartCount] = useState<number>(() => {
+    return Number(work?.likeCount ?? (work as any)?.like_count ?? 0)
+  })
+  const [isHeartSubmitting, setIsHeartSubmitting] = useState<boolean>(false)
+
+  // Sync heart count if work changes
+  useEffect(() => {
+    if (work) {
+      setWorkHeartCount(Number(work.likeCount ?? (work as any).like_count ?? 0))
+    }
+  }, [work?.id, work?.likeCount, (work as any)?.like_count])
+
+  // Fetch live work heart status
+  useEffect(() => {
+    if (!work?.id) return
+    getWorkHeartStatusServerFn({
+      data: {
+        workId: work.id,
+        clerkUserId: user?.id || null,
+      },
+    })
+      .then((res) => {
+        if (res.success) {
+          setWorkHearted(res.userHearted)
+          setWorkHeartCount(res.heartCount)
+        }
+      })
+      .catch(() => {})
+  }, [work?.id, user?.id])
+
+  // Toggle Story Heart
+  const handleToggleWorkHeart = async () => {
+    if (!user) {
+      showToast('Sign in to heart this story')
+      if (openSignIn) openSignIn()
+      else openAuthModal()
+      return
+    }
+
+    if (!work?.id || isHeartSubmitting) return
+
+    // Optimistic UI update
+    const prevHearted = workHearted
+    const prevCount = workHeartCount
+    const nextHearted = !prevHearted
+    const nextCount = nextHearted ? prevCount + 1 : Math.max(0, prevCount - 1)
+
+    setWorkHearted(nextHearted)
+    setWorkHeartCount(nextCount)
+    setIsHeartSubmitting(true)
+
+    if (nextHearted) {
+      showToast('You hearted this story')
+    }
+
+    try {
+      const res = await toggleWorkHeartServerFn({
+        data: {
+          clerkUserId: user.id,
+          workId: work.id,
+        },
+      })
+      if (res.success) {
+        setWorkHearted(res.hearted)
+        setWorkHeartCount(res.heartCount)
+      }
+    } catch (err: any) {
+      setWorkHearted(prevHearted)
+      setWorkHeartCount(prevCount)
+      showToast(err?.message || 'Failed to update heart')
+    } finally {
+      setIsHeartSubmitting(false)
+    }
+  }
+
   const filteredChapters = useMemo(() => {
     if (!chapterSearch.trim()) return chaptersList
     const q = chapterSearch.toLowerCase()
@@ -286,20 +364,36 @@ function WorkDetailPage() {
           {/* Quick Actions Under Cover */}
           <div className="mt-4 flex w-full max-w-[320px] gap-2">
             <button
+              type="button"
               onClick={() => toggleSaveWork(work.id)}
-              className={`flex-1 flex items-center justify-center gap-2 rounded border py-2 text-xs font-medium transition-all ${
+              className={`flex-1 flex items-center justify-center gap-1.5 rounded border py-2 text-xs font-medium transition-all cursor-pointer ${
                 saved
                   ? 'border-[var(--border-strong)] bg-[var(--bg-subtle)] text-[var(--ink-primary)]'
                   : 'border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--ink-secondary)] hover:border-[var(--border-strong)]'
               }`}
             >
-              <Bookmark className={`h-4 w-4 ${saved ? 'fill-current' : ''}`} />
+              <Bookmark className={`h-3.5 w-3.5 ${saved ? 'fill-current' : ''}`} />
               <span>{saved ? 'In Library' : 'Save Work'}</span>
             </button>
 
             <button
+              type="button"
+              onClick={handleToggleWorkHeart}
+              className={`flex-1 flex items-center justify-center gap-1.5 rounded border py-2 text-xs font-medium transition-all cursor-pointer ${
+                workHearted
+                  ? 'border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)]'
+                  : 'border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--ink-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--ink-primary)]'
+              }`}
+              title={workHearted ? 'Remove heart from story' : 'Heart this story'}
+            >
+              <Heart className={`h-3.5 w-3.5 transition-transform ${workHearted ? 'fill-current text-[var(--accent-contrast)] scale-105' : ''}`} />
+              <span>{workHearted ? 'Hearted' : 'Heart Story'}</span>
+            </button>
+
+            <button
+              type="button"
               onClick={handleShare}
-              className="flex items-center justify-center gap-2 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 text-xs text-[var(--ink-muted)] hover:border-[var(--border-strong)] hover:text-[var(--ink-primary)] transition-all"
+              className="flex items-center justify-center gap-2 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 text-xs text-[var(--ink-muted)] hover:border-[var(--border-strong)] hover:text-[var(--ink-primary)] transition-all cursor-pointer"
               title="Share Work"
             >
               <Share2 className="h-4 w-4" />
@@ -456,7 +550,7 @@ function WorkDetailPage() {
             <div>
               <p className="text-lg font-semibold text-[var(--ink-primary)] flex items-center justify-center gap-1.5">
                 <Heart className="h-3.5 w-3.5 fill-current text-[var(--ink-primary)]" />
-                {(Number(work.likeCount ?? (work as any).like_count) || 0).toLocaleString()}
+                {workHeartCount.toLocaleString()}
               </p>
               <p className="text-[10px] text-[var(--ink-muted)] uppercase tracking-wider">Total Hearts</p>
             </div>

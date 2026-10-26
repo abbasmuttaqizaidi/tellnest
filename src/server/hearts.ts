@@ -284,22 +284,11 @@ export const toggleWorkHeartServerFn = createServerFn({ method: 'POST' })
 
     if (existingLike?.id) {
       await admin.from('work_likes').delete().eq('id', existingLike.id)
-      // Decrement works like_count
-      await admin.rpc('decrement_work_likes', { work_id: params.workId }).catch(async () => {
-        // Fallback update
-        const { data: w } = await admin.from('works').select('like_count').eq('id', params.workId).single()
-        if (w) await admin.from('works').update({ like_count: Math.max(0, Number(w.like_count || 0) - 1) }).eq('id', params.workId)
-      })
       nextHearted = false
     } else {
       await admin.from('work_likes').insert({
         work_id: params.workId,
         user_id: profile.id,
-      })
-      // Increment works like_count
-      await admin.rpc('increment_work_likes', { work_id: params.workId }).catch(async () => {
-        const { data: w } = await admin.from('works').select('like_count').eq('id', params.workId).single()
-        if (w) await admin.from('works').update({ like_count: Number(w.like_count || 0) + 1 }).eq('id', params.workId)
       })
       nextHearted = true
     }
