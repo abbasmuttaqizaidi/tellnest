@@ -1094,6 +1094,7 @@ export const adminPostWorkServerFn = createServerFn({ method: 'POST' })
               word_count: wordCount,
               reading_time_minutes: readingTime,
               status: 'published',
+              is_indexable: true,
               published_at: nowIso,
             })
             .select('id')
@@ -1192,7 +1193,7 @@ export const adminPostChapterServerFn = createServerFn({ method: 'POST' })
       // 1. Check if the work exists in Supabase
       const { data: dbWork } = await admin
         .from('works')
-        .select('id, chapter_count, word_count, reading_time_minutes')
+        .select('id, visibility, publication_status, is_indexable, chapter_count, word_count, reading_time_minutes')
         .eq('id', data.workId)
         .maybeSingle()
 
@@ -1219,6 +1220,14 @@ export const adminPostChapterServerFn = createServerFn({ method: 'POST' })
           resolvedActId = defaultAct?.id || null
         }
 
+        const isParentEligible =
+          dbWork &&
+          (dbWork.visibility || '').toLowerCase() === 'public' &&
+          (dbWork.publication_status || '').toLowerCase() === 'published' &&
+          dbWork.is_indexable === true
+
+        const isChapterIndexable = status === 'published' && Boolean(isParentEligible)
+
         // Insert chapter in Supabase
         const chapterSlug = `chapter-${assignedChapterNumber}-${Math.random().toString(36).substring(2, 7)}`
         const { data: createdChapter, error: chErr } = await admin
@@ -1235,6 +1244,7 @@ export const adminPostChapterServerFn = createServerFn({ method: 'POST' })
             word_count: wordCount,
             reading_time_minutes: readingTime,
             status,
+            is_indexable: isChapterIndexable,
             published_at: status === 'published' ? nowIso : null,
           })
           .select('id')
@@ -1321,6 +1331,23 @@ export const adminUpdateChapterServerFn = createServerFn({ method: 'POST' })
     const status = data.status || 'published'
 
     try {
+      // Check parent work eligibility before marking chapter indexable
+      let isIndexable = false
+      if (status === 'published') {
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.workId)
+        const workQuery = isUuid
+          ? admin.from('works').select('visibility, publication_status, is_indexable').eq('id', data.workId).maybeSingle()
+          : admin.from('works').select('visibility, publication_status, is_indexable').eq('slug', data.workId).maybeSingle()
+
+        const { data: parentWork } = await workQuery
+        isIndexable = Boolean(
+          parentWork &&
+          (parentWork.visibility || '').toLowerCase() === 'public' &&
+          (parentWork.publication_status || '').toLowerCase() === 'published' &&
+          parentWork.is_indexable === true
+        )
+      }
+
       // 1. Update chapter in Supabase
       const updateData: Record<string, any> = {
         title: data.title.trim(),
@@ -1329,6 +1356,7 @@ export const adminUpdateChapterServerFn = createServerFn({ method: 'POST' })
         word_count: wordCount,
         reading_time_minutes: readingTime,
         status,
+        is_indexable: isIndexable,
         updated_at: nowIso,
       }
       if (data.bannerImagePath !== undefined) {

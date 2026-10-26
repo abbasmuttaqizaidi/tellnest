@@ -797,6 +797,22 @@ export async function executeSaveWriterChapter(data: SaveWriterChapterPayload, a
         updateData.status = status
         if (status === 'published') {
           updateData.published_at = nowIso
+          // Chapter is indexable only if parent work is public, published, and indexable
+          const { data: parentWork } = await admin
+            .from('works')
+            .select('visibility, publication_status, is_indexable')
+            .eq('id', workUuid)
+            .maybeSingle()
+
+          const isParentEligible =
+            parentWork &&
+            (parentWork.visibility || '').toLowerCase() === 'public' &&
+            (parentWork.publication_status || '').toLowerCase() === 'published' &&
+            parentWork.is_indexable === true
+
+          updateData.is_indexable = Boolean(isParentEligible)
+        } else {
+          updateData.is_indexable = false
         }
       }
       if (data.bannerImage !== undefined) {
@@ -828,6 +844,22 @@ export async function executeSaveWriterChapter(data: SaveWriterChapterPayload, a
       const uniqueSuffix = Math.random().toString(36).substring(2, 6)
       const chSlug = `ch-${nextNum}-${uniqueSuffix}`
 
+      let isIndexable = false
+      if (status === 'published') {
+        const { data: parentWork } = await admin
+          .from('works')
+          .select('visibility, publication_status, is_indexable')
+          .eq('id', workUuid)
+          .maybeSingle()
+
+        isIndexable = Boolean(
+          parentWork &&
+          (parentWork.visibility || '').toLowerCase() === 'public' &&
+          (parentWork.publication_status || '').toLowerCase() === 'published' &&
+          parentWork.is_indexable === true
+        )
+      }
+
       const { data: newCh, error: insertErr } = await admin
         .from('chapters')
         .insert({
@@ -840,6 +872,7 @@ export async function executeSaveWriterChapter(data: SaveWriterChapterPayload, a
           word_count: wordCount || 0,
           reading_time_minutes: readingTime || 1,
           status: status || 'draft',
+          is_indexable: isIndexable,
           published_at: status === 'published' ? nowIso : null,
           created_at: nowIso,
           updated_at: nowIso,
@@ -849,6 +882,7 @@ export async function executeSaveWriterChapter(data: SaveWriterChapterPayload, a
 
       if (insertErr) {
         console.error('[saveWriterChapterServerFn] Error inserting chapter into DB:', insertErr.message)
+        throw new Error(insertErr.message)
       }
     }
 
@@ -1432,6 +1466,25 @@ export async function executeWriterWorkPublication(
   if (error || !updatedWork) {
     console.error('[executeWriterWorkPublication] Error updating work publication:', error?.message)
     throw new Error(`Failed to update manuscript publication settings: ${error?.message}`)
+  }
+
+  // Synchronize indexability of child chapters with parent work's publication state
+  const isWorkPublicAndPublished = normalizedPubStatus === 'published' && normalizedVisibility === 'public'
+  const chapterSyncQuery = isWorkPublicAndPublished
+    ? admin
+        .from('chapters')
+        .update({ is_indexable: true })
+        .eq('work_id', workUuid)
+        .eq('status', 'published')
+    : admin
+        .from('chapters')
+        .update({ is_indexable: false })
+        .eq('work_id', workUuid)
+
+  const { error: chapterSyncError } = await chapterSyncQuery
+  if (chapterSyncError) {
+    console.error('[executeWriterWorkPublication] Error synchronizing chapter indexability:', chapterSyncError.message)
+    throw new Error(`Failed to synchronize chapter indexability: ${chapterSyncError.message}`)
   }
 
   return {

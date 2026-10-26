@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { executeCreateWriterWork, authenticateWriterRequest } from '../src/server/writer.ts'
+import { executeCreateWriterWork, authenticateWriterRequest, executeSaveWriterChapter } from '../src/server/writer.ts'
 
 /**
  * Creates a mock Supabase admin client for testing executeCreateWriterWork.
@@ -797,4 +797,168 @@ test('Unit: Publishing Safety: Explicit chapter publishing updates status to pub
   assert.ok(updatedRecord)
   assert.equal(updatedRecord.status, 'published')
   assert.ok(updatedRecord.published_at)
+})
+
+test('Unit: Publishing Safety: executeSaveWriterChapter sets is_indexable: true when chapter is published', async () => {
+  let updatedFields = null
+  const fakeAdmin = {
+    from: (table) => {
+      if (table === 'chapters') {
+        return {
+          select: () => ({
+            eq: () => ({
+              order: () => ({
+                limit: () => ({
+                  maybeSingle: async () => ({ data: null }),
+                }),
+              }),
+              maybeSingle: async () => ({ data: null }),
+              async: async () => ({ data: [], error: null }),
+            }),
+            async: async () => ({ data: [], error: null }),
+          }),
+          update: (fields) => {
+            updatedFields = fields
+            return {
+              eq: async () => ({ error: null }),
+            }
+          },
+        }
+      }
+      if (table === 'works') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { id: '00000000-0000-0000-0000-000000000001', visibility: 'public', publication_status: 'published', is_indexable: true },
+              }),
+            }),
+          }),
+          update: () => ({
+            eq: async () => ({ error: null }),
+          }),
+        }
+      }
+      return { select: () => ({ maybeSingle: async () => ({ data: null }) }) }
+    },
+  }
+
+  const result = await executeSaveWriterChapter(
+    {
+      workId: '00000000-0000-0000-0000-000000000001',
+      chapterId: '11111111-1111-1111-1111-111111111111',
+      title: 'Chapter One (Published)',
+      content: 'Prose content for readers.',
+      status: 'published',
+    },
+    fakeAdmin
+  )
+
+  assert.ok(updatedFields)
+  assert.equal(updatedFields.status, 'published')
+  assert.equal(updatedFields.is_indexable, true, 'Published chapter must have is_indexable set to true')
+  assert.ok(updatedFields.published_at)
+
+  // When updating back to draft, is_indexable must become false
+  let draftUpdatedFields = null
+  const draftAdmin = {
+    from: (table) => {
+      if (table === 'chapters') {
+        return {
+          select: () => ({
+            eq: () => ({
+              order: () => ({ limit: () => ({ maybeSingle: async () => ({ data: null }) }) }),
+              maybeSingle: async () => ({ data: null }),
+              async: async () => ({ data: [], error: null }),
+            }),
+            async: async () => ({ data: [], error: null }),
+          }),
+          update: (fields) => {
+            draftUpdatedFields = fields
+            return { eq: async () => ({ error: null }) }
+          },
+        }
+      }
+      if (table === 'works') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { id: '00000000-0000-0000-0000-000000000001', visibility: 'public', publication_status: 'published', is_indexable: true },
+              }),
+            }),
+          }),
+          update: () => ({ eq: async () => ({ error: null }) }),
+        }
+      }
+      return { select: () => ({ maybeSingle: async () => ({ data: null }) }) }
+    },
+  }
+
+  await executeSaveWriterChapter(
+    {
+      workId: '00000000-0000-0000-0000-000000000001',
+      chapterId: '11111111-1111-1111-1111-111111111111',
+      title: 'Chapter One (Draft)',
+      content: 'Draft content.',
+      status: 'draft',
+    },
+    draftAdmin
+  )
+
+  assert.ok(draftUpdatedFields)
+  assert.equal(draftUpdatedFields.status, 'draft')
+  assert.equal(draftUpdatedFields.is_indexable, false, 'Draft chapter must have is_indexable set to false')
+})
+
+test('Unit: Publishing Safety: Chapter published in unlisted or draft parent work remains is_indexable: false', async () => {
+  let updatedFields = null
+  const unlistedParentAdmin = {
+    from: (table) => {
+      if (table === 'chapters') {
+        return {
+          select: () => ({
+            eq: () => ({
+              order: () => ({ limit: () => ({ maybeSingle: async () => ({ data: null }) }) }),
+              maybeSingle: async () => ({ data: null }),
+              async: async () => ({ data: [], error: null }),
+            }),
+            async: async () => ({ data: [], error: null }),
+          }),
+          update: (fields) => {
+            updatedFields = fields
+            return { eq: async () => ({ error: null }) }
+          },
+        }
+      }
+      if (table === 'works') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { id: '00000000-0000-0000-0000-000000000001', visibility: 'unlisted', publication_status: 'published', is_indexable: false },
+              }),
+            }),
+          }),
+          update: () => ({ eq: async () => ({ error: null }) }),
+        }
+      }
+      return { select: () => ({ maybeSingle: async () => ({ data: null }) }) }
+    },
+  }
+
+  await executeSaveWriterChapter(
+    {
+      workId: '00000000-0000-0000-0000-000000000001',
+      chapterId: '11111111-1111-1111-1111-111111111111',
+      title: 'Chapter One (Unlisted Parent)',
+      content: 'Private/unlisted prose.',
+      status: 'published',
+    },
+    unlistedParentAdmin
+  )
+
+  assert.ok(updatedFields)
+  assert.equal(updatedFields.status, 'published')
+  assert.equal(updatedFields.is_indexable, false, 'Chapter in unlisted work must NOT become is_indexable: true')
 })
