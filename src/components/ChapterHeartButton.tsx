@@ -74,7 +74,7 @@ export function ChapterHeartButton({
     setIsSubmitting(true)
 
     if (nextHearted) {
-      showToast('You hearted this chapter ❤️')
+      showToast('You hearted this chapter')
     }
 
     try {
@@ -114,23 +114,23 @@ export function ChapterHeartButton({
       <button
         type="button"
         onClick={handleToggleHeart}
-        className={`group relative inline-flex items-center gap-2.5 px-6 py-3 rounded-full text-xs font-mono font-semibold transition-all cursor-pointer select-none active:scale-95 shadow-sm ${
+        className={`group relative inline-flex items-center gap-2.5 px-6 py-3 rounded-full text-xs font-mono font-semibold transition-all cursor-pointer select-none active:scale-95 shadow-xs ${
           userHearted
-            ? 'bg-rose-500 text-white border border-rose-600 shadow-rose-500/20'
-            : 'bg-[var(--bg-subtle)] hover:bg-[var(--bg-canvas)] text-[var(--ink-primary)] border border-[var(--border-strong)] hover:border-rose-400'
+            ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] border border-[var(--ink-primary)] hover:opacity-95'
+            : 'bg-[var(--bg-subtle)] hover:bg-[var(--bg-canvas)] text-[var(--ink-primary)] border border-[var(--border-strong)] hover:border-[var(--ink-primary)]'
         }`}
         title={userHearted ? 'Remove heart' : 'Heart this chapter'}
       >
         <Heart
-          className={`h-4 w-4 transition-transform duration-200 group-hover:scale-125 ${
-            userHearted ? 'fill-current text-white scale-110' : 'text-rose-500'
+          className={`h-4 w-4 transition-transform duration-200 group-hover:scale-110 ${
+            userHearted ? 'fill-current text-[var(--accent-contrast)] scale-105' : 'text-[var(--ink-secondary)] group-hover:text-[var(--ink-primary)]'
           }`}
         />
         <span>{userHearted ? 'Hearted' : 'Heart Chapter'}</span>
         <span
           className={`px-2 py-0.5 rounded-full text-[11px] font-mono ${
             userHearted
-              ? 'bg-rose-600/60 text-white'
+              ? 'bg-[var(--accent-contrast)]/20 text-[var(--accent-contrast)]'
               : 'bg-[var(--bg-surface)] text-[var(--ink-muted)] border border-[var(--border-subtle)]'
           }`}
         >

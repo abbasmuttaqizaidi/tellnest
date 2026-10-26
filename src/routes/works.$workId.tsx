@@ -454,8 +454,8 @@ function WorkDetailPage() {
               <p className="text-[10px] text-[var(--ink-muted)] uppercase tracking-wider">Chapters</p>
             </div>
             <div>
-              <p className="text-lg font-semibold text-[var(--ink-primary)] flex items-center justify-center gap-1">
-                <Heart className="h-3.5 w-3.5 fill-current text-rose-500" />
+              <p className="text-lg font-semibold text-[var(--ink-primary)] flex items-center justify-center gap-1.5">
+                <Heart className="h-3.5 w-3.5 fill-current text-[var(--ink-primary)]" />
                 {(Number(work.likeCount ?? (work as any).like_count) || 0).toLocaleString()}
               </p>
               <p className="text-[10px] text-[var(--ink-muted)] uppercase tracking-wider">Total Hearts</p>

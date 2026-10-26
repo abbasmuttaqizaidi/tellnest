@@ -551,12 +551,12 @@ export default function CommentsSection({
                     onClick={() => handleToggleLike(comment.id)}
                     className={`inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
                       comment.userLiked
-                        ? 'text-rose-500 font-semibold'
-                        : 'text-[var(--ink-muted)] hover:text-rose-500'
+                        ? 'text-[var(--ink-primary)] font-semibold'
+                        : 'text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
                     }`}
                     title={comment.userLiked ? 'Unlike reflection' : 'Heart this reflection'}
                   >
-                    <Heart className={`h-3.5 w-3.5 ${comment.userLiked ? 'fill-current text-rose-500' : ''}`} />
+                    <Heart className={`h-3.5 w-3.5 ${comment.userLiked ? 'fill-current text-[var(--ink-primary)]' : ''}`} />
                     <span>{comment.likesCount}</span>
                   </button>
 
@@ -634,13 +634,14 @@ export default function CommentsSection({
                             <div className="flex items-center gap-2 text-[var(--ink-faint)]">
                               <button
                                 onClick={() => handleToggleLike(reply.id)}
-                                className={`inline-flex items-center gap-1 text-[11px] font-mono cursor-pointer ${
+                                className={`inline-flex items-center gap-1 text-[11px] font-mono cursor-pointer transition-colors ${
                                   reply.userLiked
-                                    ? 'text-rose-500 font-semibold'
-                                    : 'text-[var(--ink-muted)] hover:text-rose-500'
+                                    ? 'text-[var(--ink-primary)] font-semibold'
+                                    : 'text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
                                 }`}
+                                title={reply.userLiked ? 'Unlike reflection' : 'Heart this reflection'}
                               >
-                                <Heart className={`h-3 w-3 ${reply.userLiked ? 'fill-current text-rose-500' : ''}`} />
+                                <Heart className={`h-3 w-3 ${reply.userLiked ? 'fill-current text-[var(--ink-primary)]' : ''}`} />
                                 <span>{reply.likesCount}</span>
                               </button>
 
