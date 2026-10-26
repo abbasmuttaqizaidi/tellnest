@@ -11,6 +11,7 @@ import {
   Share2,
   Clock,
   Star,
+  Heart,
   Users,
   Eye,
   CheckCircle2,
@@ -454,10 +455,10 @@ function WorkDetailPage() {
             </div>
             <div>
               <p className="text-lg font-semibold text-[var(--ink-primary)] flex items-center justify-center gap-1">
-                <Star className="h-3.5 w-3.5 fill-current text-[var(--ink-primary)]" />
-                {(Number(work.ratingScore) || 5.0).toFixed(1)}
+                <Heart className="h-3.5 w-3.5 fill-current text-rose-500" />
+                {(Number(work.likeCount ?? (work as any).like_count) || 0).toLocaleString()}
               </p>
-              <p className="text-[10px] text-[var(--ink-muted)] uppercase tracking-wider">{work.ratingCount || 0} Reviews</p>
+              <p className="text-[10px] text-[var(--ink-muted)] uppercase tracking-wider">Total Hearts</p>
             </div>
           </div>
 

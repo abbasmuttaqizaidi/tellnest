@@ -4,6 +4,7 @@ import { useApp } from '../context/AppContext'
 import ReaderSettingsModal from '../components/ReaderSettingsModal'
 import ChapterDrawer from '../components/ChapterDrawer'
 import CommentsSection from '../components/CommentsSection'
+import { ChapterHeartButton } from '../components/ChapterHeartButton'
 import EmptyState from '../components/EmptyState'
 import { TellnestLoader } from '../components/TellnestLoader'
 import {
@@ -1184,6 +1185,18 @@ function ReaderPage() {
             </Link>
           </div>
         )}
+
+        {/* Chapter Appreciation Heart Action */}
+        {!isCompulsoryAuth && (
+          <div className="mt-12 w-full max-w-2xl mx-auto">
+            <ChapterHeartButton
+              workId={work.id}
+              chapterId={chapter.id}
+              chapterTitle={chapter.title}
+            />
+          </div>
+        )}
+
         {/* Reader Comments / Marginalia Section Toggle */}
         {inlineMarginaliaEnabled && !isCompulsoryAuth ? (
           <div className="mt-8 flex flex-col items-center gap-3">
