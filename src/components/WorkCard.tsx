@@ -61,9 +61,18 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
             containerClassName="h-full w-full"
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
-          {work.status === 'Completed' && (
-            <span className="absolute top-2 left-2 rounded bg-black/80 px-1.5 py-0.5 text-[9px] font-mono font-medium text-white uppercase tracking-wider backdrop-blur-sm z-10">
-              Complete
+
+          {/* ── TOP-LEFT: Genre Badge ── */}
+          {work.genre && (
+            <span className="absolute top-1.5 left-1.5 z-10 rounded bg-black/80 px-1.5 py-0.5 text-[8.5px] font-mono font-medium text-white border border-white/10 backdrop-blur-sm">
+              {work.genre}
+            </span>
+          )}
+
+          {/* ── BOTTOM-RIGHT: Status Badge ── */}
+          {work.status && (
+            <span className="absolute bottom-1.5 right-1.5 z-10 inline-flex items-center rounded bg-black/80 px-1.5 py-0.5 text-[8px] font-mono font-semibold text-white uppercase tracking-wider border border-white/10 backdrop-blur-sm">
+              <span>{work.status}</span>
             </span>
           )}
         </Link>
@@ -181,13 +190,20 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
             />
           </Link>
 
-          {/* Quick Bookmark Button */}
+          {/* ── TOP-LEFT: Genre Badge ── */}
+          {work.genre && (
+            <span className="absolute top-2 left-2 z-10 rounded-md bg-black/75 dark:bg-black/85 backdrop-blur-md px-2 py-0.5 text-[9px] font-mono font-medium text-white tracking-wide border border-white/15 shadow-xs">
+              {work.genre}
+            </span>
+          )}
+
+          {/* ── TOP-RIGHT: Quick Bookmark Button ── */}
           <button
             onClick={(e) => {
               e.preventDefault()
               toggleSaveWork(work.id)
             }}
-            className={`absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-black shadow-sm transition-transform active:scale-95 ${
+            className={`absolute top-2 right-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-black shadow-sm transition-transform active:scale-95 ${
               saved ? 'text-black' : 'text-slate-500 hover:text-black'
             }`}
             title={saved ? 'Remove from Library' : 'Save to Library'}
@@ -195,21 +211,25 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
             <Bookmark className={`h-3.5 w-3.5 ${saved ? 'fill-black' : ''}`} />
           </button>
 
-          {/* Status & Collections / Recent Activity Badge */}
-          <div className="absolute bottom-2 left-2 right-2 flex flex-wrap items-center gap-1">
-            <span className="rounded bg-black/80 px-2 py-0.5 text-[9px] font-mono font-medium text-white uppercase tracking-wider backdrop-blur-sm">
-              {work.status}
+          {/* ── BOTTOM-RIGHT: Status Badge ── */}
+          {work.status && (
+            <span className="absolute bottom-2 right-2 z-10 inline-flex items-center rounded-md bg-black/80 dark:bg-black/90 backdrop-blur-md px-1.5 sm:px-2 py-0.5 text-[8.5px] sm:text-[9px] font-mono font-semibold text-white uppercase tracking-wider border border-white/15 shadow-xs">
+              <span>{work.status}</span>
             </span>
+          )}
+
+          {/* ── BOTTOM-LEFT: Activity / Feature Highlights ── */}
+          <div className="absolute bottom-2 left-2 flex flex-wrap items-center gap-1 z-10">
             {work.new_chapters_this_week ? (
               <span className="rounded bg-indigo-600/90 text-white px-2 py-0.5 text-[9px] font-mono font-medium tracking-wide backdrop-blur-sm">
-                ✦ New Chapters This Week
+                ✦ New Chapters
               </span>
             ) : work.new_this_week ? (
               <span className="rounded bg-amber-600/90 text-white px-2 py-0.5 text-[9px] font-mono font-medium tracking-wide backdrop-blur-sm">
-                ✦ New This Week
+                ✦ New
               </span>
             ) : activity.detail && activity.isRecent ? (
-              <span className="rounded bg-emerald-600/90 text-white px-2 py-0.5 text-[9px] font-mono font-medium tracking-wide backdrop-blur-sm truncate max-w-[150px]">
+              <span className="rounded bg-emerald-600/90 text-white px-2 py-0.5 text-[9px] font-mono font-medium tracking-wide backdrop-blur-sm truncate max-w-[120px]">
                 ✦ {activity.detail}
               </span>
             ) : work.trending ? (

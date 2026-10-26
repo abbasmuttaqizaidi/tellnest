@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Link, useRouterState, useNavigate } from '@tanstack/react-router'
 import {
+  PenTool,
   PenLine,
   Search,
   Bookmark,
@@ -366,15 +367,15 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
             </div>
           )}
 
-          {/* Prominent Write CTA (Only when signed in) */}
+          {/* Prominent Studio CTA (Only when signed in) */}
           {isSignedIn && (
             <Link
               to="/write"
               preload="intent"
               className={`${isNavSearchOpen ? 'hidden xl:inline-flex' : 'hidden sm:inline-flex'} items-center gap-1.5 rounded border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-3 py-1.5 text-xs font-medium text-[var(--accent-contrast)] hover:opacity-90 transition-opacity flex-shrink-0`}
             >
-              <PenLine className="h-3.5 w-3.5" />
-              <span className="font-sans font-semibold tracking-wide">Write</span>
+              <PenTool className="h-3.5 w-3.5" />
+              <span className="font-sans font-semibold tracking-wide">Studio</span>
             </Link>
           )}
 
@@ -459,7 +460,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
                       onClick={() => setUserMenuOpen(false)}
                       className="flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
                     >
-                      <PenLine className="h-3.5 w-3.5 text-[var(--ink-muted)]" />
+                      <PenTool className="h-3.5 w-3.5 text-[var(--ink-muted)]" />
                       <span>Studio Dashboard</span>
                     </Link>
                     <Link
@@ -686,8 +687,8 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
                 }}
                 className="flex items-center gap-2 w-full text-left py-1.5 px-2.5 rounded-lg text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] cursor-pointer transition-colors"
               >
-                <PenLine className="h-4 w-4" />
-                <span>Write</span>
+                <PenTool className="h-4 w-4" />
+                <span>Studio</span>
               </button>
             )}
           </div>
@@ -704,7 +705,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
                 onClick={() => setMobileDrawerOpen(false)}
                 className="flex items-center gap-2 py-1.5 px-2.5 rounded-lg text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
               >
-                <PenLine className="h-4 w-4 text-[var(--ink-muted)]" />
+                <PenTool className="h-4 w-4 text-[var(--ink-muted)]" />
                 <span>Studio Dashboard</span>
               </Link>
               <Link

@@ -3,6 +3,9 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import { useApp } from '../../context/AppContext'
 import { getWorkSlug } from '../../data/mockData'
 import { OptimizedImage } from '../OptimizedImage'
+import { HomeStoryCard } from './HomeStoryCard'
+
+export { HomeStoryCard }
 import {
   Button,
   Badge,
@@ -95,17 +98,31 @@ function CurrentlyReadingCard({
             decoding="async"
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
+
+          {/* ── TOP-LEFT: Genre Badge ── */}
+          {work.genre && (
+            <span className="absolute top-1 left-1 z-10 rounded bg-black/80 backdrop-blur-xs px-1.5 py-0.5 text-[8px] font-mono font-medium text-white border border-white/10 shadow-xs truncate max-w-[85%]">
+              {work.genre}
+            </span>
+          )}
+
+          {/* ── BOTTOM-RIGHT: Status Badge ── */}
+          {(work.status || work.publicationStatus) && (
+            <span className="absolute bottom-1 right-1 z-10 inline-flex items-center rounded bg-black/85 backdrop-blur-xs px-1.5 py-0.5 text-[7.5px] font-mono font-semibold text-white uppercase tracking-wider border border-white/10 shadow-xs">
+              <span>{work.status || work.publicationStatus || 'Ongoing'}</span>
+            </span>
+          )}
         </Link>
 
         {/* ── PART 2 (RIGHT): All Details Vertically Aligned in One Flow ── */}
         <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5 space-y-2">
           {/* Top Info */}
           <div className="space-y-1">
-            {/* Genre Badge + Author */}
+            {/* Category Badge + Author */}
             <div className="flex items-center gap-1.5 text-[10.5px]">
-              {work.genre && (
+              {work.category && (
                 <Badge variant="subtle" size="sm" className="text-[10px] px-1.5 py-0">
-                  {work.genre}
+                  {work.category}
                 </Badge>
               )}
               <span className="text-[var(--ink-muted)] font-serif text-[11px] truncate">
@@ -598,7 +615,14 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
                       />
                     </Link>
 
-                    {/* Bookmark Pill Button */}
+                    {/* ── TOP-LEFT: Genre Badge ── */}
+                    {work.genre && (
+                      <span className="absolute top-2 left-2 z-10 rounded-md bg-black/75 dark:bg-black/85 backdrop-blur-md px-2 py-0.5 text-[9px] font-mono font-medium text-white tracking-wide border border-white/15 shadow-xs">
+                        {work.genre}
+                      </span>
+                    )}
+
+                    {/* ── TOP-RIGHT: Bookmark Pill Button ── */}
                     <button
                       type="button"
                       onClick={() => toggleSaveWork(work.id)}
@@ -608,10 +632,17 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
                       <Bookmark className={`h-3 w-3 ${saved ? 'fill-amber-400 text-amber-400' : ''}`} />
                     </button>
 
-                    {/* Chapter count */}
-                    <div className="absolute bottom-1.5 left-1.5 bg-black/75 text-white font-mono text-[8px] px-1.5 py-0.5 rounded backdrop-blur-2xs">
+                    {/* ── BOTTOM-LEFT: Chapter count ── */}
+                    <div className="absolute bottom-2 left-2 z-10 bg-black/75 text-white font-mono text-[8.5px] px-1.5 py-0.5 rounded backdrop-blur-2xs border border-white/10">
                       {work.publishedChaptersCount ?? work.chaptersCount} Ch
                     </div>
+
+                    {/* ── BOTTOM-RIGHT: Status Badge (Ongoing, Completed, etc.) ── */}
+                    {(work.status || work.publicationStatus) && (
+                      <span className="absolute bottom-2 right-2 z-10 inline-flex items-center rounded-md bg-black/80 dark:bg-black/90 backdrop-blur-md px-1.5 sm:px-2 py-0.5 text-[8.5px] sm:text-[9px] font-mono font-semibold text-white uppercase tracking-wider border border-white/15 shadow-xs">
+                        <span>{work.status || work.publicationStatus || 'Ongoing'}</span>
+                      </span>
+                    )}
                   </div>
 
                   {/* Card Content */}
@@ -631,7 +662,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
                       <div className="flex items-center justify-between font-mono text-[10px] text-[var(--ink-muted)]">
                         <span className="truncate">{work.author.name}</span>
                         <span className="shrink-0 text-[9px] text-[var(--ink-faint)]">
-                          {work.genre}
+                          {work.category}
                         </span>
                       </div>
                     </div>
@@ -735,7 +766,14 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
                       />
                     </Link>
 
-                    {/* Bookmark Pill Button */}
+                    {/* ── TOP-LEFT: Genre Badge ── */}
+                    {work.genre && (
+                      <span className="absolute top-2.5 left-2.5 z-10 rounded-md bg-black/75 dark:bg-black/85 backdrop-blur-md px-2 py-0.5 text-[9px] font-mono font-medium text-white tracking-wide border border-white/15 shadow-xs">
+                        {work.genre}
+                      </span>
+                    )}
+
+                    {/* ── TOP-RIGHT: Bookmark Pill Button ── */}
                     <button
                       type="button"
                       onClick={() => toggleSaveWork(work.id)}
@@ -745,10 +783,17 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
                       <Bookmark className={`h-3.5 w-3.5 ${saved ? 'fill-amber-400 text-amber-400' : ''}`} />
                     </button>
 
-                    {/* Chapter count */}
-                    <div className="absolute bottom-2 left-2 bg-black/75 text-white font-mono text-[9px] px-1.5 py-0.5 rounded backdrop-blur-2xs">
+                    {/* ── BOTTOM-LEFT: Chapter count ── */}
+                    <div className="absolute bottom-2 left-2 bg-black/75 text-white font-mono text-[9px] px-1.5 py-0.5 rounded backdrop-blur-2xs border border-white/10">
                       {work.publishedChaptersCount ?? work.chaptersCount} Ch
                     </div>
+
+                    {/* ── BOTTOM-RIGHT: Status Badge (Ongoing, Completed, etc.) ── */}
+                    {(work.status || work.publicationStatus) && (
+                      <span className="absolute bottom-2 right-2 z-10 inline-flex items-center rounded-md bg-black/80 dark:bg-black/90 backdrop-blur-md px-1.5 sm:px-2 py-0.5 text-[9px] font-mono font-semibold text-white uppercase tracking-wider border border-white/15 shadow-xs">
+                        <span>{work.status || work.publicationStatus || 'Ongoing'}</span>
+                      </span>
+                    )}
                   </div>
 
                   {/* Card Content */}
@@ -768,7 +813,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
                       <div className="flex items-center justify-between font-mono text-[11px] text-[var(--ink-muted)]">
                         <span className="truncate">{work.author.name}</span>
                         <span className="shrink-0 text-[10px] text-[var(--ink-faint)]">
-                          {work.genre}
+                          {work.category}
                         </span>
                       </div>
                     </div>
@@ -877,24 +922,31 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent pointer-events-none" />
 
-                  {/* Rank Pill */}
-                  <div className="absolute top-3 left-3 bg-black/75 text-white backdrop-blur-md px-2.5 py-1 rounded font-mono text-[11px] uppercase tracking-wider flex items-center gap-1 border border-white/20 shadow-xs">
+                  {/* Rank & Genre Pill (Top-Left) */}
+                  <div className="absolute top-3 left-3 bg-black/75 text-white backdrop-blur-md px-2.5 py-1 rounded font-mono text-[11px] uppercase tracking-wider flex items-center gap-1 border border-white/20 shadow-xs z-10">
                     <span className="font-bold text-amber-400">#{idx + 1}</span>
                     <span>in {work.genre}</span>
                   </div>
 
-                  {/* Bookmark Button */}
+                  {/* Bookmark Button (Top-Right) */}
                   <button
                     type="button"
                     onClick={() => toggleSaveWork(work.id)}
-                    className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/60 backdrop-blur-md text-white flex items-center justify-center hover:bg-black transition-colors cursor-pointer"
+                    className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/60 backdrop-blur-md text-white flex items-center justify-center hover:bg-black transition-colors cursor-pointer z-10"
                     title={saved ? 'Remove Bookmark' : 'Save to Library'}
                   >
                     <Bookmark className={`h-4 w-4 ${saved ? 'fill-amber-400 text-amber-400' : ''}`} />
                   </button>
 
+                  {/* Status Badge (Bottom-Right) */}
+                  {(work.status || (work as any).publicationStatus) && (
+                    <span className="absolute bottom-3 right-4 z-10 inline-flex items-center rounded-md bg-black/80 backdrop-blur-md px-2 py-0.5 text-[9px] font-mono font-semibold text-white uppercase tracking-wider border border-white/15 shadow-xs">
+                      <span>{work.status || (work as any).publicationStatus || 'Ongoing'}</span>
+                    </span>
+                  )}
+
                   {/* Title & Season Info */}
-                  <div className="absolute bottom-3 left-4 right-4 text-white">
+                  <div className="absolute bottom-3 left-4 right-28 text-white">
                     <span className="font-mono text-[10px] tracking-wider uppercase text-white/80">
                       Season 1 • {work.publishedChaptersCount ?? work.chaptersCount} Chapters
                     </span>
@@ -1006,9 +1058,25 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
                       containerClassName="w-full h-full"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
-                    <div className="absolute top-2 left-2 bg-black/75 text-white font-mono text-[9px] px-1.5 py-0.5 rounded backdrop-blur-2xs">
+
+                    {/* ── TOP-LEFT: Genre Badge ── */}
+                    {work.genre && (
+                      <span className="absolute top-2 left-2 z-10 rounded bg-black/75 backdrop-blur-md px-1.5 py-0.5 text-[8.5px] font-mono font-medium text-white border border-white/15 shadow-xs">
+                        {work.genre}
+                      </span>
+                    )}
+
+                    {/* ── BOTTOM-LEFT: Chapter count ── */}
+                    <div className="absolute bottom-2 left-2 z-10 bg-black/75 text-white font-mono text-[8.5px] px-1.5 py-0.5 rounded backdrop-blur-2xs border border-white/10">
                       {work.publishedChaptersCount ?? work.chaptersCount} Ch
                     </div>
+
+                    {/* ── BOTTOM-RIGHT: Status Badge ── */}
+                    {(work.status || (work as any).publicationStatus) && (
+                      <span className="absolute bottom-2 right-2 z-10 inline-flex items-center rounded bg-black/80 backdrop-blur-md px-1.5 py-0.5 text-[8.5px] font-mono font-semibold text-white uppercase tracking-wider border border-white/15 shadow-xs">
+                        <span>{work.status || (work as any).publicationStatus || 'Ongoing'}</span>
+                      </span>
+                    )}
                   </div>
                   <h5 className="font-serif text-xs sm:text-sm font-semibold text-[var(--ink-primary)] leading-snug line-clamp-1 group-hover:underline">
                     {work.title}
