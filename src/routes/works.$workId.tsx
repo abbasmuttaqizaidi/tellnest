@@ -26,6 +26,7 @@ import { generateMeta } from '../lib/seo'
 import { getPublicWorkServerFn } from '../server/works'
 import { getWorkHeartStatusServerFn, toggleWorkHeartServerFn } from '../server/hearts'
 import { HeartsBreakdownModal } from '../components/HeartsBreakdownModal'
+import { AuthorProfileModal } from '../components/AuthorProfileModal'
 import { formatViewCount, formatHeartCount } from '../lib/utils'
 import CommentsSection from '../components/CommentsSection'
 
@@ -231,6 +232,7 @@ function WorkDetailPage() {
   const [isHeartSubmitting, setIsHeartSubmitting] = useState<boolean>(false)
   const [isHeartBouncing, setIsHeartBouncing] = useState<boolean>(false)
   const [showHeartBurst, setShowHeartBurst] = useState<boolean>(false)
+  const [authorModalOpen, setAuthorModalOpen] = useState<boolean>(false)
 
   // Sync heart count if work changes
   useEffect(() => {
@@ -531,49 +533,35 @@ function WorkDetailPage() {
           <div className="flex flex-wrap items-center justify-between gap-3 py-3 border-y border-[var(--border-subtle)]">
             {/* Left: Author Avatar, Name, Follow Button & Handle */}
             <div className="flex items-center gap-3">
-              <Link
-                to="/author/$authorId"
-                params={{ authorId: authorHandle || authorId }}
-                preload="intent"
-                onClick={(e) => {
-                  if (!user) {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    const authorSlug = authorHandle || authorId
-                    openAuthModal(`/author/${authorSlug}`)
-                  }
-                }}
-                className="shrink-0 group"
+              <button
+                type="button"
+                onClick={() => setAuthorModalOpen(true)}
+                className="shrink-0 group cursor-pointer focus:outline-none"
+                title="View Author Profile"
+                aria-label="View Author Profile"
               >
                 <img
                   src={authorDisplayAvatar}
                   alt={authorDisplayName}
                   loading="lazy"
                   decoding="async"
-                  className="h-10 w-10 rounded-full object-cover grayscale border border-[var(--border-strong)]"
+                  className="h-10 w-10 rounded-full object-cover grayscale border border-[var(--border-strong)] group-hover:border-[var(--ink-primary)] transition-all"
                 />
-              </Link>
+              </button>
 
               <div>
                 <div className="flex items-center gap-2">
-                  <Link
-                    to="/author/$authorId"
-                    params={{ authorId: authorHandle || authorId }}
-                    preload="intent"
-                    onClick={(e) => {
-                      if (!user) {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        const authorSlug = authorHandle || authorId
-                        openAuthModal(`/author/${authorSlug}`)
-                      }
-                    }}
-                    className="text-inherit no-underline group"
+                  <button
+                    type="button"
+                    onClick={() => setAuthorModalOpen(true)}
+                    className="text-inherit no-underline group text-left cursor-pointer focus:outline-none"
+                    title="View Author Profile"
+                    aria-label="View Author Profile"
                   >
                     <p className="text-sm font-semibold text-[var(--ink-primary)] group-hover:underline">
                       {authorDisplayName}
                     </p>
-                  </Link>
+                  </button>
 
                   {/* Follow Button: Compact & Right Next to Author Name */}
                   {!isSelf && (
@@ -603,9 +591,14 @@ function WorkDetailPage() {
                 </div>
 
                 {(isSelf || showAuthorUsername) && (
-                  <p className="text-xs font-mono text-[var(--ink-muted)]">
+                  <button
+                    type="button"
+                    onClick={() => setAuthorModalOpen(true)}
+                    className="text-xs font-mono text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors cursor-pointer text-left block"
+                    title="View Author Profile"
+                  >
                     @{authorHandle}
-                  </p>
+                  </button>
                 )}
               </div>
             </div>
@@ -856,6 +849,15 @@ function WorkDetailPage() {
             setWorkHeartCount(newTotal)
             showToast(`Story hearts updated to ${newTotal.toLocaleString()}!`)
           }}
+        />
+      )}
+
+      {/* AUTHOR PROFILE POPUP / MOBILE BOTTOM SHEET DRAWER */}
+      {work?.author && (
+        <AuthorProfileModal
+          isOpen={authorModalOpen}
+          onClose={() => setAuthorModalOpen(false)}
+          author={work.author}
         />
       )}
 

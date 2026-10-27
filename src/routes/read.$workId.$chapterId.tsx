@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import ReaderSettingsModal from '../components/ReaderSettingsModal'
+import { AuthorProfileModal } from '../components/AuthorProfileModal'
 import ChapterDrawer from '../components/ChapterDrawer'
 import CommentsSection from '../components/CommentsSection'
 import { ChapterHeartButton } from '../components/ChapterHeartButton'
@@ -287,6 +288,7 @@ function ReaderPage() {
   const [commentsVisible, setCommentsVisible] = useState(false)
   const [bannerImageFailed, setBannerImageFailed] = useState(false)
   const [viewsModalOpen, setViewsModalOpen] = useState(false)
+  const [authorModalOpen, setAuthorModalOpen] = useState(false)
   const [adminToken, setAdminToken] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
       return (
@@ -866,21 +868,14 @@ function ReaderPage() {
 
             {/* Desktop-Only Metadata (on Mobile, displayed directly below Heading & Actions) */}
             <div className="hidden sm:flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-[var(--ink-faint)]">
-              <Link
-                to="/author/$authorId"
-                params={{ authorId: work.author.handle || work.author.id }}
-                onClick={(e) => {
-                  if (!isSignedIn) {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    const authorSlug = work.author.handle || work.author.id
-                    openAuthModal(`/author/${authorSlug}`)
-                  }
-                }}
-                className="hover:text-[var(--ink-primary)] transition-colors no-underline"
+              <button
+                type="button"
+                onClick={() => setAuthorModalOpen(true)}
+                className="hover:text-[var(--ink-primary)] transition-colors cursor-pointer text-left"
+                title="View Author Profile"
               >
                 by {work.author.showName !== false ? work.author.name : (work.author.showUsername !== false ? `@${work.author.handle}` : 'Author')}
-              </Link>
+              </button>
               <span>•</span>
               <span>{chapter.readTimeMinutes} min read</span>
               <span>•</span>
@@ -939,21 +934,14 @@ function ReaderPage() {
 
           {/* Mobile-Only Metadata (Writer Name, Min Reads & Words Directly After Heading & Actions) */}
           <div className="flex sm:hidden items-center flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-[var(--ink-faint)] pt-1">
-            <Link
-              to="/author/$authorId"
-              params={{ authorId: work.author.handle || work.author.id }}
-              onClick={(e) => {
-                if (!isSignedIn) {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  const authorSlug = work.author.handle || work.author.id
-                  openAuthModal(`/author/${authorSlug}`)
-                }
-              }}
-              className="hover:text-[var(--ink-primary)] transition-colors no-underline font-medium text-[var(--ink-muted)]"
+            <button
+              type="button"
+              onClick={() => setAuthorModalOpen(true)}
+              className="hover:text-[var(--ink-primary)] transition-colors cursor-pointer text-left font-medium text-[var(--ink-muted)]"
+              title="View Author Profile"
             >
               by {work.author.showName !== false ? work.author.name : (work.author.showUsername !== false ? `@${work.author.handle}` : 'Author')}
-            </Link>
+            </button>
             <span>•</span>
             <span>{chapter.readTimeMinutes} min read</span>
             <span>•</span>
@@ -1240,6 +1228,15 @@ function ReaderPage() {
         work={work}
         allowAdminAdjust={false}
       />
+
+      {/* Author Profile Popup / Mobile Bottom Sheet Drawer */}
+      {work?.author && (
+        <AuthorProfileModal
+          isOpen={authorModalOpen}
+          onClose={() => setAuthorModalOpen(false)}
+          author={work.author}
+        />
+      )}
 
       {/* Floating Table of Contents (Quick Drawer) FAB Button */}
       {floatingTocEnabled && (
