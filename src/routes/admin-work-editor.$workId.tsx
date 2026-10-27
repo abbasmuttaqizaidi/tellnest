@@ -38,6 +38,7 @@ import { generateMeta } from '../lib/seo'
 import { getWorkSlug, type Work, type Act, type Chapter } from '../data/mockData'
 import { CloudinaryImageUpload } from '../components/CloudinaryImageUpload'
 import { ViewsBreakdownModal } from '../components/ViewsBreakdownModal'
+import { HeartsBreakdownModal } from '../components/HeartsBreakdownModal'
 import { formatViewCount } from '../lib/utils'
 
 import { getPublicWorkServerFn } from '../server/works'
@@ -187,6 +188,7 @@ function AdminWorkEditorPage() {
   const [dbActs, setDbActs] = useState<WorkActAnalytics[]>([])
   const [loadingDbActs, setLoadingDbActs] = useState(false)
   const [showViewsModal, setShowViewsModal] = useState(false)
+  const [showHeartsModal, setShowHeartsModal] = useState(false)
 
   // Sync state ONLY on initial load of this manuscript or when work ID changes, NOT on every background re-fetch while editing
   useEffect(() => {
@@ -786,6 +788,17 @@ function AdminWorkEditorPage() {
                   <span>{formatViewCount(work.totalReads, true)} Views</span>
                   <span className="text-[9px] uppercase tracking-wider text-amber-600 dark:text-amber-400 font-semibold">(Adjust)</span>
                 </button>
+                <span>•</span>
+                <button
+                  type="button"
+                  onClick={() => setShowHeartsModal(true)}
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded border border-[var(--border-subtle)] hover:border-[var(--ink-primary)] bg-[var(--bg-subtle)] hover:bg-[var(--bg-canvas)] text-[var(--ink-primary)] transition cursor-pointer font-bold text-[11px]"
+                  title={`${(Number((localWorkOverride || work).likeCount ?? (localWorkOverride || work as any).like_count) || 0).toLocaleString()} hearts • Click to adjust story and chapter hearts`}
+                >
+                  <Heart className="h-3 w-3 fill-current text-[var(--ink-primary)]" />
+                  <span>{(Number((localWorkOverride || work).likeCount ?? (localWorkOverride || work as any).like_count) || 0).toLocaleString()} Hearts</span>
+                  <span className="text-[9px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold">(Adjust)</span>
+                </button>
               </div>
             </div>
           </div>
@@ -799,6 +812,14 @@ function AdminWorkEditorPage() {
               onClick={() => setShowViewsModal(true)}
             >
               Adjust Views
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<Heart className="h-3.5 w-3.5 fill-current text-[var(--ink-primary)]" />}
+              onClick={() => setShowHeartsModal(true)}
+            >
+              Adjust Hearts
             </Button>
             <Button
               variant="outline"
@@ -1586,6 +1607,34 @@ function AdminWorkEditorPage() {
         onViewsUpdated={(updated) => {
           setLocalWorkOverride(updated)
           reloadWorksFromDb()
+        }}
+      />
+
+      {/* MODAL: HEARTS BREAKDOWN WITH ADMIN INCREMENT / DECREMENT */}
+      <HeartsBreakdownModal
+        isOpen={showHeartsModal}
+        onClose={() => setShowHeartsModal(false)}
+        work={localWorkOverride || work}
+        adminToken={adminToken}
+        allowAdminAdjust={true}
+        onHeartsUpdated={(newTotalHearts, updatedChapters) => {
+          setLocalWorkOverride((prev: any) => {
+            const base = prev || work
+            const chMap = new Map((updatedChapters || []).map((c) => [c.id, c.heartCount]))
+            const newChs = (base.chapters || []).map((c: any) => ({
+              ...c,
+              likeCount: chMap.has(c.id) ? chMap.get(c.id) : c.likeCount,
+              like_count: chMap.has(c.id) ? chMap.get(c.id) : c.like_count,
+            }))
+            return {
+              ...base,
+              likeCount: newTotalHearts,
+              like_count: newTotalHearts,
+              chapters: newChs,
+            }
+          })
+          reloadWorksFromDb()
+          showToast(`Story hearts updated to ${newTotalHearts.toLocaleString()}!`)
         }}
       />
 

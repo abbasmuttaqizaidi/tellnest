@@ -23,6 +23,7 @@ import { getWorkSlug } from '../data/mockData'
 import { generateMeta } from '../lib/seo'
 import { getPublicWorkServerFn } from '../server/works'
 import { getWorkHeartStatusServerFn, toggleWorkHeartServerFn } from '../server/hearts'
+import { HeartsBreakdownModal } from '../components/HeartsBreakdownModal'
 import { formatViewCount } from '../lib/utils'
 import CommentsSection from '../components/CommentsSection'
 
@@ -209,6 +210,18 @@ function WorkDetailPage() {
   const [chapterSearch, setChapterSearch] = useState('')
 
   const { openSignIn } = useClerk()
+  const [adminToken] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return (
+        sessionStorage.getItem('hatchpen_admin_session_token') ||
+        localStorage.getItem('hatchpen_admin_session_token') ||
+        sessionStorage.getItem('tellnest_admin_session_token') ||
+        localStorage.getItem('tellnest_admin_session_token')
+      )
+    }
+    return null
+  })
+  const [showAdminHeartsModal, setShowAdminHeartsModal] = useState<boolean>(false)
   const [workHearted, setWorkHearted] = useState<boolean>(false)
   const [workHeartCount, setWorkHeartCount] = useState<number>(() => {
     return Number(work?.likeCount ?? (work as any)?.like_count ?? 0)
@@ -552,7 +565,19 @@ function WorkDetailPage() {
                 <Heart className="h-3.5 w-3.5 fill-current text-[var(--ink-primary)]" />
                 {workHeartCount.toLocaleString()}
               </p>
-              <p className="text-[10px] text-[var(--ink-muted)] uppercase tracking-wider">Total Hearts</p>
+              <p className="text-[10px] text-[var(--ink-muted)] uppercase tracking-wider flex items-center justify-center gap-1">
+                <span>Total Hearts</span>
+                {adminToken && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminHeartsModal(true)}
+                    className="text-[9px] font-mono text-[var(--ink-primary)] font-bold underline hover:opacity-75 cursor-pointer ml-0.5"
+                    title="Admin: Adjust Hearts"
+                  >
+                    (Adjust)
+                  </button>
+                )}
+              </p>
             </div>
           </div>
 
@@ -690,6 +715,21 @@ function WorkDetailPage() {
           subtitle="Community reviews, critique, and literary discourse on this complete work"
         />
       </section>
+
+      {/* ADMIN HEARTS ADJUSTMENT MODAL */}
+      {showAdminHeartsModal && work && (
+        <HeartsBreakdownModal
+          isOpen={showAdminHeartsModal}
+          onClose={() => setShowAdminHeartsModal(false)}
+          work={work}
+          adminToken={adminToken}
+          allowAdminAdjust={true}
+          onHeartsUpdated={(newTotal) => {
+            setWorkHeartCount(newTotal)
+            showToast(`Story hearts updated to ${newTotal.toLocaleString()}!`)
+          }}
+        />
+      )}
 
     </div>
   )

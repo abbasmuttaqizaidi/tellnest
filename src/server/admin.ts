@@ -54,6 +54,7 @@ export interface AdminUserWork {
   wordCount: number
   viewCount: number
   saveCount: number
+  likeCount?: number
   createdAt: string
   categoryName?: string
 }
@@ -274,6 +275,7 @@ export const getAdminUsersServerFn = createServerFn({ method: 'POST' })
               wordCount: w.word_count || 0,
               viewCount: Number(w.view_count || 0),
               saveCount: Number(w.save_count || 0),
+              likeCount: Number(w.like_count || 0),
               createdAt: w.created_at,
               categoryName: w.category?.name || 'General Literature',
             }))
@@ -1431,6 +1433,7 @@ export interface AdminWorkRow {
   }
   postedAt: string
   viewCount: number
+  likeCount: number
   status: string
 }
 
@@ -1475,6 +1478,7 @@ export const getAdminWorksServerFn = createServerFn({ method: 'GET' })
           published_at,
           created_at,
           view_count,
+          like_count,
           status,
           author:profiles(
             id,
@@ -1506,6 +1510,7 @@ export const getAdminWorksServerFn = createServerFn({ method: 'GET' })
           },
           postedAt: w.published_at || w.created_at || new Date().toISOString(),
           viewCount: w.view_count || 0,
+          likeCount: Number(w.like_count || 0),
           status: w.status || 'Ongoing',
         }
       })
@@ -1542,12 +1547,14 @@ export interface WorkActAnalytics {
   title: string
   description?: string | null
   viewCount: number
+  heartCount: number
   chaptersCount: number
   chapters: {
     id: string
     chapterNumber: number
     title: string
     viewCount: number
+    heartCount: number
   }[]
 }
 
@@ -1555,6 +1562,7 @@ export interface WorkActsAnalyticsResponse {
   workId: string
   workTitle: string
   totalUniqueViews: number
+  totalHearts: number
   acts: WorkActAnalytics[]
 }
 
@@ -1572,10 +1580,10 @@ export const getAdminWorkActsAnalyticsServerFn = createServerFn({ method: 'GET' 
     const admin = createAdminClient()
 
     try {
-      // 1. Fetch work title & total view_count
+      // 1. Fetch work title & total view_count, like_count
       const { data: dbWork } = await admin
         .from('works')
-        .select('id, title, view_count')
+        .select('id, title, view_count, like_count')
         .eq('id', data.workId)
         .maybeSingle()
 
@@ -1589,12 +1597,13 @@ export const getAdminWorkActsAnalyticsServerFn = createServerFn({ method: 'GET' 
       // 3. Fetch chapters belonging to this work
       const { data: dbChapters } = await admin
         .from('chapters')
-        .select('id, act_id, chapter_number, title')
+        .select('id, act_id, chapter_number, title, view_count, like_count')
         .eq('work_id', data.workId)
         .order('chapter_number', { ascending: true })
 
       const workTitle = dbWork?.title || 'Manuscript'
-      const totalViews = dbWork?.view_count || 0
+      const totalViews = Number(dbWork?.view_count || 0)
+      const totalHearts = Number(dbWork?.like_count || 0)
 
       const chaptersList = dbChapters || []
       const actsList = dbActs || []
@@ -1603,20 +1612,22 @@ export const getAdminWorkActsAnalyticsServerFn = createServerFn({ method: 'GET' 
       if (actsList.length > 0) {
         const acts: WorkActAnalytics[] = actsList.map((act) => {
           const actChapters = chaptersList.filter((ch) => ch.act_id === act.id)
-          // Estimate/apportion views smoothly across chapters
           const actViews = Math.round(totalViews / Math.max(1, actsList.length))
+          const actHearts = actChapters.reduce((acc, c) => acc + Number(c.like_count || 0), 0)
           return {
             id: act.id,
             actNumber: act.act_number,
             title: act.title || `Act ${act.act_number}`,
             description: act.description,
             viewCount: actViews,
+            heartCount: actHearts,
             chaptersCount: actChapters.length,
             chapters: actChapters.map((ch, idx) => ({
               id: ch.id,
               chapterNumber: ch.chapter_number,
               title: ch.title,
-              viewCount: Math.max(0, Math.round(actViews * Math.pow(0.92, idx))),
+              viewCount: Number(ch.view_count || Math.max(0, Math.round(actViews * Math.pow(0.92, idx)))),
+              heartCount: Number(ch.like_count || 0),
             })),
           }
         })
@@ -1625,16 +1636,19 @@ export const getAdminWorkActsAnalyticsServerFn = createServerFn({ method: 'GET' 
           workId: data.workId,
           workTitle,
           totalUniqueViews: totalViews,
+          totalHearts,
           acts,
         }
       }
 
       // Fallback: If no acts table row exists yet, generate Act I with existing chapters
       const defaultActViews = totalViews
+      const defaultActHearts = chaptersList.reduce((acc, c) => acc + Number(c.like_count || 0), 0)
       return {
         workId: data.workId,
         workTitle,
         totalUniqueViews: totalViews,
+        totalHearts,
         acts: [
           {
             id: `act-1-${data.workId}`,
@@ -1642,12 +1656,14 @@ export const getAdminWorkActsAnalyticsServerFn = createServerFn({ method: 'GET' 
             title: 'Act I: The Opening Movement',
             description: 'Primary narrative arc',
             viewCount: defaultActViews,
+            heartCount: defaultActHearts,
             chaptersCount: chaptersList.length,
             chapters: chaptersList.map((ch, idx) => ({
               id: ch.id,
               chapterNumber: ch.chapter_number,
               title: ch.title,
-              viewCount: Math.max(0, Math.round(defaultActViews * Math.pow(0.92, idx))),
+              viewCount: Number(ch.view_count || Math.max(0, Math.round(defaultActViews * Math.pow(0.92, idx)))),
+              heartCount: Number(ch.like_count || 0),
             })),
           },
         ],
@@ -1658,6 +1674,7 @@ export const getAdminWorkActsAnalyticsServerFn = createServerFn({ method: 'GET' 
         workId: data.workId,
         workTitle: 'Manuscript',
         totalUniqueViews: 0,
+        totalHearts: 0,
         acts: [],
       }
     }
@@ -2022,6 +2039,103 @@ export const adminBatchSaveViewsServerFn = createServerFn({ method: 'POST' })
     }
 
     return { success: true, message: 'All view counts updated successfully in database' }
+  })
+
+/**
+ * Server Function: Admin adjust hearts (increment or decrement) for book or chapter.
+ */
+export const adminAdjustHeartsServerFn = createServerFn({ method: 'POST' })
+  .validator((params: {
+    adminToken: string
+    targetType: 'work' | 'chapter'
+    targetId: string
+    delta: number
+  }) => {
+    if (!params.adminToken) throw new Error('Admin authorization token is required')
+    if (!params.targetId) throw new Error('Target ID is required')
+    if (typeof params.delta !== 'number' || isNaN(params.delta)) throw new Error('Delta must be a valid number')
+    return params
+  })
+  .handler(async ({ data: { adminToken, targetType, targetId, delta } }) => {
+    if (!isValidAdminToken(adminToken)) {
+      throw new Error('Unauthorized: Invalid administration key')
+    }
+
+    const admin = createAdminClient()
+
+    if (targetType === 'work') {
+      const { data: wRow } = await admin.from('works').select('like_count').eq('id', targetId).single()
+      const current = Number(wRow?.like_count || 0)
+      const updated = Math.max(0, current + delta)
+      const { error } = await admin.from('works').update({ like_count: updated }).eq('id', targetId)
+      if (error) throw new Error(error.message)
+      return { success: true, targetType, targetId, newCount: updated }
+    } else {
+      const { data: cRow } = await admin.from('chapters').select('like_count, work_id').eq('id', targetId).single()
+      const current = Number(cRow?.like_count || 0)
+      const updated = Math.max(0, current + delta)
+      const { error } = await admin.from('chapters').update({ like_count: updated }).eq('id', targetId)
+      if (error) throw new Error(error.message)
+
+      // Also adjust work total hearts
+      if (cRow?.work_id) {
+        const { data: wRow } = await admin.from('works').select('like_count').eq('id', cRow.work_id).single()
+        const workCur = Number(wRow?.like_count || 0)
+        const workUpdated = Math.max(0, workCur + delta)
+        await admin.from('works').update({ like_count: workUpdated }).eq('id', cRow.work_id)
+      }
+
+      return { success: true, targetType, targetId, newCount: updated }
+    }
+  })
+
+/**
+ * Server Function: Batch save adjusted hearts for work and chapters in one transactional update.
+ */
+export const adminBatchSaveHeartsServerFn = createServerFn({ method: 'POST' })
+  .validator((params: {
+    adminToken: string
+    workId: string
+    workHearts: number
+    chapterHearts: Array<{ chapterId: string; heartCount: number }>
+  }) => {
+    if (!params.adminToken) throw new Error('Admin authorization token is required')
+    if (!params.workId) throw new Error('Work ID is required')
+    return params
+  })
+  .handler(async ({ data: { adminToken, workId, workHearts, chapterHearts } }) => {
+    if (!isValidAdminToken(adminToken)) {
+      throw new Error('Unauthorized: Invalid administration key')
+    }
+
+    const admin = createAdminClient()
+
+    // 1. Update each chapter's like_count
+    for (const ch of chapterHearts) {
+      if (ch.chapterId) {
+        await admin
+          .from('chapters')
+          .update({ like_count: Math.max(0, Math.round(ch.heartCount || 0)) })
+          .eq('id', ch.chapterId)
+      }
+    }
+
+    // 2. Update work like_count
+    const finalWorkHearts = Math.max(0, Math.round(workHearts))
+    const { error: wErr } = await admin
+      .from('works')
+      .update({ like_count: finalWorkHearts })
+      .eq('id', workId)
+
+    if (wErr) {
+      throw new Error(`Failed to update work hearts: ${wErr.message}`)
+    }
+
+    return {
+      success: true,
+      message: 'All heart counts updated successfully in database',
+      newWorkHearts: finalWorkHearts,
+    }
   })
 
 /**

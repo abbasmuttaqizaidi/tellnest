@@ -22,6 +22,7 @@ import {
 } from '../server/admin'
 import { Badge, Button, Modal } from '../design-system'
 import { UnisexAvatar } from '../components/UnisexAvatar'
+import { HeartsBreakdownModal } from '../components/HeartsBreakdownModal'
 import {
   ShieldAlert,
   Trash2,
@@ -48,6 +49,7 @@ import {
   Sparkles,
   CheckCircle2,
   Edit,
+  Heart,
   Sliders,
   Globe,
   Mail,
@@ -125,6 +127,7 @@ function SecretAdminPanelPage() {
   const [activeFilter, setActiveFilter] = useState<'all' | 'real' | 'mock' | 'authors' | 'readers' | 'saved'>('all')
   const [activeTabByUser, setActiveTabByUser] = useState<Record<string, 'works' | 'reading' | 'interests'>>({})
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [selectedWorkForHearts, setSelectedWorkForHearts] = useState<any | null>(null)
 
   // Direct Mailer / Email Broadcast State (Anti-Spam Hardened)
   const [mailRecipientsMode, setMailRecipientsMode] = useState<'custom' | 'all'>('custom')
@@ -1745,6 +1748,7 @@ function SecretAdminPanelPage() {
                   <th className="py-3 px-4 font-semibold">Author</th>
                   <th className="py-3 px-4 font-semibold">Posted</th>
                   <th className="py-3 px-4 font-semibold text-right">No. of Views</th>
+                  <th className="py-3 px-4 font-semibold text-right">Hearts</th>
                   <th className="py-3 px-4 font-semibold text-center">Status</th>
                   <th className="py-3 px-4 font-semibold text-right">Action</th>
                 </tr>
@@ -1752,14 +1756,14 @@ function SecretAdminPanelPage() {
               <tbody className="divide-y divide-[var(--border-subtle)] text-xs font-mono">
                 {loadingWorks ? (
                   <tr>
-                    <td colSpan={6} className="py-16 text-center text-[var(--ink-muted)] font-mono">
+                    <td colSpan={7} className="py-16 text-center text-[var(--ink-muted)] font-mono">
                       <RefreshCw className="h-6 w-6 mx-auto mb-2 animate-spin text-[var(--ink-faint)]" />
                       Loading works (50 per page)...
                     </td>
                   </tr>
                 ) : filteredAdminWorks.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-12 text-center text-[var(--ink-muted)] font-mono">
+                    <td colSpan={7} className="py-12 text-center text-[var(--ink-muted)] font-mono">
                       No works found in database.
                     </td>
                   </tr>
@@ -1832,6 +1836,29 @@ function SecretAdminPanelPage() {
                           <span>{work.viewCount.toLocaleString()}</span>
                           <span className="text-[10px] text-[var(--ink-faint)] group-hover:text-[var(--ink-muted)] font-sans">
                             acts ↗
+                          </span>
+                        </button>
+                      </td>
+
+                      {/* 4.5. Hearts (Interactive Trigger for Hearts Breakdown Popup) */}
+                      <td className="py-3 px-4 text-right">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const matched = allWorks.find((w) => w.id === work.id) || {
+                              ...work,
+                              likeCount: work.likeCount || 0,
+                              chapters: [],
+                            }
+                            setSelectedWorkForHearts(matched)
+                          }}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-mono font-semibold text-[var(--ink-primary)] bg-[var(--bg-subtle)] border border-[var(--border-subtle)] hover:border-[var(--ink-primary)] hover:bg-[var(--bg-surface)] hover:shadow-xs transition-all cursor-pointer group"
+                          title="Click to adjust story & chapter hearts"
+                        >
+                          <Heart className="h-3.5 w-3.5 fill-current text-[var(--ink-primary)] group-hover:scale-110 transition-transform" />
+                          <span>{(work.likeCount || 0).toLocaleString()}</span>
+                          <span className="text-[10px] text-[var(--ink-faint)] group-hover:text-[var(--ink-muted)] font-sans">
+                            adjust ↗
                           </span>
                         </button>
                       </td>
@@ -2206,8 +2233,30 @@ function SecretAdminPanelPage() {
                                   <span>{work.chapterCount} Parts</span>
                                   <span>•</span>
                                   <span>{work.wordCount.toLocaleString()} w</span>
+                                  <span>•</span>
+                                  <span className="inline-flex items-center gap-0.5">
+                                    <Heart className="h-2.5 w-2.5 fill-current text-[var(--ink-primary)]" />
+                                    <span>{(work.likeCount || 0).toLocaleString()}</span>
+                                  </span>
                                 </div>
                                 <div className="flex items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const matched = allWorks.find((w) => w.id === work.id) || {
+                                        ...work,
+                                        likeCount: work.likeCount || 0,
+                                        chapters: [],
+                                      }
+                                      setSelectedWorkForHearts(matched)
+                                    }}
+                                    className="inline-flex items-center gap-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2 py-1 text-[10px] font-mono font-medium text-[var(--ink-primary)] hover:border-[var(--ink-primary)] cursor-pointer"
+                                    title={`Adjust hearts for "${work.title}"`}
+                                  >
+                                    <Heart className="h-2.5 w-2.5 fill-current text-[var(--ink-primary)]" />
+                                    <span>Hearts</span>
+                                  </button>
+
                                   <Link
                                     to="/admin-work-editor/$workId"
                                     params={{ workId: work.id }}
@@ -4350,6 +4399,24 @@ function SecretAdminPanelPage() {
 
           </div>
         </div>
+      )}
+
+      {/* HEARTS BREAKDOWN MODAL */}
+      {selectedWorkForHearts && (
+        <HeartsBreakdownModal
+          isOpen={Boolean(selectedWorkForHearts)}
+          onClose={() => setSelectedWorkForHearts(null)}
+          work={selectedWorkForHearts}
+          adminToken={adminToken}
+          allowAdminAdjust={true}
+          onHeartsUpdated={(newTotal) => {
+            if (adminToken) {
+              fetchDashboard(adminToken, true)
+            }
+            reloadWorksFromDb()
+            showToast(`Story hearts updated to ${newTotal.toLocaleString()}!`)
+          }}
+        />
       )}
 
     </div>
