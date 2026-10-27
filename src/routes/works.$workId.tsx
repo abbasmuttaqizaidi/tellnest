@@ -379,7 +379,7 @@ function WorkDetailPage() {
       {/* Main Work Header */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-12 pb-12 border-b border-[var(--border-subtle)]">
         
-        {/* Cover Column (Literary Book Artifact + Editorial Shelf Card) */}
+        {/* Cover Column */}
         <div className="md:col-span-4 lg:col-span-4 flex flex-col items-center sm:items-start">
           {/* Book Cover Image */}
           <div className="relative aspect-[3/4] w-full max-w-[240px] sm:max-w-[320px] overflow-hidden rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] shadow-md">
@@ -394,63 +394,6 @@ function WorkDetailPage() {
               <span className="rounded bg-black/85 px-2.5 py-0.5 text-[10px] font-mono font-medium text-white uppercase tracking-wider backdrop-blur-xs border border-white/10">
                 {work.status}
               </span>
-            </div>
-          </div>
-
-          {/* Editorial Shelf Card */}
-          <div className="mt-4 w-full max-w-[240px] sm:max-w-[320px] space-y-2">
-            {/* 1. Primary Full-Width Action: Save to Library */}
-            <motion.button
-              type="button"
-              whileTap={{ scale: 0.98 }}
-              onClick={handleToggleSave}
-              className={`w-full flex items-center justify-center gap-2 rounded-xl py-3 px-4 text-xs font-mono font-semibold transition-all cursor-pointer select-none shadow-2xs ${
-                saved
-                  ? 'border border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] shadow-xs'
-                  : 'border border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] hover:border-[var(--ink-primary)]'
-              }`}
-              title={saved ? 'Remove from Library' : 'Add to your Library shelf'}
-            >
-              <Bookmark className={`h-4 w-4 ${saved ? 'fill-current' : ''}`} />
-              <span>{saved ? 'In Library' : 'Save to Library'}</span>
-            </motion.button>
-
-            {/* 2. Secondary Row: Heart Story + Share */}
-            <div className="flex items-center gap-2">
-              {/* Heart Story Button */}
-              <motion.button
-                type="button"
-                whileTap={{ scale: 0.97 }}
-                onClick={handleToggleWorkHeart}
-                className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 px-3 text-xs font-mono font-semibold transition-all cursor-pointer select-none border ${
-                  workHearted
-                    ? 'border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] shadow-xs'
-                    : 'border border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] hover:border-[var(--ink-primary)]'
-                }`}
-                title={workHearted ? 'Remove heart from story' : 'Heart this story'}
-              >
-                <motion.div
-                  animate={isHeartBouncing ? { scale: [1, 1.35, 0.9, 1.15, 1] } : { scale: 1 }}
-                  transition={{ duration: 0.4 }}
-                >
-                  <Heart className={`h-4 w-4 ${workHearted ? 'fill-current' : ''}`} />
-                </motion.div>
-                <span>
-                  {workHearted ? 'Hearted' : 'Heart Story'} • {formatHeartCount(workHeartCount, true)}
-                </span>
-              </motion.button>
-
-              {/* Share Button */}
-              <motion.button
-                type="button"
-                whileTap={{ scale: 0.95 }}
-                onClick={handleShare}
-                className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 px-3 text-xs font-mono font-medium border border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:border-[var(--ink-primary)] transition-all cursor-pointer shrink-0"
-                title="Share story link"
-              >
-                <Share2 className="h-3.5 w-3.5" />
-                <span>Share</span>
-              </motion.button>
             </div>
           </div>
         </div>
@@ -506,63 +449,140 @@ function WorkDetailPage() {
             )}
           </div>
 
-          {/* Author Capsule */}
-          <div className="flex flex-wrap items-center justify-between gap-4 py-3 border-y border-[var(--border-subtle)]">
-            <Link
-              to="/author/$authorId"
-              params={{ authorId: authorHandle || authorId }}
-              preload="intent"
-              onClick={(e) => {
-                if (!user) {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  const authorSlug = authorHandle || authorId
-                  openAuthModal(`/author/${authorSlug}`)
-                }
-              }}
-              className="flex items-center gap-3 text-inherit no-underline group"
-            >
-              <img
-                src={authorDisplayAvatar}
-                alt={authorDisplayName}
-                loading="lazy"
-                decoding="async"
-                className="h-10 w-10 rounded-full object-cover grayscale border border-[var(--border-strong)]"
-              />
+          {/* Author Capsule & Social Engagement Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 py-3 border-y border-[var(--border-subtle)]">
+            {/* Left: Author Avatar, Name, Follow Button & Handle */}
+            <div className="flex items-center gap-3">
+              <Link
+                to="/author/$authorId"
+                params={{ authorId: authorHandle || authorId }}
+                preload="intent"
+                onClick={(e) => {
+                  if (!user) {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    const authorSlug = authorHandle || authorId
+                    openAuthModal(`/author/${authorSlug}`)
+                  }
+                }}
+                className="shrink-0 group"
+              >
+                <img
+                  src={authorDisplayAvatar}
+                  alt={authorDisplayName}
+                  loading="lazy"
+                  decoding="async"
+                  className="h-10 w-10 rounded-full object-cover grayscale border border-[var(--border-strong)]"
+                />
+              </Link>
+
               <div>
-                <p className="text-sm font-semibold text-[var(--ink-primary)] group-hover:underline">
-                  {authorDisplayName}
-                </p>
+                <div className="flex items-center gap-2">
+                  <Link
+                    to="/author/$authorId"
+                    params={{ authorId: authorHandle || authorId }}
+                    preload="intent"
+                    onClick={(e) => {
+                      if (!user) {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        const authorSlug = authorHandle || authorId
+                        openAuthModal(`/author/${authorSlug}`)
+                      }
+                    }}
+                    className="text-inherit no-underline group"
+                  >
+                    <p className="text-sm font-semibold text-[var(--ink-primary)] group-hover:underline">
+                      {authorDisplayName}
+                    </p>
+                  </Link>
+
+                  {/* Follow Button: Compact & Right Next to Author Name */}
+                  {!isSelf && (
+                    <button
+                      type="button"
+                      onClick={() => toggleFollowAuthor(authorId)}
+                      className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium font-mono transition-all cursor-pointer ${
+                        followed
+                          ? 'border border-[var(--border-strong)] bg-[var(--bg-subtle)] text-[var(--ink-secondary)]'
+                          : 'border border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] hover:opacity-90'
+                      }`}
+                      title={followed ? 'Following Author' : 'Follow Author'}
+                    >
+                      {followed ? (
+                        <>
+                          <UserCheck className="h-3 w-3" />
+                          <span>Following</span>
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="h-3 w-3" />
+                          <span>Follow</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+
                 {(isSelf || showAuthorUsername) && (
                   <p className="text-xs font-mono text-[var(--ink-muted)]">
                     @{authorHandle}
                   </p>
                 )}
               </div>
-            </Link>
+            </div>
 
-            {!isSelf && (
-              <button
-                onClick={() => toggleFollowAuthor(authorId)}
-                className={`inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-all ${
-                  followed
-                    ? 'border border-[var(--border-strong)] bg-[var(--bg-subtle)] text-[var(--ink-secondary)]'
-                    : 'border border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] hover:opacity-90'
+            {/* Right: Hearts, Save, and Share Action Buttons */}
+            <div className="flex items-center gap-2">
+              {/* Heart Story Button */}
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.95 }}
+                onClick={handleToggleWorkHeart}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-mono font-medium transition-all cursor-pointer border select-none ${
+                  workHearted
+                    ? 'border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] shadow-xs'
+                    : 'border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] hover:border-[var(--ink-primary)]'
                 }`}
+                title={workHearted ? 'Remove heart from story' : 'Heart this story'}
               >
-                {followed ? (
-                  <>
-                    <UserCheck className="h-3.5 w-3.5" />
-                    <span>Following Author</span>
-                  </>
-                ) : (
-                  <>
-                    <UserPlus className="h-3.5 w-3.5" />
-                    <span>Follow Author</span>
-                  </>
-                )}
-              </button>
-            )}
+                <motion.div
+                  animate={isHeartBouncing ? { scale: [1, 1.35, 0.9, 1.15, 1] } : { scale: 1 }}
+                  transition={{ duration: 0.4 }}
+                >
+                  <Heart className={`h-3.5 w-3.5 ${workHearted ? 'fill-current' : ''}`} />
+                </motion.div>
+                <span>{formatHeartCount(workHeartCount, true)}</span>
+              </motion.button>
+
+              {/* Save Work Button */}
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.95 }}
+                onClick={handleToggleSave}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-mono font-medium transition-all cursor-pointer border select-none ${
+                  saved
+                    ? 'border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] shadow-xs'
+                    : 'border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] hover:border-[var(--ink-primary)]'
+                }`}
+                title={saved ? 'In Library' : 'Save to Library'}
+              >
+                <Bookmark className={`h-3.5 w-3.5 ${saved ? 'fill-current' : ''}`} />
+                <span>{saved ? 'Saved' : 'Save'}</span>
+              </motion.button>
+
+              {/* Share Button */}
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.95 }}
+                onClick={handleShare}
+                className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-mono font-medium border border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:border-[var(--ink-primary)] transition-all cursor-pointer select-none"
+                title="Share Story"
+              >
+                <Share2 className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Share</span>
+              </motion.button>
+            </div>
           </div>
 
           {/* Full Synopsis */}
