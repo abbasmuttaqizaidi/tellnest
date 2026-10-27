@@ -472,3 +472,46 @@ test('Configurability: Custom configuration weights and thresholds are respected
   assert.equal(results.length, 1, 'Custom MAX_RECOMMENDATIONS = 1 respected')
   assert.equal(results[0].work.id, 'work-b', 'Custom weight for onboarding match (100) overtook reading affinity (10)')
 })
+
+// --- 9. Personalized Relevance Gate ---
+test('Personalized Filtering: Candidate works with ZERO match to declared preferences or active reading are excluded for personalized users', () => {
+  const familyDramaWork = createMockWork({
+    id: 'work-family',
+    title: 'Family Ties',
+    genre: 'Family Drama',
+    genreSlug: 'family-drama',
+    category: 'New Adult',
+    categorySlug: 'new-adult',
+  })
+
+  const sciFiWork = createMockWork({
+    id: 'work-scifi',
+    title: 'Galactic Horizon',
+    genre: 'Sci-Fi',
+    genreSlug: 'sci-fi',
+    category: 'Cyberpunk',
+    categorySlug: 'cyberpunk',
+  })
+
+  const userPreferences = {
+    genres: ['Family Drama', 'Political Fiction'],
+    categories: ['New Adult'],
+  }
+
+  // Case 1: Candidate works include 1 matching and 1 non-matching
+  const resultsWithMatch = calculateForYouRecommendations({
+    candidateWorks: [familyDramaWork, sciFiWork],
+    userPreferences,
+  })
+
+  assert.equal(resultsWithMatch.length, 1, 'Only the matching Family Drama work should be returned')
+  assert.equal(resultsWithMatch[0].work.id, 'work-family')
+
+  // Case 2: Platform has NO matching stories for user's declared preferences
+  const resultsZeroMatch = calculateForYouRecommendations({
+    candidateWorks: [sciFiWork],
+    userPreferences,
+  })
+
+  assert.equal(resultsZeroMatch.length, 0, 'Must return 0 recommendations when no candidates match declared preferences')
+})

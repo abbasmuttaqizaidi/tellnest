@@ -208,6 +208,9 @@ export const saveUserOnboardingServerFn = createServerFn({ method: 'POST' })
       console.warn('[saveUserOnboardingServerFn] Non-blocking warning syncing Clerk metadata:', clerkSyncErr)
     }
 
+    // Invalidate profile cache so recommendation signals immediately reflect newly chosen preferences
+    invalidateProfileCache(data.clerkUserId)
+
     return profile
   })
 

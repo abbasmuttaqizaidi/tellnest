@@ -316,6 +316,35 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
     }
   }, [user?.id, loaderData?.initialRecSignals])
 
+  // Listen to onboarding completion to immediately refresh recommendation signals with newly selected preferences
+  useEffect(() => {
+    const handleOnboardingComplete = () => {
+      try {
+        sessionStorage.removeItem('hatchpen_cached_rec_signals')
+      } catch {}
+      setIsLoadingSignals(true)
+      getUserRecommendationSignalsServerFn()
+        .then((signals) => {
+          setRecommendationSignals(signals)
+          setIsLoadingSignals(false)
+          if (signals && typeof window !== 'undefined') {
+            try {
+              sessionStorage.setItem('hatchpen_cached_rec_signals', JSON.stringify(signals))
+            } catch {}
+          }
+        })
+        .catch((err) => {
+          console.warn('[ForYou] Failed to refresh recommendation signals after onboarding:', err?.message || err)
+          setIsLoadingSignals(false)
+        })
+    }
+
+    window.addEventListener('hatchpen:onboarding-completed', handleOnboardingComplete)
+    return () => {
+      window.removeEventListener('hatchpen:onboarding-completed', handleOnboardingComplete)
+    }
+  }, [])
+
   const mergedBookmarkedWorkIds = useMemo(() => {
     const set = new Set<string>()
     for (const id of savedWorkIds) set.add(id)
@@ -699,16 +728,36 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
             ))}
           </div>
         ) : (
-          <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-6 text-center space-y-2">
-            <p className="font-serif text-sm text-[var(--ink-secondary)]">
-              No new recommendations available at the moment. All eligible candidates have either been saved or completed.
-            </p>
-            <Link
-              to="/discover"
-              className="inline-flex items-center gap-1.5 font-mono text-xs font-semibold text-[var(--ink-primary)] hover:underline no-underline"
-            >
-              Browse Full Catalog →
-            </Link>
+          <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-6 sm:p-8 text-center space-y-3">
+            <div className="w-10 h-10 rounded-full bg-[var(--bg-subtle)] border border-[var(--border-subtle)] flex items-center justify-center mx-auto text-[var(--ink-muted)]">
+              <Compass className="w-5 h-5" />
+            </div>
+            <div className="space-y-1 max-w-md mx-auto">
+              <h4 className="font-serif text-base font-semibold text-[var(--ink-primary)]">
+                {recommendationSignals?.preferences?.genres?.length || recommendationSignals?.preferences?.categories?.length
+                  ? 'No stories match your selected genres yet'
+                  : 'No recommendations available at the moment'}
+              </h4>
+              <p className="font-serif text-xs text-[var(--ink-secondary)] leading-relaxed">
+                {recommendationSignals?.preferences?.genres?.length || recommendationSignals?.preferences?.categories?.length
+                  ? "We couldn't find published stories matching your chosen genres or categories. As new manuscripts are released, matching stories will appear here."
+                  : 'All eligible candidates have either been saved or completed.'}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+              <Link
+                to="/settings"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] font-mono text-xs font-medium text-[var(--ink-primary)] transition-colors no-underline"
+              >
+                <span>Edit Taste Profile</span>
+              </Link>
+              <Link
+                to="/discover"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--ink-primary)] text-[var(--accent-contrast)] hover:opacity-90 font-mono text-xs font-medium transition-opacity no-underline"
+              >
+                <span>Browse Full Catalog →</span>
+              </Link>
+            </div>
           </div>
         )}
       </section>

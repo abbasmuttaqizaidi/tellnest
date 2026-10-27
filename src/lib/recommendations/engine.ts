@@ -208,21 +208,42 @@ export function calculateForYouRecommendations(params: {
   // 2. Detect verified active reading shift
   const verifiedShift = detectActiveReadingShift(readingHistory, candidateWorks, config)
 
-  // 3. Extract normalized onboarding preferences
-  const preferredGenreSlugs = new Set(
-    (userPreferences?.genres || []).map((g) =>
-      typeof g === 'string' ? normalizeIdentifier(g) : normalizeIdentifier(g.id || g.name)
-    )
-  )
+  // 3. Extract normalized onboarding preferences (exhaustive slug + name + id mapping)
+  const preferredGenreSlugs = new Set<string>()
+  const addGenrePref = (item: any) => {
+    if (!item) return
+    if (typeof item === 'string') {
+      preferredGenreSlugs.add(normalizeIdentifier(item))
+    } else if (typeof item === 'object') {
+      if (item.id) preferredGenreSlugs.add(normalizeIdentifier(item.id))
+      if (item.name) preferredGenreSlugs.add(normalizeIdentifier(item.name))
+      if (item.slug) preferredGenreSlugs.add(normalizeIdentifier(item.slug))
+    }
+  }
+  for (const g of (userPreferences?.genres || [])) addGenrePref(g)
+  for (const i of (userPreferences?.interests || [])) addGenrePref(i)
 
-  const preferredCategorySlugs = new Set(
-    (userPreferences?.categories || []).map((c) =>
-      typeof c === 'string' ? normalizeIdentifier(c) : normalizeIdentifier(c.id || c.name)
-    )
-  )
+  const preferredCategorySlugs = new Set<string>()
+  const addCategoryPref = (item: any) => {
+    if (!item) return
+    if (typeof item === 'string') {
+      preferredCategorySlugs.add(normalizeIdentifier(item))
+    } else if (typeof item === 'object') {
+      if (item.id) preferredCategorySlugs.add(normalizeIdentifier(item.id))
+      if (item.name) preferredCategorySlugs.add(normalizeIdentifier(item.name))
+      if (item.slug) preferredCategorySlugs.add(normalizeIdentifier(item.slug))
+    }
+  }
+  for (const c of (userPreferences?.categories || [])) addCategoryPref(c)
 
-  // 4. Score each candidate deterministically
-  const scoredItems: RecommendedWorkItem[] = eligibleCandidates.map((work) => {
+  const hasPersonalPreferences = preferredGenreSlugs.size > 0 || preferredCategorySlugs.size > 0
+  const hasActiveReadingShift = Boolean(verifiedShift)
+  const isPersonalizedUser = hasPersonalPreferences || hasActiveReadingShift
+
+  // 4. Score each candidate deterministically and filter by personal relevance
+  const scoredItems: RecommendedWorkItem[] = []
+
+  for (const work of eligibleCandidates) {
     let score = 0
     let primaryDriver = ''
 
@@ -230,7 +251,8 @@ export function calculateForYouRecommendations(params: {
     const workCatSlug = normalizeIdentifier(work.categorySlug || work.category)
 
     // Signal A: Active Reading Shift (Highest Priority when verified)
-    if (verifiedShift && workGenreSlugs.includes(verifiedShift.topGenreSlug)) {
+    const matchesActiveShift = Boolean(verifiedShift && workGenreSlugs.includes(verifiedShift.topGenreSlug))
+    if (matchesActiveShift) {
       score += config.WEIGHTS.ACTIVE_READING_GENRE_AFFINITY
       primaryDriver = `Based on your recent reading in ${work.genre}`
     }
@@ -245,11 +267,20 @@ export function calculateForYouRecommendations(params: {
     }
 
     // Signal C: Declared Onboarding Category / Format Match
-    if (preferredCategorySlugs.has(workCatSlug)) {
+    const matchesPreferredCategory = preferredCategorySlugs.has(workCatSlug)
+    if (matchesPreferredCategory) {
       score += config.WEIGHTS.ONBOARDING_CATEGORY_MATCH
       if (!primaryDriver) {
         primaryDriver = `Recommended ${work.category}`
       }
+    }
+
+    const hasPersonalMatch = matchesActiveShift || Boolean(matchedPreferredGenre) || matchesPreferredCategory
+
+    // Relevance Gate: When user has explicitly chosen preferences or reading history,
+    // only recommend manuscripts that actually match their declared interests or reading behavior.
+    if (isPersonalizedUser && !hasPersonalMatch) {
+      continue
     }
 
     // Signal D: Recent Chapter Activity (Living serial bonus)
@@ -270,12 +301,12 @@ export function calculateForYouRecommendations(params: {
       primaryDriver = 'Recommended Serial'
     }
 
-    return {
+    scoredItems.push({
       work,
       score,
       explanationLabel: primaryDriver,
-    }
-  })
+    })
+  }
 
   // 5. Sort descending by score, tie-break by total reads & recency, deduplicate, and limit to max 10
   const sorted = scoredItems.sort((a, b) => {
