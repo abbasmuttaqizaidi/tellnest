@@ -425,7 +425,7 @@ export default function CommentsSection({
                   className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-3.5 py-1.5 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 disabled:opacity-40 transition-all cursor-pointer shadow-2xs"
                 >
                   <Send className={`h-3 w-3 ${isSubmitting ? 'animate-spin' : ''}`} />
-                  <span>{isSubmitting ? 'Publishing...' : 'Publish Note'}</span>
+                  <span>{isSubmitting ? 'Publishing...' : 'Publish'}</span>
                 </button>
               </div>
             </div>
