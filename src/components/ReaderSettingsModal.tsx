@@ -1,6 +1,7 @@
-import { useApp } from '../context/AppContext'
+import React, { useState, useEffect } from 'react'
+import { useApp, type ReaderSettings } from '../context/AppContext'
 import { Modal, Button, TactileSlider } from '../design-system'
-import { Sun, Moon, Coffee, Type } from 'lucide-react'
+import { Sun, Moon, Coffee } from 'lucide-react'
 
 interface ReaderSettingsModalProps {
   isOpen: boolean
@@ -9,6 +10,23 @@ interface ReaderSettingsModalProps {
 
 export default function ReaderSettingsModal({ isOpen, onClose }: ReaderSettingsModalProps) {
   const { readerSettings, updateReaderSettings } = useApp()
+  const [draftSettings, setDraftSettings] = useState<ReaderSettings>(() => ({ ...readerSettings }))
+
+  // Sync draft settings whenever modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setDraftSettings({ ...readerSettings })
+    }
+  }, [isOpen, readerSettings])
+
+  const updateDraft = (partial: Partial<ReaderSettings>) => {
+    setDraftSettings((prev) => ({ ...prev, ...partial }))
+  }
+
+  const handleApply = () => {
+    updateReaderSettings(draftSettings)
+    onClose()
+  }
 
   // Map scale string to number for slider
   const sizeToNum = { sm: 15, base: 17, lg: 19, xl: 22 }
@@ -27,9 +45,24 @@ export default function ReaderSettingsModal({ isOpen, onClose }: ReaderSettingsM
       description="Calibrated controls for distraction-free literary reading."
       size="md"
       footer={
-        <Button variant="primary" className="w-full py-2 text-xs font-mono uppercase tracking-wider" onClick={onClose}>
-          Apply & Return to Manuscript
-        </Button>
+        <div className="flex items-center gap-2 w-full">
+          <Button
+            type="button"
+            variant="outline"
+            className="flex-1 py-2 text-xs font-mono uppercase tracking-wider"
+            onClick={onClose}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="primary"
+            className="flex-1 py-2 text-xs font-mono uppercase tracking-wider"
+            onClick={handleApply}
+          >
+            Apply Changes
+          </Button>
+        </div>
       }
     >
       <div className="space-y-4 sm:space-y-5 pt-0.5">
@@ -41,9 +74,9 @@ export default function ReaderSettingsModal({ isOpen, onClose }: ReaderSettingsM
           <div className="grid grid-cols-3 gap-2">
             <button
               type="button"
-              onClick={() => updateReaderSettings({ theme: 'light' })}
+              onClick={() => updateDraft({ theme: 'light' })}
               className={`flex items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-medium transition-all cursor-pointer ${
-                readerSettings.theme === 'light'
+                draftSettings.theme === 'light'
                   ? 'border-[var(--ink-primary)] bg-white text-black shadow-xs ring-1 ring-black font-semibold'
                   : 'border-[var(--border-subtle)] bg-[var(--bg-subtle)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
               }`}
@@ -54,9 +87,9 @@ export default function ReaderSettingsModal({ isOpen, onClose }: ReaderSettingsM
 
             <button
               type="button"
-              onClick={() => updateReaderSettings({ theme: 'sepia' })}
+              onClick={() => updateDraft({ theme: 'sepia' })}
               className={`flex items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-medium transition-all cursor-pointer ${
-                readerSettings.theme === 'sepia'
+                draftSettings.theme === 'sepia'
                   ? 'border-[#8C7A6B] bg-[#F6F1EA] text-[#2C2219] shadow-xs ring-1 ring-[#8C7A6B] font-semibold'
                   : 'border-[var(--border-subtle)] bg-[#EDE5DA]/50 text-[#6B5E52] hover:text-[#2C2219]'
               }`}
@@ -67,9 +100,9 @@ export default function ReaderSettingsModal({ isOpen, onClose }: ReaderSettingsM
 
             <button
               type="button"
-              onClick={() => updateReaderSettings({ theme: 'dark' })}
+              onClick={() => updateDraft({ theme: 'dark' })}
               className={`flex items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-medium transition-all cursor-pointer ${
-                readerSettings.theme === 'dark'
+                draftSettings.theme === 'dark'
                   ? 'border-white bg-[#090D14] text-white shadow-xs ring-1 ring-white font-semibold'
                   : 'border-[var(--border-subtle)] bg-[#111722] text-[#94A3B8] hover:text-white'
               }`}
@@ -88,9 +121,9 @@ export default function ReaderSettingsModal({ isOpen, onClose }: ReaderSettingsM
           <div className="grid grid-cols-3 gap-2">
             <button
               type="button"
-              onClick={() => updateReaderSettings({ fontFamily: 'serif' })}
+              onClick={() => updateDraft({ fontFamily: 'serif' })}
               className={`rounded-lg border py-2 text-center text-xs font-serif transition-all cursor-pointer ${
-                readerSettings.fontFamily === 'serif'
+                draftSettings.fontFamily === 'serif'
                   ? 'border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-semibold shadow-xs'
                   : 'border-[var(--border-subtle)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:border-[var(--border-strong)]'
               }`}
@@ -100,9 +133,9 @@ export default function ReaderSettingsModal({ isOpen, onClose }: ReaderSettingsM
 
             <button
               type="button"
-              onClick={() => updateReaderSettings({ fontFamily: 'sans' })}
+              onClick={() => updateDraft({ fontFamily: 'sans' })}
               className={`rounded-lg border py-2 text-center text-xs font-sans transition-all cursor-pointer ${
-                readerSettings.fontFamily === 'sans'
+                draftSettings.fontFamily === 'sans'
                   ? 'border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-semibold shadow-xs'
                   : 'border-[var(--border-subtle)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:border-[var(--border-strong)]'
               }`}
@@ -112,9 +145,9 @@ export default function ReaderSettingsModal({ isOpen, onClose }: ReaderSettingsM
 
             <button
               type="button"
-              onClick={() => updateReaderSettings({ fontFamily: 'mono' })}
+              onClick={() => updateDraft({ fontFamily: 'mono' })}
               className={`rounded-lg border py-2 text-center text-xs font-mono transition-all cursor-pointer ${
-                readerSettings.fontFamily === 'mono'
+                draftSettings.fontFamily === 'mono'
                   ? 'border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-semibold shadow-xs'
                   : 'border-[var(--border-subtle)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:border-[var(--border-strong)]'
               }`}
@@ -132,8 +165,8 @@ export default function ReaderSettingsModal({ isOpen, onClose }: ReaderSettingsM
             max={28}
             step={2}
             unit="px"
-            value={sizeToNum[readerSettings.fontSize]}
-            onChange={(val) => updateReaderSettings({ fontSize: numToSize(val) })}
+            value={sizeToNum[draftSettings.fontSize]}
+            onChange={(val) => updateDraft({ fontSize: numToSize(val) })}
           />
         </div>
 
@@ -144,7 +177,7 @@ export default function ReaderSettingsModal({ isOpen, onClose }: ReaderSettingsM
               Line Spacing (Line Height)
             </label>
             <span className="font-mono text-xs font-semibold text-[var(--ink-primary)]">
-              {readerSettings.customLineHeight || (readerSettings.lineHeight === 'tight' ? 1.35 : readerSettings.lineHeight === 'normal' ? 1.5 : readerSettings.lineHeight === 'relaxed' ? 1.75 : 2.0)}x
+              {draftSettings.customLineHeight || (draftSettings.lineHeight === 'tight' ? 1.35 : draftSettings.lineHeight === 'normal' ? 1.5 : draftSettings.lineHeight === 'relaxed' ? 1.75 : 2.0)}x
             </span>
           </div>
 
@@ -155,14 +188,14 @@ export default function ReaderSettingsModal({ isOpen, onClose }: ReaderSettingsM
               { id: 'relaxed', label: '1.75x Relaxed', val: 1.75 },
               { id: 'loose', label: '2.0x Spacious', val: 2.0 },
             ].map((item) => {
-              const currentVal = readerSettings.customLineHeight || (readerSettings.lineHeight === 'tight' ? 1.35 : readerSettings.lineHeight === 'normal' ? 1.5 : readerSettings.lineHeight === 'relaxed' ? 1.75 : 2.0)
+              const currentVal = draftSettings.customLineHeight || (draftSettings.lineHeight === 'tight' ? 1.35 : draftSettings.lineHeight === 'normal' ? 1.5 : draftSettings.lineHeight === 'relaxed' ? 1.75 : 2.0)
               const isSelected = Math.abs(currentVal - item.val) < 0.04
               return (
                 <button
                   key={item.id}
                   type="button"
                   onClick={() =>
-                    updateReaderSettings({
+                    updateDraft({
                       lineHeight: item.id as any,
                       customLineHeight: item.val,
                     })
@@ -185,12 +218,12 @@ export default function ReaderSettingsModal({ isOpen, onClose }: ReaderSettingsM
             max={2.4}
             step={0.05}
             unit="x"
-            value={readerSettings.customLineHeight || (readerSettings.lineHeight === 'tight' ? 1.35 : readerSettings.lineHeight === 'normal' ? 1.5 : readerSettings.lineHeight === 'relaxed' ? 1.75 : 2.0)}
+            value={draftSettings.customLineHeight || (draftSettings.lineHeight === 'tight' ? 1.35 : draftSettings.lineHeight === 'normal' ? 1.5 : draftSettings.lineHeight === 'relaxed' ? 1.75 : 2.0)}
             onChange={(val) => {
               const rounded = Math.round(val * 100) / 100
               const named =
                 rounded <= 1.35 ? 'tight' : rounded <= 1.55 ? 'normal' : rounded <= 1.85 ? 'relaxed' : 'loose'
-              updateReaderSettings({
+              updateDraft({
                 customLineHeight: rounded,
                 lineHeight: named,
               })
@@ -206,8 +239,8 @@ export default function ReaderSettingsModal({ isOpen, onClose }: ReaderSettingsM
             max={32}
             step={2}
             unit="px"
-            value={readerSettings.paragraphSpacing !== undefined ? readerSettings.paragraphSpacing : 16}
-            onChange={(val) => updateReaderSettings({ paragraphSpacing: val })}
+            value={draftSettings.paragraphSpacing !== undefined ? draftSettings.paragraphSpacing : 16}
+            onChange={(val) => updateDraft({ paragraphSpacing: val })}
           />
         </div>
 
@@ -221,9 +254,9 @@ export default function ReaderSettingsModal({ isOpen, onClose }: ReaderSettingsM
               <button
                 key={w}
                 type="button"
-                onClick={() => updateReaderSettings({ readingWidth: w })}
+                onClick={() => updateDraft({ readingWidth: w })}
                 className={`rounded-lg border py-2 text-center text-xs capitalize transition-all cursor-pointer ${
-                  readerSettings.readingWidth === w
+                  draftSettings.readingWidth === w
                     ? 'border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-semibold shadow-xs'
                     : 'border-[var(--border-subtle)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:border-[var(--border-strong)]'
                 }`}
