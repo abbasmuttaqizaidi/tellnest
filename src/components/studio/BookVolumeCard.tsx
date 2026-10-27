@@ -51,7 +51,7 @@ export const BookVolumeCard: React.FC<BookVolumeCardProps> = ({
         <img
           src={work.cover}
           alt={work.title}
-          className="w-full h-full object-cover grayscale-[25%] group-hover:grayscale-0 group-hover:scale-102 transition-all duration-300"
+          className="w-full h-full object-cover group-hover:scale-102 transition-all duration-300"
           loading="lazy"
         />
 

@@ -752,7 +752,7 @@ function AdminWorkEditorPage() {
             <img
               src={cover || work.cover}
               alt={title}
-              className="h-28 w-20 rounded-lg object-cover grayscale border border-[var(--border-strong)] shadow-sm shrink-0"
+              className="h-28 w-20 rounded-lg object-cover border border-[var(--border-strong)] shadow-sm shrink-0"
             />
             <div className="space-y-1.5">
               <div className="flex flex-wrap items-center gap-2">

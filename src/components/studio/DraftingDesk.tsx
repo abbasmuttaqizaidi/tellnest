@@ -109,7 +109,7 @@ export const DraftingDesk: React.FC<DraftingDeskProps> = ({
             <img
               src={activeWork.cover}
               alt={activeWork.title}
-              className="w-full h-full object-cover grayscale-[25%] group-hover:grayscale-0 group-hover:scale-103 transition-all duration-300"
+              className="w-full h-full object-cover group-hover:scale-103 transition-all duration-300"
             />
             <div className="absolute inset-y-0 left-0 w-2.5 bg-gradient-to-r from-black/40 via-black/10 to-transparent pointer-events-none" />
             <div className="absolute inset-y-0 left-[2px] w-[1px] bg-white/20 pointer-events-none" />

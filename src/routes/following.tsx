@@ -225,7 +225,7 @@ function FollowingPage() {
                       <img
                         src={event.work.cover}
                         alt={event.work.title}
-                        className="h-12 w-9 rounded object-cover grayscale flex-shrink-0"
+                        className="h-12 w-9 rounded object-cover flex-shrink-0"
                       />
                       <div className="min-w-0">
                         <span className="font-mono text-[10px] uppercase text-[var(--ink-faint)]">

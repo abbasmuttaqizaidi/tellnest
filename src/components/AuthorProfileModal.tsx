@@ -306,7 +306,7 @@ export function AuthorProfileModal({
                         height={420}
                         fallbackSrc="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80"
                         containerClassName="h-full w-full"
-                        className="h-full w-full object-cover grayscale group-hover:grayscale-0 group-hover:scale-105 transition-all duration-300"
+                        className="h-full w-full object-cover group-hover:scale-105 transition-all duration-300"
                       />
                       {w.isStaffPick && (
                         <span className="absolute top-1 left-1 rounded bg-[var(--ink-primary)] px-1 py-0.2 font-mono text-[8px] font-bold text-[var(--accent-contrast)] uppercase">
