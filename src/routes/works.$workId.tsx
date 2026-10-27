@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import React, { useState, useMemo, useEffect } from 'react'
+import { motion, AnimatePresence } from 'motion/react'
 import { useUser, useClerk } from '@clerk/react'
 import { useApp } from '../context/AppContext'
 import EmptyState from '../components/EmptyState'
@@ -227,6 +228,8 @@ function WorkDetailPage() {
     return Number(work?.likeCount ?? (work as any)?.like_count ?? 0)
   })
   const [isHeartSubmitting, setIsHeartSubmitting] = useState<boolean>(false)
+  const [isHeartBouncing, setIsHeartBouncing] = useState<boolean>(false)
+  const [showHeartBurst, setShowHeartBurst] = useState<boolean>(false)
 
   // Sync heart count if work changes
   useEffect(() => {
@@ -253,7 +256,13 @@ function WorkDetailPage() {
       .catch(() => {})
   }, [work?.id, user?.id])
 
-  // Toggle Story Heart
+  // Toggle Save Work
+  const handleToggleSave = () => {
+    if (!work?.id) return
+    toggleSaveWork(work.id)
+  }
+
+  // Toggle Story Heart (Instagram-style micro-interaction & feedback)
   const handleToggleWorkHeart = async () => {
     if (!user) {
       showToast('Sign in to heart this story')
@@ -275,7 +284,11 @@ function WorkDetailPage() {
     setIsHeartSubmitting(true)
 
     if (nextHearted) {
+      setIsHeartBouncing(true)
+      setShowHeartBurst(true)
       showToast('You hearted this story')
+      setTimeout(() => setIsHeartBouncing(false), 500)
+      setTimeout(() => setShowHeartBurst(false), 900)
     }
 
     try {
@@ -374,43 +387,71 @@ function WorkDetailPage() {
             </div>
           </div>
 
-          {/* Quick Actions Under Cover */}
-          <div className="mt-4 flex w-full max-w-[320px] gap-2">
-            <button
-              type="button"
-              onClick={() => toggleSaveWork(work.id)}
-              className={`flex-1 flex items-center justify-center gap-1.5 rounded border py-2 text-xs font-medium transition-all cursor-pointer ${
-                saved
-                  ? 'border-[var(--border-strong)] bg-[var(--bg-subtle)] text-[var(--ink-primary)]'
-                  : 'border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--ink-secondary)] hover:border-[var(--border-strong)]'
-              }`}
-            >
-              <Bookmark className={`h-3.5 w-3.5 ${saved ? 'fill-current' : ''}`} />
-              <span>{saved ? 'In Library' : 'Save Work'}</span>
-            </button>
+          {/* Quick Actions Under Cover (FB / Instagram Style) */}
+          <div className="mt-4 w-full max-w-[240px] sm:max-w-[320px] rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-1.5 shadow-sm">
+            <div className="flex items-center gap-1.5">
+              {/* Heart Button */}
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.92 }}
+                onClick={handleToggleWorkHeart}
+                className={`relative flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 px-3 text-xs font-mono font-semibold transition-all cursor-pointer select-none ${
+                  workHearted
+                    ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] shadow-xs'
+                    : 'bg-[var(--bg-subtle)] hover:bg-[var(--bg-canvas)] text-[var(--ink-primary)] border border-transparent hover:border-[var(--border-strong)]'
+                }`}
+                title={workHearted ? 'Remove heart from story' : 'Heart this story'}
+              >
+                <motion.div
+                  animate={isHeartBouncing ? { scale: [1, 1.45, 0.85, 1.15, 1] } : { scale: 1 }}
+                  transition={{ duration: 0.45 }}
+                >
+                  <Heart className={`h-4 w-4 ${workHearted ? 'fill-current text-[var(--accent-contrast)]' : 'text-[var(--ink-primary)]'}`} />
+                </motion.div>
+                <span>{formatHeartCount(workHeartCount, true)}</span>
 
-            <button
-              type="button"
-              onClick={handleToggleWorkHeart}
-              className={`flex-1 flex items-center justify-center gap-1.5 rounded border py-2 text-xs font-medium transition-all cursor-pointer ${
-                workHearted
-                  ? 'border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)]'
-                  : 'border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--ink-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--ink-primary)]'
-              }`}
-              title={workHearted ? 'Remove heart from story' : 'Heart this story'}
-            >
-              <Heart className={`h-3.5 w-3.5 transition-transform ${workHearted ? 'fill-current text-[var(--accent-contrast)] scale-105' : ''}`} />
-              <span>{workHearted ? 'Hearted' : 'Heart Story'}</span>
-            </button>
+                <AnimatePresence>
+                  {showHeartBurst && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.4, y: 0 }}
+                      animate={{ opacity: 1, scale: 1.4, y: -26 }}
+                      exit={{ opacity: 0, scale: 1.8, y: -44 }}
+                      transition={{ duration: 0.7, ease: 'easeOut' }}
+                      className="pointer-events-none absolute -top-5 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center text-[var(--ink-primary)]"
+                    >
+                      <Heart className="h-5 w-5 fill-current drop-shadow-md" />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.button>
 
-            <button
-              type="button"
-              onClick={handleShare}
-              className="flex items-center justify-center gap-2 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 text-xs text-[var(--ink-muted)] hover:border-[var(--border-strong)] hover:text-[var(--ink-primary)] transition-all cursor-pointer"
-              title="Share Work"
-            >
-              <Share2 className="h-4 w-4" />
-            </button>
+              {/* Save Button */}
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.92 }}
+                onClick={handleToggleSave}
+                className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 px-3 text-xs font-mono font-semibold transition-all cursor-pointer select-none ${
+                  saved
+                    ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] shadow-xs'
+                    : 'bg-[var(--bg-subtle)] hover:bg-[var(--bg-canvas)] text-[var(--ink-primary)] border border-transparent hover:border-[var(--border-strong)]'
+                }`}
+                title={saved ? 'Remove from Library' : 'Save to Library'}
+              >
+                <Bookmark className={`h-4 w-4 ${saved ? 'fill-current' : ''}`} />
+                <span>{saved ? 'Saved' : 'Save'}</span>
+              </motion.button>
+
+              {/* Share Button */}
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.92 }}
+                onClick={handleShare}
+                className="flex items-center justify-center h-10 w-10 rounded-xl text-[var(--ink-muted)] hover:text-[var(--ink-primary)] bg-[var(--bg-subtle)] hover:bg-[var(--bg-canvas)] border border-transparent hover:border-[var(--border-strong)] transition-all cursor-pointer shrink-0"
+                title="Share Story"
+              >
+                <Share2 className="h-4 w-4" />
+              </motion.button>
+            </div>
           </div>
         </div>
 
@@ -581,22 +622,87 @@ function WorkDetailPage() {
             </div>
           </div>
 
-          {/* PRIMARY CALL TO ACTION BUTTON */}
-          <div className="pt-2">
+          {/* PRIMARY CALL TO ACTION & SOCIAL ENGAGEMENT ROW (FB / Insta Style) */}
+          <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <Link
               to="/read/$workId/$chapterId"
               params={{ workId: canonicalSlug, chapterId: resumeChapterId }}
               preload="intent"
-              className="inline-flex w-full sm:w-auto items-center justify-center gap-3 rounded-lg border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-8 py-3.5 text-sm font-semibold text-[var(--accent-contrast)] hover:opacity-90 transition-opacity no-underline shadow-sm"
+              className="flex-1 inline-flex items-center justify-center gap-3 rounded-xl border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-7 py-3.5 text-sm font-semibold text-[var(--accent-contrast)] hover:opacity-90 transition-all no-underline shadow-sm"
             >
               <BookOpen className="h-4 w-4" />
               <span suppressHydrationWarning>
                 {progress
-                  ? `CONTINUE READING (Chapter ${progress.chapterNumber || 1} • ${Math.min(100, Math.max(0, Math.round(Number(progress.progressPercent || 0))))}%)`
+                  ? `CONTINUE READING (Ch. ${progress.chapterNumber || 1} • ${Math.min(100, Math.max(0, Math.round(Number(progress.progressPercent || 0))))}%)`
                   : 'START READING CHAPTER 01'}
               </span>
               <ArrowRight className="h-4 w-4" />
             </Link>
+
+            {/* Quick Social Buttons Beside Start Reading */}
+            <div className="flex items-center gap-2">
+              {/* Heart Button */}
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.92 }}
+                onClick={handleToggleWorkHeart}
+                className={`relative flex items-center justify-center gap-2 h-12 px-4 rounded-xl text-xs font-mono font-semibold transition-all cursor-pointer select-none border ${
+                  workHearted
+                    ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] border-[var(--ink-primary)] shadow-xs'
+                    : 'bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] border-[var(--border-strong)]'
+                }`}
+                title={workHearted ? 'Remove heart' : 'Heart this story'}
+              >
+                <motion.div
+                  animate={isHeartBouncing ? { scale: [1, 1.45, 0.85, 1.15, 1] } : { scale: 1 }}
+                  transition={{ duration: 0.45 }}
+                >
+                  <Heart className={`h-4 w-4 ${workHearted ? 'fill-current text-[var(--accent-contrast)]' : 'text-[var(--ink-primary)]'}`} />
+                </motion.div>
+                <span>{formatHeartCount(workHeartCount, true)}</span>
+
+                <AnimatePresence>
+                  {showHeartBurst && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.4, y: 0 }}
+                      animate={{ opacity: 1, scale: 1.4, y: -26 }}
+                      exit={{ opacity: 0, scale: 1.8, y: -44 }}
+                      transition={{ duration: 0.7, ease: 'easeOut' }}
+                      className="pointer-events-none absolute -top-5 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center text-[var(--ink-primary)]"
+                    >
+                      <Heart className="h-5 w-5 fill-current drop-shadow-md" />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.button>
+
+              {/* Save Button */}
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.92 }}
+                onClick={handleToggleSave}
+                className={`flex items-center justify-center gap-2 h-12 px-4 rounded-xl text-xs font-mono font-semibold transition-all cursor-pointer select-none border ${
+                  saved
+                    ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] border-[var(--ink-primary)] shadow-xs'
+                    : 'bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] border-[var(--border-strong)]'
+                }`}
+                title={saved ? 'In Library' : 'Save to Library'}
+              >
+                <Bookmark className={`h-4 w-4 ${saved ? 'fill-current' : ''}`} />
+                <span>{saved ? 'Saved' : 'Save'}</span>
+              </motion.button>
+
+              {/* Share Button */}
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.92 }}
+                onClick={handleShare}
+                className="flex items-center justify-center h-12 w-12 rounded-xl text-[var(--ink-muted)] hover:text-[var(--ink-primary)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] border border-[var(--border-strong)] transition-all cursor-pointer shrink-0"
+                title="Share Story"
+              >
+                <Share2 className="h-4 w-4" />
+              </motion.button>
+            </div>
           </div>
 
         </div>
