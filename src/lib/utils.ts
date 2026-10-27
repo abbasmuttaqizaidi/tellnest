@@ -58,3 +58,10 @@ export function formatViewCount(val: number | string | undefined | null, compact
   const formatted = (num / 1_000_000).toFixed(1)
   return `${formatted.endsWith('.0') ? formatted.slice(0, -2) : formatted}M`
 }
+
+/**
+ * Reusable helper for formatting heart / like metrics across chapters, stories, and reflections.
+ * Default is compact notation (e.g. 1.2K, 45K), with full comma-separated string when compact=false.
+ */
+export const formatHeartCount = formatViewCount
+

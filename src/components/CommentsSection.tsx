@@ -3,6 +3,7 @@ import { Heart, Reply, Flag, Trash2, Send, CornerDownRight, MessageSquare, Spark
 import { useUser, useClerk } from '@clerk/react'
 import { useApp } from '../context/AppContext'
 import { UnisexAvatar } from './UnisexAvatar'
+import { formatHeartCount } from '../lib/utils'
 import {
   getChapterCommentsServerFn,
   postChapterCommentServerFn,
@@ -554,10 +555,10 @@ export default function CommentsSection({
                         ? 'text-[var(--ink-primary)] font-semibold'
                         : 'text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
                     }`}
-                    title={comment.userLiked ? 'Unlike reflection' : 'Heart this reflection'}
+                    title={comment.userLiked ? `Unlike reflection (${formatHeartCount(comment.likesCount, false)})` : `Heart this reflection (${formatHeartCount(comment.likesCount, false)})`}
                   >
                     <Heart className={`h-3.5 w-3.5 ${comment.userLiked ? 'fill-current text-[var(--ink-primary)]' : ''}`} />
-                    <span>{comment.likesCount}</span>
+                    <span>{formatHeartCount(comment.likesCount, true)}</span>
                   </button>
 
                   {/* Reply Button */}
@@ -639,10 +640,10 @@ export default function CommentsSection({
                                     ? 'text-[var(--ink-primary)] font-semibold'
                                     : 'text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
                                 }`}
-                                title={reply.userLiked ? 'Unlike reflection' : 'Heart this reflection'}
+                                title={reply.userLiked ? `Unlike reflection (${formatHeartCount(reply.likesCount, false)})` : `Heart this reflection (${formatHeartCount(reply.likesCount, false)})`}
                               >
                                 <Heart className={`h-3 w-3 ${reply.userLiked ? 'fill-current text-[var(--ink-primary)]' : ''}`} />
-                                <span>{reply.likesCount}</span>
+                                <span>{formatHeartCount(reply.likesCount, true)}</span>
                               </button>
 
                               {isReplyOwner && (

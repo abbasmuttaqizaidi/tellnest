@@ -6,6 +6,7 @@ import {
   getChapterHeartStatusServerFn,
   toggleChapterHeartServerFn,
 } from '../server/hearts'
+import { formatHeartCount } from '../lib/utils'
 
 interface ChapterHeartButtonProps {
   workId: string
@@ -112,7 +113,7 @@ export function ChapterHeartButton({
             ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] border-[var(--ink-primary)]'
             : 'bg-[var(--bg-subtle)] hover:bg-[var(--bg-surface)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] border-[var(--border-subtle)] hover:border-[var(--border-strong)]'
         }`}
-        title={userHearted ? 'Remove heart' : 'Heart this chapter'}
+        title={userHearted ? `Remove heart (${formatHeartCount(heartCount, false)})` : `Heart this chapter (${formatHeartCount(heartCount, false)})`}
         aria-label={userHearted ? 'Remove heart from chapter' : 'Heart this chapter'}
       >
         <Heart
@@ -122,7 +123,7 @@ export function ChapterHeartButton({
               : 'text-[var(--ink-muted)] group-hover:text-[var(--ink-primary)]'
           }`}
         />
-        <span className="font-semibold">{heartCount.toLocaleString()}</span>
+        <span className="font-semibold">{formatHeartCount(heartCount, true)}</span>
       </button>
     )
   }
@@ -161,7 +162,7 @@ export function ChapterHeartButton({
               : 'bg-[var(--bg-surface)] text-[var(--ink-muted)] border border-[var(--border-subtle)]'
           }`}
         >
-          {heartCount.toLocaleString()}
+          {formatHeartCount(heartCount, true)}
         </span>
       </button>
     </div>

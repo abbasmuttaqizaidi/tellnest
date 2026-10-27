@@ -40,7 +40,7 @@ import { getWorkSlug, type Work, type Act, type Chapter } from '../data/mockData
 import { CloudinaryImageUpload } from '../components/CloudinaryImageUpload'
 import { ViewsBreakdownModal } from '../components/ViewsBreakdownModal'
 import { HeartsBreakdownModal } from '../components/HeartsBreakdownModal'
-import { formatViewCount } from '../lib/utils'
+import { formatViewCount, formatHeartCount } from '../lib/utils'
 
 import { getPublicWorkServerFn } from '../server/works'
 
@@ -794,10 +794,10 @@ function AdminWorkEditorPage() {
                   type="button"
                   onClick={() => setShowHeartsModal(true)}
                   className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded border border-[var(--border-subtle)] hover:border-[var(--ink-primary)] bg-[var(--bg-subtle)] hover:bg-[var(--bg-canvas)] text-[var(--ink-primary)] transition cursor-pointer font-bold text-[11px]"
-                  title={`${(Number((localWorkOverride || work).likeCount ?? (localWorkOverride || work as any).like_count) || 0).toLocaleString()} hearts • Click to adjust story and chapter hearts`}
+                  title={`${formatHeartCount(Number((localWorkOverride || work).likeCount ?? (localWorkOverride || work as any).like_count) || 0, false)} hearts • Click to adjust story and chapter hearts`}
                 >
                   <Heart className="h-3 w-3 fill-current text-[var(--ink-primary)]" />
-                  <span>{(Number((localWorkOverride || work).likeCount ?? (localWorkOverride || work as any).like_count) || 0).toLocaleString()} Hearts</span>
+                  <span>{formatHeartCount(Number((localWorkOverride || work).likeCount ?? (localWorkOverride || work as any).like_count) || 0, true)} Hearts</span>
                   <span className="text-[9px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold">(Adjust)</span>
                 </button>
               </div>

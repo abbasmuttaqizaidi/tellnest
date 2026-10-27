@@ -24,7 +24,7 @@ import { generateMeta } from '../lib/seo'
 import { getPublicWorkServerFn } from '../server/works'
 import { getWorkHeartStatusServerFn, toggleWorkHeartServerFn } from '../server/hearts'
 import { HeartsBreakdownModal } from '../components/HeartsBreakdownModal'
-import { formatViewCount } from '../lib/utils'
+import { formatViewCount, formatHeartCount } from '../lib/utils'
 import CommentsSection from '../components/CommentsSection'
 
 export const Route = createFileRoute('/works/$workId')({
@@ -560,10 +560,10 @@ function WorkDetailPage() {
               <p className="text-lg font-semibold text-[var(--ink-primary)]">{chaptersList.length || work.publishedChaptersCount || work.chaptersCount || 0}</p>
               <p className="text-[10px] text-[var(--ink-muted)] uppercase tracking-wider">Chapters</p>
             </div>
-            <div>
+            <div title={`${formatHeartCount(workHeartCount, false)} Total Hearts`}>
               <p className="text-lg font-semibold text-[var(--ink-primary)] flex items-center justify-center gap-1.5">
                 <Heart className="h-3.5 w-3.5 fill-current text-[var(--ink-primary)]" />
-                {workHeartCount.toLocaleString()}
+                {formatHeartCount(workHeartCount, true)}
               </p>
               <p className="text-[10px] text-[var(--ink-muted)] uppercase tracking-wider flex items-center justify-center gap-1">
                 <span>Total Hearts</span>

@@ -63,6 +63,7 @@ import {
 } from 'lucide-react'
 
 import { generateMeta } from '../lib/seo'
+import { formatHeartCount } from '../lib/utils'
 
 export const Route = createFileRoute('/secret-adminpanel')({
   head: () =>
@@ -1853,10 +1854,10 @@ function SecretAdminPanelPage() {
                             setSelectedWorkForHearts(matched)
                           }}
                           className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-mono font-semibold text-[var(--ink-primary)] bg-[var(--bg-subtle)] border border-[var(--border-subtle)] hover:border-[var(--ink-primary)] hover:bg-[var(--bg-surface)] hover:shadow-xs transition-all cursor-pointer group"
-                          title="Click to adjust story & chapter hearts"
+                          title={`${formatHeartCount(work.likeCount, false)} hearts • Click to adjust`}
                         >
                           <Heart className="h-3.5 w-3.5 fill-current text-[var(--ink-primary)] group-hover:scale-110 transition-transform" />
-                          <span>{(work.likeCount || 0).toLocaleString()}</span>
+                          <span>{formatHeartCount(work.likeCount, true)}</span>
                           <span className="text-[10px] text-[var(--ink-faint)] group-hover:text-[var(--ink-muted)] font-sans">
                             adjust ↗
                           </span>
@@ -2234,9 +2235,9 @@ function SecretAdminPanelPage() {
                                   <span>•</span>
                                   <span>{work.wordCount.toLocaleString()} w</span>
                                   <span>•</span>
-                                  <span className="inline-flex items-center gap-0.5">
+                                  <span className="inline-flex items-center gap-0.5" title={`${formatHeartCount(work.likeCount, false)} Hearts`}>
                                     <Heart className="h-2.5 w-2.5 fill-current text-[var(--ink-primary)]" />
-                                    <span>{(work.likeCount || 0).toLocaleString()}</span>
+                                    <span>{formatHeartCount(work.likeCount, true)}</span>
                                   </span>
                                 </div>
                                 <div className="flex items-center gap-1.5">
