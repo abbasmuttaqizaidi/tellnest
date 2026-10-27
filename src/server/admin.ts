@@ -2110,18 +2110,21 @@ export const adminBatchSaveHeartsServerFn = createServerFn({ method: 'POST' })
 
     const admin = createAdminClient()
 
-    // 1. Update each chapter's like_count
+    // 1. Update each chapter's like_count and track chapters sum
+    let chaptersSum = 0
     for (const ch of chapterHearts) {
       if (ch.chapterId) {
+        const validatedChCount = Math.max(0, Math.round(ch.heartCount || 0))
+        chaptersSum += validatedChCount
         await admin
           .from('chapters')
-          .update({ like_count: Math.max(0, Math.round(ch.heartCount || 0)) })
+          .update({ like_count: validatedChCount })
           .eq('id', ch.chapterId)
       }
     }
 
-    // 2. Update work like_count
-    const finalWorkHearts = Math.max(0, Math.round(workHearts))
+    // 2. Update work like_count: strictly enforce Total Hearts >= Chapter Hearts Sum
+    const finalWorkHearts = Math.max(chaptersSum, Math.round(workHearts || 0))
     const { error: wErr } = await admin
       .from('works')
       .update({ like_count: finalWorkHearts })
