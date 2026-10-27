@@ -203,6 +203,7 @@ function CurrentlyReadingCard({
    ========================================================================== */
 export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomeProps) {
   const { user, isLoaded: isUserLoaded } = useUser()
+  const effectiveUserId = user?.id || loaderData?.authUser?.userId || null
   const {
     allWorks,
     isWorksLoading,
@@ -272,19 +273,19 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
   // Optimization 2: Initialize recommendation signals with user-scoped isolation
   const [recommendationSignals, setRecommendationSignals] = useState<UserRecommendationSignals | null>(() => {
     if (loaderData?.initialRecSignals) {
-      if (!user?.id || loaderData.initialRecSignals.clerkUserId === user.id) {
+      if (!effectiveUserId || loaderData.initialRecSignals.clerkUserId === effectiveUserId) {
         return loaderData.initialRecSignals
       }
     }
-    if (typeof window !== 'undefined' && user?.id) {
+    if (typeof window !== 'undefined' && effectiveUserId) {
       try {
         const cachedRaw =
-          sessionStorage.getItem(`hatchpen_cached_rec_signals_${user.id}`) ||
+          sessionStorage.getItem(`hatchpen_cached_rec_signals_${effectiveUserId}`) ||
           sessionStorage.getItem('hatchpen_cached_rec_signals')
         if (cachedRaw) {
           const cached = JSON.parse(cachedRaw)
-          // Strictly accept cached signals only when cached.clerkUserId === user.id
-          if (cached && cached.clerkUserId === user.id) {
+          // Strictly accept cached signals only when cached.clerkUserId === effectiveUserId
+          if (cached && cached.clerkUserId === effectiveUserId) {
             return cached
           }
         }
@@ -298,18 +299,18 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
   const [isLoadingSignals, setIsLoadingSignals] = useState<boolean>(() => {
     if (
       loaderData?.initialRecSignals &&
-      (!user?.id || loaderData.initialRecSignals.clerkUserId === user.id)
+      (!effectiveUserId || loaderData.initialRecSignals.clerkUserId === effectiveUserId)
     ) {
       return false
     }
-    if (typeof window !== 'undefined' && user?.id) {
+    if (typeof window !== 'undefined' && effectiveUserId) {
       try {
         const cachedRaw =
-          sessionStorage.getItem(`hatchpen_cached_rec_signals_${user.id}`) ||
+          sessionStorage.getItem(`hatchpen_cached_rec_signals_${effectiveUserId}`) ||
           sessionStorage.getItem('hatchpen_cached_rec_signals')
         if (cachedRaw) {
           const cached = JSON.parse(cachedRaw)
-          if (cached && cached.clerkUserId === user.id) {
+          if (cached && cached.clerkUserId === effectiveUserId) {
             return false
           }
         }
@@ -317,7 +318,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
         return true
       }
     }
-    return Boolean(user?.id)
+    return !isUserLoaded || Boolean(effectiveUserId)
   })
 
   const [signalsError, setSignalsError] = useState<boolean>(false)
@@ -326,9 +327,15 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
   const recRequestIdRef = useRef<number>(0)
 
   useEffect(() => {
-    const currentUserId = user?.id
+    const currentUserId = effectiveUserId
     const requestId = ++recRequestIdRef.current
     setSignalsError(false)
+
+    // While Clerk client auth is still hydrating and we have no server ID, keep loading
+    if (!isUserLoaded && !currentUserId) {
+      setIsLoadingSignals(true)
+      return
+    }
 
     // If loaderData already supplied recommendation signals for this exact user, adopt without redundant fetch
     if (
@@ -397,12 +404,12 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
     return () => {
       isMounted = false
     }
-  }, [user?.id, loaderData?.initialRecSignals])
+  }, [effectiveUserId, isUserLoaded, loaderData?.initialRecSignals])
 
   // Retry fetching recommendation signals after failure
   const handleRetrySignals = useCallback(() => {
-    if (!user?.id) return
-    const currentUserId = user.id
+    const currentUserId = effectiveUserId
+    if (!currentUserId) return
     const requestId = ++recRequestIdRef.current
     setIsLoadingSignals(true)
     setSignalsError(false)
@@ -429,13 +436,13 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
           setSignalsError(true)
         }
       })
-  }, [user?.id])
+  }, [effectiveUserId])
 
   // Listen to onboarding completion to immediately refresh recommendation signals with newly selected preferences
   useEffect(() => {
     let isMounted = true
     const handleOnboardingComplete = () => {
-      const currentUserId = user?.id
+      const currentUserId = effectiveUserId
       if (typeof window !== 'undefined') {
         try {
           sessionStorage.removeItem('hatchpen_cached_rec_signals')
@@ -478,7 +485,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
       isMounted = false
       window.removeEventListener('hatchpen:onboarding-completed', handleOnboardingComplete)
     }
-  }, [user?.id])
+  }, [effectiveUserId])
 
   const mergedBookmarkedWorkIds = useMemo(() => {
     const set = new Set<string>()
@@ -491,10 +498,10 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
     const candidateWorks = works.filter((w) => !isOwnWork(w.id))
     if (candidateWorks.length === 0) return []
 
-    // For authenticated users: strictly enforce personalized recommendations
-    if (user?.id) {
-      // While signals are loading, failed, or not yet available, return empty array to prevent unrelated fallback
-      if (isLoadingSignals || signalsError || !recommendationSignals) {
+    // For authenticated users (or while auth is hydrating): strictly enforce personalized recommendations
+    if (effectiveUserId || !isUserLoaded) {
+      // While signals or user auth are loading, failed, or not yet available, return empty array to prevent unrelated fallback
+      if (!isUserLoaded || isLoadingSignals || signalsError || !recommendationSignals) {
         return []
       }
 
@@ -504,7 +511,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
         userPreferences: recommendationSignals.preferences || null,
         bookmarkedWorkIds: mergedBookmarkedWorkIds,
         excludeBookmarked: false,
-        currentUserId: user.id,
+        currentUserId: effectiveUserId,
         currentUserProfileId: recommendationSignals.profileId,
       })
     }
@@ -517,12 +524,21 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
       bookmarkedWorkIds: mergedBookmarkedWorkIds,
       excludeBookmarked: false,
     })
-  }, [works, recommendationSignals, mergedBookmarkedWorkIds, user?.id, isOwnWork, isLoadingSignals, signalsError])
+  }, [
+    works,
+    recommendationSignals,
+    mergedBookmarkedWorkIds,
+    effectiveUserId,
+    isUserLoaded,
+    isOwnWork,
+    isLoadingSignals,
+    signalsError,
+  ])
 
   // Dedicated New Voices: original qualifying stories from writers in first 5 calendar months
   const newVoicesWorks = useMemo(() => {
-    return filterAndOrderNewVoicesStories(works, user?.id)
-  }, [works, user?.id])
+    return filterAndOrderNewVoicesStories(works, effectiveUserId)
+  }, [works, effectiveUserId])
 
   // Books currently in-progress (sorted by most recently read)
   const inProgressList = useMemo(() => {
@@ -856,7 +872,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
               )
             })}
           </div>
-        ) : isLoadingSignals || (isWorksLoading && works.length === 0) ? (
+        ) : !isUserLoaded || isLoadingSignals || (isWorksLoading && works.length === 0) ? (
           <div className="flex items-stretch gap-3 sm:gap-3.5 overflow-hidden py-1">
             {Array.from({ length: 6 }).map((_, idx) => (
               <div

@@ -1360,19 +1360,28 @@ test('Failure-Mode Finding 1: Authenticated recommendation failure renders empty
   ]
 
   // Model the LoggedInHome recommendation memoization logic
-  function evaluateRecommendations({ user, isLoadingSignals, signalsError, recommendationSignals, works }) {
+  function evaluateRecommendations({
+    user,
+    isUserLoaded = true,
+    effectiveUserId = user?.id || null,
+    isLoadingSignals,
+    signalsError,
+    recommendationSignals,
+    works,
+  }) {
     const candidateWorks = works.filter((w) => Boolean(w.id))
     if (candidateWorks.length === 0) return []
 
-    if (user?.id) {
-      if (isLoadingSignals || signalsError || !recommendationSignals) {
+    // For authenticated users (or while auth is hydrating): strictly enforce personalized recommendations
+    if (effectiveUserId || !isUserLoaded) {
+      if (!isUserLoaded || isLoadingSignals || signalsError || !recommendationSignals) {
         return []
       }
       return calculateForYouRecommendations({
         candidateWorks,
         readingHistory: recommendationSignals.readingHistory || [],
         userPreferences: recommendationSignals.preferences || null,
-        currentUserId: user.id,
+        currentUserId: effectiveUserId,
       })
     }
 
@@ -1404,15 +1413,29 @@ test('Failure-Mode Finding 1: Authenticated recommendation failure renders empty
   })
   assert.equal(whileLoading.length, 0, 'Must return 0 recommendations while loading signals')
 
-  // 3. Unauthenticated guest receives general discovery
+  // 3. Hydration flicker protection: Clerk user is still hydrating (user is null, isUserLoaded is false)
+  const duringHydration = evaluateRecommendations({
+    user: null,
+    isUserLoaded: false,
+    effectiveUserId: 'server_auth_user_123',
+    isLoadingSignals: true,
+    signalsError: false,
+    recommendationSignals: null,
+    works: candidateWorks,
+  })
+  assert.equal(duringHydration.length, 0, 'During hydration before Clerk mounts, must return 0; never flash all platform works')
+
+  // 4. Unauthenticated guest receives general discovery only when definitively unauthenticated
   const guestResult = evaluateRecommendations({
     user: null,
+    isUserLoaded: true,
+    effectiveUserId: null,
     isLoadingSignals: false,
     signalsError: false,
     recommendationSignals: null,
     works: candidateWorks,
   })
-  assert.equal(guestResult.length, 2, 'Unauthenticated visitor correctly receives platform general discovery')
+  assert.equal(guestResult.length, 2, 'Definitively unauthenticated visitor correctly receives platform general discovery')
 })
 
 // --- Finding 2: Settings updates purge user-scoped cache ---
