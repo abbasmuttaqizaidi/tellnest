@@ -99,7 +99,7 @@ export const Modal: React.FC<ModalProps> = ({
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={SPRINGS.smooth}
             className={cn(
-              'relative w-full rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-2xl flex flex-col font-sans overflow-hidden',
+              'relative w-full max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3.5rem)] rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-2xl flex flex-col font-sans overflow-hidden',
               sizeClasses,
               className
             )}

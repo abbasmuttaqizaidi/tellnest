@@ -26,11 +26,16 @@ export default function ReaderSettingsModal({ isOpen, onClose }: ReaderSettingsM
       title="Reading Typography & Display"
       description="Calibrated controls for distraction-free literary reading."
       size="md"
+      footer={
+        <Button variant="primary" className="w-full py-2 text-xs font-mono uppercase tracking-wider" onClick={onClose}>
+          Apply & Return to Manuscript
+        </Button>
+      }
     >
-      <div className="space-y-6 pt-1">
+      <div className="space-y-4 sm:space-y-5 pt-0.5">
         {/* Reading Color Theme */}
         <div>
-          <label className="block text-[11px] font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-2">
+          <label className="block text-[11px] font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
             Environment Mode
           </label>
           <div className="grid grid-cols-3 gap-2">
@@ -77,7 +82,7 @@ export default function ReaderSettingsModal({ isOpen, onClose }: ReaderSettingsM
 
         {/* Typeface Selection */}
         <div>
-          <label className="block text-[11px] font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-2">
+          <label className="block text-[11px] font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
             Typeface Family
           </label>
           <div className="grid grid-cols-3 gap-2">
@@ -208,7 +213,7 @@ export default function ReaderSettingsModal({ isOpen, onClose }: ReaderSettingsM
 
         {/* Reading Page Width */}
         <div>
-          <label className="block text-[11px] font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-2">
+          <label className="block text-[11px] font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
             Column Margin Width
           </label>
           <div className="grid grid-cols-3 gap-2">
@@ -227,13 +232,6 @@ export default function ReaderSettingsModal({ isOpen, onClose }: ReaderSettingsM
               </button>
             ))}
           </div>
-        </div>
-
-        {/* CTA Apply */}
-        <div className="pt-2">
-          <Button variant="primary" className="w-full" onClick={onClose}>
-            Apply & Return to Manuscript
-          </Button>
         </div>
       </div>
     </Modal>

@@ -12,7 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ListFilter,
-  Type,
+  Settings,
   MessageSquare,
   Share2,
   Eye,
@@ -793,26 +793,15 @@ function ReaderPage() {
             <span className="hidden md:inline text-[var(--ink-faint)]"> / {work.publishedChaptersCount ?? work.chaptersCount} • {Math.round(progressPercent)}% read</span>
           </div>
 
-          {/* Right: Minimal Reader Controls */}
+          {/* Right: Reading Display & Typography Settings Trigger (Gear Icon) */}
           <div className="flex items-center gap-1">
-            {/* Table of Chapters Drawer Trigger */}
-            <button
-              onClick={() => setDrawerOpen(true)}
-              className="flex h-9 w-9 sm:h-7 sm:w-7 items-center justify-center rounded text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0"
-              title="Chapter Index (Shortcut: 'T')"
-              aria-label="Open Chapter Index Drawer"
-            >
-              <ListFilter className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-            </button>
-
-            {/* Reading Typography Settings Trigger */}
             <button
               onClick={() => setSettingsOpen(true)}
               className="flex h-9 w-9 sm:h-7 sm:w-7 items-center justify-center rounded text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0"
               title="Typography & Display Settings"
               aria-label="Open typography and display settings"
             >
-              <Type className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+              <Settings className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
             </button>
           </div>
         </div>
@@ -857,7 +846,7 @@ function ReaderPage() {
 
         {/* Work & Chapter Title Header - Ultra-Compact Layout */}
         <div className="pb-2.5 mb-4 sm:pb-3 sm:mb-5 border-b border-[var(--border-subtle)] space-y-1">
-          {/* Top Breadcrumb & Metadata Line */}
+          {/* Top Breadcrumb & Desktop Metadata Line */}
           <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-[11px] font-mono text-[var(--ink-muted)]">
             <div className="flex items-center gap-1.5 truncate">
               {(!chapter.bannerImage || bannerImageFailed) && (
@@ -875,7 +864,8 @@ function ReaderPage() {
               <span className="font-semibold text-[var(--ink-primary)]">Ch. {chapter.number}</span>
             </div>
 
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-[var(--ink-faint)]">
+            {/* Desktop-Only Metadata (on Mobile, displayed directly below Heading & Actions) */}
+            <div className="hidden sm:flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-[var(--ink-faint)]">
               <Link
                 to="/author/$authorId"
                 params={{ authorId: work.author.handle || work.author.id }}
@@ -898,14 +888,14 @@ function ReaderPage() {
             </div>
           </div>
 
-          {/* Chapter Title Row with Readership Views Count */}
+          {/* Chapter Title Row */}
           <div className="flex items-start justify-between gap-4 pt-0.5">
             <h1 className="font-serif text-xl sm:text-2xl font-bold text-[var(--ink-primary)] leading-tight tracking-tight flex-1 break-words">
               {chapter.title}
             </h1>
 
-            {/* Right side: Views Count Badge & Chapter Heart Button */}
-            <div className="flex items-center shrink-0 pt-0.5 gap-2">
+            {/* Desktop-Only Actions: Views Count Badge & Chapter Heart Button */}
+            <div className="hidden sm:flex items-center shrink-0 pt-0.5 gap-2">
               <button
                 type="button"
                 onClick={() => setViewsModalOpen(true)}
@@ -926,8 +916,52 @@ function ReaderPage() {
             </div>
           </div>
 
+          {/* Mobile-Only Actions Row (Views Count & Like/Heart Directly Under Heading) */}
+          <div className="flex sm:hidden items-center gap-2 pt-1.5">
+            <button
+              type="button"
+              onClick={() => setViewsModalOpen(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--bg-subtle)] hover:bg-[var(--bg-surface)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] text-[11px] font-mono border border-[var(--border-subtle)] hover:border-[var(--border-strong)] transition-all cursor-pointer shadow-2xs group"
+              title={`${formatViewCount(work.totalReads, false)} views • Click to view breakdown`}
+              aria-label="View readership breakdown"
+            >
+              <Eye className="h-3.5 w-3.5 text-[var(--ink-muted)] group-hover:text-[var(--ink-primary)] transition-colors" />
+              <span className="font-semibold">{formatViewCount(work.totalReads, true)}</span>
+            </button>
+
+            <ChapterHeartButton
+              workId={work.id}
+              chapterId={chapter.id}
+              chapterTitle={chapter.title}
+              variant="badge"
+            />
+          </div>
+
+          {/* Mobile-Only Metadata (Writer Name, Min Reads & Words Directly After Heading & Actions) */}
+          <div className="flex sm:hidden items-center flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-[var(--ink-faint)] pt-1">
+            <Link
+              to="/author/$authorId"
+              params={{ authorId: work.author.handle || work.author.id }}
+              onClick={(e) => {
+                if (!isSignedIn) {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  const authorSlug = work.author.handle || work.author.id
+                  openAuthModal(`/author/${authorSlug}`)
+                }
+              }}
+              className="hover:text-[var(--ink-primary)] transition-colors no-underline font-medium text-[var(--ink-muted)]"
+            >
+              by {work.author.showName !== false ? work.author.name : (work.author.showUsername !== false ? `@${work.author.handle}` : 'Author')}
+            </Link>
+            <span>•</span>
+            <span>{chapter.readTimeMinutes} min read</span>
+            <span>•</span>
+            <span>{chapter.wordCount.toLocaleString()} words</span>
+          </div>
+
           {chapter.subtitle && (
-            <p className="font-serif text-xs sm:text-sm text-[var(--ink-muted)] italic">
+            <p className="font-serif text-xs sm:text-sm text-[var(--ink-muted)] italic pt-0.5">
               {chapter.subtitle}
             </p>
           )}
