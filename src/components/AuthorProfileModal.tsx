@@ -20,7 +20,7 @@ import {
 export interface AuthorProfileModalProps {
   isOpen: boolean
   onClose: () => void
-  author: Author
+  author?: Author | null
   authorWorks?: Work[]
 }
 
@@ -30,7 +30,7 @@ export function AuthorProfileModal({
   author,
   authorWorks,
 }: AuthorProfileModalProps) {
-  const { allWorks, followedAuthors, toggleFollowAuthor, user, openAuthModal } = useApp()
+  const { allWorks, followedAuthorIds, isAuthorFollowed, toggleFollowAuthor, user, openAuthModal } = useApp()
   const trackRef = useRef<HTMLDivElement>(null)
 
   // Close on Escape key
@@ -43,32 +43,44 @@ export function AuthorProfileModal({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, onClose])
 
-  const isFollowing = followedAuthors.includes(author.id)
-  const isSelf =
-    user?.id === author.id ||
-    (author.handle && user?.username && author.handle.toLowerCase() === user.username.toLowerCase())
+  const isFollowing = useMemo(() => {
+    if (!author?.id) return false
+    if (typeof isAuthorFollowed === 'function') {
+      return Boolean(isAuthorFollowed(author.id) || (author.handle && isAuthorFollowed(author.handle)))
+    }
+    if (Array.isArray(followedAuthorIds)) {
+      return Boolean(followedAuthorIds.includes(author.id) || (author.handle && followedAuthorIds.includes(author.handle)))
+    }
+    return false
+  }, [author?.id, author?.handle, isAuthorFollowed, followedAuthorIds])
+
+  const isSelf = Boolean(
+    author &&
+      (user?.id === author.id ||
+        (author.handle && user?.username && author.handle.toLowerCase() === user.username.toLowerCase()))
+  )
 
   // Dynamic followers count
   const [initialFollowState] = useState(() => isFollowing)
   const currentFollowersCount = Math.max(
     0,
-    (author.followersCount || 0) + (isFollowing ? 1 : 0) - (initialFollowState ? 1 : 0)
+    ((author?.followersCount) || 0) + (isFollowing ? 1 : 0) - (initialFollowState ? 1 : 0)
   )
 
   // Author published works
   const works = useMemo(() => {
     if (authorWorks && authorWorks.length > 0) return authorWorks
     if (!author) return []
-    return allWorks.filter(
+    return (allWorks || []).filter(
       (w) =>
-        (w.author.id === author.id ||
-          w.author.handle?.toLowerCase() === author.handle?.toLowerCase()) &&
+        (w.author?.id === author.id ||
+          (author.handle && w.author?.handle?.toLowerCase() === author.handle.toLowerCase())) &&
         w.visibility !== 'draft' &&
         w.visibility !== 'private'
     )
   }, [authorWorks, allWorks, author])
 
-  const isWorksCatalogHidden = author.worksVisibility === 'hidden'
+  const isWorksCatalogHidden = author?.worksVisibility === 'hidden'
 
   const scrollTrack = (direction: 'left' | 'right') => {
     if (!trackRef.current) return
@@ -79,6 +91,7 @@ export function AuthorProfileModal({
   const handleToggleFollow = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
+    if (!author?.id) return
     if (!user) {
       openAuthModal(`/author/${author.handle || author.id}`)
       return
