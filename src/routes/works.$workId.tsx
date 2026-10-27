@@ -421,6 +421,58 @@ function WorkDetailPage() {
               </span>
               <ArrowRight className="h-4 w-4 shrink-0" />
             </Link>
+
+            {/* Mobile-Only Actions Row (Like, Save, Share) Directly Under Continue/Resume */}
+            <div className="flex sm:hidden items-center gap-2 mt-2 w-full">
+              {/* Heart Button */}
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.95 }}
+                onClick={handleToggleWorkHeart}
+                className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg py-2 px-2 text-xs font-mono font-medium transition-all cursor-pointer border select-none ${
+                  workHearted
+                    ? 'border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] shadow-xs'
+                    : 'border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] hover:border-[var(--ink-primary)]'
+                }`}
+                title={workHearted ? 'Remove heart from story' : 'Heart this story'}
+              >
+                <motion.div
+                  animate={isHeartBouncing ? { scale: [1, 1.35, 0.9, 1.15, 1] } : { scale: 1 }}
+                  transition={{ duration: 0.4 }}
+                >
+                  <Heart className={`h-3.5 w-3.5 ${workHearted ? 'fill-current' : ''}`} />
+                </motion.div>
+                <span>{formatHeartCount(workHeartCount, true)}</span>
+              </motion.button>
+
+              {/* Save Button */}
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.95 }}
+                onClick={handleToggleSave}
+                className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg py-2 px-2 text-xs font-mono font-medium transition-all cursor-pointer border select-none ${
+                  saved
+                    ? 'border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] shadow-xs'
+                    : 'border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] hover:border-[var(--ink-primary)]'
+                }`}
+                title={saved ? 'In Library' : 'Save to Library'}
+              >
+                <Bookmark className={`h-3.5 w-3.5 ${saved ? 'fill-current' : ''}`} />
+                <span>{saved ? 'Saved' : 'Save'}</span>
+              </motion.button>
+
+              {/* Share Button */}
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.95 }}
+                onClick={handleShare}
+                className="inline-flex items-center justify-center gap-1 rounded-lg py-2 px-3 text-xs font-mono font-medium border border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:border-[var(--ink-primary)] transition-all cursor-pointer select-none shrink-0"
+                title="Share Story"
+              >
+                <Share2 className="h-3.5 w-3.5" />
+                <span>Share</span>
+              </motion.button>
+            </div>
           </div>
         </div>
 
@@ -558,8 +610,8 @@ function WorkDetailPage() {
               </div>
             </div>
 
-            {/* Right: Hearts, Save, and Share Action Buttons */}
-            <div className="flex items-center gap-2">
+            {/* Right: Hearts, Save, and Share Action Buttons (Desktop only - mobile shown below CTA) */}
+            <div className="hidden sm:flex items-center gap-2">
               {/* Heart Story Button */}
               <motion.button
                 type="button"
