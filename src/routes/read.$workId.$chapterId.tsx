@@ -11,7 +11,6 @@ import {
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
-  Bookmark,
   ListFilter,
   Type,
   MessageSquare,
@@ -244,8 +243,6 @@ function ReaderPage() {
     isWorksLoading,
     readerSettings,
     siteTheme,
-    isWorkSaved,
-    toggleSaveWork,
     readingProgress,
     updateReadingProgress,
     isOwnWork,
@@ -644,8 +641,6 @@ function ReaderPage() {
     )
   }
 
-  const saved = isWorkSaved(work.id)
-
   // Floating TOC, Inline Marginalia and Continuous Progression settings
   const [floatingTocEnabled, setFloatingTocEnabled] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -818,20 +813,6 @@ function ReaderPage() {
               aria-label="Open typography and display settings"
             >
               <Type className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-            </button>
-
-            {/* Save Work Bookmark Toggle */}
-            <button
-              onClick={() => toggleSaveWork(work.id)}
-              className={`flex h-9 w-9 sm:h-7 sm:w-7 items-center justify-center rounded transition-colors cursor-pointer min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 ${
-                saved
-                  ? 'text-[var(--ink-primary)]'
-                  : 'text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)]'
-              }`}
-              title={saved ? 'Remove from Library' : 'Save Work'}
-              aria-label={saved ? 'Remove work from library' : 'Save work to library'}
-            >
-              <Bookmark className={`h-4 w-4 sm:h-3.5 sm:w-3.5 ${saved ? 'fill-current' : ''}`} />
             </button>
           </div>
         </div>
