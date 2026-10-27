@@ -776,7 +776,12 @@ function WorkDetailPage() {
               : chapter.isUpdated
               ? 'Updated'
               : isCurrent
-              ? 'Resume Here'
+              ? (
+                <>
+                  <span className="sm:hidden">Resume</span>
+                  <span className="hidden sm:inline">Resume Here</span>
+                </>
+              )
               : isRead
               ? 'Read'
               : undefined

@@ -10,7 +10,7 @@ export interface AccordionItemData {
   title: string
   subtitle?: string
   icon?: React.ReactNode
-  badge?: string
+  badge?: React.ReactNode
   content: React.ReactNode
 }
 
@@ -125,7 +125,7 @@ function AccordionRow({ item, isOpen, onToggle, borderRadii }: AccordionRowProps
                 {item.title}
               </span>
               {item.badge && (
-                <span className="font-mono text-[9px] uppercase px-1.5 py-0.5 rounded bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--ink-muted)]">
+                <span className="font-mono text-[9px] uppercase px-1.5 py-0.5 rounded bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--ink-muted)] shrink-0">
                   {item.badge}
                 </span>
               )}
