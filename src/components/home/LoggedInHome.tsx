@@ -255,15 +255,25 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
     return contextReadingProgress
   }, [contextReadingProgress, loaderData?.initialBootstrap?.readingProgress, works, isOwnWork])
 
-  // Optimization 2: Initialize recommendation signals immediately from route loaderData without waiting for client roundtrip
+  // Optimization 2: Initialize recommendation signals with user-scoped isolation
   const [recommendationSignals, setRecommendationSignals] = useState<UserRecommendationSignals | null>(() => {
     if (loaderData?.initialRecSignals) {
-      return loaderData.initialRecSignals
+      if (!user?.id || loaderData.initialRecSignals.clerkUserId === user.id) {
+        return loaderData.initialRecSignals
+      }
     }
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && user?.id) {
       try {
-        const cached = sessionStorage.getItem('hatchpen_cached_rec_signals')
-        return cached ? JSON.parse(cached) : null
+        const cachedRaw =
+          sessionStorage.getItem(`hatchpen_cached_rec_signals_${user.id}`) ||
+          sessionStorage.getItem('hatchpen_cached_rec_signals')
+        if (cachedRaw) {
+          const cached = JSON.parse(cachedRaw)
+          // Strictly accept cached signals only when cached.clerkUserId === user.id
+          if (cached && cached.clerkUserId === user.id) {
+            return cached
+          }
+        }
       } catch {
         return null
       }
@@ -272,45 +282,99 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
   })
 
   const [isLoadingSignals, setIsLoadingSignals] = useState<boolean>(() => {
-    if (loaderData?.initialRecSignals) {
+    if (
+      loaderData?.initialRecSignals &&
+      (!user?.id || loaderData.initialRecSignals.clerkUserId === user.id)
+    ) {
       return false
     }
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && user?.id) {
       try {
-        return !sessionStorage.getItem('hatchpen_cached_rec_signals')
+        const cachedRaw =
+          sessionStorage.getItem(`hatchpen_cached_rec_signals_${user.id}`) ||
+          sessionStorage.getItem('hatchpen_cached_rec_signals')
+        if (cachedRaw) {
+          const cached = JSON.parse(cachedRaw)
+          if (cached && cached.clerkUserId === user.id) {
+            return false
+          }
+        }
       } catch {
         return true
       }
     }
-    return false
+    return Boolean(user?.id)
   })
 
   const forYouCarouselRef = useRef<HTMLDivElement>(null)
+  const recRequestIdRef = useRef<number>(0)
 
   useEffect(() => {
-    // If loaderData already supplied recommendation signals, avoid redundant client fetch
-    if (loaderData?.initialRecSignals && recommendationSignals) {
+    const currentUserId = user?.id
+    const requestId = ++recRequestIdRef.current
+
+    // If loaderData already supplied recommendation signals for this exact user, adopt without redundant fetch
+    if (
+      loaderData?.initialRecSignals &&
+      (!currentUserId || loaderData.initialRecSignals.clerkUserId === currentUserId)
+    ) {
+      setRecommendationSignals(loaderData.initialRecSignals)
+      setIsLoadingSignals(false)
       return
     }
+
+    if (!currentUserId) {
+      setRecommendationSignals(null)
+      setIsLoadingSignals(false)
+      return
+    }
+
+    // On account switch or initial mount without loader data, check user-scoped cache immediately
+    let initialSignalsForUser: UserRecommendationSignals | null = null
+    if (typeof window !== 'undefined') {
+      try {
+        const cachedRaw =
+          sessionStorage.getItem(`hatchpen_cached_rec_signals_${currentUserId}`) ||
+          sessionStorage.getItem('hatchpen_cached_rec_signals')
+        if (cachedRaw) {
+          const cached = JSON.parse(cachedRaw)
+          if (cached && cached.clerkUserId === currentUserId) {
+            initialSignalsForUser = cached
+          }
+        }
+      } catch {}
+    }
+
+    setRecommendationSignals(initialSignalsForUser)
+    setIsLoadingSignals(!initialSignalsForUser)
+
     let isMounted = true
+
     getUserRecommendationSignalsServerFn()
       .then((signals) => {
-        if (isMounted) {
-          setRecommendationSignals(signals)
-          setIsLoadingSignals(false)
-          if (signals && typeof window !== 'undefined') {
-            try {
-              sessionStorage.setItem('hatchpen_cached_rec_signals', JSON.stringify(signals))
-            } catch {}
-          }
+        // Discard stale responses if a newer request sequence started, component unmounted, or user switched
+        if (!isMounted || requestId !== recRequestIdRef.current) return
+        setRecommendationSignals(signals)
+        setIsLoadingSignals(false)
+        if (signals && typeof window !== 'undefined') {
+          try {
+            // Confirm signals match currentUserId before writing to storage
+            if (signals.clerkUserId && signals.clerkUserId !== currentUserId) {
+              return
+            }
+            const payload = JSON.stringify(signals)
+            sessionStorage.setItem('hatchpen_cached_rec_signals', payload)
+            sessionStorage.setItem(`hatchpen_cached_rec_signals_${currentUserId}`, payload)
+          } catch {}
         }
       })
       .catch((err) => {
         console.warn('[ForYou] Failed to load recommendation signals:', err?.message || err)
-        if (isMounted) {
+        if (isMounted && requestId === recRequestIdRef.current) {
           setIsLoadingSignals(false)
         }
       })
+
     return () => {
       isMounted = false
     }
@@ -318,32 +382,52 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
 
   // Listen to onboarding completion to immediately refresh recommendation signals with newly selected preferences
   useEffect(() => {
+    let isMounted = true
     const handleOnboardingComplete = () => {
-      try {
-        sessionStorage.removeItem('hatchpen_cached_rec_signals')
-      } catch {}
+      const currentUserId = user?.id
+      if (typeof window !== 'undefined') {
+        try {
+          sessionStorage.removeItem('hatchpen_cached_rec_signals')
+          if (currentUserId) {
+            sessionStorage.removeItem(`hatchpen_cached_rec_signals_${currentUserId}`)
+          }
+        } catch {}
+      }
+      const requestId = ++recRequestIdRef.current
       setIsLoadingSignals(true)
+
       getUserRecommendationSignalsServerFn()
         .then((signals) => {
+          if (!isMounted || requestId !== recRequestIdRef.current) return
           setRecommendationSignals(signals)
           setIsLoadingSignals(false)
           if (signals && typeof window !== 'undefined') {
             try {
-              sessionStorage.setItem('hatchpen_cached_rec_signals', JSON.stringify(signals))
+              if (signals.clerkUserId && currentUserId && signals.clerkUserId !== currentUserId) {
+                return
+              }
+              const payload = JSON.stringify(signals)
+              sessionStorage.setItem('hatchpen_cached_rec_signals', payload)
+              if (currentUserId) {
+                sessionStorage.setItem(`hatchpen_cached_rec_signals_${currentUserId}`, payload)
+              }
             } catch {}
           }
         })
         .catch((err) => {
           console.warn('[ForYou] Failed to refresh recommendation signals after onboarding:', err?.message || err)
-          setIsLoadingSignals(false)
+          if (isMounted && requestId === recRequestIdRef.current) {
+            setIsLoadingSignals(false)
+          }
         })
     }
 
     window.addEventListener('hatchpen:onboarding-completed', handleOnboardingComplete)
     return () => {
+      isMounted = false
       window.removeEventListener('hatchpen:onboarding-completed', handleOnboardingComplete)
     }
-  }, [])
+  }, [user?.id])
 
   const mergedBookmarkedWorkIds = useMemo(() => {
     const set = new Set<string>()

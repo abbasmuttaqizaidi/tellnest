@@ -2,6 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import type { ReadingSessionRecord, UserPreferencesPayload } from '../lib/recommendations/engine'
 
 export interface UserRecommendationSignals {
+  clerkUserId?: string | null
   profileId: string | null
   readingHistory: ReadingSessionRecord[]
   bookmarkedWorkIds: string[]
@@ -105,6 +106,7 @@ export async function executeGetUserRecommendationSignals(
   }))
 
   return {
+    clerkUserId,
     profileId: profile.id,
     readingHistory,
     bookmarkedWorkIds,

@@ -68,12 +68,16 @@ export function isWorkEligibleForRecommendations(
 ): boolean {
   if (!work) return false
 
-  // 1. Publication status: Must be published
-  const isPublished =
-    work.status !== 'Cancelled' &&
-    work.visibility !== 'Draft' &&
-    work.visibility !== 'Unlisted'
-  if (!isPublished) return false
+  // 1. Publication status: Must be published and explicitly public
+  const vis = (work.visibility || '').toLowerCase().trim()
+  const status = (work.status || '').toLowerCase().trim()
+  const pubStatus = ((work as any).publication_status || (work as any).publicationStatus || 'published').toLowerCase().trim()
+
+  const isPublic = vis === 'public'
+  const isNotCancelled = status !== 'cancelled'
+  const isPublishedStatus = pubStatus === 'published'
+
+  if (!isPublic || !isNotCancelled || !isPublishedStatus) return false
 
   // 2. Chapter readiness: Must have at least 1 genuinely published chapter
   const hasPublishedChapter =
@@ -220,8 +224,11 @@ export function calculateForYouRecommendations(params: {
       if (item.slug) preferredGenreSlugs.add(normalizeIdentifier(item.slug))
     }
   }
-  for (const g of (userPreferences?.genres || [])) addGenrePref(g)
-  for (const i of (userPreferences?.interests || [])) addGenrePref(i)
+  const rawGenres = Array.isArray(userPreferences?.genres) ? userPreferences.genres : []
+  for (const g of rawGenres) addGenrePref(g)
+
+  const rawInterests = Array.isArray(userPreferences?.interests) ? userPreferences.interests : []
+  for (const i of rawInterests) addGenrePref(i)
 
   const preferredCategorySlugs = new Set<string>()
   const addCategoryPref = (item: any) => {
@@ -234,7 +241,8 @@ export function calculateForYouRecommendations(params: {
       if (item.slug) preferredCategorySlugs.add(normalizeIdentifier(item.slug))
     }
   }
-  for (const c of (userPreferences?.categories || [])) addCategoryPref(c)
+  const rawCategories = Array.isArray(userPreferences?.categories) ? userPreferences.categories : []
+  for (const c of rawCategories) addCategoryPref(c)
 
   const hasPersonalPreferences = preferredGenreSlugs.size > 0 || preferredCategorySlugs.size > 0
   const hasActiveReadingShift = Boolean(verifiedShift)

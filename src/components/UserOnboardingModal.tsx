@@ -358,6 +358,9 @@ export function UserOnboardingModal() {
         sessionStorage.removeItem('hatchpen_just_signed_up_google')
         try {
           sessionStorage.removeItem('hatchpen_cached_rec_signals')
+          if (user?.id) {
+            sessionStorage.removeItem(`hatchpen_cached_rec_signals_${user.id}`)
+          }
         } catch {}
         window.dispatchEvent(new CustomEvent('hatchpen:onboarding-completed'))
       }

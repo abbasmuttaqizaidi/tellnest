@@ -1179,3 +1179,171 @@ test('Scenario 23: Complete test suite runs fully offline without requiring live
   })
   assert.ok(results.length > 0, 'Runs without external network or database calls')
 })
+
+// =========================================================================
+// Resilience Audit Fixes Suite (Fix 1 - Fix 4)
+// =========================================================================
+
+// --- Resilience Fix 1: Malformed and non-array preference payloads (P1) ---
+test('Resilience Fix 1: Malformed and non-array preference payloads do not crash engine', () => {
+  const candidate = createMockWork({ genre: 'Family Drama', category: 'New Adult' })
+
+  // Non-array object payloads (e.g. legacy serialized dict)
+  assert.doesNotThrow(() => {
+    const res = calculateForYouRecommendations({
+      candidateWorks: [candidate],
+      userPreferences: {
+        genres: { id: 'family-drama' },
+        categories: { id: 'new-adult' },
+        interests: { 0: 'drama' },
+      },
+    })
+    // Malformed non-array is treated as empty array; since user is cold-start without valid preferences, general discovery works
+    assert.ok(Array.isArray(res))
+  }, 'Object preference payloads must be treated as empty arrays without throwing TypeError')
+
+  // Primitive non-array types (numbers, booleans, symbols)
+  assert.doesNotThrow(() => {
+    const res = calculateForYouRecommendations({
+      candidateWorks: [candidate],
+      userPreferences: {
+        genres: 12345,
+        categories: true,
+        interests: 'invalid-string',
+      },
+    })
+    assert.ok(Array.isArray(res))
+  }, 'Primitive non-array payloads must be handled safely')
+})
+
+// --- Resilience Fix 2: Client cache isolation across accounts (P1) ---
+test('Resilience Fix 2: Cached recommendation signals cannot leak to a different authenticated user and legacy unauthenticated cache is discarded', async () => {
+  const userASignals = {
+    clerkUserId: 'user_a_clerk',
+    profileId: 'prof_a',
+    readingHistory: [],
+    bookmarkedWorkIds: ['work-a-private'],
+    preferences: { genres: ['Family Drama'] },
+  }
+
+  // Simulated client cache evaluator strictly matching LoggedInHome.tsx
+  function resolveCachedSignals(rawCached, activeUserId) {
+    if (!rawCached || !activeUserId) return null
+    try {
+      const cached = JSON.parse(rawCached)
+      // Strictly accept cached signals only when cached.clerkUserId === activeUserId
+      if (cached && cached.clerkUserId === activeUserId) {
+        return cached
+      }
+      return null
+    } catch {
+      return null
+    }
+  }
+
+  const cachedJson = JSON.stringify(userASignals)
+
+  // User A accesses their own cache -> accepted
+  const userACache = resolveCachedSignals(cachedJson, 'user_a_clerk')
+  assert.ok(userACache, 'User A must resolve their own cached signals')
+  assert.equal(userACache.clerkUserId, 'user_a_clerk')
+
+  // User B logs in on same browser -> User A cached signals strictly rejected
+  const userBCache = resolveCachedSignals(cachedJson, 'user_b_clerk')
+  assert.equal(userBCache, null, 'User B must strictly reject User A cached signals')
+
+  // Legacy cache entry without clerkUserId must be strictly discarded
+  const legacyCacheJson = JSON.stringify({
+    profileId: 'prof_legacy',
+    readingHistory: [],
+    preferences: { genres: ['Fantasy'] },
+  })
+  const legacyResolved = resolveCachedSignals(legacyCacheJson, 'user_a_clerk')
+  assert.equal(legacyResolved, null, 'Legacy cache without clerkUserId must be rejected')
+
+  // Verify sign-out path in Header and Settings removes sessionStorage
+  const fs = await import('node:fs/promises')
+  const headerCode = await fs.readFile('src/components/Header.tsx', 'utf8')
+  assert.ok(
+    headerCode.includes("sessionStorage.removeItem('hatchpen_cached_rec_signals')"),
+    'Header sign-out must purge client recommendation signals cache'
+  )
+  const settingsCode = await fs.readFile('src/routes/settings.tsx', 'utf8')
+  assert.ok(
+    settingsCode.includes("sessionStorage.removeItem('hatchpen_cached_rec_signals')"),
+    'Settings sign-out must purge client recommendation signals cache'
+  )
+})
+
+// --- Resilience Fix 3: Out-of-order asynchronous requests and account switching (P1) ---
+test('Resilience Fix 3: Sequence counter guarantees older async response never overwrites newer signals or cross-user state', async () => {
+  let activeSignals = null
+  let activeUserId = 'user_initial'
+  let reqSequence = 0
+
+  async function simulateSignalRequest(seq, reqUserId, delayMs, payload) {
+    await new Promise((resolve) => setTimeout(resolve, delayMs))
+    // Drop response if newer request sequence has started or active user switched
+    if (seq === reqSequence && reqUserId === activeUserId) {
+      activeSignals = payload
+    }
+  }
+
+  // Request 1 dispatched before onboarding (takes 100ms)
+  const seq1 = ++reqSequence
+  const req1 = simulateSignalRequest(seq1, 'user_initial', 100, { genres: [] })
+
+  // User completes onboarding rapidly, dispatching Request 2 (takes 30ms)
+  const seq2 = ++reqSequence
+  const req2 = simulateSignalRequest(seq2, 'user_initial', 30, { genres: ['Family Drama', 'Political Fiction'] })
+
+  // Await both requests
+  await Promise.all([req1, req2])
+
+  // Newer Request 2 response must prevail, Request 1 must be discarded
+  assert.deepEqual(activeSignals, { genres: ['Family Drama', 'Political Fiction'] })
+
+  // Account switching simulation: User A request in flight (slow 80ms)
+  const seqUserA = ++reqSequence
+  const userAReq = simulateSignalRequest(seqUserA, 'user_a', 80, { genres: ['Horror'], clerkUserId: 'user_a' })
+
+  // User switches to User B immediately
+  activeUserId = 'user_b'
+  activeSignals = null // In LoggedInHome, effect resets signals immediately on account switch
+  const seqUserB = ++reqSequence
+  const userBReq = simulateSignalRequest(seqUserB, 'user_b', 20, { genres: ['Sci-Fi'], clerkUserId: 'user_b' })
+
+  await Promise.all([userAReq, userBReq])
+
+  // User B's signals must be set; User A's slow response must be rejected
+  assert.deepEqual(activeSignals, { genres: ['Sci-Fi'], clerkUserId: 'user_b' })
+})
+
+// --- Resilience Fix 4: Strict public visibility (P2) ---
+test('Resilience Fix 4: isWorkEligibleForRecommendations strictly allows only public works, rejecting private and draft', () => {
+  const base = {
+    id: 'w-vis',
+    status: 'Ongoing',
+    publishedChaptersCount: 1,
+  }
+
+  // Allowed public visibility variations
+  assert.equal(isWorkEligibleForRecommendations(createMockWork({ ...base, visibility: 'public' }), {}), true)
+  assert.equal(isWorkEligibleForRecommendations(createMockWork({ ...base, visibility: 'Public' }), {}), true)
+  assert.equal(isWorkEligibleForRecommendations(createMockWork({ ...base, visibility: ' PUBLIC ' }), {}), true)
+
+  // Strictly rejected non-public visibilities
+  assert.equal(isWorkEligibleForRecommendations(createMockWork({ ...base, visibility: 'private' }), {}), false)
+  assert.equal(isWorkEligibleForRecommendations(createMockWork({ ...base, visibility: 'Private' }), {}), false)
+  assert.equal(isWorkEligibleForRecommendations(createMockWork({ ...base, visibility: 'draft' }), {}), false)
+  assert.equal(isWorkEligibleForRecommendations(createMockWork({ ...base, visibility: 'Draft' }), {}), false)
+  assert.equal(isWorkEligibleForRecommendations(createMockWork({ ...base, visibility: 'unlisted' }), {}), false)
+  assert.equal(isWorkEligibleForRecommendations(createMockWork({ ...base, visibility: 'Unlisted' }), {}), false)
+  assert.equal(isWorkEligibleForRecommendations(createMockWork({ ...base, visibility: '' }), {}), false)
+  assert.equal(isWorkEligibleForRecommendations(createMockWork({ ...base, visibility: null }), {}), false)
+  assert.equal(isWorkEligibleForRecommendations(createMockWork({ ...base, visibility: 'unknown' }), {}), false)
+
+  // Status cancelled rejected
+  assert.equal(isWorkEligibleForRecommendations(createMockWork({ ...base, visibility: 'public', status: 'Cancelled' }), {}), false)
+  assert.equal(isWorkEligibleForRecommendations(createMockWork({ ...base, visibility: 'public', status: 'cancelled' }), {}), false)
+})

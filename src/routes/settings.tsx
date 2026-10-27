@@ -290,6 +290,10 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
       try {
         localStorage.removeItem('hatchpen_has_session')
         localStorage.removeItem('hatchpen_cached_bookmarks')
+        sessionStorage.removeItem('hatchpen_cached_rec_signals')
+        if (user?.id) {
+          sessionStorage.removeItem(`hatchpen_cached_rec_signals_${user.id}`)
+        }
         document.cookie = 'hatchpen_has_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
       } catch {}
     }

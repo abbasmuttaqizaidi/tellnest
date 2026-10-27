@@ -138,6 +138,7 @@ export default function LoginPage() {
     if (typeof window !== 'undefined') {
       try {
         localStorage.removeItem('hatchpen_has_session')
+        sessionStorage.removeItem('hatchpen_cached_rec_signals')
         document.cookie = 'hatchpen_has_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
       } catch {}
     }

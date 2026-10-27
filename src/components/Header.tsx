@@ -523,6 +523,12 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
                           localStorage.removeItem('hatchpen_cached_bookmarks')
                           localStorage.removeItem('hatchpen_custom_avatar')
                           localStorage.removeItem('tellnest_custom_avatar')
+                          try {
+                            sessionStorage.removeItem('hatchpen_cached_rec_signals')
+                            if (user?.id) {
+                              sessionStorage.removeItem(`hatchpen_cached_rec_signals_${user.id}`)
+                            }
+                          } catch {}
                           document.cookie = 'hatchpen_has_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
                         }
                         setUserMenuOpen(false)
@@ -755,6 +761,12 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
                     localStorage.removeItem('hatchpen_cached_bookmarks')
                     localStorage.removeItem('hatchpen_custom_avatar')
                     localStorage.removeItem('tellnest_custom_avatar')
+                    try {
+                      sessionStorage.removeItem('hatchpen_cached_rec_signals')
+                      if (user?.id) {
+                        sessionStorage.removeItem(`hatchpen_cached_rec_signals_${user.id}`)
+                      }
+                    } catch {}
                     document.cookie = 'hatchpen_has_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
                   }
                   setMobileDrawerOpen(false)
