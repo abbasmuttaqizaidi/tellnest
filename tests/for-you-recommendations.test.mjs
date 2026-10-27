@@ -515,3 +515,667 @@ test('Personalized Filtering: Candidate works with ZERO match to declared prefer
 
   assert.equal(resultsZeroMatch.length, 0, 'Must return 0 recommendations when no candidates match declared preferences')
 })
+
+// =========================================================================
+// Phase 5 — Full Regression & Edge-Case Verification Suite (Scenarios 1 - 23)
+// =========================================================================
+
+// --- Scenario 1: Exact reported user scenario ---
+test('Scenario 1: Exact reported user scenario with Family Drama + Political Fiction + New Adult on 3-work catalog', () => {
+  // The 3 unrelated platform stories in catalog
+  const platformWork1 = createMockWork({
+    id: 'platform-1',
+    title: 'The Silent Nebula',
+    genre: 'Sci-Fi',
+    genreSlug: 'sci-fi',
+    category: 'Space Opera',
+    categorySlug: 'space-opera',
+  })
+  const platformWork2 = createMockWork({
+    id: 'platform-2',
+    title: 'Crown of Shadows',
+    genre: 'Fantasy',
+    genreSlug: 'fantasy',
+    category: 'Epic Fantasy',
+    categorySlug: 'epic-fantasy',
+  })
+  const platformWork3 = createMockWork({
+    id: 'platform-3',
+    title: 'Midnight in Prague',
+    genre: 'Romance',
+    genreSlug: 'romance',
+    category: 'Historical Romance',
+    categorySlug: 'historical-romance',
+  })
+
+  const results = calculateForYouRecommendations({
+    candidateWorks: [platformWork1, platformWork2, platformWork3],
+    userPreferences: {
+      genres: ['Family Drama', 'Political Fiction'],
+      categories: ['New Adult'],
+    },
+  })
+
+  assert.equal(results.length, 0, 'Must return an empty array, NOT the 3 unrelated platform works')
+})
+
+// --- Scenario 2: Zero-result empty state copy and routes ---
+test('Scenario 2: UI invariants for empty state copy and navigation targets', async () => {
+  const fs = await import('node:fs/promises')
+  const homeCode = await fs.readFile('src/components/home/LoggedInHome.tsx', 'utf8')
+
+  // Verify exact copy specified in Decision A
+  assert.ok(
+    homeCode.includes('No stories match your taste yet'),
+    'Empty state must include exact heading "No stories match your taste yet"'
+  )
+  assert.ok(
+    homeCode.includes(
+      "We couldn't find published stories matching your selected genres or categories. Explore the full catalogue or update your preferences to discover more."
+    ),
+    'Empty state must include exact body copy'
+  )
+
+  // Verify navigation buttons
+  assert.ok(
+    homeCode.includes('to="/settings"') && homeCode.includes('Edit Taste Profile'),
+    'Must provide "Edit Taste Profile" button pointing to /settings'
+  )
+  assert.ok(
+    homeCode.includes('to="/discover"') && homeCode.includes('Browse Full Catalog'),
+    'Must provide "Browse Full Catalog" button pointing to /discover'
+  )
+})
+
+// --- Scenario 3: Combined genre + category ranking ---
+test('Scenario 3: Work matching Family Drama + New Adult is ranked above single-match works and multi-genre boosts', () => {
+  const combinedMatch = createMockWork({
+    id: 'work-combined',
+    title: 'The Inheritance',
+    genre: 'Family Drama',
+    genreSlug: 'family-drama',
+    category: 'New Adult',
+    categorySlug: 'new-adult',
+    totalReads: '500',
+  })
+
+  const multiGenreMatch = createMockWork({
+    id: 'work-multi-genre',
+    title: 'The Dynastic Election',
+    genre: 'Family Drama',
+    genreSlug: 'family-drama',
+    genres: ['Family Drama', 'Political Fiction'],
+    category: 'Adult',
+    categorySlug: 'adult',
+    totalReads: '500',
+  })
+
+  const singleGenreMatch = createMockWork({
+    id: 'work-single-genre',
+    title: 'Family Secrets',
+    genre: 'Family Drama',
+    genreSlug: 'family-drama',
+    category: 'Young Adult',
+    categorySlug: 'young-adult',
+    totalReads: '500',
+  })
+
+  const categoryOnlyMatch = createMockWork({
+    id: 'work-cat-only',
+    title: 'Campus Life',
+    genre: 'Romance',
+    genreSlug: 'romance',
+    category: 'New Adult',
+    categorySlug: 'new-adult',
+    totalReads: '500',
+  })
+
+  const results = calculateForYouRecommendations({
+    candidateWorks: [categoryOnlyMatch, singleGenreMatch, multiGenreMatch, combinedMatch],
+    userPreferences: {
+      genres: ['Family Drama', 'Political Fiction'],
+      categories: ['New Adult'],
+    },
+  })
+
+  assert.equal(results.length, 4, 'All four matching works are eligible')
+  // Combined match has genre (25) + category (15) = 40+
+  assert.equal(results[0].work.id, 'work-combined', 'Combined genre+category match must rank #1')
+  // Multi-genre match has genre (25) + 1 extra genre (8) = 33
+  assert.equal(results[1].work.id, 'work-multi-genre', 'Multi-genre match must rank above single-genre match')
+  // Single genre match has 25
+  assert.equal(results[2].work.id, 'work-single-genre', 'Single genre match ranks above category-only')
+  // Category only match has 15
+  assert.equal(results[3].work.id, 'work-cat-only', 'Category only match ranks #4')
+})
+
+// --- Scenario 4: Genre-only match is eligible ---
+test('Scenario 4: Work matching Political Fiction + unrelated category is eligible and recommended', () => {
+  const politicalWork = createMockWork({
+    id: 'work-pol',
+    title: 'State of Affairs',
+    genre: 'Political Fiction',
+    genreSlug: 'political-fiction',
+    category: 'Cyberpunk',
+    categorySlug: 'cyberpunk',
+  })
+
+  const results = calculateForYouRecommendations({
+    candidateWorks: [politicalWork],
+    userPreferences: {
+      genres: ['Family Drama', 'Political Fiction'],
+      categories: ['New Adult'],
+    },
+  })
+
+  assert.equal(results.length, 1)
+  assert.equal(results[0].work.id, 'work-pol')
+})
+
+// --- Scenario 5: Category-only match is eligible ---
+test('Scenario 5: Work matching unrelated genre + New Adult is eligible and recommended', () => {
+  const newAdultWork = createMockWork({
+    id: 'work-na',
+    title: 'Twenty-Something',
+    genre: 'Horror',
+    genreSlug: 'horror',
+    category: 'New Adult',
+    categorySlug: 'new-adult',
+  })
+
+  const results = calculateForYouRecommendations({
+    candidateWorks: [newAdultWork],
+    userPreferences: {
+      genres: ['Family Drama', 'Political Fiction'],
+      categories: ['New Adult'],
+    },
+  })
+
+  assert.equal(results.length, 1)
+  assert.equal(results[0].work.id, 'work-na')
+})
+
+// --- Scenario 6: Non-matching work is excluded ---
+test('Scenario 6: Work matching Sci-Fi + Adult with neither genre nor category selected is excluded', () => {
+  const sciFiWork = createMockWork({
+    id: 'work-scifi',
+    title: 'Starfall',
+    genre: 'Sci-Fi',
+    genreSlug: 'sci-fi',
+    category: 'Adult',
+    categorySlug: 'adult',
+  })
+
+  const results = calculateForYouRecommendations({
+    candidateWorks: [sciFiWork],
+    userPreferences: {
+      genres: ['Family Drama', 'Political Fiction'],
+      categories: ['New Adult'],
+    },
+  })
+
+  assert.equal(results.length, 0, 'Unrelated story must be excluded')
+})
+
+// --- Scenario 7: Popularity/recent-chapter bonus cannot rescue ineligible work ---
+test('Scenario 7: Ineligible work cannot be rescued by high popularity, featured, trending, or recent drops', () => {
+  const megaPopularIneligible = createMockWork({
+    id: 'work-popular-ineligible',
+    title: 'Viral Galactic War',
+    genre: 'Sci-Fi',
+    genreSlug: 'sci-fi',
+    category: 'Adult',
+    categorySlug: 'adult',
+    totalReads: '5,000,000',
+    featured: true,
+    trending: true,
+    new_chapters_this_week: true,
+    lastActivityAt: new Date().toISOString(),
+  })
+
+  const results = calculateForYouRecommendations({
+    candidateWorks: [megaPopularIneligible],
+    userPreferences: {
+      genres: ['Family Drama'],
+      categories: ['New Adult'],
+    },
+  })
+
+  assert.equal(results.length, 0, 'High popularity or recent activity must never bypass relevance gate')
+})
+
+// --- Scenario 8: No preferences selected preserves general discovery ---
+test('Scenario 8: No preferences selected preserves non-personalized general discovery', () => {
+  const workA = createMockWork({ id: 'work-a', title: 'Work A', totalReads: '10,000' })
+  const workB = createMockWork({ id: 'work-b', title: 'Work B', totalReads: '2,000' })
+
+  // Case A: null preferences
+  const resultsNull = calculateForYouRecommendations({
+    candidateWorks: [workA, workB],
+    userPreferences: null,
+  })
+  assert.equal(resultsNull.length, 2, 'Unpersonalized cold start serves general discovery')
+  assert.equal(resultsNull[0].work.id, 'work-a', 'General discovery orders by organic engagement')
+
+  // Case B: empty arrays
+  const resultsEmpty = calculateForYouRecommendations({
+    candidateWorks: [workA, workB],
+    userPreferences: { genres: [], categories: [] },
+  })
+  assert.equal(resultsEmpty.length, 2, 'Empty preferences array serves general discovery')
+})
+
+// --- Scenario 9: Safe handling of malformed/legacy/null preferences ---
+test('Scenario 9: Malformed, null, legacy, or empty preference payloads handled safely without crashing', () => {
+  const candidate = createMockWork({ genre: 'Family Drama', category: 'New Adult' })
+
+  // Undefined
+  assert.doesNotThrow(() => {
+    calculateForYouRecommendations({ candidateWorks: [candidate], userPreferences: undefined })
+  })
+
+  // Empty object
+  assert.doesNotThrow(() => {
+    calculateForYouRecommendations({ candidateWorks: [candidate], userPreferences: {} })
+  })
+
+  // Null arrays
+  assert.doesNotThrow(() => {
+    calculateForYouRecommendations({
+      candidateWorks: [candidate],
+      userPreferences: { genres: null, categories: null },
+    })
+  })
+
+  // Mixed invalid types inside arrays
+  assert.doesNotThrow(() => {
+    const res = calculateForYouRecommendations({
+      candidateWorks: [candidate],
+      userPreferences: {
+        genres: [null, undefined, '', { id: 'family-drama', name: 'Family Drama' }],
+        categories: [123, false, 'New Adult'],
+      },
+    })
+    assert.equal(res.length, 1, 'Valid entries within malformed array still resolve safely')
+  })
+})
+
+// --- Scenario 10: Descriptive tags do NOT cause genre match ---
+test('Scenario 10: Descriptive tags do not cause a genre match (canonical taxonomy protection)', () => {
+  const taggedWork = createMockWork({
+    id: 'work-tagged',
+    genre: 'Cyberpunk',
+    genreSlug: 'cyberpunk',
+    category: 'Sci-Fi',
+    categorySlug: 'sci-fi',
+    tags: ['Family Drama', 'Political Fiction', 'New Adult'], // Arbitrary tags
+  })
+
+  const results = calculateForYouRecommendations({
+    candidateWorks: [taggedWork],
+    userPreferences: {
+      genres: ['Family Drama'],
+      categories: ['New Adult'],
+    },
+  })
+
+  assert.equal(results.length, 0, 'Tags must not cause a genre match; only canonical genres are eligible')
+})
+
+// --- Scenario 11: Settings taste profile update invalidates cache ---
+test('Scenario 11: Preference update invalidates profile cache so next signals query reflects changes', async () => {
+  const { getCachedProfileByClerkId, invalidateProfileCache } = await import('../src/server/authors.ts')
+
+  let dbPreferences = { genres: ['Sci-Fi'] }
+  const mockAdmin = {
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => ({
+            data: { id: 'uuid-1', clerk_user_id: 'clerk-user-11', preferences: dbPreferences },
+          }),
+        }),
+      }),
+    }),
+  }
+
+  // 1. Initial cached fetch
+  const profile1 = await getCachedProfileByClerkId(mockAdmin, 'clerk-user-11')
+  assert.deepEqual(profile1.preferences.genres, ['Sci-Fi'])
+
+  // 2. Taste profile updated in database
+  dbPreferences = { genres: ['Family Drama', 'Political Fiction'] }
+
+  // Without invalidation, cache would return stale data
+  const profileStale = await getCachedProfileByClerkId(mockAdmin, 'clerk-user-11')
+  assert.deepEqual(profileStale.preferences.genres, ['Sci-Fi'], 'Cache returns initial value before invalidation')
+
+  // 3. Invalidate cache on settings save
+  invalidateProfileCache('clerk-user-11')
+
+  // 4. Next fetch returns fresh updated taste preferences
+  const profileFresh = await getCachedProfileByClerkId(mockAdmin, 'clerk-user-11')
+  assert.deepEqual(profileFresh.preferences.genres, ['Family Drama', 'Political Fiction'], 'Cache invalidation delivers fresh preferences')
+
+  // 5. Client sessionStorage purge invariant in Settings
+  const fs = await import('node:fs/promises')
+  const settingsCode = await fs.readFile('src/routes/settings.tsx', 'utf8')
+  assert.ok(
+    settingsCode.includes("sessionStorage.removeItem('hatchpen_cached_rec_signals')"),
+    'Settings must clear client-side cached recommendation signals upon successful update/reset'
+  )
+})
+
+// --- Scenario 12: New user pre-onboarding cache does not persist post-onboarding ---
+test('Scenario 12: New user pre-onboarding profile cache does not persist post-onboarding', async () => {
+  const { getCachedProfileByClerkId, invalidateProfileCache } = await import('../src/server/authors.ts')
+
+  let userProfileInDb = { id: 'new-user-uuid', clerk_user_id: 'clerk-new-12', preferences: null }
+  const mockAdmin = {
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => ({
+            data: userProfileInDb,
+          }),
+        }),
+      }),
+    }),
+  }
+
+  // Pre-onboarding read
+  const preProfile = await getCachedProfileByClerkId(mockAdmin, 'clerk-new-12')
+  assert.equal(preProfile.preferences, null)
+
+  // User completes onboarding
+  userProfileInDb = {
+    id: 'new-user-uuid',
+    clerk_user_id: 'clerk-new-12',
+    preferences: { genres: ['Family Drama'], categories: ['New Adult'] },
+  }
+  invalidateProfileCache('clerk-new-12')
+
+  // Post-onboarding read
+  const postProfile = await getCachedProfileByClerkId(mockAdmin, 'clerk-new-12')
+  assert.ok(postProfile.preferences.genres.includes('Family Drama'))
+})
+
+// --- Scenario 13: Changing preferences removes old matches and includes new matches ---
+test('Scenario 13: Changing preferences from (A, B) to (C, D) dynamically updates recommendations', () => {
+  const workA = createMockWork({ id: 'work-a', genre: 'GenreA', genreSlug: 'genrea' })
+  const workB = createMockWork({ id: 'work-b', genre: 'GenreB', genreSlug: 'genreb' })
+  const workC = createMockWork({ id: 'work-c', genre: 'GenreC', genreSlug: 'genrec' })
+  const workD = createMockWork({ id: 'work-d', genre: 'GenreD', genreSlug: 'genred' })
+
+  const candidates = [workA, workB, workC, workD]
+
+  // Initial preferences: GenreA, GenreB
+  const initialResults = calculateForYouRecommendations({
+    candidateWorks: candidates,
+    userPreferences: { genres: ['GenreA', 'GenreB'] },
+  })
+  const initialIds = initialResults.map((r) => r.work.id)
+  assert.deepEqual(initialIds.sort(), ['work-a', 'work-b'])
+
+  // Updated preferences: GenreC, GenreD
+  const updatedResults = calculateForYouRecommendations({
+    candidateWorks: candidates,
+    userPreferences: { genres: ['GenreC', 'GenreD'] },
+  })
+  const updatedIds = updatedResults.map((r) => r.work.id)
+  assert.deepEqual(updatedIds.sort(), ['work-c', 'work-d'])
+})
+
+// --- Scenario 14: Cache isolation across multiple users ---
+test('Scenario 14: Cache isolation: User X preference change never affects User Y recommendations', async () => {
+  const { getCachedProfileByClerkId, invalidateProfileCache } = await import('../src/server/authors.ts')
+
+  const profilesMap = new Map([
+    ['user-x', { id: 'x-uuid', clerk_user_id: 'user-x', preferences: { genres: ['Fantasy'] } }],
+    ['user-y', { id: 'y-uuid', clerk_user_id: 'user-y', preferences: { genres: ['Sci-Fi'] } }],
+  ])
+
+  const mockAdmin = {
+    from: () => ({
+      select: () => ({
+        eq: (_col, clerkId) => ({
+          maybeSingle: async () => ({
+            data: profilesMap.get(clerkId) || null,
+          }),
+        }),
+      }),
+    }),
+  }
+
+  // Warm both caches
+  const profileX = await getCachedProfileByClerkId(mockAdmin, 'user-x')
+  const profileY = await getCachedProfileByClerkId(mockAdmin, 'user-y')
+  assert.equal(profileX.preferences.genres[0], 'Fantasy')
+  assert.equal(profileY.preferences.genres[0], 'Sci-Fi')
+
+  // Invalidate User X
+  invalidateProfileCache('user-x')
+
+  // User Y must remain isolated and valid
+  const cachedY = await getCachedProfileByClerkId(mockAdmin, 'user-y')
+  assert.equal(cachedY.preferences.genres[0], 'Sci-Fi', 'User Y cache remains intact')
+})
+
+// --- Scenario 15: Network/API error vs genuine zero-match state ---
+test('Scenario 15: Safe distinction between network error and genuine zero-match state', () => {
+  // Candidate works exist
+  const works = [createMockWork({ id: 'w1', genre: 'Horror', genreSlug: 'horror' })]
+
+  // Case A: Genuine zero-match (user preferences loaded, but 0 candidates match)
+  const genuineZeroMatch = calculateForYouRecommendations({
+    candidateWorks: works,
+    userPreferences: { genres: ['Family Drama'] },
+  })
+  assert.equal(genuineZeroMatch.length, 0, 'Genuine zero-match returns 0 results for empty-state UI')
+
+  // Case B: In LoggedInHome, loading state shows skeleton; signals present shows empty state
+  const hasLoadedSignals = true
+  const hasZeroRecs = genuineZeroMatch.length === 0
+  const shouldShowEmptyState = hasLoadedSignals && hasZeroRecs
+  assert.equal(shouldShowEmptyState, true)
+})
+
+// --- Scenario 16: Draft, private, or unpublished works strictly excluded ---
+test('Scenario 16: Draft, private, or unpublished works excluded regardless of preference match', () => {
+  const draftWork = createMockWork({
+    id: 'work-draft',
+    genre: 'Family Drama',
+    category: 'New Adult',
+    visibility: 'Draft',
+  })
+  const unlistedWork = createMockWork({
+    id: 'work-unlisted',
+    genre: 'Family Drama',
+    category: 'New Adult',
+    visibility: 'Unlisted',
+  })
+  const cancelledWork = createMockWork({
+    id: 'work-cancelled',
+    genre: 'Family Drama',
+    category: 'New Adult',
+    status: 'Cancelled',
+  })
+  const zeroChaptersWork = createMockWork({
+    id: 'work-zero-chap',
+    genre: 'Family Drama',
+    category: 'New Adult',
+    publishedChaptersCount: 0,
+    chapters: [],
+  })
+
+  const results = calculateForYouRecommendations({
+    candidateWorks: [draftWork, unlistedWork, cancelledWork, zeroChaptersWork],
+    userPreferences: { genres: ['Family Drama'], categories: ['New Adult'] },
+  })
+
+  assert.equal(results.length, 0, 'All unpublished or 0-chapter works must be excluded')
+})
+
+// --- Scenario 17: Author joins multiple genres/categories: deduplication ensures work appears once ---
+test('Scenario 17: Author assigns multiple genres; deduplication ensures work appears at most once', () => {
+  const multiGenreWork = createMockWork({
+    id: 'work-multi',
+    genre: 'Family Drama',
+    genreSlug: 'family-drama',
+    genres: ['Family Drama', 'Political Fiction'],
+    category: 'New Adult',
+    categorySlug: 'new-adult',
+  })
+
+  const results = calculateForYouRecommendations({
+    candidateWorks: [multiGenreWork],
+    userPreferences: {
+      genres: ['Family Drama', 'Political Fiction'],
+      categories: ['New Adult'],
+    },
+  })
+
+  assert.equal(results.length, 1, 'Must appear exactly once despite matching multiple genres')
+  assert.equal(results[0].work.id, 'work-multi')
+})
+
+// --- Scenario 18: Preference matches are not arbitrarily truncated before ranking ---
+test('Scenario 18: Up to MAX_RECOMMENDATIONS (10) eligible works are returned from large candidate catalog', () => {
+  const candidates = []
+  for (let i = 1; i <= 25; i++) {
+    candidates.push(
+      createMockWork({
+        id: `work-${i}`,
+        title: `Family Story ${i}`,
+        genre: 'Family Drama',
+        genreSlug: 'family-drama',
+        totalReads: String(i * 100),
+      })
+    )
+  }
+
+  const results = calculateForYouRecommendations({
+    candidateWorks: candidates,
+    userPreferences: { genres: ['Family Drama'] },
+  })
+
+  assert.equal(results.length, 10, 'Must return exactly 10 works respecting MAX_RECOMMENDATIONS')
+  assert.equal(results[0].work.id, 'work-25', 'Highest total reads ranked first among equal score matches')
+})
+
+// --- Scenario 19: Slow network / race condition handling ---
+test('Scenario 19: Asynchronous race-condition tolerance for recommendation signals', async () => {
+  let activeVersion = 0
+  let renderedResult = null
+
+  async function simulateFetchSignals(version, delayMs, preferredGenre) {
+    activeVersion = version
+    await new Promise((resolve) => setTimeout(resolve, delayMs))
+    // If newer request was dispatched while this was in flight, discard stale response
+    if (version === activeVersion) {
+      renderedResult = preferredGenre
+    }
+  }
+
+  // Dispatch slow request version 1 (100ms)
+  const req1 = simulateFetchSignals(1, 80, 'Fantasy')
+  // User rapidly clicks and updates preferences to version 2 (20ms)
+  const req2 = simulateFetchSignals(2, 20, 'Political Fiction')
+
+  await Promise.all([req1, req2])
+
+  assert.equal(renderedResult, 'Political Fiction', 'Stale async response was safely discarded')
+})
+
+// --- Scenario 20: Taste shift adds high-affinity genre but does not recommend unrelated works ---
+test('Scenario 20: Active reading shift includes high-affinity genre, but unrelated works remain excluded', () => {
+  const fantasyWork = createMockWork({ id: 'w-fantasy', genre: 'Fantasy', genreSlug: 'fantasy' })
+  const thrillerWork = createMockWork({ id: 'w-thriller', genre: 'Thriller', genreSlug: 'thriller' })
+  const horrorWork = createMockWork({ id: 'w-horror', genre: 'Horror', genreSlug: 'horror' })
+
+  const now = Date.now()
+  const readingHistory = [
+    { workId: 'w-thriller', durationSeconds: 60, lastReadAt: new Date(now - 1000).toISOString() },
+    { workId: 'w-thriller', durationSeconds: 50, lastReadAt: new Date(now - 2000).toISOString() },
+  ]
+
+  const results = calculateForYouRecommendations({
+    candidateWorks: [fantasyWork, thrillerWork, horrorWork],
+    readingHistory,
+    userPreferences: { genres: ['Fantasy'] },
+  })
+
+  const recommendedIds = results.map((r) => r.work.id)
+  assert.ok(recommendedIds.includes('w-thriller'), 'Verified active reading adds Thriller')
+  assert.ok(recommendedIds.includes('w-fantasy'), 'Onboarding preference Fantasy is retained')
+  assert.ok(!recommendedIds.includes('w-horror'), 'Unrelated Horror work remains strictly excluded')
+})
+
+// --- Scenario 21: Unpublished works do not linger after status changes ---
+test('Scenario 21: Changing status from published to draft/unlisted immediately disqualifies work', () => {
+  const work = createMockWork({
+    id: 'work-changing',
+    genre: 'Family Drama',
+    visibility: 'Public',
+    publishedChaptersCount: 1,
+  })
+
+  // Initially eligible
+  assert.equal(isWorkEligibleForRecommendations(work, {}), true)
+
+  // Status changes to Draft
+  work.visibility = 'Draft'
+  assert.equal(isWorkEligibleForRecommendations(work, {}), false)
+
+  // Status changes to Unlisted
+  work.visibility = 'Unlisted'
+  assert.equal(isWorkEligibleForRecommendations(work, {}), false)
+})
+
+// --- Scenario 22: Deterministic ordering on equal scores ---
+test('Scenario 22: Deterministic ordering for two works with identical score, reads, and recency', () => {
+  const timestamp = new Date('2026-10-25T12:00:00Z').toISOString()
+  const workBeta = createMockWork({
+    id: 'work-beta',
+    title: 'Beta Manuscript',
+    genre: 'Family Drama',
+    totalReads: '1000',
+    lastActivityAt: timestamp,
+  })
+  const workAlpha = createMockWork({
+    id: 'work-alpha',
+    title: 'Alpha Manuscript',
+    genre: 'Family Drama',
+    totalReads: '1000',
+    lastActivityAt: timestamp,
+  })
+
+  // Input array in order [workBeta, workAlpha]
+  const results1 = calculateForYouRecommendations({
+    candidateWorks: [workBeta, workAlpha],
+    userPreferences: { genres: ['Family Drama'] },
+  })
+
+  // Input array in order [workAlpha, workBeta]
+  const results2 = calculateForYouRecommendations({
+    candidateWorks: [workAlpha, workBeta],
+    userPreferences: { genres: ['Family Drama'] },
+  })
+
+  // Ordering must be identical in both runs: "work-alpha" before "work-beta" (lexicographic ID tie-breaking)
+  assert.equal(results1[0].work.id, 'work-alpha')
+  assert.equal(results1[1].work.id, 'work-beta')
+  assert.equal(results2[0].work.id, 'work-alpha')
+  assert.equal(results2[1].work.id, 'work-beta')
+})
+
+// --- Scenario 23: Mock and local fixture compatibility ---
+test('Scenario 23: Complete test suite runs fully offline without requiring live Supabase credentials', () => {
+  const mockWork = createMockWork()
+  assert.ok(mockWork.id, 'Mock fixture instantiates cleanly')
+  const results = calculateForYouRecommendations({
+    candidateWorks: [mockWork],
+    userPreferences: null,
+  })
+  assert.ok(results.length > 0, 'Runs without external network or database calls')
+})

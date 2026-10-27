@@ -829,6 +829,11 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
       if (!res.success) {
         throw new Error(res.error || 'Failed to update preferences.')
       }
+      if (typeof window !== 'undefined') {
+        try {
+          sessionStorage.removeItem('hatchpen_cached_rec_signals')
+        } catch {}
+      }
       router.invalidate()
       setPrivacyForm((prev) => ({
         ...prev,
@@ -855,6 +860,11 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
       if (!res.success) {
         throw new Error(res.error || 'Failed to update recommendation settings.')
       }
+      if (typeof window !== 'undefined') {
+        try {
+          sessionStorage.removeItem('hatchpen_cached_rec_signals')
+        } catch {}
+      }
       router.invalidate()
       setSaveSuccessMsg('Recommendation preferences saved.')
       showToast('Recommendations updated', 'success')
@@ -871,6 +881,11 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
       const res = await resetRecommendationTasteServerFn()
       if (!res.success) {
         throw new Error(res.error || 'Failed to reset taste signals.')
+      }
+      if (typeof window !== 'undefined') {
+        try {
+          sessionStorage.removeItem('hatchpen_cached_rec_signals')
+        } catch {}
       }
       router.invalidate()
       setConfirmResetTasteOpen(false)
@@ -988,6 +1003,11 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
       const res = await clearReadingHistoryServerFn()
       if (!res.success) {
         throw new Error(res.error || 'Failed to clear reading history.')
+      }
+      if (typeof window !== 'undefined') {
+        try {
+          sessionStorage.removeItem('hatchpen_cached_rec_signals')
+        } catch {}
       }
       router.invalidate()
       setReadingHistoryCount(0)

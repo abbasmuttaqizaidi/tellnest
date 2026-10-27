@@ -706,6 +706,9 @@ export async function executeUpdateReadingPreferences(deps: {
       updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id' })
 
+  // Invalidate in-memory profile cache so recommendation signals immediately reflect updated taste preferences
+  invalidateProfileCache(clerkUserId)
+
   return {
     success: true,
     favoriteGenres: cleanGenres,
@@ -762,6 +765,8 @@ export async function executeUpdateRecommendations(deps: {
     })
     .eq('id', profile.id)
 
+  invalidateProfileCache(clerkUserId)
+
   return updatedRecommendations
 }
 
@@ -789,6 +794,8 @@ export async function executeResetRecommendationTaste(deps: {
     .from('reading_history')
     .delete()
     .eq('user_id', profile.id)
+
+  invalidateProfileCache(clerkUserId)
 
   return { success: true }
 }

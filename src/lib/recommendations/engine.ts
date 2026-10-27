@@ -258,9 +258,11 @@ export function calculateForYouRecommendations(params: {
     }
 
     // Signal B: Declared Onboarding Genre Match
-    const matchedPreferredGenre = workGenreSlugs.find((slug) => preferredGenreSlugs.has(slug))
-    if (matchedPreferredGenre) {
-      score += config.WEIGHTS.ONBOARDING_GENRE_MATCH
+    // Single genre match gets base weight; multiple matched genres receive an incremental boost
+    // ensuring multi-genre matches rank strictly higher than single-genre matches.
+    const matchingPreferredGenres = workGenreSlugs.filter((slug) => preferredGenreSlugs.has(slug))
+    if (matchingPreferredGenres.length > 0) {
+      score += config.WEIGHTS.ONBOARDING_GENRE_MATCH + (matchingPreferredGenres.length - 1) * 8
       if (!primaryDriver) {
         primaryDriver = `Based on your interest in ${work.genre}`
       }
@@ -275,7 +277,7 @@ export function calculateForYouRecommendations(params: {
       }
     }
 
-    const hasPersonalMatch = matchesActiveShift || Boolean(matchedPreferredGenre) || matchesPreferredCategory
+    const hasPersonalMatch = matchesActiveShift || matchingPreferredGenres.length > 0 || matchesPreferredCategory
 
     // Relevance Gate: When user has explicitly chosen preferences or reading history,
     // only recommend manuscripts that actually match their declared interests or reading behavior.
@@ -308,12 +310,16 @@ export function calculateForYouRecommendations(params: {
     })
   }
 
-  // 5. Sort descending by score, tie-break by total reads & recency, deduplicate, and limit to max 10
+  // 5. Sort descending by score, tie-break deterministically by total reads, recency, and work ID
   const sorted = scoredItems.sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score
     const readsA = parseTotalReads(a.work.totalReads)
     const readsB = parseTotalReads(b.work.totalReads)
-    return readsB - readsA
+    if (readsB !== readsA) return readsB - readsA
+    const timeA = a.work.lastActivityAt ? new Date(a.work.lastActivityAt).getTime() : 0
+    const timeB = b.work.lastActivityAt ? new Date(b.work.lastActivityAt).getTime() : 0
+    if (timeB !== timeA) return timeB - timeA
+    return String(a.work.id).localeCompare(String(b.work.id))
   })
 
   // Ensure unique works only

@@ -356,8 +356,10 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
     const candidateWorks = works.filter((w) => !isOwnWork(w.id))
     if (candidateWorks.length === 0) return []
 
+    // When an authenticated user's recommendation signals have loaded, strictly rely on the recommendation engine.
+    // If no stories match the user's taste, return an empty array so the personalized empty state is displayed.
     if (recommendationSignals && user?.id) {
-      const calculated = calculateForYouRecommendations({
+      return calculateForYouRecommendations({
         candidateWorks,
         readingHistory: recommendationSignals?.readingHistory || [],
         userPreferences: recommendationSignals?.preferences || null,
@@ -366,20 +368,22 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
         currentUserId: user?.id,
         currentUserProfileId: recommendationSignals?.profileId,
       })
-      if (calculated.length > 0) {
-        return calculated
-      }
     }
 
-    // Instant resilient fallback: show top curated or trending works without blocking with a skeleton
-    const featuredOrTrending = candidateWorks.filter((w) => w.featured || w.trending)
-    const fallbackList = featuredOrTrending.length >= 4 ? featuredOrTrending : candidateWorks
-    return fallbackList.slice(0, 8).map((w, index) => ({
-      work: w,
-      score: 100 - index,
-      explanation: 'Curated for you',
-    }))
-  }, [works, recommendationSignals, mergedBookmarkedWorkIds, user?.id, isOwnWork])
+    // While recommendation signals are loading for an authenticated user, return empty so skeleton renders
+    if (user?.id && isLoadingSignals) {
+      return []
+    }
+
+    // For unauthenticated visitors or guest mode without user profile, provide general non-personalized discovery
+    return calculateForYouRecommendations({
+      candidateWorks,
+      readingHistory: [],
+      userPreferences: null,
+      bookmarkedWorkIds: mergedBookmarkedWorkIds,
+      excludeBookmarked: false,
+    })
+  }, [works, recommendationSignals, mergedBookmarkedWorkIds, user?.id, isOwnWork, isLoadingSignals])
 
   // Dedicated New Voices: original qualifying stories from writers in first 5 calendar months
   const newVoicesWorks = useMemo(() => {
@@ -735,12 +739,12 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
             <div className="space-y-1 max-w-md mx-auto">
               <h4 className="font-serif text-base font-semibold text-[var(--ink-primary)]">
                 {recommendationSignals?.preferences?.genres?.length || recommendationSignals?.preferences?.categories?.length
-                  ? 'No stories match your selected genres yet'
+                  ? 'No stories match your taste yet'
                   : 'No recommendations available at the moment'}
               </h4>
               <p className="font-serif text-xs text-[var(--ink-secondary)] leading-relaxed">
                 {recommendationSignals?.preferences?.genres?.length || recommendationSignals?.preferences?.categories?.length
-                  ? "We couldn't find published stories matching your chosen genres or categories. As new manuscripts are released, matching stories will appear here."
+                  ? "We couldn't find published stories matching your selected genres or categories. Explore the full catalogue or update your preferences to discover more."
                   : 'All eligible candidates have either been saved or completed.'}
               </p>
             </div>
