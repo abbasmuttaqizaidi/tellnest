@@ -32,7 +32,7 @@ export default function CommentsSection({
 }: CommentsSectionProps) {
   const { user, isLoaded: isUserLoaded } = useUser()
   const { openSignIn } = useClerk()
-  const { showToast } = useApp()
+  const { showToast, userProfileUsername, userDisplayName, customAvatarUrl } = useApp()
 
   const [comments, setComments] = useState<FormattedCommentItem[]>([])
   const [totalCount, setTotalCount] = useState<number>(0)
@@ -72,10 +72,19 @@ export default function CommentsSection({
     loadComments()
   }, [loadComments])
 
-  // Current reader profile info
-  const currentDisplayName = user?.fullName || user?.firstName || user?.username || 'Reader'
-  const currentUsername = user?.username || user?.primaryEmailAddress?.emailAddress?.split('@')[0] || 'reader'
-  const currentAvatar = user?.imageUrl || '/unisex-avatar.svg'
+  // Current reader profile info with unique handle priority
+  const currentUsername =
+    userProfileUsername ||
+    user?.username ||
+    user?.primaryEmailAddress?.emailAddress?.split('@')[0] ||
+    'reader'
+  const currentDisplayName =
+    userDisplayName ||
+    user?.fullName ||
+    user?.firstName ||
+    currentUsername ||
+    'Reader'
+  const currentAvatar = customAvatarUrl || user?.imageUrl || '/unisex-avatar.svg'
 
   // Post top-level reflection
   const handleAddComment = async (e: React.FormEvent) => {
