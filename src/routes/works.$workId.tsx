@@ -382,7 +382,7 @@ function WorkDetailPage() {
         {/* Cover Column */}
         <div className="md:col-span-4 lg:col-span-4 flex flex-col items-center sm:items-start">
           {/* Book Cover Image */}
-          <div className="relative aspect-[3/4] w-full max-w-[240px] sm:max-w-[320px] overflow-hidden rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] shadow-md">
+          <div className="relative aspect-[3/4] w-full max-w-[260px] sm:max-w-[320px] overflow-hidden rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] shadow-md">
             <img
               src={work.cover}
               alt={work.title}
@@ -397,21 +397,29 @@ function WorkDetailPage() {
             </div>
           </div>
 
-          {/* Primary Action Button Directly Under Cover Image */}
-          <div className="mt-4 w-full max-w-[240px] sm:max-w-[320px]">
+          {/* Primary Action Button Directly Under Cover Image (Responsive & Single Line) */}
+          <div className="mt-4 w-full max-w-[260px] sm:max-w-[320px]">
             <Link
               to="/read/$workId/$chapterId"
               params={{ workId: canonicalSlug, chapterId: resumeChapterId }}
               preload="intent"
-              className="w-full inline-flex items-center justify-center gap-2.5 rounded-xl border border-[var(--ink-primary)] bg-[var(--ink-primary)] py-3 px-4 text-xs sm:text-sm font-semibold text-[var(--accent-contrast)] hover:opacity-90 transition-all no-underline shadow-sm cursor-pointer"
+              className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--ink-primary)] bg-[var(--ink-primary)] py-3 px-3.5 text-xs sm:text-sm font-semibold text-[var(--accent-contrast)] hover:opacity-90 transition-all no-underline shadow-sm cursor-pointer whitespace-nowrap select-none"
             >
-              <BookOpen className="h-4 w-4" />
-              <span suppressHydrationWarning>
-                {progress
-                  ? `CONTINUE READING (Ch. ${progress.chapterNumber || 1})`
-                  : 'START READING CHAPTER 01'}
+              <BookOpen className="h-4 w-4 shrink-0" />
+              <span suppressHydrationWarning className="truncate tracking-wide text-[11px] sm:text-xs font-mono uppercase">
+                {progress ? (
+                  <>
+                    <span className="sm:hidden">RESUME CH. {progress.chapterNumber || 1}</span>
+                    <span className="hidden sm:inline">CONTINUE READING (CH. {progress.chapterNumber || 1})</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="sm:hidden">START READING</span>
+                    <span className="hidden sm:inline">START READING CHAPTER 01</span>
+                  </>
+                )}
               </span>
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className="h-4 w-4 shrink-0" />
             </Link>
           </div>
         </div>
