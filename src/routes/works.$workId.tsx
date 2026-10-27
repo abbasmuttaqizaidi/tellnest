@@ -396,6 +396,24 @@ function WorkDetailPage() {
               </span>
             </div>
           </div>
+
+          {/* Primary Action Button Directly Under Cover Image */}
+          <div className="mt-4 w-full max-w-[240px] sm:max-w-[320px]">
+            <Link
+              to="/read/$workId/$chapterId"
+              params={{ workId: canonicalSlug, chapterId: resumeChapterId }}
+              preload="intent"
+              className="w-full inline-flex items-center justify-center gap-2.5 rounded-xl border border-[var(--ink-primary)] bg-[var(--ink-primary)] py-3 px-4 text-xs sm:text-sm font-semibold text-[var(--accent-contrast)] hover:opacity-90 transition-all no-underline shadow-sm cursor-pointer"
+            >
+              <BookOpen className="h-4 w-4" />
+              <span suppressHydrationWarning>
+                {progress
+                  ? `CONTINUE READING (Ch. ${progress.chapterNumber || 1})`
+                  : 'START READING CHAPTER 01'}
+              </span>
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
         </div>
 
         {/* Narrative & Metadata Column */}
@@ -640,24 +658,6 @@ function WorkDetailPage() {
                 )}
               </p>
             </div>
-          </div>
-
-          {/* PRIMARY CALL TO ACTION BUTTON */}
-          <div className="pt-2">
-            <Link
-              to="/read/$workId/$chapterId"
-              params={{ workId: canonicalSlug, chapterId: resumeChapterId }}
-              preload="intent"
-              className="inline-flex w-full sm:w-auto items-center justify-center gap-3 rounded-xl border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-8 py-3.5 text-sm font-semibold text-[var(--accent-contrast)] hover:opacity-90 transition-all no-underline shadow-sm"
-            >
-              <BookOpen className="h-4 w-4" />
-              <span suppressHydrationWarning>
-                {progress
-                  ? `CONTINUE READING (Chapter ${progress.chapterNumber || 1} • ${Math.min(100, Math.max(0, Math.round(Number(progress.progressPercent || 0))))}%)`
-                  : 'START READING CHAPTER 01'}
-              </span>
-              <ArrowRight className="h-4 w-4" />
-            </Link>
           </div>
 
         </div>
