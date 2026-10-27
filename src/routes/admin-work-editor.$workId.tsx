@@ -29,6 +29,7 @@ import {
   ExternalLink,
   ChevronRight,
   Eye,
+  Heart,
   Settings2,
   Image as ImageIcon,
   Tag,
