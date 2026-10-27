@@ -131,7 +131,7 @@ function AccordionRow({ item, isOpen, onToggle, borderRadii }: AccordionRowProps
               )}
             </div>
             {item.subtitle && (
-              <p className="text-xs text-[var(--ink-muted)] truncate font-sans mt-0.5">
+              <p className="text-xs text-[var(--ink-muted)] truncate font-sans mt-0.5 whitespace-nowrap">
                 {item.subtitle}
               </p>
             )}

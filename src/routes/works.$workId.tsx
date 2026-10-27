@@ -789,25 +789,27 @@ function WorkDetailPage() {
             return {
               id: chapter.id,
               title: `${String(chapter.number).padStart(2, '0')}. ${chapter.title || 'Chapter ' + chapter.number}`,
-              subtitle: chapter.subtitle || `${chapter.readTimeMinutes || 1} min read • ${(chapter.wordCount || 0).toLocaleString()} words`,
+              subtitle: chapter.subtitle 
+                ? `${chapter.subtitle} • ${chapter.readTimeMinutes || 1} min read • ${(chapter.wordCount || 0).toLocaleString()} words`
+                : `${chapter.readTimeMinutes || 1} min read • ${(chapter.wordCount || 0).toLocaleString()} words`,
               badge: badgeLabel,
               content: (
                 <div className="space-y-3 pt-2">
                   <p className="text-xs text-[var(--ink-secondary)] leading-relaxed">
                     {(chapter.content || '').slice(0, 220)}...
                   </p>
-                  <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-[var(--border-subtle)]/50">
-                    <div className="flex items-center gap-3 font-mono text-[11px] text-[var(--ink-muted)]">
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
+                  <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 pt-2 border-t border-[var(--border-subtle)]/50">
+                    <div className="flex items-center gap-2 font-mono text-[11px] text-[var(--ink-muted)] whitespace-nowrap">
+                      <span className="flex items-center gap-1 shrink-0">
+                        <Clock className="h-3 w-3 shrink-0" />
                         {chapter.readTimeMinutes || 1} min read
                       </span>
-                      <span>•</span>
-                      <span>{(chapter.wordCount || 0).toLocaleString()} words</span>
+                      <span className="shrink-0">•</span>
+                      <span className="shrink-0">{(chapter.wordCount || 0).toLocaleString()} words</span>
                       {chapter.publishedAt && (
                         <>
-                          <span>•</span>
-                          <span>Published {chapter.publishedAt}</span>
+                          <span className="hidden sm:inline shrink-0">•</span>
+                          <span className="hidden sm:inline shrink-0">Published {chapter.publishedAt}</span>
                         </>
                       )}
                     </div>
@@ -816,9 +818,9 @@ function WorkDetailPage() {
                       to="/read/$workId/$chapterId"
                       params={{ workId: canonicalSlug, chapterId: chapter.id }}
                       preload="intent"
-                      className="no-underline"
+                      className="no-underline w-full sm:w-auto"
                     >
-                      <Button size="sm" variant="primary" rightIcon={<ArrowRight className="h-3.5 w-3.5" />}>
+                      <Button size="sm" variant="primary" className="w-full sm:w-auto justify-center" rightIcon={<ArrowRight className="h-3.5 w-3.5" />}>
                         {isCurrent ? 'Continue Reading' : 'Read Chapter'}
                       </Button>
                     </Link>

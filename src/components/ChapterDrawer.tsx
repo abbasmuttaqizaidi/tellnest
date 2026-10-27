@@ -130,12 +130,13 @@ export default function ChapterDrawer({
                             {ch.subtitle}
                           </p>
                         )}
-                        <div className="mt-1 flex items-center gap-3 font-mono text-[10px] text-[var(--ink-faint)]">
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {ch.readTimeMinutes} min
+                        <div className="mt-1 flex items-center gap-2 font-mono text-[10px] text-[var(--ink-faint)] whitespace-nowrap">
+                          <span className="flex items-center gap-1 shrink-0">
+                            <Clock className="h-3 w-3 shrink-0" />
+                            {ch.readTimeMinutes} min read
                           </span>
-                          <span>{ch.wordCount.toLocaleString()} words</span>
+                          <span className="shrink-0">•</span>
+                          <span className="shrink-0">{ch.wordCount.toLocaleString()} words</span>
                         </div>
                       </div>
                     </div>
