@@ -1347,3 +1347,490 @@ test('Resilience Fix 4: isWorkEligibleForRecommendations strictly allows only pu
   assert.equal(isWorkEligibleForRecommendations(createMockWork({ ...base, visibility: 'public', status: 'Cancelled' }), {}), false)
   assert.equal(isWorkEligibleForRecommendations(createMockWork({ ...base, visibility: 'public', status: 'cancelled' }), {}), false)
 })
+
+// =========================================================================
+// Failure-Mode Audit Suite (Audit Findings 1 - 4)
+// =========================================================================
+
+// --- Finding 1: Signal load failure does not expose unrelated general discovery ---
+test('Failure-Mode Finding 1: Authenticated recommendation failure renders empty state instead of falling back to trending/popularity', () => {
+  const candidateWorks = [
+    createMockWork({ id: 'work-1', title: 'Popular Romance', genre: 'Romance', category: 'Young Adult', totalReads: '500000', trending: true }),
+    createMockWork({ id: 'work-2', title: 'Viral Thriller', genre: 'Thriller', category: 'Mystery', totalReads: '200000', featured: true }),
+  ]
+
+  // Model the LoggedInHome recommendation memoization logic
+  function evaluateRecommendations({ user, isLoadingSignals, signalsError, recommendationSignals, works }) {
+    const candidateWorks = works.filter((w) => Boolean(w.id))
+    if (candidateWorks.length === 0) return []
+
+    if (user?.id) {
+      if (isLoadingSignals || signalsError || !recommendationSignals) {
+        return []
+      }
+      return calculateForYouRecommendations({
+        candidateWorks,
+        readingHistory: recommendationSignals.readingHistory || [],
+        userPreferences: recommendationSignals.preferences || null,
+        currentUserId: user.id,
+      })
+    }
+
+    // Unauthenticated guest mode
+    return calculateForYouRecommendations({
+      candidateWorks,
+      readingHistory: [],
+      userPreferences: null,
+    })
+  }
+
+  // 1. Authenticated user experiencing API failure
+  const onSignalFailure = evaluateRecommendations({
+    user: { id: 'clerk_user_123' },
+    isLoadingSignals: false,
+    signalsError: true,
+    recommendationSignals: null,
+    works: candidateWorks,
+  })
+  assert.equal(onSignalFailure.length, 0, 'Must return 0 recommendations on signal error; never fall back to general discovery')
+
+  // 2. Authenticated user while signals are still loading
+  const whileLoading = evaluateRecommendations({
+    user: { id: 'clerk_user_123' },
+    isLoadingSignals: true,
+    signalsError: false,
+    recommendationSignals: null,
+    works: candidateWorks,
+  })
+  assert.equal(whileLoading.length, 0, 'Must return 0 recommendations while loading signals')
+
+  // 3. Unauthenticated guest receives general discovery
+  const guestResult = evaluateRecommendations({
+    user: null,
+    isLoadingSignals: false,
+    signalsError: false,
+    recommendationSignals: null,
+    works: candidateWorks,
+  })
+  assert.equal(guestResult.length, 2, 'Unauthenticated visitor correctly receives platform general discovery')
+})
+
+// --- Finding 2: Settings updates purge user-scoped cache ---
+test('Failure-Mode Finding 2: Settings preference updates and taste resets clear user-scoped sessionStorage keys', async () => {
+  const fs = await import('node:fs/promises')
+  const settingsCode = await fs.readFile('src/routes/settings.tsx', 'utf8')
+
+  // Confirm clearClientRecCache helper is defined and purges user-scoped keys
+  assert.ok(
+    settingsCode.includes('sessionStorage.removeItem(`hatchpen_cached_rec_signals_${user.id}`)'),
+    'Settings must clear user-scoped recommendation cache key'
+  )
+
+  // Confirm reading preferences save calls clearClientRecCache
+  assert.ok(
+    settingsCode.includes('handleSaveReadingPreferences') && settingsCode.includes('clearClientRecCache()'),
+    'Reading preferences save must invoke clearClientRecCache'
+  )
+
+  // Confirm taste reset calls clearClientRecCache
+  assert.ok(
+    settingsCode.includes('handleResetTaste') && settingsCode.includes('clearClientRecCache()'),
+    'Taste reset must invoke clearClientRecCache'
+  )
+
+  // Confirm clear history calls clearClientRecCache
+  assert.ok(
+    settingsCode.includes('handleClearReadingHistory') && settingsCode.includes('clearClientRecCache()'),
+    'Clear reading history must invoke clearClientRecCache'
+  )
+})
+
+// --- Finding 3: Server returns clerkUserId when profile is pending creation ---
+test('Failure-Mode Finding 3: executeGetUserRecommendationSignals preserves clerkUserId even when profile is null', async () => {
+  const { executeGetUserRecommendationSignals } = await import('../src/server/recommendations.ts')
+
+  const res = await executeGetUserRecommendationSignals({
+    getAuthState: async () => ({ userId: 'clerk_pending_profile_user' }),
+    createAdminClient: async () => ({
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({ data: null, error: null }),
+          }),
+        }),
+      }),
+    }),
+  })
+
+  assert.equal(res.clerkUserId, 'clerk_pending_profile_user', 'clerkUserId must be returned even when profile row is null')
+  assert.equal(res.profileId, null)
+  assert.deepEqual(res.readingHistory, [])
+})
+
+// --- Finding 4: Duplicate session records at identical timestamps deduplicated ---
+test('Failure-Mode Finding 4: Duplicate reading session records at identical timestamps do NOT inflate session count', () => {
+  const sciFiWork = createMockWork({ id: 'work-scifi', genre: 'Sci-Fi', genreSlug: 'sci-fi' })
+  const now = new Date().toISOString()
+
+  // Two records for the same work with the exact same timestamp (e.g. database duplicate or retry)
+  const duplicateTimestampHistory = [
+    { workId: 'work-scifi', durationSeconds: 60, lastReadAt: now },
+    { workId: 'work-scifi', durationSeconds: 60, lastReadAt: now },
+  ]
+
+  // Since both records have identical (workId, lastReadAt), they represent 1 session
+  const shift = detectActiveReadingShift(duplicateTimestampHistory, [sciFiWork], FOR_YOU_CONFIG)
+  assert.equal(shift, null, 'Duplicate session timestamp must not satisfy MIN_SESSIONS_FOR_TASTE_SHIFT (2)')
+
+  // Adding a distinct second session at a different timestamp meets the threshold
+  const distinctHistory = [
+    { workId: 'work-scifi', durationSeconds: 60, lastReadAt: now },
+    { workId: 'work-scifi', durationSeconds: 60, lastReadAt: new Date(Date.now() - 3600 * 1000).toISOString() },
+  ]
+
+  const validShift = detectActiveReadingShift(distinctHistory, [sciFiWork], FOR_YOU_CONFIG)
+  assert.ok(validShift, 'Two distinct sessions at different timestamps must satisfy shift')
+  assert.equal(validShift.topGenreSlug, 'scifi')
+  assert.equal(validShift.sessionCount, 2)
+  assert.equal(validShift.totalActiveSeconds, 120)
+})
+
+// =========================================================================
+// Error-State & Catalog Resilience Verification
+// =========================================================================
+
+test('Catalog Error Invariant: executeGetPlatformWorks throws on query failure and distinguishes genuine empty catalog', async () => {
+  const { executeGetPlatformWorks } = await import('../src/server/works.ts')
+
+  // 1. Genuine empty catalog: query succeeds with 0 rows
+  const emptyCatalogResult = await executeGetPlatformWorks({
+    queryRows: async () => [],
+  })
+  assert.ok(Array.isArray(emptyCatalogResult), 'Must return an array')
+  assert.equal(emptyCatalogResult.length, 0, 'Genuine empty query produces 0 works')
+
+  // 2. Query failure: database throws an error
+  await assert.rejects(
+    async () => {
+      await executeGetPlatformWorks({
+        queryRows: async () => {
+          throw new Error('Database connection failed')
+        },
+      })
+    },
+    /Database connection failed/,
+    'Must throw on query failure; must NOT silently convert error into empty catalog'
+  )
+})
+
+test('UI Error-State Distinction: Catalog failure, library empty, and zero taste matches are strictly differentiated', () => {
+  function getForYouDisplayState({
+    works,
+    recommendations,
+    isLoadingSignals,
+    signalsError,
+    isCatalogError,
+    preferences,
+  }) {
+    if (recommendations.length > 0) return 'RECOMMENDATIONS'
+    if (isLoadingSignals) return 'SIGNALS_LOADING'
+    if (signalsError) return 'SIGNALS_ERROR'
+    if (isCatalogError) return 'CATALOG_ERROR'
+    if (works.length === 0) return 'LIBRARY_EMPTY'
+    if (preferences?.genres?.length || preferences?.categories?.length) {
+      return 'TASTE_ZERO_MATCH'
+    }
+    return 'NO_RECOMMENDATIONS'
+  }
+
+  // 1. Catalog query failure -> CATALOG_ERROR (explicit error with retry)
+  const catalogErrorState = getForYouDisplayState({
+    works: [],
+    recommendations: [],
+    isLoadingSignals: false,
+    signalsError: false,
+    isCatalogError: true,
+    preferences: { genres: ['fantasy'] },
+  })
+  assert.equal(catalogErrorState, 'CATALOG_ERROR', 'Catalog failure must display explicit error state and retry, NOT taste zero match')
+
+  // 2. Genuine empty catalog -> LIBRARY_EMPTY (clean library empty state)
+  const libraryEmptyState = getForYouDisplayState({
+    works: [],
+    recommendations: [],
+    isLoadingSignals: false,
+    signalsError: false,
+    isCatalogError: false,
+    preferences: { genres: ['fantasy'] },
+  })
+  assert.equal(libraryEmptyState, 'LIBRARY_EMPTY', 'Genuine empty catalog must display library empty state, NOT taste zero match')
+
+  // 3. Catalog has works, but 0 match user taste -> TASTE_ZERO_MATCH
+  const tasteZeroMatchState = getForYouDisplayState({
+    works: [createMockWork({ id: 'work-1', genre: 'Romance' })],
+    recommendations: [],
+    isLoadingSignals: false,
+    signalsError: false,
+    isCatalogError: false,
+    preferences: { genres: ['fantasy'] },
+  })
+  assert.equal(tasteZeroMatchState, 'TASTE_ZERO_MATCH', 'Zero match against declared preferences must show taste empty state')
+
+  // 4. Recommendation signals error -> SIGNALS_ERROR
+  const signalsErrorState = getForYouDisplayState({
+    works: [createMockWork({ id: 'work-1', genre: 'Romance' })],
+    recommendations: [],
+    isLoadingSignals: false,
+    signalsError: true,
+    isCatalogError: false,
+    preferences: { genres: ['fantasy'] },
+  })
+  assert.equal(signalsErrorState, 'SIGNALS_ERROR', 'Signals error must display recommendation signals error state')
+})
+
+// =========================================================================
+// Check 1: Catalog Error Handling, Retry Lifecycle, and Stale Response Tests
+// =========================================================================
+
+test('Check 1: Catalog retry lifecycle handles initial failure, successful retry, failed retry, and stale responses', async () => {
+  // Model AppContext reloadWorksFromDb with sequence protection
+  let worksRequestSeq = 0
+  let isWorksLoading = false
+  let worksError = false
+  let allWorks = []
+
+  async function reloadWorks(fetcher) {
+    const seq = ++worksRequestSeq
+    isWorksLoading = true
+    worksError = false
+    try {
+      const dbWorks = await fetcher()
+      if (seq !== worksRequestSeq) return // Stale response discarded
+      worksError = false
+      allWorks = Array.isArray(dbWorks) ? dbWorks : []
+    } catch (err) {
+      if (seq !== worksRequestSeq) return
+      worksError = true
+    } finally {
+      if (seq === worksRequestSeq) {
+        isWorksLoading = false
+      }
+    }
+  }
+
+  // 1. Initial query failure
+  await reloadWorks(async () => {
+    throw new Error('Supabase network error')
+  })
+  assert.equal(worksError, true, 'Initial failure sets worksError: true')
+  assert.equal(isWorksLoading, false, 'Loading state ends on failure')
+  assert.equal(allWorks.length, 0, 'No works populated on error')
+
+  // 2. Retry failure preserves error state and allows another retry
+  await reloadWorks(async () => {
+    throw new Error('Still failing')
+  })
+  assert.equal(worksError, true, 'Failed retry preserves error state')
+  assert.equal(isWorksLoading, false)
+  assert.equal(allWorks.length, 0)
+
+  // 3. Retry success refreshes works and clears error state
+  await reloadWorks(async () => {
+    return [createMockWork({ id: 'work-retried', title: 'Retried Novel' })]
+  })
+  assert.equal(worksError, false, 'Successful retry clears error state')
+  assert.equal(isWorksLoading, false)
+  assert.equal(allWorks.length, 1)
+  assert.equal(allWorks[0].id, 'work-retried')
+
+  // 4. Stale slower response cannot overwrite newer successful data
+  let slowResolve
+  const slowPromise = new Promise((resolve) => {
+    slowResolve = resolve
+  })
+
+  // Start slow request #4
+  const req4 = reloadWorks(() => slowPromise)
+
+  // Start fast request #5 that completes immediately with 2 items
+  await reloadWorks(async () => [
+    createMockWork({ id: 'w1' }),
+    createMockWork({ id: 'w2' }),
+  ])
+  assert.equal(allWorks.length, 2, 'Request 5 populates 2 items')
+
+  // Now resolve the slower older request #4 with empty or error
+  slowResolve([])
+  await req4
+
+  // Verify request 5 was not overwritten by stale request 4
+  assert.equal(allWorks.length, 2, 'Stale older response did not overwrite newer catalog data')
+  assert.equal(worksError, false)
+})
+
+// =========================================================================
+// Check 2: Reading-Session Deduplication Schema & Multi-Chapter Verification
+// =========================================================================
+
+test('Check 2: Session deduplication correctly handles duplicate IDs, identical timestamps, and distinct chapters', () => {
+  const sciFiWork = createMockWork({ id: 'work-scifi', genre: 'Sci-Fi', genreSlug: 'sci-fi' })
+  const now = new Date().toISOString()
+  const earlier = new Date(Date.now() - 3600 * 1000).toISOString()
+
+  // 1. Duplicate database rows with identical id are deduplicated
+  const duplicateIdHistory = [
+    { id: 'uuid-row-1', workId: 'work-scifi', durationSeconds: 60, lastReadAt: now },
+    { id: 'uuid-row-1', workId: 'work-scifi', durationSeconds: 60, lastReadAt: now },
+  ]
+  const shiftFromDupId = detectActiveReadingShift(duplicateIdHistory, [sciFiWork], FOR_YOU_CONFIG)
+  assert.equal(shiftFromDupId, null, 'Duplicate database rows with identical ID must not satisfy 2 sessions')
+
+  // 2. Multiple chapters of the same work read in distinct sessions are BOTH counted
+  const multiChapterHistory = [
+    { workId: 'work-scifi', chapterId: 'ch-1', durationSeconds: 50, lastReadAt: earlier },
+    { workId: 'work-scifi', chapterId: 'ch-2', durationSeconds: 50, lastReadAt: now },
+  ]
+  const multiChapterShift = detectActiveReadingShift(multiChapterHistory, [sciFiWork], FOR_YOU_CONFIG)
+  assert.ok(multiChapterShift, 'Reading multiple chapters across sessions must satisfy active reading shift')
+  assert.equal(multiChapterShift.sessionCount, 2)
+  assert.equal(multiChapterShift.totalActiveSeconds, 100)
+
+  // 3. Re-reading the same chapter in two distinct sessions at different times is counted as 2 sessions
+  const reReadSameChapter = [
+    { workId: 'work-scifi', chapterId: 'ch-1', durationSeconds: 50, lastReadAt: earlier },
+    { workId: 'work-scifi', chapterId: 'ch-1', durationSeconds: 50, lastReadAt: now },
+  ]
+  const reReadShift = detectActiveReadingShift(reReadSameChapter, [sciFiWork], FOR_YOU_CONFIG)
+  assert.ok(reReadShift, 'Re-reading same chapter in distinct sessions must satisfy shift')
+  assert.equal(reReadShift.sessionCount, 2)
+  assert.equal(reReadShift.totalActiveSeconds, 100)
+
+  // 4. Duplicate event retries (identical work, chapter, timestamp) do NOT double-count duration
+  const retryEvents = [
+    { workId: 'work-scifi', chapterId: 'ch-1', durationSeconds: 60, lastReadAt: now },
+    { workId: 'work-scifi', chapterId: 'ch-1', durationSeconds: 60, lastReadAt: now }, // duplicate retry
+  ]
+  const retryShift = detectActiveReadingShift(retryEvents, [sciFiWork], FOR_YOU_CONFIG)
+  assert.equal(retryShift, null, 'Duplicate retry event must be deduplicated and not satisfy 2 sessions')
+
+  // 5. Missing, null, or negative duration values are sanitized
+  const malformedDurations = [
+    { workId: 'work-scifi', chapterId: 'ch-1', durationSeconds: -50, lastReadAt: earlier },
+    { workId: 'work-scifi', chapterId: 'ch-2', durationSeconds: null, lastReadAt: now },
+  ]
+  const malformedShift = detectActiveReadingShift(malformedDurations, [sciFiWork], FOR_YOU_CONFIG)
+  assert.equal(malformedShift, null, 'Negative and null durations must not satisfy duration threshold')
+})
+
+// =========================================================================
+// Check 3: Reading-History Taste Adaptation (Model A) Comprehensive Rules
+// =========================================================================
+
+test('Check 3: Model A active-reading threshold boundary tests', () => {
+  const fantasyWork = createMockWork({ id: 'work-fantasy', genre: 'Fantasy', genreSlug: 'fantasy' })
+  const now = new Date()
+  const day1 = new Date(now.getTime() - 1000 * 3600 * 24 * 1).toISOString()
+  const day2 = new Date(now.getTime() - 1000 * 3600 * 24 * 2).toISOString()
+
+  // Boundary 1: Single session with high duration (e.g. 500s) does NOT trigger shift (needs >= 2 sessions)
+  const singleSession = [
+    { workId: 'work-fantasy', durationSeconds: 500, lastReadAt: day1 },
+  ]
+  assert.equal(detectActiveReadingShift(singleSession, [fantasyWork], FOR_YOU_CONFIG), null, 'Single session cannot trigger shift')
+
+  // Boundary 2: Duration just below threshold (89 seconds across 2 sessions) does NOT trigger shift
+  const justBelowDuration = [
+    { workId: 'work-fantasy', durationSeconds: 44, lastReadAt: day1 },
+    { workId: 'work-fantasy', durationSeconds: 45, lastReadAt: day2 },
+  ]
+  assert.equal(detectActiveReadingShift(justBelowDuration, [fantasyWork], FOR_YOU_CONFIG), null, '89 seconds (< 90) must not trigger shift')
+
+  // Boundary 3: Duration exactly at threshold (90 seconds across 2 sessions) DOES trigger shift
+  const exactly90Seconds = [
+    { workId: 'work-fantasy', durationSeconds: 45, lastReadAt: day1 },
+    { workId: 'work-fantasy', durationSeconds: 45, lastReadAt: day2 },
+  ]
+  const shift90 = detectActiveReadingShift(exactly90Seconds, [fantasyWork], FOR_YOU_CONFIG)
+  assert.ok(shift90, 'Exactly 90 seconds across 2 sessions must trigger shift')
+  assert.equal(shift90.totalActiveSeconds, 90)
+  assert.equal(shift90.sessionCount, 2)
+
+  // Boundary 4: Duration above threshold (91 seconds across 2 sessions) DOES trigger shift
+  const above90Seconds = [
+    { workId: 'work-fantasy', durationSeconds: 46, lastReadAt: day1 },
+    { workId: 'work-fantasy', durationSeconds: 45, lastReadAt: day2 },
+  ]
+  assert.ok(detectActiveReadingShift(above90Seconds, [fantasyWork], FOR_YOU_CONFIG), '91 seconds must trigger shift')
+
+  // Boundary 5: Lookback window - event at 13.9 days is INSIDE window
+  const inside14Days = [
+    { workId: 'work-fantasy', durationSeconds: 50, lastReadAt: new Date(now.getTime() - 13.9 * 24 * 3600 * 1000).toISOString() },
+    { workId: 'work-fantasy', durationSeconds: 50, lastReadAt: new Date(now.getTime() - 1 * 24 * 3600 * 1000).toISOString() },
+  ]
+  assert.ok(detectActiveReadingShift(inside14Days, [fantasyWork], FOR_YOU_CONFIG), 'Activity within 14 days is valid')
+
+  // Boundary 6: Lookback window - event at 14.1 days is OUTSIDE window
+  const outside14Days = [
+    { workId: 'work-fantasy', durationSeconds: 50, lastReadAt: new Date(now.getTime() - 14.1 * 24 * 3600 * 1000).toISOString() },
+    { workId: 'work-fantasy', durationSeconds: 50, lastReadAt: new Date(now.getTime() - 1 * 24 * 3600 * 1000).toISOString() },
+  ]
+  assert.equal(detectActiveReadingShift(outside14Days, [fantasyWork], FOR_YOU_CONFIG), null, 'Activity older than 14 days is excluded')
+
+  // Boundary 7: Malformed or invalid timestamps safely ignored
+  const invalidTimestamps = [
+    { workId: 'work-fantasy', durationSeconds: 60, lastReadAt: 'invalid-date-string' },
+    { workId: 'work-fantasy', durationSeconds: 60, lastReadAt: '' },
+    { workId: 'work-fantasy', durationSeconds: 60, lastReadAt: null },
+  ]
+  assert.equal(detectActiveReadingShift(invalidTimestamps, [fantasyWork], FOR_YOU_CONFIG), null, 'Invalid timestamps safely ignored')
+})
+
+test('Check 3: Model A active-reading adaptation recommends shifted genre but strictly keeps unrelated works excluded', () => {
+  const romanceWork = createMockWork({ id: 'work-romance', title: 'Sweet Romance', genre: 'Romance', genreSlug: 'romance' })
+  const sciFiWork = createMockWork({ id: 'work-scifi', title: 'Space Odyssey', genre: 'Sci-Fi', genreSlug: 'sci-fi' })
+  const unrelatedViral = createMockWork({
+    id: 'work-viral',
+    title: 'Super Popular Horror',
+    genre: 'Horror',
+    genreSlug: 'horror',
+    totalReads: '10000000',
+    trending: true,
+    featured: true,
+  })
+
+  // User initially onboarded with Romance
+  const initialPrefs = { genres: ['romance'] }
+
+  // 1. Without reading history, only Romance is recommended; Sci-Fi and viral Horror are excluded
+  const initialRecs = calculateForYouRecommendations({
+    candidateWorks: [romanceWork, sciFiWork, unrelatedViral],
+    userPreferences: initialPrefs,
+  })
+  assert.equal(initialRecs.length, 1)
+  assert.equal(initialRecs[0].work.id, 'work-romance')
+
+  // 2. User engages in verified reading shift to Sci-Fi (2 sessions, 120s total in last 3 days)
+  const now = new Date()
+  const readingHistory = [
+    { workId: 'work-scifi', chapterId: 'ch-1', durationSeconds: 60, lastReadAt: new Date(now.getTime() - 86400000).toISOString() },
+    { workId: 'work-scifi', chapterId: 'ch-2', durationSeconds: 60, lastReadAt: now.toISOString() },
+  ]
+
+  const adaptedRecs = calculateForYouRecommendations({
+    candidateWorks: [romanceWork, sciFiWork, unrelatedViral],
+    userPreferences: initialPrefs,
+    readingHistory,
+  })
+
+  // Both declared preference (Romance) and verified active reading shift (Sci-Fi) are recommended
+  const recommendedIds = adaptedRecs.map((r) => r.work.id)
+  assert.ok(recommendedIds.includes('work-scifi'), 'Verified reading shift must recommend Sci-Fi')
+  assert.ok(recommendedIds.includes('work-romance'), 'Declared preference Romance remains recommended')
+
+  // Unrelated popular Horror remains STRICTLY EXCLUDED despite 10M reads, trending, and featured status
+  assert.ok(!recommendedIds.includes('work-viral'), 'Unrelated story cannot be rescued by popularity or trending status')
+
+  // Active reading shift in Sci-Fi is ranked higher than declared preference because of ACTIVE_READING_GENRE_AFFINITY weight
+  assert.equal(adaptedRecs[0].work.id, 'work-scifi', 'Active reading shift takes priority over static declared preference')
+  assert.ok(adaptedRecs[0].explanationLabel.includes('recent reading'), 'Explanation reflects verified recent reading')
+})

@@ -705,8 +705,12 @@ export async function executeGetPlatformWorks(
 
       // Use queryRows in tests, or Supabase Admin REST client (HTTPS), falling back to direct pg
       let rawRows: any[] = []
+      let querySucceeded = false
+      let lastQueryError: Error | null = null
+
       if (dependencies.queryRows) {
         rawRows = await dependencies.queryRows()
+        querySucceeded = true
       } else {
         // 1. Primary: Query via Supabase REST API (HTTPS) - works in serverless environments (Vercel) without port 5432
         try {
@@ -726,7 +730,8 @@ export async function executeGetPlatformWorks(
             .eq('publication_status', 'published')
             .order('last_activity_at', { ascending: false })
 
-          if (!supaErr && Array.isArray(supaRows) && supaRows.length > 0) {
+          if (!supaErr && Array.isArray(supaRows)) {
+            querySucceeded = true
             rawRows = supaRows.map((w: any) => ({
               id: w.id,
               author_id: w.author_id,
@@ -768,14 +773,16 @@ export async function executeGetPlatformWorks(
               chapters: w.chapters || [],
             }))
           } else if (supaErr) {
+            lastQueryError = new Error(supaErr.message)
             console.warn('[executeGetPlatformWorks] Supabase REST query notice:', supaErr.message)
           }
         } catch (supaEx: any) {
+          lastQueryError = supaEx instanceof Error ? supaEx : new Error(String(supaEx))
           console.warn('[executeGetPlatformWorks] Supabase REST query exception:', supaEx?.message)
         }
 
-        // 2. Secondary fallback: direct pg connection if available and REST didn't return rows
-        if (rawRows.length === 0 && process.env.DATABASE_URL) {
+        // 2. Secondary fallback: direct pg connection if available and REST didn't succeed
+        if (!querySucceeded && process.env.DATABASE_URL) {
           try {
             const { Client } = await import('pg')
             const client = new Client({
@@ -785,10 +792,17 @@ export async function executeGetPlatformWorks(
             const res = await client.query(q)
             await client.end()
             rawRows = res.rows || []
+            querySucceeded = true
+            lastQueryError = null
           } catch (pgErr: any) {
+            lastQueryError = pgErr instanceof Error ? pgErr : new Error(String(pgErr))
             console.warn('[executeGetPlatformWorks] Direct pg query fallback error:', pgErr?.message)
           }
         }
+      }
+
+      if (!querySucceeded) {
+        throw lastQueryError || new Error('Database query failed to fetch platform works')
       }
 
       return rawRows.map((row: any) => {
@@ -949,7 +963,7 @@ export async function executeGetPlatformWorks(
       return mappedResult
     } catch (err: any) {
       console.warn('[executeGetPlatformWorks] Fallback / error fetching DB works:', err?.message)
-      return []
+      throw err
     }
 }
 

@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/react-start'
-import { createAdminClient } from '../lib/supabase/server'
+import { createAdminClient } from '../lib/supabase/server.ts'
 import crypto from 'node:crypto'
 
 const ADMIN_SECRET =
@@ -566,7 +566,7 @@ export const purgeUserServerFn = createServerFn({ method: 'POST' })
     return report
   })
 
-import { AUTHORS } from '../data/mockData'
+import { AUTHORS } from '../data/mockData.ts'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Admin Post Work — Create a manuscript under a mock persona or existing user
@@ -1424,6 +1424,8 @@ export const adminUpdateChapterServerFn = createServerFn({ method: 'POST' })
 export interface AdminWorkRow {
   id: string
   title: string
+  slug?: string
+  cover?: string | null
   author: {
     id: string
     name: string
@@ -1475,6 +1477,8 @@ export const getAdminWorksServerFn = createServerFn({ method: 'GET' })
         .select(`
           id,
           title,
+          slug,
+          cover_image_path,
           published_at,
           created_at,
           view_count,
@@ -1501,6 +1505,8 @@ export const getAdminWorksServerFn = createServerFn({ method: 'GET' })
         return {
           id: w.id,
           title: w.title,
+          slug: w.slug || '',
+          cover: w.cover_image_path || null,
           author: {
             id: authorProfile?.id || 'unknown',
             name: authorProfile?.display_name || authorProfile?.username || 'Unknown Author',
@@ -1868,6 +1874,80 @@ export const adminUpdateWorkServerFn = createServerFn({ method: 'POST' })
       console.error('[adminUpdateWorkServerFn] Supabase update exception:', err?.message)
       throw new Error(err?.message || 'Failed to update manuscript')
     }
+  })
+
+// ==========================================
+// 10.5. ADMIN UPDATE WORK COVER IMAGE
+// ==========================================
+
+export interface AdminUpdateWorkCoverPayload {
+  adminToken: string
+  workId: string
+  coverImageUrl: string
+}
+
+export async function executeAdminUpdateWorkCover(
+  data: AdminUpdateWorkCoverPayload,
+  adminClient?: any
+) {
+  if (!isValidAdminToken(data.adminToken)) {
+    throw new Error('Unauthorized: Invalid or expired administration key')
+  }
+  if (!data.workId?.trim()) throw new Error('Work ID is required')
+  if (!data.coverImageUrl?.trim()) throw new Error('Cover image URL is required')
+
+  const admin = adminClient || createAdminClient()
+  const nowIso = new Date().toISOString()
+
+  let workUuid = data.workId.trim()
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(workUuid)
+  if (!isUuid) {
+    const { data: wRow } = await admin
+      .from('works')
+      .select('id')
+      .eq('slug', workUuid.toLowerCase())
+      .maybeSingle()
+    if (wRow?.id) workUuid = wRow.id
+  }
+
+  const { data: updatedWork, error } = await admin
+    .from('works')
+    .update({
+      cover_image_path: data.coverImageUrl.trim(),
+      last_activity_at: nowIso,
+      last_activity_type: 'work_metadata_updated',
+      last_activity_detail: {
+        summaryText: 'Cover image updated by administrator',
+        updatedAt: nowIso,
+      },
+      updated_at: nowIso,
+    })
+    .eq('id', workUuid)
+    .select('id, title, slug, cover_image_path')
+    .maybeSingle()
+
+  if (error) {
+    console.error('[executeAdminUpdateWorkCover] Error updating cover:', error?.message)
+    throw new Error(`Failed to update manuscript cover: ${error?.message || 'Database error'}`)
+  }
+
+  return {
+    success: true,
+    workId: updatedWork?.id || workUuid,
+    cover: updatedWork?.cover_image_path || data.coverImageUrl.trim(),
+    message: 'Story cover updated successfully',
+  }
+}
+
+export const adminUpdateWorkCoverServerFn = createServerFn({ method: 'POST' })
+  .validator((params: AdminUpdateWorkCoverPayload) => {
+    if (!params.adminToken) throw new Error('Admin authorization token is required')
+    if (!params.workId?.trim()) throw new Error('Work ID is required')
+    if (!params.coverImageUrl?.trim()) throw new Error('Cover image URL is required')
+    return params
+  })
+  .handler(async ({ data }) => {
+    return executeAdminUpdateWorkCover(data)
   })
 
 // ==========================================

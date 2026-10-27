@@ -67,6 +67,7 @@ export async function executeGetUserRecommendationSignals(
 
   if (!profile?.id) {
     return {
+      clerkUserId,
       profileId: null,
       readingHistory: [],
       bookmarkedWorkIds: [],
@@ -83,7 +84,7 @@ export async function executeGetUserRecommendationSignals(
     admin.from('bookmarks').select('work_id').eq('user_id', profile.id),
     admin
       .from('reading_history')
-      .select('work_id, chapter_id, duration_seconds, last_read_at')
+      .select('id, work_id, chapter_id, duration_seconds, last_read_at')
       .eq('user_id', profile.id)
       .gte('last_read_at', thirtyDaysAgo)
       .order('last_read_at', { ascending: false }),
@@ -99,6 +100,7 @@ export async function executeGetUserRecommendationSignals(
   const bookmarkedWorkIds = (bookmarks || []).map((b: any) => b.work_id)
 
   const readingHistory: ReadingSessionRecord[] = (historyRows || []).map((row: any) => ({
+    id: row.id,
     workId: row.work_id,
     chapterId: row.chapter_id,
     durationSeconds: Number(row.duration_seconds || 0),

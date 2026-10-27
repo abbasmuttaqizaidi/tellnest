@@ -14,6 +14,7 @@ import {
   adminPostChapterServerFn,
   adminUpdateUserProfileServerFn,
   adminSendEmailServerFn,
+  adminUpdateWorkCoverServerFn,
   type AdminUser,
   type AdminDashboardData,
   type AdminWorkRow,
@@ -23,6 +24,7 @@ import {
 import { Badge, Button, Modal } from '../design-system'
 import { UnisexAvatar } from '../components/UnisexAvatar'
 import { HeartsBreakdownModal } from '../components/HeartsBreakdownModal'
+import { CloudinaryImageUpload } from '../components/CloudinaryImageUpload'
 import {
   ShieldAlert,
   Trash2,
@@ -58,6 +60,7 @@ import {
   AtSign,
   HelpCircle,
   Info,
+  Camera,
   ExternalLink,
   AlertCircle,
 } from 'lucide-react'
@@ -96,7 +99,7 @@ const PRESET_WORK_COVERS = [
 
 function SecretAdminPanelPage() {
   const { user: currentClerkUser } = useUser()
-  const { allWorks, writerWorks, savedWorkIds, readingProgress: localReadingProgress, showToast, addAdminPostedWork, addAdminPostedChapter, reloadWorksFromDb, categories, genres } = useApp()
+  const { allWorks, writerWorks, savedWorkIds, readingProgress: localReadingProgress, showToast, addAdminPostedWork, addAdminPostedChapter, reloadWorksFromDb, updateWork, categories, genres } = useApp()
 
   // Authentication State
   const [adminToken, setAdminToken] = useState<string | null>(() => {
@@ -160,6 +163,12 @@ function SecretAdminPanelPage() {
   const [selectedWorkForActs, setSelectedWorkForActs] = useState<AdminWorkRow | null>(null)
   const [actsAnalyticsData, setActsAnalyticsData] = useState<WorkActAnalytics[]>([])
   const [loadingActsAnalytics, setLoadingActsAnalytics] = useState(false)
+
+  // Change Story Cover Modal State
+  const [coverTargetWork, setCoverTargetWork] = useState<AdminWorkRow | null>(null)
+  const [newCoverUrl, setNewCoverUrl] = useState<string>('')
+  const [isCoverUploading, setIsCoverUploading] = useState<boolean>(false)
+  const [isSavingCover, setIsSavingCover] = useState<boolean>(false)
 
   // Purge Modal State
   const [purgeTarget, setPurgeTarget] = useState<AdminUser | null>(null)
@@ -379,6 +388,51 @@ function SecretAdminPanelPage() {
     }
   }
 
+  // Open Change Story Cover Modal
+  const openChangeCoverModal = (work: AdminWorkRow) => {
+    setCoverTargetWork(work)
+    setNewCoverUrl(work.cover || '')
+  }
+
+  // Handle Save Cover Action
+  const handleSaveCover = async () => {
+    if (!coverTargetWork || !adminToken) return
+    if (!newCoverUrl.trim()) {
+      showToast('Please upload or specify a cover image URL')
+      return
+    }
+
+    setIsSavingCover(true)
+    try {
+      // 1. Call server function to update cover image in Supabase
+      await adminUpdateWorkCoverServerFn({
+        data: {
+          adminToken,
+          workId: coverTargetWork.id,
+          coverImageUrl: newCoverUrl.trim(),
+        },
+      })
+
+      // 2. Update local adminWorks state
+      setAdminWorks((prev) =>
+        prev.map((w) =>
+          w.id === coverTargetWork.id ? { ...w, cover: newCoverUrl.trim() } : w
+        )
+      )
+
+      // 3. Update global AppContext so everywhere in the platform reflects the new cover
+      updateWork(coverTargetWork.id, { cover: newCoverUrl.trim() })
+
+      showToast(`Cover image for "${coverTargetWork.title}" updated successfully!`)
+      setCoverTargetWork(null)
+    } catch (err: any) {
+      console.error('[handleSaveCover] Error:', err)
+      showToast(err?.message || 'Failed to update story cover image')
+    } finally {
+      setIsSavingCover(false)
+    }
+  }
+
   const fetchDashboard = async (token: string, isManual = false) => {
     if (isManual) setRefreshing(true)
     else setLoading(true)
@@ -582,6 +636,8 @@ function SecretAdminPanelPage() {
       return {
         id: w.id,
         title: w.title,
+        slug: w.slug || '',
+        cover: w.cover || (w as any).cover_image_path || null,
         author: {
           id: w.author.id,
           name: w.author.name,
@@ -591,6 +647,7 @@ function SecretAdminPanelPage() {
         },
         postedAt: w.createdAt,
         viewCount: parsedViews,
+        likeCount: (w as any).likeCount || 0,
         status: w.status,
       }
     })
@@ -1774,17 +1831,40 @@ function SecretAdminPanelPage() {
                       key={work.id}
                       className="hover:bg-[var(--bg-subtle)]/60 transition-colors"
                     >
-                      {/* 1. Title */}
+                      {/* 1. Title + Cover */}
                       <td className="py-3 px-4 font-serif text-sm font-semibold text-[var(--ink-primary)]">
-                        <Link
-                          to="/admin-work-editor/$workId"
-                          params={{ workId: work.id }}
-                          className="flex items-center gap-2 hover:underline text-[var(--ink-primary)] cursor-pointer"
-                          title="Open Admin Manuscript Editor"
-                        >
-                          <BookOpen className="h-3.5 w-3.5 shrink-0 text-[var(--ink-muted)]" />
-                          <span className="line-clamp-1">{work.title}</span>
-                        </Link>
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => openChangeCoverModal(work)}
+                            className="relative h-11 w-8 shrink-0 rounded overflow-hidden border border-[var(--border-subtle)] hover:border-[var(--ink-primary)] transition-all group/cover cursor-pointer bg-[var(--bg-subtle)]"
+                            title="Click to change story cover image"
+                          >
+                            {work.cover ? (
+                              <img
+                                src={work.cover}
+                                alt=""
+                                className="h-full w-full object-cover group-hover/cover:scale-105 transition-transform"
+                              />
+                            ) : (
+                              <div className="h-full w-full flex items-center justify-center text-[var(--ink-muted)]">
+                                <BookOpen className="h-3 w-3" />
+                              </div>
+                            )}
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/cover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                              <Camera className="h-3 w-3" />
+                            </div>
+                          </button>
+
+                          <Link
+                            to="/admin-work-editor/$workId"
+                            params={{ workId: work.id }}
+                            className="flex items-center gap-1.5 hover:underline text-[var(--ink-primary)] cursor-pointer"
+                            title="Open Admin Manuscript Editor"
+                          >
+                            <span className="line-clamp-1">{work.title}</span>
+                          </Link>
+                        </div>
                       </td>
 
                       {/* 2. Author */}
@@ -1878,6 +1958,16 @@ function SecretAdminPanelPage() {
                       {/* 6. Action */}
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => openChangeCoverModal(work)}
+                            className="inline-flex items-center gap-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2 py-1 text-[11px] font-mono font-medium text-[var(--ink-primary)] hover:border-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] cursor-pointer"
+                            title={`Change cover image for "${work.title}"`}
+                          >
+                            <Camera className="h-3 w-3 text-[var(--ink-muted)]" />
+                            <span>Cover</span>
+                          </button>
+
                           <Link
                             to="/admin-work-editor/$workId"
                             params={{ workId: work.id }}
@@ -2256,6 +2346,32 @@ function SecretAdminPanelPage() {
                                   >
                                     <Heart className="h-2.5 w-2.5 fill-current text-[var(--ink-primary)]" />
                                     <span>Hearts</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      openChangeCoverModal({
+                                        id: work.id,
+                                        title: work.title,
+                                        cover: (work as any).coverImage || (work as any).cover || null,
+                                        author: {
+                                          id: user.id,
+                                          name: user.displayName,
+                                          handle: user.username,
+                                          isMock: Boolean(user.isMock),
+                                        },
+                                        postedAt: (work as any).publishedAt || new Date().toISOString(),
+                                        viewCount: (work as any).views || 0,
+                                        likeCount: (work as any).likeCount || 0,
+                                        status: work.status || 'Ongoing',
+                                      })
+                                    }}
+                                    className="inline-flex items-center gap-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2 py-1 text-[10px] font-mono font-medium text-[var(--ink-primary)] hover:border-[var(--ink-primary)] cursor-pointer"
+                                    title={`Change cover image for "${work.title}"`}
+                                  >
+                                    <Camera className="h-2.5 w-2.5 text-[var(--ink-muted)]" />
+                                    <span>Cover</span>
                                   </button>
 
                                   <Link
@@ -4395,6 +4511,137 @@ function SecretAdminPanelPage() {
                 onClick={handlePostChapter}
               >
                 Publish Part {postChapterNumber}
+              </Button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* CHANGE STORY COVER MODAL */}
+      {coverTargetWork && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-6 sm:p-7 shadow-2xl space-y-5">
+
+            {/* Modal Header */}
+            <div className="flex items-start justify-between gap-4 pb-4 border-b border-[var(--border-subtle)]">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--bg-subtle)] text-[var(--ink-primary)] border border-[var(--border-strong)]">
+                  <Camera className="h-5 w-5 stroke-[1.75]" />
+                </div>
+                <div>
+                  <h3 className="font-serif text-lg font-bold text-[var(--ink-primary)]">
+                    Change Story Cover
+                  </h3>
+                  <p className="text-xs text-[var(--ink-muted)] line-clamp-1">
+                    "{coverTargetWork.title}" by {coverTargetWork.author.name}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCoverTargetWork(null)}
+                className="p-1.5 rounded-lg hover:bg-[var(--bg-subtle)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="space-y-4">
+              {/* Preview */}
+              <div className="flex gap-4 items-center p-3 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-subtle)]">
+                <div className="relative h-28 w-20 shrink-0 rounded-lg overflow-hidden border border-[var(--border-strong)] bg-[var(--bg-canvas)] shadow-xs">
+                  {newCoverUrl.trim() ? (
+                    <img
+                      src={newCoverUrl.trim()}
+                      alt="Cover Preview"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center text-[var(--ink-muted)]">
+                      <BookOpen className="h-6 w-6" />
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[11px] font-mono font-medium text-[var(--ink-muted)] uppercase tracking-wider">
+                    Live Preview
+                  </span>
+                  <div className="font-serif text-sm font-bold text-[var(--ink-primary)] line-clamp-1">
+                    {coverTargetWork.title}
+                  </div>
+                  <div className="text-xs text-[var(--ink-muted)]">
+                    Recommended ratio: 2:3 portrait (600×900 px)
+                  </div>
+                </div>
+              </div>
+
+              {/* Cloudinary Upload */}
+              <CloudinaryImageUpload
+                label="Upload New Book Cover (Cloudinary CDN)"
+                currentImageUrl={newCoverUrl}
+                onImageUploaded={(url) => setNewCoverUrl(url)}
+                onImageRemoved={() => setNewCoverUrl('')}
+                onUploading={setIsCoverUploading}
+                folder="covers"
+                recommendedDimensions="600 × 900 px"
+                aspectRatioHint="Portrait (2:3)"
+                maxSizeMb={10}
+              />
+
+              {/* Direct URL input */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-mono font-medium text-[var(--ink-secondary)]">
+                  Or Paste External Image URL
+                </label>
+                <input
+                  type="text"
+                  value={newCoverUrl}
+                  onChange={(e) => setNewCoverUrl(e.target.value)}
+                  placeholder="https://images.unsplash.com/..."
+                  className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2 text-xs font-mono text-[var(--ink-primary)] focus:outline-none focus:border-[var(--ink-primary)]"
+                />
+              </div>
+
+              {/* Quick Presets */}
+              <div className="space-y-1.5">
+                <span className="block text-[11px] font-mono text-[var(--ink-muted)]">Quick Presets:</span>
+                <div className="flex flex-wrap gap-2">
+                  {PRESET_WORK_COVERS.map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => setNewCoverUrl(preset.url)}
+                      className="inline-flex items-center gap-1.5 px-2 py-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-canvas)] hover:border-[var(--ink-primary)] text-[11px] font-mono text-[var(--ink-secondary)] cursor-pointer"
+                    >
+                      <img src={preset.url} alt="" className="h-3.5 w-3.5 rounded-full object-cover" />
+                      <span>{preset.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-[var(--border-subtle)]">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCoverTargetWork(null)}
+                disabled={isSavingCover}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                isLoading={isSavingCover || isCoverUploading}
+                leftIcon={<Check className="h-3.5 w-3.5" />}
+                onClick={handleSaveCover}
+                disabled={!newCoverUrl.trim() || isCoverUploading}
+              >
+                Save Cover Image
               </Button>
             </div>
 

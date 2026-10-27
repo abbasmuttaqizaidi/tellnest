@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useApp } from '../../context/AppContext'
 import { getWorkSlug } from '../../data/mockData'
 import { OptimizedImage } from '../OptimizedImage'
@@ -205,6 +205,9 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
   const { user, isLoaded: isUserLoaded } = useUser()
   const {
     allWorks,
+    isWorksLoading,
+    worksError,
+    reloadWorksFromDb,
     readingProgress: contextReadingProgress,
     isReadingProgressLoading,
     savedWorkIds,
@@ -226,6 +229,17 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
     }
     return allWorks
   }, [allWorks, loaderData?.initialWorks])
+
+  const hasRetriedCatalogRef = useRef(false)
+  const isCatalogError =
+    works.length === 0 &&
+    !isWorksLoading &&
+    (worksError || (Boolean((loaderData as any)?.catalogError) && !hasRetriedCatalogRef.current))
+
+  const handleRetryCatalog = useCallback(async () => {
+    hasRetriedCatalogRef.current = true
+    await reloadWorksFromDb()
+  }, [reloadWorksFromDb])
 
   // Optimization 2: Pre-hydrate reading progress from server loaderData if context is still bootstrapping
   const readingProgress = useMemo(() => {
@@ -306,12 +320,15 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
     return Boolean(user?.id)
   })
 
+  const [signalsError, setSignalsError] = useState<boolean>(false)
+
   const forYouCarouselRef = useRef<HTMLDivElement>(null)
   const recRequestIdRef = useRef<number>(0)
 
   useEffect(() => {
     const currentUserId = user?.id
     const requestId = ++recRequestIdRef.current
+    setSignalsError(false)
 
     // If loaderData already supplied recommendation signals for this exact user, adopt without redundant fetch
     if (
@@ -356,6 +373,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
         if (!isMounted || requestId !== recRequestIdRef.current) return
         setRecommendationSignals(signals)
         setIsLoadingSignals(false)
+        setSignalsError(false)
         if (signals && typeof window !== 'undefined') {
           try {
             // Confirm signals match currentUserId before writing to storage
@@ -372,6 +390,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
         console.warn('[ForYou] Failed to load recommendation signals:', err?.message || err)
         if (isMounted && requestId === recRequestIdRef.current) {
           setIsLoadingSignals(false)
+          setSignalsError(true)
         }
       })
 
@@ -379,6 +398,38 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
       isMounted = false
     }
   }, [user?.id, loaderData?.initialRecSignals])
+
+  // Retry fetching recommendation signals after failure
+  const handleRetrySignals = useCallback(() => {
+    if (!user?.id) return
+    const currentUserId = user.id
+    const requestId = ++recRequestIdRef.current
+    setIsLoadingSignals(true)
+    setSignalsError(false)
+
+    getUserRecommendationSignalsServerFn()
+      .then((signals) => {
+        if (requestId !== recRequestIdRef.current) return
+        setRecommendationSignals(signals)
+        setIsLoadingSignals(false)
+        setSignalsError(false)
+        if (signals && typeof window !== 'undefined') {
+          try {
+            if (signals.clerkUserId && signals.clerkUserId !== currentUserId) return
+            const payload = JSON.stringify(signals)
+            sessionStorage.setItem('hatchpen_cached_rec_signals', payload)
+            sessionStorage.setItem(`hatchpen_cached_rec_signals_${currentUserId}`, payload)
+          } catch {}
+        }
+      })
+      .catch((err) => {
+        console.warn('[ForYou] Failed to retry recommendation signals:', err?.message || err)
+        if (requestId === recRequestIdRef.current) {
+          setIsLoadingSignals(false)
+          setSignalsError(true)
+        }
+      })
+  }, [user?.id])
 
   // Listen to onboarding completion to immediately refresh recommendation signals with newly selected preferences
   useEffect(() => {
@@ -440,23 +491,22 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
     const candidateWorks = works.filter((w) => !isOwnWork(w.id))
     if (candidateWorks.length === 0) return []
 
-    // When an authenticated user's recommendation signals have loaded, strictly rely on the recommendation engine.
-    // If no stories match the user's taste, return an empty array so the personalized empty state is displayed.
-    if (recommendationSignals && user?.id) {
+    // For authenticated users: strictly enforce personalized recommendations
+    if (user?.id) {
+      // While signals are loading, failed, or not yet available, return empty array to prevent unrelated fallback
+      if (isLoadingSignals || signalsError || !recommendationSignals) {
+        return []
+      }
+
       return calculateForYouRecommendations({
         candidateWorks,
-        readingHistory: recommendationSignals?.readingHistory || [],
-        userPreferences: recommendationSignals?.preferences || null,
+        readingHistory: recommendationSignals.readingHistory || [],
+        userPreferences: recommendationSignals.preferences || null,
         bookmarkedWorkIds: mergedBookmarkedWorkIds,
         excludeBookmarked: false,
-        currentUserId: user?.id,
-        currentUserProfileId: recommendationSignals?.profileId,
+        currentUserId: user.id,
+        currentUserProfileId: recommendationSignals.profileId,
       })
-    }
-
-    // While recommendation signals are loading for an authenticated user, return empty so skeleton renders
-    if (user?.id && isLoadingSignals) {
-      return []
     }
 
     // For unauthenticated visitors or guest mode without user profile, provide general non-personalized discovery
@@ -467,7 +517,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
       bookmarkedWorkIds: mergedBookmarkedWorkIds,
       excludeBookmarked: false,
     })
-  }, [works, recommendationSignals, mergedBookmarkedWorkIds, user?.id, isOwnWork, isLoadingSignals])
+  }, [works, recommendationSignals, mergedBookmarkedWorkIds, user?.id, isOwnWork, isLoadingSignals, signalsError])
 
   // Dedicated New Voices: original qualifying stories from writers in first 5 calendar months
   const newVoicesWorks = useMemo(() => {
@@ -806,7 +856,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
               )
             })}
           </div>
-        ) : isLoadingSignals ? (
+        ) : isLoadingSignals || (isWorksLoading && works.length === 0) ? (
           <div className="flex items-stretch gap-3 sm:gap-3.5 overflow-hidden py-1">
             {Array.from({ length: 6 }).map((_, idx) => (
               <div
@@ -815,6 +865,59 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
               />
             ))}
           </div>
+        ) : signalsError ? (
+          <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-6 sm:p-8 text-center space-y-3">
+            <div className="w-10 h-10 rounded-full bg-[var(--bg-subtle)] border border-[var(--border-subtle)] flex items-center justify-center mx-auto text-[var(--ink-muted)]">
+              <Compass className="w-5 h-5" />
+            </div>
+            <div className="space-y-1 max-w-md mx-auto">
+              <h4 className="font-serif text-base font-semibold text-[var(--ink-primary)]">
+                Unable to load recommendations
+              </h4>
+              <p className="font-serif text-xs text-[var(--ink-secondary)] leading-relaxed">
+                We encountered an issue retrieving your personalized taste profile. Please try refreshing.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+              <button
+                type="button"
+                onClick={handleRetrySignals}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--ink-primary)] text-[var(--accent-contrast)] hover:opacity-90 font-mono text-xs font-medium transition-opacity cursor-pointer border-none"
+              >
+                <span>Retry</span>
+              </button>
+              <Link
+                to="/discover"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] font-mono text-xs font-medium text-[var(--ink-primary)] transition-colors no-underline"
+              >
+                <span>Browse Full Catalog →</span>
+              </Link>
+            </div>
+          </div>
+        ) : isCatalogError ? (
+          <div className="rounded-xl border border-dashed border-red-500/30 bg-[var(--bg-surface)]/60 p-6 sm:p-8 text-center space-y-3">
+            <div className="w-10 h-10 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto text-red-500">
+              <Compass className="w-5 h-5" />
+            </div>
+            <div className="space-y-1 max-w-md mx-auto">
+              <h4 className="font-serif text-base font-semibold text-[var(--ink-primary)]">
+                Unable to load story catalog
+              </h4>
+              <p className="font-serif text-xs text-[var(--ink-secondary)] leading-relaxed">
+                We encountered an issue connecting to the story library. Please check your connection and try refreshing.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+              <button
+                type="button"
+                onClick={handleRetryCatalog}
+                disabled={isWorksLoading}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--ink-primary)] text-[var(--accent-contrast)] hover:opacity-90 font-mono text-xs font-medium transition-opacity cursor-pointer border-none disabled:opacity-50"
+              >
+                <span>{isWorksLoading ? 'Retrying...' : 'Retry'}</span>
+              </button>
+            </div>
+          </div>
         ) : (
           <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-6 sm:p-8 text-center space-y-3">
             <div className="w-10 h-10 rounded-full bg-[var(--bg-subtle)] border border-[var(--border-subtle)] flex items-center justify-center mx-auto text-[var(--ink-muted)]">
@@ -822,14 +925,18 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
             </div>
             <div className="space-y-1 max-w-md mx-auto">
               <h4 className="font-serif text-base font-semibold text-[var(--ink-primary)]">
-                {recommendationSignals?.preferences?.genres?.length || recommendationSignals?.preferences?.categories?.length
-                  ? 'No stories match your taste yet'
-                  : 'No recommendations available at the moment'}
+                {works.length === 0
+                  ? 'No stories in the library yet'
+                  : recommendationSignals?.preferences?.genres?.length || recommendationSignals?.preferences?.categories?.length
+                    ? 'No stories match your taste yet'
+                    : 'No recommendations available at the moment'}
               </h4>
               <p className="font-serif text-xs text-[var(--ink-secondary)] leading-relaxed">
-                {recommendationSignals?.preferences?.genres?.length || recommendationSignals?.preferences?.categories?.length
-                  ? "We couldn't find published stories matching your selected genres or categories. Explore the full catalogue or update your preferences to discover more."
-                  : 'All eligible candidates have either been saved or completed.'}
+                {works.length === 0
+                  ? 'The story catalog is currently empty. Check back soon for newly published stories.'
+                  : recommendationSignals?.preferences?.genres?.length || recommendationSignals?.preferences?.categories?.length
+                    ? "We couldn't find published stories matching your selected genres or categories. Explore the full catalogue or update your preferences to discover more."
+                    : 'All eligible candidates have either been saved or completed.'}
               </p>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-3 pt-1">

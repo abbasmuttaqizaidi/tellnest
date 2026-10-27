@@ -303,7 +303,18 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
     if (typeof window !== 'undefined') {
       window.location.href = '/'
     }
-  }, [signOut])
+  }, [signOut, user?.id])
+
+  const clearClientRecCache = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.removeItem('hatchpen_cached_rec_signals')
+        if (user?.id) {
+          sessionStorage.removeItem(`hatchpen_cached_rec_signals_${user.id}`)
+        }
+      } catch {}
+    }
+  }, [user?.id])
   const navigate = useNavigate()
   const router = useRouter()
   const loaderData = Route.useLoaderData() as { data: SettingsDataPayload | null; error: string | null } | undefined
@@ -833,11 +844,7 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
       if (!res.success) {
         throw new Error(res.error || 'Failed to update preferences.')
       }
-      if (typeof window !== 'undefined') {
-        try {
-          sessionStorage.removeItem('hatchpen_cached_rec_signals')
-        } catch {}
-      }
+      clearClientRecCache()
       router.invalidate()
       setPrivacyForm((prev) => ({
         ...prev,
@@ -864,11 +871,7 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
       if (!res.success) {
         throw new Error(res.error || 'Failed to update recommendation settings.')
       }
-      if (typeof window !== 'undefined') {
-        try {
-          sessionStorage.removeItem('hatchpen_cached_rec_signals')
-        } catch {}
-      }
+      clearClientRecCache()
       router.invalidate()
       setSaveSuccessMsg('Recommendation preferences saved.')
       showToast('Recommendations updated', 'success')
@@ -886,11 +889,7 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
       if (!res.success) {
         throw new Error(res.error || 'Failed to reset taste signals.')
       }
-      if (typeof window !== 'undefined') {
-        try {
-          sessionStorage.removeItem('hatchpen_cached_rec_signals')
-        } catch {}
-      }
+      clearClientRecCache()
       router.invalidate()
       setConfirmResetTasteOpen(false)
       setSaveSuccessMsg('Recommendation taste profile has been reset to defaults.')
@@ -1008,11 +1007,7 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
       if (!res.success) {
         throw new Error(res.error || 'Failed to clear reading history.')
       }
-      if (typeof window !== 'undefined') {
-        try {
-          sessionStorage.removeItem('hatchpen_cached_rec_signals')
-        } catch {}
-      }
+      clearClientRecCache()
       router.invalidate()
       setReadingHistoryCount(0)
       setConfirmClearHistoryOpen(false)

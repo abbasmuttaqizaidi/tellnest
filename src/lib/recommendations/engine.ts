@@ -3,6 +3,7 @@ import { FOR_YOU_CONFIG, type ForYouConfig } from './config.ts'
 import { parseTotalReads } from '../utils.ts'
 
 export interface ReadingSessionRecord {
+  id?: string
   workId: string
   chapterId?: string | null
   durationSeconds: number
@@ -114,16 +115,31 @@ export function detectActiveReadingShift(
   candidateWorks: Work[],
   config: ForYouConfig = FOR_YOU_CONFIG
 ): { topGenreSlug: string; totalActiveSeconds: number; sessionCount: number } | null {
-  if (!history || history.length === 0) return null
+  if (!history || !Array.isArray(history) || history.length === 0) return null
 
   const nowMs = Date.now()
   const lookbackCutoffMs = nowMs - config.LOOKBACK_DAYS * 24 * 60 * 60 * 1000
 
-  // Filter sessions within lookback window
-  const recentSessions = history.filter((s) => {
+  // Filter sessions within lookback window and deduplicate exact duplicate events
+  const seenIds = new Set<string>()
+  const seenEventKeys = new Set<string>()
+  const recentSessions: ReadingSessionRecord[] = []
+
+  for (const s of history) {
+    if (!s || typeof s !== 'object' || !s.workId) continue
+    if (s.id) {
+      if (seenIds.has(s.id)) continue
+      seenIds.add(s.id)
+    }
     const timestamp = new Date(s.lastReadAt).getTime()
-    return !isNaN(timestamp) && timestamp >= lookbackCutoffMs
-  })
+    if (isNaN(timestamp) || timestamp < lookbackCutoffMs) continue
+    if (timestamp > nowMs + 60000) continue // Future clock skew protection
+
+    const eventKey = `${s.workId}::${s.chapterId || ''}::${s.lastReadAt}`
+    if (seenEventKeys.has(eventKey)) continue
+    seenEventKeys.add(eventKey)
+    recentSessions.push(s)
+  }
 
   if (recentSessions.length === 0) return null
 
@@ -139,7 +155,7 @@ export function detectActiveReadingShift(
 
     for (const genreSlug of genreSlugs) {
       const current = genreStats.get(genreSlug) || { seconds: 0, sessions: 0 }
-      current.seconds += Math.max(0, session.durationSeconds || 0)
+      current.seconds += Math.max(0, Number(session.durationSeconds) || 0)
       current.sessions += 1
       genreStats.set(genreSlug, current)
     }

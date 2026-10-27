@@ -98,6 +98,7 @@ interface AppContextType {
   allWorks: Work[]
   recentWorks: Work[]
   isWorksLoading: boolean
+  worksError: boolean
   getWorkById: (id: string) => Work | undefined
   getAuthorById: (id: string) => Author | undefined
   updateChapterContent: (workId: string, chapterId: string, title: string, content: string, status?: 'draft' | 'published', bannerImage?: string | null) => void
@@ -265,6 +266,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return base
   })
   const [isWorksLoading, setIsWorksLoading] = useState(false)
+  const [worksError, setWorksError] = useState(false)
 
   // Determine if a given work is authored by the currently authenticated user
   const isOwnWork = React.useCallback(
@@ -341,10 +343,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const seq = ++worksRequestSeqRef.current
     try {
       setIsWorksLoading((loading) => (allWorks.length === 0 ? true : loading))
+      setWorksError(false)
       const dbWorks = await getPlatformWorksServerFn()
       if (seq !== worksRequestSeqRef.current) {
         return
       }
+      setWorksError(false)
       if (Array.isArray(dbWorks) && dbWorks.length > 0) {
         if (typeof window !== 'undefined') {
           try {
@@ -373,6 +377,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
           return updated
         })
+      } else if (Array.isArray(dbWorks) && dbWorks.length === 0) {
+        // Genuine empty catalog returned from DB
+        setAllWorks([])
       } else if (!isSignedIn) {
         setAllWorks((prev) =>
           prev.map((w) => ({
@@ -387,6 +394,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       if (seq !== worksRequestSeqRef.current) return
       console.warn('[AppContext] Failed to load DB works:', err)
+      setWorksError(true)
       if (!isSignedIn) {
         setAllWorks((prev) =>
           prev.map((w) => ({
@@ -403,7 +411,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setIsWorksLoading(false)
       }
     }
-  }, [isSignedIn])
+  }, [isSignedIn, allWorks.length])
 
   useEffect(() => {
     reloadWorksFromDb()
@@ -1710,6 +1718,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         allWorks,
         recentWorks,
         isWorksLoading,
+        worksError,
         getWorkById,
         getAuthorById,
         updateChapterContent,

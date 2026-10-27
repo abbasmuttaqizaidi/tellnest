@@ -62,6 +62,7 @@ export const Route = createFileRoute('/')({
         initialBootstrap: bootstrap,
         initialRecSignals: recSignals,
         initialWorks: platformWorks,
+        catalogError: platformWorks === null,
       }
     } catch {
       return {
@@ -69,6 +70,7 @@ export const Route = createFileRoute('/')({
         initialBootstrap: null,
         initialRecSignals: null,
         initialWorks: null,
+        catalogError: true,
       }
     }
   },

@@ -599,3 +599,96 @@ test('Reading Count Hardening: Authenticated member viewer key format preserves 
   assert.equal(authenticatedKey, 'u-user_2xyz789')
   assert.match(authenticatedKey, /^u-user_[a-zA-Z0-9]+$/)
 })
+
+test('Admin Cover Management: executeAdminUpdateWorkCover rejects unauthorized or invalid requests fail-closed', async () => {
+  const { executeAdminUpdateWorkCover, generateAdminToken } = await import('../src/server/admin.ts')
+
+  // 1. Missing or invalid admin token
+  await assert.rejects(
+    async () => {
+      await executeAdminUpdateWorkCover({
+        adminToken: 'invalid-token',
+        workId: '00000000-0000-0000-0000-000000000001',
+        coverImageUrl: 'https://example.com/cover.webp',
+      })
+    },
+    { message: /Unauthorized/ }
+  )
+
+  const { token: validAdminToken } = generateAdminToken()
+
+  // 2. Missing workId
+  await assert.rejects(
+    async () => {
+      await executeAdminUpdateWorkCover({
+        adminToken: validAdminToken,
+        workId: '',
+        coverImageUrl: 'https://example.com/cover.webp',
+      })
+    },
+    { message: /Work ID is required/ }
+  )
+
+  // 3. Missing coverImageUrl
+  await assert.rejects(
+    async () => {
+      await executeAdminUpdateWorkCover({
+        adminToken: validAdminToken,
+        workId: '00000000-0000-0000-0000-000000000001',
+        coverImageUrl: '   ',
+      })
+    },
+    { message: /Cover image URL is required/ }
+  )
+})
+
+test('Admin Cover Management: executeAdminUpdateWorkCover successfully updates story cover in database', async () => {
+  const { executeAdminUpdateWorkCover, generateAdminToken } = await import('../src/server/admin.ts')
+  const { token: validAdminToken } = generateAdminToken()
+
+  let updatedPayload = null
+  const mockAdminClient = {
+    from: (table) => {
+      assert.equal(table, 'works')
+      return {
+        update: (p) => {
+          updatedPayload = p
+          return {
+            eq: (col, val) => {
+              assert.equal(col, 'id')
+              assert.equal(val, '00000000-0000-0000-0000-000000000001')
+              return {
+                select: () => ({
+                  maybeSingle: async () => ({
+                    data: {
+                      id: val,
+                      title: 'Test Story',
+                      slug: 'test-story',
+                      cover_image_path: p.cover_image_path,
+                    },
+                    error: null,
+                  }),
+                }),
+              }
+            },
+          }
+        },
+      }
+    },
+  }
+
+  const result = await executeAdminUpdateWorkCover(
+    {
+      adminToken: validAdminToken,
+      workId: '00000000-0000-0000-0000-000000000001',
+      coverImageUrl: 'https://images.unsplash.com/photo-custom-cover?auto=format&fit=crop&w=800&q=80',
+    },
+    mockAdminClient
+  )
+
+  assert.equal(result.success, true)
+  assert.equal(result.workId, '00000000-0000-0000-0000-000000000001')
+  assert.equal(result.cover, 'https://images.unsplash.com/photo-custom-cover?auto=format&fit=crop&w=800&q=80')
+  assert.equal(updatedPayload.cover_image_path, 'https://images.unsplash.com/photo-custom-cover?auto=format&fit=crop&w=800&q=80')
+  assert.equal(updatedPayload.last_activity_type, 'work_metadata_updated')
+})
