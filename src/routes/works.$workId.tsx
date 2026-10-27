@@ -379,126 +379,78 @@ function WorkDetailPage() {
       {/* Main Work Header */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-12 pb-12 border-b border-[var(--border-subtle)]">
         
-        {/* Cover Column (Instagram Post Card Style) */}
+        {/* Cover Column (Literary Book Artifact + Editorial Shelf Card) */}
         <div className="md:col-span-4 lg:col-span-4 flex flex-col items-center sm:items-start">
-          <div className="w-full max-w-[260px] sm:max-w-[320px] rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-            {/* 1. Cover Image Container with Instagram Double-Tap Feedback */}
-            <div
-              className="relative aspect-[3/4] w-full overflow-hidden bg-[var(--bg-subtle)] select-none cursor-pointer group"
-              onDoubleClick={handleToggleWorkHeart}
-              title="Double tap to heart this story"
+          {/* Book Cover Image */}
+          <div className="relative aspect-[3/4] w-full max-w-[240px] sm:max-w-[320px] overflow-hidden rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] shadow-md">
+            <img
+              src={work.cover}
+              alt={work.title}
+              fetchPriority="high"
+              decoding="async"
+              className="h-full w-full object-cover"
+            />
+            <div className="absolute top-3 left-3 flex flex-col gap-1">
+              <span className="rounded bg-black/85 px-2.5 py-0.5 text-[10px] font-mono font-medium text-white uppercase tracking-wider backdrop-blur-xs border border-white/10">
+                {work.status}
+              </span>
+            </div>
+          </div>
+
+          {/* Editorial Shelf Card */}
+          <div className="mt-4 w-full max-w-[240px] sm:max-w-[320px] space-y-2">
+            {/* 1. Primary Full-Width Action: Save to Library */}
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.98 }}
+              onClick={handleToggleSave}
+              className={`w-full flex items-center justify-center gap-2 rounded-xl py-3 px-4 text-xs font-mono font-semibold transition-all cursor-pointer select-none shadow-2xs ${
+                saved
+                  ? 'border border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] shadow-xs'
+                  : 'border border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] hover:border-[var(--ink-primary)]'
+              }`}
+              title={saved ? 'Remove from Library' : 'Add to your Library shelf'}
             >
-              <img
-                src={work.cover}
-                alt={work.title}
-                fetchPriority="high"
-                decoding="async"
-                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-              />
-              <div className="absolute top-3 left-3 flex flex-col gap-1">
-                <span className="rounded-full bg-black/80 px-2.5 py-0.5 text-[10px] font-mono font-medium text-white uppercase tracking-wider backdrop-blur-xs border border-white/10">
-                  {work.status}
+              <Bookmark className={`h-4 w-4 ${saved ? 'fill-current' : ''}`} />
+              <span>{saved ? 'In Library' : 'Save to Library'}</span>
+            </motion.button>
+
+            {/* 2. Secondary Row: Heart Story + Share */}
+            <div className="flex items-center gap-2">
+              {/* Heart Story Button */}
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.97 }}
+                onClick={handleToggleWorkHeart}
+                className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 px-3 text-xs font-mono font-semibold transition-all cursor-pointer select-none border ${
+                  workHearted
+                    ? 'border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] shadow-xs'
+                    : 'border border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] hover:border-[var(--ink-primary)]'
+                }`}
+                title={workHearted ? 'Remove heart from story' : 'Heart this story'}
+              >
+                <motion.div
+                  animate={isHeartBouncing ? { scale: [1, 1.35, 0.9, 1.15, 1] } : { scale: 1 }}
+                  transition={{ duration: 0.4 }}
+                >
+                  <Heart className={`h-4 w-4 ${workHearted ? 'fill-current' : ''}`} />
+                </motion.div>
+                <span>
+                  {workHearted ? 'Hearted' : 'Heart Story'} • {formatHeartCount(workHeartCount, true)}
                 </span>
-              </div>
+              </motion.button>
 
-              {/* Instagram Double-Tap Heart Burst */}
-              <AnimatePresence>
-                {showHeartBurst && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.3 }}
-                    animate={{ opacity: 1, scale: [0.3, 1.35, 1.1] }}
-                    exit={{ opacity: 0, scale: 1.4 }}
-                    transition={{ duration: 0.65, ease: 'easeOut' }}
-                    className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-black/25 backdrop-blur-[1px]"
-                  >
-                    <Heart className="h-16 w-16 fill-white text-white drop-shadow-2xl" />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* 2. Instagram Iconic Action Icons Bar */}
-            <div className="px-4 pt-3 pb-2 flex items-center justify-between border-t border-[var(--border-subtle)] bg-[var(--bg-canvas)]">
-              {/* Left Actions: Like, Comment, Share */}
-              <div className="flex items-center gap-4">
-                {/* Heart Button */}
-                <motion.button
-                  type="button"
-                  whileTap={{ scale: 0.8 }}
-                  onClick={handleToggleWorkHeart}
-                  className="text-[var(--ink-primary)] hover:opacity-75 transition-opacity cursor-pointer flex items-center justify-center"
-                  title={workHearted ? 'Remove heart' : 'Heart this story'}
-                  aria-label="Heart story"
-                >
-                  <motion.div
-                    animate={isHeartBouncing ? { scale: [1, 1.5, 0.85, 1.15, 1] } : { scale: 1 }}
-                    transition={{ duration: 0.45 }}
-                  >
-                    <Heart
-                      className={`h-5 w-5 transition-colors ${
-                        workHearted ? 'fill-current text-[var(--ink-primary)]' : 'text-[var(--ink-primary)]'
-                      }`}
-                    />
-                  </motion.div>
-                </motion.button>
-
-                {/* Comment Button */}
-                <motion.button
-                  type="button"
-                  whileTap={{ scale: 0.85 }}
-                  onClick={scrollToComments}
-                  className="text-[var(--ink-primary)] hover:opacity-75 transition-opacity cursor-pointer flex items-center justify-center"
-                  title="Jump to Reflections & Comments"
-                  aria-label="View comments"
-                >
-                  <MessageCircle className="h-5 w-5" />
-                </motion.button>
-
-                {/* Share Button */}
-                <motion.button
-                  type="button"
-                  whileTap={{ scale: 0.85 }}
-                  onClick={handleShare}
-                  className="text-[var(--ink-primary)] hover:opacity-75 transition-opacity cursor-pointer flex items-center justify-center"
-                  title="Share story link"
-                  aria-label="Share story"
-                >
-                  <Share2 className="h-5 w-5" />
-                </motion.button>
-              </div>
-
-              {/* Right Action: Bookmark / Save */}
-              <div>
-                <motion.button
-                  type="button"
-                  whileTap={{ scale: 0.85 }}
-                  onClick={handleToggleSave}
-                  className="text-[var(--ink-primary)] hover:opacity-75 transition-opacity cursor-pointer flex items-center justify-center"
-                  title={saved ? 'Remove from Library' : 'Save to Library'}
-                  aria-label="Save to library"
-                >
-                  <Bookmark
-                    className={`h-5 w-5 transition-colors ${
-                      saved ? 'fill-current text-[var(--ink-primary)]' : 'text-[var(--ink-primary)]'
-                    }`}
-                  />
-                </motion.button>
-              </div>
-            </div>
-
-            {/* 3. Instagram Engagement Row (Likes Count & Status) */}
-            <div className="px-4 pb-3.5 pt-0.5 space-y-1 bg-[var(--bg-canvas)] border-t border-[var(--border-subtle)]/40">
-              <div className="flex items-center justify-between text-xs font-mono">
-                <span className="font-bold text-[var(--ink-primary)]">
-                  {formatHeartCount(workHeartCount, false)} hearts
-                </span>
-                <span className="text-[11px] text-[var(--ink-muted)]">
-                  {saved ? 'In Library' : 'Save for later'}
-                </span>
-              </div>
-              <p className="text-[11px] text-[var(--ink-muted)] font-serif italic truncate">
-                {work.author?.name ? `By ${work.author.name}` : ''}
-              </p>
+              {/* Share Button */}
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.95 }}
+                onClick={handleShare}
+                className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 px-3 text-xs font-mono font-medium border border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:border-[var(--ink-primary)] transition-all cursor-pointer shrink-0"
+                title="Share story link"
+              >
+                <Share2 className="h-3.5 w-3.5" />
+                <span>Share</span>
+              </motion.button>
             </div>
           </div>
         </div>
