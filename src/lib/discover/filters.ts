@@ -215,6 +215,35 @@ export interface DiscoverFilterOptions {
   sortBy: 'popularity' | 'updated' | 'rating'
   isSignedIn: boolean
   nowDate?: Date
+  seed?: number
+}
+
+/**
+ * 32-bit pseudo-random number generator for deterministic permutations
+ */
+function mulberry32(seed: number) {
+  return function () {
+    let t = (seed += 0x6d2b79f5)
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+/**
+ * Deterministic Fisher-Yates shuffle using a seeded pseudo-random generator.
+ * Produces identical permutations for identical seeds across sessions and pagination pages.
+ */
+export function seededShuffle<T>(array: T[], seed: number): T[] {
+  const result = [...array]
+  const random = mulberry32(seed)
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1))
+    const temp = result[i]
+    result[i] = result[j]
+    result[j] = temp
+  }
+  return result
 }
 
 /**
@@ -233,19 +262,25 @@ export function filterAndSortWorks(
     sortBy,
     isSignedIn,
     nowDate = new Date(),
+    seed,
   } = options
 
-  return works
-    .filter((work) => {
-      if (!isPublicPublishedWork(work, nowDate)) return false
-      if (!matchesTab(work, activeTab, isSignedIn, nowDate)) return false
-      if (!matchesCategory(work, selectedCategory)) return false
-      if (!matchesGenre(work, selectedGenre)) return false
-      if (!matchesStatus(work, selectedStatus)) return false
-      if (!matchesSearch(work, searchTerm)) return false
-      return true
-    })
-    .sort((a, b) => {
+  const filtered = works.filter((work) => {
+    if (!isPublicPublishedWork(work, nowDate)) return false
+    if (!matchesTab(work, activeTab, isSignedIn, nowDate)) return false
+    if (!matchesCategory(work, selectedCategory)) return false
+    if (!matchesGenre(work, selectedGenre)) return false
+    if (!matchesStatus(work, selectedStatus)) return false
+    if (!matchesSearch(work, searchTerm)) return false
+    return true
+  })
+
+  // If a seed is provided, apply deterministic seeded shuffle across the filtered catalog
+  if (typeof seed === 'number' && !isNaN(seed)) {
+    return seededShuffle(filtered, seed)
+  }
+
+  return filtered.sort((a, b) => {
       if (activeTab === 'trending') {
         const hasRankA = typeof (a as any).trendingRank === 'number'
         const hasRankB = typeof (b as any).trendingRank === 'number'

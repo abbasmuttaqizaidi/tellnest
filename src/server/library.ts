@@ -66,7 +66,7 @@ export function projectToCompactLibraryWork(raw: any): CompactLibraryWork {
     id: String(raw.id),
     slug: String(raw.slug || raw.id),
     title: String(raw.title || 'Untitled Manuscript'),
-    cover: String(raw.cover || raw.cover_image_path || '/covers/default-book.webp'),
+    cover: String(raw.cover || raw.cover_image_path || '/default-book-cover.webp'),
     chaptersCount,
     authorName: String(authorName),
     genre: String(genreName),
@@ -142,7 +142,7 @@ export async function executeGetCompactLibraryWorks(dependencies: {
             id: r.id,
             slug: r.slug,
             title: r.title,
-            cover: r.cover_image_path || '/covers/default-book.webp',
+            cover: r.cover_image_path || '/default-book-cover.webp',
             chaptersCount: r.chapter_count || 1,
             authorName: r.profiles?.display_name || r.profiles?.username || 'Author',
             genre: r.work_genres?.[0]?.genres?.name || 'Fiction',
@@ -167,7 +167,7 @@ export async function executeGetCompactLibraryWorks(dependencies: {
                 w.id,
                 w.slug,
                 w.title,
-                COALESCE(w.cover_image_path, '/covers/default-book.webp') AS cover,
+                COALESCE(w.cover_image_path, '/default-book-cover.webp') AS cover,
                 COALESCE(w.chapter_count, 1) AS "chaptersCount",
                 COALESCE(p.display_name, p.username, 'Author') AS "authorName",
                 COALESCE(w.genre, (
@@ -187,7 +187,7 @@ export async function executeGetCompactLibraryWorks(dependencies: {
                 w.id,
                 w.slug,
                 w.title,
-                COALESCE(w.cover_image_path, '/covers/default-book.webp') AS cover,
+                COALESCE(w.cover_image_path, '/default-book-cover.webp') AS cover,
                 COALESCE(w.chapter_count, 1) AS "chaptersCount",
                 COALESCE(p.display_name, p.username, 'Author') AS "authorName",
                 COALESCE(w.genre, (
@@ -297,7 +297,7 @@ export async function executeGetLibraryWorkDetail(
         id: supaWork.id,
         slug: supaWork.slug || '',
         title: supaWork.title || '',
-        cover: supaWork.cover_image_path || '/covers/default-book.webp',
+        cover: supaWork.cover_image_path || '/default-book-cover.webp',
         chaptersCount: supaWork.chapter_count || sortedChapters.length || 1,
         author: {
           id: supaWork.profiles?.id,
@@ -396,7 +396,7 @@ function mapRawToLibraryWorkDetail(raw: any): LibraryWorkDetail {
     id: String(raw.id),
     slug: String(raw.slug || raw.id),
     title: String(raw.title || 'Untitled Manuscript'),
-    cover: String(raw.cover || raw.cover_image_path || '/covers/default-book.webp'),
+    cover: String(raw.cover || raw.cover_image_path || '/default-book-cover.webp'),
     chaptersCount: Number(raw.chaptersCount || raw.chapter_count || 1),
     author: {
       id: raw.authorId || raw.author_id,

@@ -22,6 +22,13 @@ import {
   type WorkActAnalytics,
   type AdminSendEmailInput,
 } from '../server/admin'
+import {
+  adminGetInspectletSettingsServerFn,
+  adminToggleInspectletExclusionServerFn,
+  adminUpdateInspectletConfigServerFn,
+  type InspectletAdminSettings,
+} from '../server/inspectlet'
+import { isLocalhostEnvironment } from '../components/InspectletTracker'
 import { Badge, Button, Modal } from '../design-system'
 import { UnisexAvatar } from '../components/UnisexAvatar'
 import { HeartsBreakdownModal } from '../components/HeartsBreakdownModal'
@@ -66,6 +73,8 @@ import {
   Camera,
   ExternalLink,
   AlertCircle,
+  Video,
+  VideoOff,
 } from 'lucide-react'
 
 import { generateMeta } from '../lib/seo'
@@ -126,10 +135,15 @@ function SecretAdminPanelPage() {
   const [loginError, setLoginError] = useState<string | null>(null)
 
   // Dashboard Navigation & Data State
-  const [activeAdminSection, setActiveAdminSection] = useState<'works' | 'users' | 'mailer'>('works')
+  const [activeAdminSection, setActiveAdminSection] = useState<'works' | 'users' | 'mailer' | 'inspectlet'>('works')
   const [loading, setLoading] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [dashboardData, setDashboardData] = useState<AdminDashboardData | null>(null)
+  const [inspectletSettings, setInspectletSettings] = useState<InspectletAdminSettings | null>(null)
+  const [isInspectletLoading, setIsInspectletLoading] = useState(false)
+  const [manualExclusionInput, setManualExclusionInput] = useState('')
+  const [manualExclusionReason, setManualExclusionReason] = useState('')
+  const [inspectletWidInput, setInspectletWidInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [activeFilter, setActiveFilter] = useState<'all' | 'online' | 'today' | 'this_week' | 'real' | 'mock' | 'authors' | 'readers' | 'saved'>('all')
   const [activeTabByUser, setActiveTabByUser] = useState<Record<string, 'works' | 'reading' | 'interests'>>({})
@@ -471,11 +485,16 @@ function SecretAdminPanelPage() {
     else setLoading(true)
 
     try {
-      const [userData] = await Promise.all([
+      const [userData, , inspSettings] = await Promise.all([
         getAdminUsersServerFn({ data: { adminToken: token } }),
         fetchWorks(token, 1),
+        adminGetInspectletSettingsServerFn({ data: { adminToken: token } }).catch(() => null),
       ])
       setDashboardData(userData)
+      if (inspSettings) {
+        setInspectletSettings(inspSettings)
+        setInspectletWidInput(inspSettings.wid || '')
+      }
     } catch (err: any) {
       console.error('[SecretAdminPanel] Error fetching registry data:', err)
       if (err?.message?.includes('Unauthorized')) {
@@ -488,6 +507,78 @@ function SecretAdminPanelPage() {
       setLoading(false)
       setRefreshing(false)
     }
+  }
+
+  // Inspectlet Management Handlers
+  const handleToggleInspectletExclusion = async (
+    identifier: string,
+    exclude: boolean,
+    reason?: string
+  ) => {
+    if (!adminToken) return
+    try {
+      setIsInspectletLoading(true)
+      await adminToggleInspectletExclusionServerFn({
+        data: {
+          adminToken,
+          identifier,
+          exclude,
+          reason,
+        },
+      })
+      const updated = await adminGetInspectletSettingsServerFn({ data: { adminToken } })
+      setInspectletSettings(updated)
+      showToast(
+        exclude
+          ? `Account "${identifier}" excluded from Inspectlet recording`
+          : `Account "${identifier}" recording re-enabled`
+      )
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to update Inspectlet exclusion')
+    } finally {
+      setIsInspectletLoading(false)
+    }
+  }
+
+  const handleSaveInspectletConfig = async (newWid?: string, newEnabled?: boolean) => {
+    if (!adminToken) return
+    try {
+      setIsInspectletLoading(true)
+      const res = await adminUpdateInspectletConfigServerFn({
+        data: {
+          adminToken,
+          wid: newWid !== undefined ? newWid : inspectletWidInput,
+          enabled: newEnabled !== undefined ? newEnabled : inspectletSettings?.enabled,
+        },
+      })
+      setInspectletSettings((prev) =>
+        prev
+          ? {
+              ...prev,
+              wid: res.config.wid,
+              enabled: res.config.enabled,
+              excludeAdmin: res.config.excludeAdmin,
+            }
+          : null
+      )
+      showToast('Inspectlet configuration updated successfully')
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to update Inspectlet configuration')
+    } finally {
+      setIsInspectletLoading(false)
+    }
+  }
+
+  const handleAddManualExclusion = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!manualExclusionInput.trim()) return
+    await handleToggleInspectletExclusion(
+      manualExclusionInput.trim(),
+      true,
+      manualExclusionReason.trim() || 'Direct administrator exclusion'
+    )
+    setManualExclusionInput('')
+    setManualExclusionReason('')
   }
 
   // 3. Handle Admin Login
@@ -1766,6 +1857,23 @@ function SecretAdminPanelPage() {
               Anti-Spam Verified
             </span>
           </button>
+
+          <button
+            onClick={() => setActiveAdminSection('inspectlet')}
+            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-mono font-medium border-b-2 transition-all cursor-pointer ${
+              activeAdminSection === 'inspectlet'
+                ? 'border-[var(--ink-primary)] text-[var(--ink-primary)] font-bold'
+                : 'border-transparent text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
+            }`}
+          >
+            <Video className="h-4 w-4" />
+            <span>Inspectlet Controls</span>
+            {inspectletSettings?.exclusions && inspectletSettings.exclusions.length > 0 && (
+              <span className="ml-1 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-800 px-2 py-0.5 text-[10px] font-mono font-semibold">
+                {inspectletSettings.exclusions.length} Excluded
+              </span>
+            )}
+          </button>
         </div>
       </section>
 
@@ -2403,6 +2511,17 @@ function SecretAdminPanelPage() {
                             You (Current Session)
                           </Badge>
                         )}
+                        {inspectletSettings?.exclusions?.some(
+                          (e) =>
+                            e.identifier.toLowerCase() === user.clerkId.toLowerCase() ||
+                            (user.email && e.identifier.toLowerCase() === user.email.toLowerCase()) ||
+                            (user.username && e.identifier.toLowerCase() === user.username.toLowerCase())
+                        ) && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                            <VideoOff className="h-3 w-3" />
+                            Recording Excluded
+                          </span>
+                        )}
                       </div>
 
                       <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--ink-muted)]">
@@ -2474,6 +2593,44 @@ function SecretAdminPanelPage() {
                     >
                       Post Work as User
                     </Button>
+                    {(() => {
+                      const isExcluded = Boolean(
+                        inspectletSettings?.exclusions?.some(
+                          (e) =>
+                            e.identifier.toLowerCase() === user.clerkId.toLowerCase() ||
+                            (user.email && e.identifier.toLowerCase() === user.email.toLowerCase()) ||
+                            (user.username && e.identifier.toLowerCase() === user.username.toLowerCase())
+                        )
+                      )
+                      return (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          leftIcon={
+                            isExcluded ? (
+                              <Video className="h-3.5 w-3.5 text-emerald-600" />
+                            ) : (
+                              <VideoOff className="h-3.5 w-3.5 text-rose-600" />
+                            )
+                          }
+                          onClick={() =>
+                            handleToggleInspectletExclusion(
+                              user.clerkId,
+                              !isExcluded,
+                              `Toggled by admin for @${user.username}`
+                            )
+                          }
+                          title={
+                            isExcluded
+                              ? `Allow Inspectlet recording for ${user.displayName}`
+                              : `Block / exclude Inspectlet recording for ${user.displayName}`
+                          }
+                          disabled={isInspectletLoading}
+                        >
+                          {isExcluded ? 'Allow Recording' : 'Exclude Recording'}
+                        </Button>
+                      )
+                    })()}
                     <button
                       type="button"
                       onClick={() => {
@@ -2754,7 +2911,7 @@ function SecretAdminPanelPage() {
         )}
       </section>
         </>
-      ) : (
+      ) : activeAdminSection === 'mailer' ? (
         /* DIRECT MAILER SECTION (ANTI-SPAM HARDENED) */
         <section className="space-y-8">
           {/* DELIVERABILITY TRUST & ANTI-SPAM STATUS HEADER */}
@@ -3284,6 +3441,242 @@ function SecretAdminPanelPage() {
               </div>
             </div>
 
+          </div>
+        </section>
+      ) : (
+        /* INSPECTLET SESSION RECORDING SECTION */
+        <section className="space-y-8">
+          {/* HEADER & GUARANTEE BANNER */}
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5 sm:p-6 shadow-xs">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold bg-indigo-100 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800">
+                    <Video className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                    Inspectlet Session Controls
+                  </span>
+                  {isLocalhostEnvironment() ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-mono text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded border border-amber-300 dark:border-amber-800">
+                      <ShieldCheck className="h-3 w-3" />
+                      Localhost: Recording Blocked
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-mono text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-300 dark:border-emerald-800">
+                      Production Mode
+                    </span>
+                  )}
+                </div>
+                <h2 className="font-serif text-lg font-semibold text-[var(--ink-primary)]">
+                  Session Replay & Privacy Controls
+                </h2>
+                <p className="text-xs text-[var(--ink-muted)] max-w-2xl leading-relaxed">
+                  Configure real-time Inspectlet session recording for production readers. Localhost development environments and Administrator accounts excluded below are strictly blocked from session recording—preventing test pollution and preserving reader privacy.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleSaveInspectletConfig(undefined, !inspectletSettings?.enabled)}
+                  disabled={isInspectletLoading}
+                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border text-xs font-mono font-medium transition-all cursor-pointer shadow-2xs ${
+                    inspectletSettings?.enabled
+                      ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100'
+                      : 'border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 hover:bg-rose-100'
+                  }`}
+                >
+                  {inspectletSettings?.enabled ? (
+                    <>
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                      <span>Recording: Enabled</span>
+                    </>
+                  ) : (
+                    <>
+                      <X className="h-4 w-4 text-rose-600" />
+                      <span>Recording: Disabled</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* CONFIGURATION CARDS */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Card 1: Localhost Guard */}
+            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5 shadow-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-xs uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
+                  Localhost Protection
+                </span>
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              </div>
+              <p className="font-serif text-base font-semibold text-[var(--ink-primary)]">
+                Strict Zero-Recording Rule
+              </p>
+              <p className="text-xs text-[var(--ink-muted)] leading-relaxed">
+                Localhost, 127.0.0.1, and .local origins are blocked client-side before any network request or script tag is created.
+              </p>
+            </div>
+
+            {/* Card 2: Inspectlet Website ID (WID) */}
+            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-xs uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
+                  Inspectlet Website ID (WID)
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={inspectletWidInput}
+                  onChange={(e) => setInspectletWidInput(e.target.value)}
+                  placeholder="e.g. 123456789"
+                  className="flex-1 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-1.5 text-xs font-mono text-[var(--ink-primary)] focus:outline-none focus:border-[var(--ink-primary)]"
+                />
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => handleSaveInspectletConfig(inspectletWidInput)}
+                  disabled={isInspectletLoading}
+                >
+                  Save
+                </Button>
+              </div>
+              <p className="text-[11px] text-[var(--ink-muted)] font-mono">
+                Active WID: {inspectletSettings?.wid ? <code className="font-semibold text-[var(--ink-primary)]">{inspectletSettings.wid}</code> : '<Not Configured>'}
+              </p>
+            </div>
+
+            {/* Card 3: Excluded Accounts Summary */}
+            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5 shadow-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-xs uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
+                  Excluded Accounts
+                </span>
+                <span className="font-mono text-xs text-rose-600 dark:text-rose-400 font-bold">
+                  {inspectletSettings?.exclusions?.length || 0} Blocked
+                </span>
+              </div>
+              <p className="font-serif text-base font-semibold text-[var(--ink-primary)]">
+                Targeted Exclusion Policy
+              </p>
+              <p className="text-xs text-[var(--ink-muted)] leading-relaxed">
+                Excluded accounts are blocked dynamically across all their active browser sessions and devices.
+              </p>
+            </div>
+          </div>
+
+          {/* EXCLUSION MANAGEMENT PANEL */}
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5 sm:p-6 shadow-xs space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[var(--border-subtle)]">
+              <div>
+                <h3 className="font-serif text-base font-semibold text-[var(--ink-primary)]">
+                  Exclude Account From Recording
+                </h3>
+                <p className="text-xs text-[var(--ink-muted)] mt-0.5">
+                  Enter a Clerk User ID, registered email address, or username to block session recording.
+                </p>
+              </div>
+            </div>
+
+            {/* Manual Exclusion Form */}
+            <form onSubmit={handleAddManualExclusion} className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+              <div className="sm:col-span-5 space-y-1">
+                <label className="text-xs font-mono text-[var(--ink-muted)]">
+                  Account Identifier (Clerk ID, Email, or @Username) *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={manualExclusionInput}
+                  onChange={(e) => setManualExclusionInput(e.target.value)}
+                  placeholder="e.g. user_2... or admin@hatchpen.com"
+                  className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2 text-xs font-mono text-[var(--ink-primary)] focus:outline-none focus:border-[var(--ink-primary)]"
+                />
+              </div>
+
+              <div className="sm:col-span-5 space-y-1">
+                <label className="text-xs font-mono text-[var(--ink-muted)]">
+                  Exclusion Reason (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={manualExclusionReason}
+                  onChange={(e) => setManualExclusionReason(e.target.value)}
+                  placeholder="e.g. Administrator account / Internal QA"
+                  className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2 text-xs text-[var(--ink-primary)] focus:outline-none focus:border-[var(--ink-primary)]"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="md"
+                  className="w-full"
+                  disabled={isInspectletLoading || !manualExclusionInput.trim()}
+                >
+                  Block Account
+                </Button>
+              </div>
+            </form>
+
+            {/* Excluded Accounts Table / List */}
+            <div className="space-y-3 pt-2">
+              <h4 className="font-mono text-xs font-semibold uppercase tracking-wider text-[var(--ink-muted)]">
+                Currently Excluded Accounts ({inspectletSettings?.exclusions?.length || 0})
+              </h4>
+
+              {!inspectletSettings?.exclusions || inspectletSettings.exclusions.length === 0 ? (
+                <div className="py-8 text-center rounded-lg border border-dashed border-[var(--border-subtle)] p-6 space-y-1">
+                  <p className="font-serif text-sm text-[var(--ink-muted)]">
+                    No accounts are currently excluded.
+                  </p>
+                  <p className="text-xs text-[var(--ink-muted)]">
+                    Use the form above or click &ldquo;Exclude Recording&rdquo; on any user card in the Users registry.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border border-[var(--border-subtle)]">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-[var(--bg-subtle)] text-[var(--ink-muted)] font-mono uppercase text-[10px] border-b border-[var(--border-subtle)]">
+                      <tr>
+                        <th className="py-2.5 px-3.5">Identifier</th>
+                        <th className="py-2.5 px-3.5">Reason</th>
+                        <th className="py-2.5 px-3.5">Excluded On</th>
+                        <th className="py-2.5 px-3.5 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--border-subtle)] font-mono">
+                      {inspectletSettings.exclusions.map((item) => (
+                        <tr key={item.id} className="hover:bg-[var(--bg-subtle)]/40 transition-colors">
+                          <td className="py-2.5 px-3.5 font-semibold text-[var(--ink-primary)]">
+                            {item.identifier}
+                          </td>
+                          <td className="py-2.5 px-3.5 text-[var(--ink-muted)] font-sans">
+                            {item.reason || 'Administrator exclusion'}
+                          </td>
+                          <td className="py-2.5 px-3.5 text-[var(--ink-muted)]">
+                            {new Date(item.createdAt).toLocaleDateString()}
+                          </td>
+                          <td className="py-2.5 px-3.5 text-right font-sans">
+                            <Button
+                              variant="subtle"
+                              size="sm"
+                              onClick={() => handleToggleInspectletExclusion(item.identifier, false)}
+                              disabled={isInspectletLoading}
+                            >
+                              Remove Exclusion
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         </section>
       )}
@@ -4367,7 +4760,13 @@ function SecretAdminPanelPage() {
                   <label className="text-[11px] font-mono text-[var(--ink-secondary)]">Category *</label>
                   <select
                     value={postWorkCategory}
-                    onChange={(e) => setPostWorkCategory(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setPostWorkCategory(val)
+                      if (val.toLowerCase().includes('religion')) {
+                        setPostWorkGenre('Faith & Spirituality')
+                      }
+                    }}
                     className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2 text-xs text-[var(--ink-primary)] focus:outline-none focus:border-[var(--ink-primary)] transition-colors cursor-pointer"
                   >
                     {categories.map((c) => (
@@ -4379,7 +4778,13 @@ function SecretAdminPanelPage() {
                   <label className="text-[11px] font-mono text-[var(--ink-secondary)]">Genre *</label>
                   <select
                     value={postWorkGenre}
-                    onChange={(e) => setPostWorkGenre(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setPostWorkGenre(val)
+                      if (val.toLowerCase().includes('faith')) {
+                        setPostWorkCategory('Religion & Spirituality')
+                      }
+                    }}
                     className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2 text-xs text-[var(--ink-primary)] focus:outline-none focus:border-[var(--ink-primary)] transition-colors cursor-pointer"
                   >
                     {genres.map((g) => (

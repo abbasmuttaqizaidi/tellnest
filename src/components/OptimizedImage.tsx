@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { getOptimizedImageUrl, generateImageSrcSet } from '../lib/image'
+import defaultBookCoverAsset from '../assets/default-book-cover.webp'
 
 export interface OptimizedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   src: string
@@ -32,7 +33,7 @@ export function OptimizedImage({
   quality = 80,
   priority = false,
   sizes,
-  fallbackSrc,
+  fallbackSrc = defaultBookCoverAsset,
   showPlaceholder = true,
   className = '',
   containerClassName = '',
@@ -44,7 +45,8 @@ export function OptimizedImage({
   const [isLoaded, setIsLoaded] = useState(false)
   const [hasError, setHasError] = useState(false)
 
-  const activeSrc = hasError && fallbackSrc ? fallbackSrc : src
+  const effectiveFallback = fallbackSrc || defaultBookCoverAsset
+  const activeSrc = (!src || hasError) ? effectiveFallback : src
 
   // Optimized base URL
   const optimizedSrc = getOptimizedImageUrl(activeSrc, {

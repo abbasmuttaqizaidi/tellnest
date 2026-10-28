@@ -35,6 +35,7 @@ import { ProtectedRoute } from '../components/ProtectedRoute'
 import { generateMeta } from '../lib/seo'
 import { getWorkSlug } from '../data/mockData'
 import { CloudinaryImageUpload } from '../components/CloudinaryImageUpload'
+import defaultBookCover from '../assets/default-book-cover.webp'
 import {
   getWriterWorkDetailsServerFn,
   saveWriterChapterServerFn,
@@ -716,8 +717,14 @@ function WorkManagementPage() {
             {/* Interactive Cover Thumbnail */}
             <div className="relative group shrink-0">
               <img
-                src={coverUrl || work.cover}
+                src={coverUrl || work.cover || defaultBookCover}
                 alt={work.title}
+                onError={(e) => {
+                  const target = e.currentTarget
+                  if (!target.src.includes('default-book-cover')) {
+                    target.src = defaultBookCover
+                  }
+                }}
                 className="h-24 w-16 sm:h-28 sm:w-20 rounded-lg object-cover border border-[var(--border-strong)] shadow-xs transition-transform group-hover:scale-[1.02]"
               />
               <button

@@ -6,6 +6,7 @@ import type { Author, Work } from '../data/mockData'
 import { UnisexAvatar } from './UnisexAvatar'
 import { formatViewCount } from '../lib/utils'
 import { OptimizedImage } from './OptimizedImage'
+import defaultBookCover from '../assets/default-book-cover.webp'
 import {
   X,
   UserCheck,
@@ -288,7 +289,7 @@ export function AuthorProfileModal({
                 const coverUrl =
                   w.cover ||
                   (w as any).coverImage ||
-                  'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80'
+                  defaultBookCover
 
                 return (
                   <Link
@@ -304,7 +305,7 @@ export function AuthorProfileModal({
                         alt={w.title}
                         width={280}
                         height={420}
-                        fallbackSrc="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80"
+                        fallbackSrc={defaultBookCover}
                         containerClassName="h-full w-full"
                         className="h-full w-full object-cover group-hover:scale-105 transition-all duration-300"
                       />

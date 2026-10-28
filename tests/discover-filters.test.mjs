@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   filterAndSortWorks,
+  seededShuffle,
   parseTotalReads,
   getUtcWeekBoundaries,
   isWorkNewThisWeek,
@@ -1366,6 +1367,68 @@ test('Paginated Discover: executeGetPaginatedDiscoverWorks enforces limit 14 and
   assert.equal(resPage3.page, 3)
   assert.equal(resPage3.hasNextPage, false)
   assert.equal(resPage3.hasPrevPage, true)
+})
+
+test('Seeded Shuffle: Produces deterministic shuffle across identical seeds and changes order on different seeds', () => {
+  const items = Array.from({ length: 20 }, (_, i) => ({ id: `story-${i + 1}`, title: `Story ${i + 1}` }))
+  
+  const shuffle1A = seededShuffle(items, 12345)
+  const shuffle1B = seededShuffle(items, 12345)
+  const shuffle2 = seededShuffle(items, 67890)
+
+  // Identical seed must produce identical permutation
+  assert.deepEqual(shuffle1A.map((x) => x.id), shuffle1B.map((x) => x.id))
+
+  // Different seed must produce different permutation
+  assert.notDeepEqual(shuffle1A.map((x) => x.id), shuffle2.map((x) => x.id))
+
+  // All original items must be preserved (zero duplicates, zero losses)
+  assert.equal(shuffle1A.length, items.length)
+  const ids = new Set(shuffle1A.map((x) => x.id))
+  assert.equal(ids.size, items.length)
+})
+
+test('Paginated Discover Shuffle: Seed preserves stable order across pagination pages without duplicates', async () => {
+  const mockRows = Array.from({ length: 28 }, (_, i) => ({
+    id: `work-shuffle-${i + 1}`,
+    title: `Shuffle Story ${i + 1}`,
+    status: 'ongoing',
+    visibility: 'public',
+    publication_status: 'published',
+    published_at: '2026-01-01T00:00:00.000Z',
+    created_at: '2026-01-01T00:00:00.000Z',
+    category_name: 'Novels',
+    category_slug: 'novels',
+    genres: [],
+    acts: [],
+    chapters: [],
+    curated_collections: [],
+  }))
+
+  const deps = {
+    queryRows: async () => mockRows,
+    getAuthState: async () => ({ userId: 'test-user' }),
+  }
+
+  const SEED = 420420
+  const page1 = await executeGetPaginatedDiscoverWorks({ page: 1, limit: 14, seed: SEED }, deps)
+  const page2 = await executeGetPaginatedDiscoverWorks({ page: 2, limit: 14, seed: SEED }, deps)
+
+  assert.equal(page1.works.length, 14)
+  assert.equal(page2.works.length, 14)
+  assert.equal(page1.seed, SEED)
+  assert.equal(page2.seed, SEED)
+
+  const page1Ids = page1.works.map((w) => w.id)
+  const page2Ids = page2.works.map((w) => w.id)
+
+  // Zero overlaps between Page 1 and Page 2
+  const overlap = page1Ids.filter((id) => page2Ids.includes(id))
+  assert.equal(overlap.length, 0, 'No stories should repeat across pages when using the same seed')
+
+  // Total unique stories fetched across both pages equals the entire catalog
+  const combinedSet = new Set([...page1Ids, ...page2Ids])
+  assert.equal(combinedSet.size, 28)
 })
 
 

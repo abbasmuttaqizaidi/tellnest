@@ -193,7 +193,7 @@ export async function executeGetPublicWork(
     subtitle: '',
     cover:
       data.cover_image_path ||
-      'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80',
+      '/default-book-cover.webp',
     category: categoryObj?.name || 'Novels',
     categorySlug: categoryObj?.slug || 'novels',
     genre: primaryGenre?.name || 'Literary Fiction',
@@ -335,6 +335,7 @@ export interface PaginatedDiscoverParams {
   genre?: string
   status?: string
   search?: string
+  seed?: number
 }
 
 export interface PaginatedDiscoverResponse {
@@ -345,6 +346,7 @@ export interface PaginatedDiscoverResponse {
   totalPages: number
   hasNextPage: boolean
   hasPrevPage: boolean
+  seed?: number
 }
 
 export async function executeGetPaginatedDiscoverWorks(
@@ -372,6 +374,7 @@ export async function executeGetPaginatedDiscoverWorks(
   const genre = params.genre || 'all'
   const status = params.status || 'all'
   const search = params.search || ''
+  const seed = typeof params.seed === 'number' && !isNaN(params.seed) ? params.seed : undefined
 
   const filtered = filterAndSortWorks(allWorks, {
     activeTab: tab as any,
@@ -381,6 +384,7 @@ export async function executeGetPaginatedDiscoverWorks(
     searchTerm: search,
     sortBy: 'popularity',
     isSignedIn,
+    seed,
   })
 
   const pageSize = Math.min(Math.max(1, params.limit || 14), 50)
@@ -399,6 +403,7 @@ export async function executeGetPaginatedDiscoverWorks(
     totalPages,
     hasNextPage: safePage < totalPages,
     hasPrevPage: safePage > 1,
+    seed,
   }
 }
 
@@ -416,6 +421,7 @@ export const getPaginatedDiscoverWorksServerFn = createServerFn({ method: 'GET' 
       genre: params?.genre,
       status: params?.status,
       search: params?.search,
+      seed: typeof params?.seed === 'number' && !isNaN(params.seed) ? params.seed : undefined,
     }
   })
   .handler(async ({ data }) => {
@@ -943,7 +949,7 @@ export async function executeGetPlatformWorks(
           title: row.title,
           slug: row.slug || '',
           subtitle: '',
-          cover: row.cover_image_path || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80',
+          cover: row.cover_image_path || '/default-book-cover.webp',
           category: row.category_name || 'Novels',
           categorySlug: row.category_slug || 'novels',
           genre: primaryGenre.name,
@@ -1369,7 +1375,7 @@ export async function executeGetTopShelf(
           title: rawRow.title,
           slug: rawRow.slug || '',
           subtitle: '',
-          cover: rawRow.cover_image_path || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80',
+          cover: rawRow.cover_image_path || '/default-book-cover.webp',
           category: rawRow.category_name || 'Novels',
           categorySlug: rawRow.category_slug || 'novels',
           genre: primaryGenre.name,

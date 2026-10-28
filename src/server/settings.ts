@@ -302,17 +302,45 @@ export async function executeGetSettingsData(deps: {
       readingHistoryCount,
     },
     taxonomy: {
-      categories: (catRows && catRows.length > 0 ? catRows : GLOBAL_CATEGORIES).map((c: any) => ({
-        slug: c.slug,
-        name: c.name,
-        description: c.description || undefined,
-      })),
-      genres: (genreRows && genreRows.length > 0 ? genreRows : GLOBAL_GENRES).map((g: any) => ({
-        slug: g.slug,
-        name: g.name,
-        group: g.group || g.genre_group || 'General',
-        description: g.description || undefined,
-      })),
+      categories: (() => {
+        const catMap = new Map<string, { slug: string; name: string; description?: string }>()
+        if (catRows) {
+          for (const c of catRows) {
+            catMap.set(c.slug, { slug: c.slug, name: c.name, description: c.description || undefined })
+          }
+        }
+        for (const gc of GLOBAL_CATEGORIES) {
+          if (!catMap.has(gc.slug)) {
+            catMap.set(gc.slug, { slug: gc.slug, name: gc.name, description: gc.description })
+          }
+        }
+        return Array.from(catMap.values()).sort((a, b) => a.name.localeCompare(b.name))
+      })(),
+      genres: (() => {
+        const genMap = new Map<string, { slug: string; name: string; group: string; description?: string }>()
+        if (genreRows) {
+          for (const g of genreRows) {
+            const matched = GLOBAL_GENRES.find((gg) => gg.slug === g.slug)
+            genMap.set(g.slug, {
+              slug: g.slug,
+              name: g.name,
+              group: g.group || g.genre_group || matched?.group || 'General',
+              description: g.description || undefined,
+            })
+          }
+        }
+        for (const gg of GLOBAL_GENRES) {
+          if (!genMap.has(gg.slug)) {
+            genMap.set(gg.slug, {
+              slug: gg.slug,
+              name: gg.name,
+              group: gg.group,
+              description: gg.description,
+            })
+          }
+        }
+        return Array.from(genMap.values()).sort((a, b) => a.name.localeCompare(b.name))
+      })(),
     },
   }
 }

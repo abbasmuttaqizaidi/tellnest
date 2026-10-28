@@ -628,27 +628,29 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
     }
   }
 
-  // Taxonomy fallbacks
+  // Taxonomy fallbacks (sorted alphabetically)
   const availableGenres = useMemo(() => {
-    if (data?.taxonomy?.genres && data.taxonomy.genres.length > 0) {
-      return data.taxonomy.genres
-    }
-    return GLOBAL_GENRES.map((g) => ({
-      slug: g.slug,
-      name: g.name,
-      description: g.description,
-    }))
+    const list =
+      data?.taxonomy?.genres && data.taxonomy.genres.length > 0
+        ? data.taxonomy.genres
+        : GLOBAL_GENRES.map((g) => ({
+            slug: g.slug,
+            name: g.name,
+            description: g.description,
+          }))
+    return [...list].sort((a, b) => a.name.localeCompare(b.name))
   }, [data?.taxonomy?.genres])
 
   const availableCategories = useMemo(() => {
-    if (data?.taxonomy?.categories && data.taxonomy.categories.length > 0) {
-      return data.taxonomy.categories
-    }
-    return GLOBAL_CATEGORIES.map((c) => ({
-      slug: c.slug,
-      name: c.name,
-      description: c.description,
-    }))
+    const list =
+      data?.taxonomy?.categories && data.taxonomy.categories.length > 0
+        ? data.taxonomy.categories
+        : GLOBAL_CATEGORIES.map((c) => ({
+            slug: c.slug,
+            name: c.name,
+            description: c.description,
+          }))
+    return [...list].sort((a, b) => a.name.localeCompare(b.name))
   }, [data?.taxonomy?.categories])
 
   // Lock body scroll when modals open on mobile & desktop

@@ -8,6 +8,11 @@
  * - Fallback / broken link resilience
  */
 
+import defaultBookCoverAsset from '../assets/default-book-cover.webp'
+
+export const DEFAULT_BOOK_COVER = defaultBookCoverAsset
+export const DEFAULT_BOOK_COVER_PATH = '/default-book-cover.webp'
+
 export interface ImageOptimizationOptions {
   width?: number
   height?: number

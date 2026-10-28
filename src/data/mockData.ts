@@ -192,7 +192,7 @@ export const CATEGORIES: CategoryInfo[] = GLOBAL_CATEGORIES.map((c) => ({
   description: c.description,
   worksCount: c.worksCount || 0,
   accentLetter: c.accentLetter,
-}))
+})).sort((a, b) => a.name.localeCompare(b.name))
 
 export const GENRES: GenreInfo[] = GLOBAL_GENRES.map((g) => ({
   id: g.id,
@@ -201,7 +201,7 @@ export const GENRES: GenreInfo[] = GLOBAL_GENRES.map((g) => ({
   group: g.group,
   description: g.description,
   worksCount: g.worksCount || 0,
-}))
+})).sort((a, b) => a.name.localeCompare(b.name))
 
 export const AUTHORS: Author[] = [
   {

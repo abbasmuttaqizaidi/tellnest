@@ -797,26 +797,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (isMounted && res) {
           if (res.categories && res.categories.length > 0) {
             setCategories(
-              res.categories.map((c) => ({
-                id: c.id,
-                name: c.name,
-                slug: c.slug,
-                description: c.description || '',
-                worksCount: CATEGORIES.find((m) => m.slug === c.slug)?.worksCount || 0,
-                accentLetter: c.accentLetter || c.name.charAt(0),
-              }))
+              res.categories
+                .map((c) => ({
+                  id: c.id,
+                  name: c.name,
+                  slug: c.slug,
+                  description: c.description || '',
+                  worksCount: CATEGORIES.find((m) => m.slug === c.slug)?.worksCount || 0,
+                  accentLetter: c.accentLetter || c.name.charAt(0),
+                }))
+                .sort((a, b) => a.name.localeCompare(b.name))
             )
           }
           if (res.genres && res.genres.length > 0) {
             setGenres(
-              res.genres.map((g) => ({
-                id: g.id,
-                name: g.name,
-                slug: g.slug,
-                group: g.group,
-                description: g.description || '',
-                worksCount: GENRES.find((m) => m.slug === g.slug)?.worksCount || 0,
-              }))
+              res.genres
+                .map((g) => ({
+                  id: g.id,
+                  name: g.name,
+                  slug: g.slug,
+                  group: g.group,
+                  description: g.description || '',
+                  worksCount: GENRES.find((m) => m.slug === g.slug)?.worksCount || 0,
+                }))
+                .sort((a, b) => a.name.localeCompare(b.name))
             )
           }
         }
@@ -1142,7 +1146,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         totalReads: '124K',
         verified: true
       },
-      cover: workData.cover || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=800&q=80',
+      cover: workData.cover || '/default-book-cover.webp',
       category: workData.category,
       categorySlug: workData.category.toLowerCase().replace(/\s+/g, '-'),
       genre: workData.genre || 'Literary Fiction',

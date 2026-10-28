@@ -52,17 +52,17 @@ const GENDER_OPTIONS: SelectOption[] = [
   { id: 'other', label: 'Other' },
 ]
 
-// Standard Genres from platform taxonomy
+// Standard Genres from platform taxonomy (alphabetically sorted)
 export const STANDARD_GENRES: Array<{ id: string; name: string }> = GLOBAL_GENRES.map((g) => ({
   id: g.slug,
   name: g.name,
-}))
+})).sort((a, b) => a.name.localeCompare(b.name))
 
-// Standard Categories from platform taxonomy
+// Standard Categories from platform taxonomy (alphabetically sorted)
 export const STANDARD_CATEGORIES: Array<{ id: string; name: string }> = GLOBAL_CATEGORIES.map((c) => ({
   id: c.slug,
   name: c.name,
-}))
+})).sort((a, b) => a.name.localeCompare(b.name))
 
 export function UserOnboardingModal() {
   const { user, isLoaded, isSignedIn } = useUser()

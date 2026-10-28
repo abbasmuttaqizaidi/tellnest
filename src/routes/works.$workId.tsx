@@ -30,6 +30,7 @@ import { SavesAdjustmentModal } from '../components/SavesAdjustmentModal'
 import { AuthorProfileModal } from '../components/AuthorProfileModal'
 import { formatViewCount, formatHeartCount } from '../lib/utils'
 import CommentsSection from '../components/CommentsSection'
+import defaultBookCover from '../assets/default-book-cover.webp'
 
 export const Route = createFileRoute('/works/$workId')({
   // In-Memory SWR (Desktop & Mobile): Keeps story details fresh in RAM for 60s; instant 0ms navigation
@@ -88,7 +89,7 @@ export const Route = createFileRoute('/works/$workId')({
       description: work.synopsis || (work.fullDescription ? work.fullDescription.slice(0, 160) : ''),
       canonicalUrl: `https://hatchpen.com/works/${canonicalSlug}`,
       ogType: 'book',
-      ogImage: work.cover,
+      ogImage: work.cover || 'https://hatchpen.com/default-book-cover.webp',
       ogImageAlt: `${work.title} cover art`,
       author: authorName,
       noindex: !isIndexable,
@@ -112,7 +113,7 @@ export const Route = createFileRoute('/works/$workId')({
         },
         genre: work.genre || 'Fiction',
         description: work.synopsis || '',
-        image: work.cover,
+        image: work.cover || 'https://hatchpen.com/default-book-cover.webp',
         inLanguage: work.language || 'English',
         numberOfPages: work.publishedChaptersCount || work.chaptersCount || 1,
         url: `https://hatchpen.com/works/${canonicalSlug}`,
@@ -422,10 +423,16 @@ function WorkDetailPage() {
           {/* Book Cover Image */}
           <div className="relative aspect-[3/4] w-full max-w-[260px] sm:max-w-[320px] overflow-hidden rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] shadow-md">
             <img
-              src={work.cover}
+              src={work.cover || defaultBookCover}
               alt={work.title}
               fetchPriority="high"
               decoding="async"
+              onError={(e) => {
+                const target = e.currentTarget
+                if (!target.src.includes('default-book-cover')) {
+                  target.src = defaultBookCover
+                }
+              }}
               className="h-full w-full object-cover"
             />
             <div className="absolute top-3 left-3 flex flex-col gap-1">

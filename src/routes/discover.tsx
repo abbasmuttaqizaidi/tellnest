@@ -30,6 +30,17 @@ export interface DiscoverLoaderData {
 
 const PAGE_SIZE = 14
 
+// In-memory client seed: Persists across SPA client route transitions, resets on browser page reload (F5 / full reload)
+let clientDiscoverSeed: number = Math.floor(Math.random() * 1_000_000) + 1
+
+export function getClientDiscoverSeed(): number {
+  return clientDiscoverSeed
+}
+
+export function setClientDiscoverSeed(seed: number) {
+  clientDiscoverSeed = seed
+}
+
 export const Route = createFileRoute('/discover')({
   // In-Memory SWR (Desktop & Mobile): Keeps data fresh in RAM for 30s; instant 0ms navigation
   staleTime: 30_000,
@@ -74,6 +85,10 @@ export const Route = createFileRoute('/discover')({
   }),
   loader: async ({ deps }): Promise<DiscoverLoaderData> => {
     try {
+      const activeSeed = typeof window !== 'undefined'
+        ? clientDiscoverSeed
+        : Math.floor(Math.random() * 1_000_000) + 1
+
       const [paginated, taxonomy] = await Promise.all([
         getPaginatedDiscoverWorksServerFn({
           data: {
@@ -84,10 +99,15 @@ export const Route = createFileRoute('/discover')({
             search: deps.q || '',
             page: deps.page || 1,
             limit: PAGE_SIZE,
+            seed: activeSeed,
           },
         }),
         getTaxonomyServerFn().catch(() => null),
       ])
+
+      if (typeof window !== 'undefined' && paginated?.seed) {
+        clientDiscoverSeed = paginated.seed
+      }
 
       return {
         paginatedWorks: paginated,
@@ -165,6 +185,13 @@ function DiscoverPage() {
   const currentPage = routeSearch.page || 1
   const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages)
   const activeSearchQuery = routeSearch.q || ''
+
+  // Synchronize in-memory client seed with the active feed response
+  useEffect(() => {
+    if (paginatedData?.seed) {
+      clientDiscoverSeed = paginatedData.seed
+    }
+  }, [paginatedData?.seed])
 
   // Loading state: Skeleton triggers on HTTP router transition or clerk initial hydration
   const isLoading = isTransitioning || !isLoaded

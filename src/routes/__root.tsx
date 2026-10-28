@@ -4,6 +4,7 @@ import Header from '../components/Header'
 import Footer from '../components/Footer'
 import Toast from '../components/Toast'
 import { ClerkSync } from '../components/ClerkSync'
+import { InspectletTracker } from '../components/InspectletTracker'
 import { AuthModal } from '../components/AuthModal'
 import { PublicWriteModal } from '../components/PublicWriteModal'
 import { UserOnboardingModal } from '../components/UserOnboardingModal'
@@ -252,6 +253,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   const innerContent = (
     <AppProvider>
       <ClerkSync />
+      <InspectletTracker />
       <AuthModal />
       <PublicWriteModal />
       <UserOnboardingModal />

@@ -7,14 +7,15 @@ import { ProtectedRoute } from '../components/ProtectedRoute'
 import { RouteHeader } from '../components/RouteHeader'
 import { generateMeta } from '../lib/seo'
 import { CloudinaryImageUpload } from '../components/CloudinaryImageUpload'
+import defaultBookCover from '../assets/default-book-cover.webp'
 import { MobileScreenSuggestionBanner } from '../components/studio'
 import { createWriterWorkServerFn } from '../server/writer'
 import {
   Button,
-  AnimatedTabs,
   DropdownSelect,
+  Combobox,
   type SelectOption,
-  type TabOption,
+  type ComboboxOption,
 } from '../design-system'
 import { ArrowLeft, X } from 'lucide-react'
 
@@ -36,15 +37,6 @@ export const Route = createFileRoute('/write/new')({
   ),
 })
 
-const SAMPLE_COVERS = [
-  'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=600&q=80',
-  'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=600&q=80',
-  'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=600&q=80',
-  'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=600&q=80',
-  'https://images.unsplash.com/photo-1518495973542-4542c06a5843?auto=format&fit=crop&w=600&q=80',
-  'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=600&q=80',
-]
-
 const LANGUAGE_OPTIONS: SelectOption[] = [
   { id: 'English', label: 'English' },
   { id: 'French', label: 'French' },
@@ -55,12 +47,12 @@ const LANGUAGE_OPTIONS: SelectOption[] = [
   { id: 'Portuguese', label: 'Portuguese' },
 ]
 
-const STATUS_TABS: TabOption[] = [
+const STATUS_OPTIONS: SelectOption[] = [
   { id: 'Ongoing', label: 'Ongoing (Serialized)' },
   { id: 'Completed', label: 'Completed Work' },
 ]
 
-const VISIBILITY_TABS: TabOption[] = [
+const VISIBILITY_OPTIONS: SelectOption[] = [
   { id: 'Draft', label: 'Private Draft' },
   { id: 'Public', label: 'Public Discovery' },
   { id: 'Unlisted', label: 'Unlisted' },
@@ -88,7 +80,7 @@ function CreateWorkPage() {
   const [description, setDescription] = useState('')
   const [category, setCategory] = useState(categories[0]?.name || 'Novels')
   const [genre, setGenre] = useState(genres[0]?.name || 'Literary Fiction')
-  const [cover, setCover] = useState(SAMPLE_COVERS[0])
+  const [cover, setCover] = useState<string>(defaultBookCover)
   const [selectedTags, setSelectedTags] = useState<string[]>(['Isolation', 'Memory'])
   const [tagInput, setTagInput] = useState('')
   const [language, setLanguage] = useState('English')
@@ -97,23 +89,57 @@ function CreateWorkPage() {
   const [isMature, setIsMature] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Map categories to DropdownSelect options
-  const categoryOptions: SelectOption[] = useMemo(() => {
-    return categories.map((cat) => ({
-      id: cat.name,
-      label: cat.name,
-      description: cat.description,
-    }))
+  // Map categories to Combobox options (sorted alphabetically)
+  const categoryOptions: ComboboxOption[] = useMemo(() => {
+    return [...categories]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((cat) => ({
+        id: cat.name,
+        label: cat.name,
+        description: cat.description,
+      }))
   }, [categories])
 
-  // Map genres to DropdownSelect options
-  const genreOptions: SelectOption[] = useMemo(() => {
-    return genres.map((g) => ({
-      id: g.name,
-      label: g.name,
-      description: g.group ? `${g.group}` : undefined,
-    }))
+  // Map genres to Combobox options (sorted alphabetically)
+  const genreOptions: ComboboxOption[] = useMemo(() => {
+    return [...genres]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((g) => ({
+        id: g.name,
+        label: g.name,
+        description: g.group ? `${g.group}` : undefined,
+        badge: g.group || undefined,
+      }))
   }, [genres])
+
+  // Synchronize Religion & Spirituality with Faith & Spirituality bidirectionally
+  const handleCategoryChange = (val: string) => {
+    setCategory(val)
+    if (val.toLowerCase().includes('religion')) {
+      const match = genres.find(
+        (g) => g.name.toLowerCase().includes('faith') || g.slug === 'faith-spirituality'
+      )
+      if (match) {
+        setGenre(match.name)
+      } else {
+        setGenre('Faith & Spirituality')
+      }
+    }
+  }
+
+  const handleGenreChange = (val: string) => {
+    setGenre(val)
+    if (val.toLowerCase().includes('faith')) {
+      const match = categories.find(
+        (c) => c.name.toLowerCase().includes('religion') || c.slug === 'religion-spirituality'
+      )
+      if (match) {
+        setCategory(match.name)
+      } else {
+        setCategory('Religion & Spirituality')
+      }
+    }
+  }
 
   // Handle adding a tag
   const handleAddTag = (tagToAdd: string) => {
@@ -149,6 +175,7 @@ function CreateWorkPage() {
 
     try {
       setIsSubmitting(true)
+      const isDefaultCover = !cover || cover === defaultBookCover || cover.includes('default-book-cover')
       const res = await createWriterWorkServerFn({
         data: {
           clerkUserId: user.id,
@@ -157,7 +184,7 @@ function CreateWorkPage() {
           description: description.trim() || undefined,
           categoryName: category,
           genreName: genre,
-          cover,
+          cover: isDefaultCover ? undefined : cover.trim(),
           tags: selectedTags,
           language,
           status,
@@ -295,10 +322,11 @@ function CreateWorkPage() {
                     <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
                       Category
                     </label>
-                    <DropdownSelect
+                    <Combobox
                       options={categoryOptions}
                       value={category}
-                      onChange={(val) => setCategory(val)}
+                      onChange={handleCategoryChange}
+                      placeholder="Search or select category..."
                       size="md"
                     />
                   </div>
@@ -307,10 +335,11 @@ function CreateWorkPage() {
                     <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
                       Primary Genre
                     </label>
-                    <DropdownSelect
+                    <Combobox
                       options={genreOptions}
                       value={genre}
-                      onChange={(val) => setGenre(val)}
+                      onChange={handleGenreChange}
+                      placeholder="Search or select genre..."
                       size="md"
                     />
                   </div>
@@ -414,34 +443,30 @@ function CreateWorkPage() {
                   </p>
                 </div>
 
-                {/* Status Tabs */}
-                <div className="space-y-2">
-                  <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)]">
-                    Publication Status
-                  </label>
-                  <div className="flex">
-                    <AnimatedTabs
-                      tabs={STATUS_TABS}
-                      activeId={status}
-                      onChange={(id) => setStatus(id as any)}
-                      variant="pill"
-                      size="sm"
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Publication Status Dropdown */}
+                  <div>
+                    <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
+                      Publication Status
+                    </label>
+                    <DropdownSelect
+                      options={STATUS_OPTIONS}
+                      value={status}
+                      onChange={(val) => setStatus(val as any)}
+                      size="md"
                     />
                   </div>
-                </div>
 
-                {/* Visibility Tabs */}
-                <div className="space-y-2">
-                  <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)]">
-                    Catalog Visibility
-                  </label>
-                  <div className="flex">
-                    <AnimatedTabs
-                      tabs={VISIBILITY_TABS}
-                      activeId={visibility}
-                      onChange={(id) => setVisibility(id as any)}
-                      variant="pill"
-                      size="sm"
+                  {/* Catalog Visibility Dropdown */}
+                  <div>
+                    <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
+                      Catalog Visibility
+                    </label>
+                    <DropdownSelect
+                      options={VISIBILITY_OPTIONS}
+                      value={visibility}
+                      onChange={(val) => setVisibility(val as any)}
+                      size="md"
                     />
                   </div>
                 </div>
@@ -471,7 +496,7 @@ function CreateWorkPage() {
                     Cover Artwork
                   </h2>
                   <p className="font-serif italic text-xs text-[var(--ink-muted)] mt-0.5">
-                    Select curated photography or upload a custom book cover
+                    Default editorial cover active. Upload custom artwork or keep the default.
                   </p>
                 </div>
 
@@ -479,7 +504,7 @@ function CreateWorkPage() {
                   label="Cover Artwork"
                   currentImageUrl={cover}
                   onImageUploaded={(url) => setCover(url)}
-                  onImageRemoved={() => setCover('')}
+                  onImageRemoved={() => setCover(defaultBookCover)}
                   folder="covers"
                   recommendedDimensions="600 × 900 px"
                   aspectRatioHint="Portrait (2:3)"
@@ -487,14 +512,33 @@ function CreateWorkPage() {
                   allowPlatformPicker={true}
                 />
 
+                <div className="flex items-center justify-between text-[11px] font-mono text-[var(--ink-muted)] pt-1">
+                  {cover === defaultBookCover || cover.includes('default-book-cover') ? (
+                    <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                      ✓ Default editorial cover active
+                    </span>
+                  ) : (
+                    <span>Custom artwork selected</span>
+                  )}
+                  {cover !== defaultBookCover && !cover.includes('default-book-cover') && (
+                    <button
+                      type="button"
+                      onClick={() => setCover(defaultBookCover)}
+                      className="text-[var(--ink-muted)] hover:text-[var(--ink-primary)] underline cursor-pointer"
+                    >
+                      Reset to Default Cover
+                    </button>
+                  )}
+                </div>
+
                 <div>
                   <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1">
                     Or External Image URL
                   </label>
                   <input
                     type="text"
-                    value={cover}
-                    onChange={(e) => setCover(e.target.value)}
+                    value={cover === defaultBookCover ? '' : cover}
+                    onChange={(e) => setCover(e.target.value || defaultBookCover)}
                     placeholder="https://..."
                     className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-1.5 text-xs font-mono text-[var(--ink-muted)] focus:outline-none focus:border-[var(--ink-primary)]"
                   />
