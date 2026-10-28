@@ -45,10 +45,13 @@ import surpriseRandomBookImg from '../assets/surprise-with-a-random-book/surpris
 import bookIdleImg from '../assets/surprise-with-a-random-book/book-idle-9x16.png'
 import bookIdleWebp from '../assets/surprise-with-a-random-book/book-idle-9x16.webp'
 import animatedBookVideoOptimized from '../assets/surprise-with-a-random-book/animated-book-video-optimized.mp4'
+import type { Work } from '../data/mockData'
+import { TopShelfSection } from './home/TopShelfSection'
 
 interface PublicMobileStoriesProps {
   onOpenAuth: () => void
   onOpenWriteModal: () => void
+  works?: Work[]
 }
 
 export interface CuratedStoryItem {
@@ -355,7 +358,7 @@ const MOODS: MoodItem[] = [
   },
 ]
 
-export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobileStoriesProps) {
+export function PublicMobileStories({ onOpenAuth, onOpenWriteModal, works }: PublicMobileStoriesProps) {
   const navigate = useNavigate()
   const [currentIndex, setCurrentIndex] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -1214,6 +1217,17 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal }: PublicMobi
             <span>Surprise me instead</span>
           </button>
         </div>
+      </section>
+
+      {/* =====================================================================
+          SECTION: TOP SHELF (COMMUNITY'S TOP 10 MOST-SAVED MASTERPIECES)
+          Mobile Public Experience
+          ===================================================================== */}
+      <section
+        id="top-shelf-mobile"
+        className="w-full py-8 px-4 sm:px-6 max-w-md mx-auto bg-white border-t border-neutral-100 flex flex-col justify-center"
+      >
+        <TopShelfSection works={works} id="top-shelf-mobile-section" />
       </section>
 
       {/* =====================================================================

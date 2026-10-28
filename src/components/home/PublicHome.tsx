@@ -13,6 +13,8 @@ import {
   Users,
 } from 'lucide-react'
 import { PublicMobileStories } from '../PublicMobileStories'
+import { TopShelfSection } from './TopShelfSection'
+import type { HomeLoaderData } from './LoggedInHome'
 import {
   getHeroImageSources,
 } from '../../config/hero'
@@ -201,9 +203,26 @@ const TESTIMONIALS_DATA = [
 import { PublicHomeSkeleton } from './HomeSkeletons'
 export { PublicHomeSkeleton }
 
-export default function PublicHome() {
-  const { openAuthModal, openPublicWriteModal } = useApp()
+interface PublicHomeProps {
+  loaderData?: HomeLoaderData
+}
+
+export default function PublicHome({ loaderData }: PublicHomeProps = {}) {
+  const { openAuthModal, openPublicWriteModal, allWorks } = useApp()
   const { isSignedIn } = useUser()
+
+  // Merge initialWorks from loaderData if available to ensure instant DB stories hydration
+  const works = useMemo(() => {
+    if (loaderData?.initialWorks && Array.isArray(loaderData.initialWorks) && loaderData.initialWorks.length > 0) {
+      const mergedMap = new Map<string, any>()
+      for (const w of loaderData.initialWorks) mergedMap.set(w.id, w)
+      for (const w of allWorks) {
+        if (!mergedMap.has(w.id)) mergedMap.set(w.id, w)
+      }
+      return Array.from(mergedMap.values())
+    }
+    return allWorks
+  }, [allWorks, loaderData?.initialWorks])
 
   // Single-source hero photograph configuration (src/config/hero.ts)
   const [heroImageFailed, setHeroImageFailed] = useState(false)
@@ -243,10 +262,11 @@ export default function PublicHome() {
 
   return (
     <>
-      {/* Mobile-First Dedicated Public Experience (Hero slide, mood explorer, surprise book) */}
+      {/* Mobile-First Dedicated Public Experience (Hero slide, mood explorer, surprise book, top shelf) */}
       <PublicMobileStories
         onOpenAuth={openAuthModal}
         onOpenWriteModal={openPublicWriteModal}
+        works={works}
       />
 
       {/* Desktop Editorial Homepage (md and above) */}
@@ -581,7 +601,14 @@ export default function PublicHome() {
       </section>
 
       {/* =========================================================================
-          3. THREE PRINCIPLES SECTION
+          3. TOP SHELF (COMMUNITY'S TOP 10 MOST-SAVED MASTERPIECES)
+          ========================================================================= */}
+      <div className="py-12 sm:py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-b border-[#D7CFC3]/50 dark:border-neutral-800">
+        <TopShelfSection works={works} id="top-shelf" />
+      </div>
+
+      {/* =========================================================================
+          4. THREE PRINCIPLES SECTION
           ========================================================================= */}
       <section className="py-16 sm:py-20 lg:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" style={{ contentVisibility: 'auto', containIntrinsicSize: '600px' }}>
         <div className="text-center max-w-2xl mx-auto mb-12 sm:mb-16">

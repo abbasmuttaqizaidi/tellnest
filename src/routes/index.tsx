@@ -119,7 +119,7 @@ function HomePage() {
   if (search?.view === 'public') {
     return (
       <Suspense fallback={<PublicHomeSkeleton />}>
-        <PublicHome />
+        <PublicHome loaderData={loaderData} />
       </Suspense>
     )
   }
@@ -143,7 +143,7 @@ function HomePage() {
       }
       return (
         <Suspense fallback={<PublicHomeSkeleton />}>
-          <PublicHome />
+          <PublicHome loaderData={loaderData} />
         </Suspense>
       )
     }
@@ -169,7 +169,7 @@ function HomePage() {
   // 3. Default for unauthenticated visitors
   return (
     <Suspense fallback={<PublicHomeSkeleton />}>
-      <PublicHome />
+      <PublicHome loaderData={loaderData} />
     </Suspense>
   )
 }

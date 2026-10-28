@@ -12,3 +12,15 @@ dist-ssr
 __unconfig*
 todos.json
 .vercel
+
+# Agent & IDE Scaffolding (Local Only - Never Push)
+.agent/
+.agents/
+.gemini/
+.gsd/
+adapters/
+scripts/
+GSD-STYLE.md
+PROJECT_RULES.md
+VERSION
+model_capabilities.yaml

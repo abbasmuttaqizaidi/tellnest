@@ -177,3 +177,55 @@ test('Top Shelf Cross-Section Co-existence: Stories in Recommended or Trending C
   assert.equal(topShelf.length, 1)
   assert.equal(topShelf[0].id, 'story-popular-everywhere')
 })
+
+test('Top Shelf Public Visibility: Computes top 10 for unauthenticated public visitors', () => {
+  const publicCatalog = Array.from({ length: 15 }, (_, i) => ({
+    id: `public-work-${i + 1}`,
+    title: `Public Manuscript ${i + 1}`,
+    visibility: 'Public',
+    status: 'Ongoing',
+    publishedChaptersCount: 4,
+    totalSaves: 500 - i * 10,
+    likeCount: 100 - i,
+    totalReads: '5000',
+    publishedAt: '2026-05-01T00:00:00.000Z',
+    author: { id: `author-${i + 1}`, name: `Author ${i + 1}` },
+  }))
+
+  // Public visitor: currentUserId is undefined / null
+  const publicTopShelf = getTopShelfWorks(publicCatalog, {
+    currentUserId: null,
+    currentUserProfileId: null,
+    limit: 10,
+  })
+
+  // Exactly 10 works returned
+  assert.equal(publicTopShelf.length, 10)
+  assert.equal(publicTopShelf[0].id, 'public-work-1')
+  assert.equal(publicTopShelf[0].totalSaves, 500)
+  assert.equal(publicTopShelf[9].id, 'public-work-10')
+  assert.equal(publicTopShelf[9].totalSaves, 410)
+})
+
+test('Top Shelf Architectural Parity: TopShelfSection integrated in PublicHome and PublicMobileStories', async () => {
+  const fs = await import('node:fs')
+  
+  // 1. Verify TopShelfSection.tsx exists
+  const componentContent = fs.readFileSync('src/components/home/TopShelfSection.tsx', 'utf8')
+  assert.ok(componentContent.includes('export function TopShelfSection'), 'TopShelfSection must be exported')
+  assert.ok(componentContent.includes('getTopShelfWorks'), 'TopShelfSection must consume getTopShelfWorks')
+
+  // 2. Verify Desktop PublicHome integration
+  const publicHomeContent = fs.readFileSync('src/components/home/PublicHome.tsx', 'utf8')
+  assert.ok(publicHomeContent.includes('TopShelfSection'), 'PublicHome must import TopShelfSection')
+  assert.ok(publicHomeContent.includes('<TopShelfSection'), 'PublicHome must render TopShelfSection for desktop public view')
+
+  // 3. Verify Mobile PublicMobileStories integration
+  const mobileContent = fs.readFileSync('src/components/PublicMobileStories.tsx', 'utf8')
+  assert.ok(mobileContent.includes('TopShelfSection'), 'PublicMobileStories must import TopShelfSection')
+  assert.ok(mobileContent.includes('<TopShelfSection'), 'PublicMobileStories must render TopShelfSection for mobile public view')
+
+  // 4. Verify LoggedInHome reuse
+  const loggedInContent = fs.readFileSync('src/components/home/LoggedInHome.tsx', 'utf8')
+  assert.ok(loggedInContent.includes('TopShelfSection'), 'LoggedInHome must reuse TopShelfSection')
+})
