@@ -28,6 +28,7 @@ import {
   Star,
   Eye,
   Zap,
+  Heart,
 } from 'lucide-react'
 import { formatViewCount, parseTotalReads } from '../../lib/utils'
 import {
@@ -38,6 +39,7 @@ import type { UserSessionBootstrap } from '../../server/authors'
 import { calculateForYouRecommendations } from '../../lib/recommendations/engine'
 import { filterAndOrderNewVoicesStories } from '../../lib/recommendations/newVoices'
 import { calculateBingeableReads, getWorkPublishedChapterCount } from '../../lib/recommendations/bingeable'
+import { getTopShelfWorks } from '../../lib/recommendations/topShelf'
 import { NewVoicesOpportunityModal } from '../NewVoicesOpportunityModal'
 
 import {
@@ -327,6 +329,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
 
   const forYouCarouselRef = useRef<HTMLDivElement>(null)
   const bingeableCarouselRef = useRef<HTMLDivElement>(null)
+  const topShelfCarouselRef = useRef<HTMLDivElement>(null)
   const recRequestIdRef = useRef<number>(0)
 
   useEffect(() => {
@@ -553,6 +556,16 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
       userPreferences: recommendationSignals?.preferences || null,
       currentUserId: effectiveUserId,
       currentUserProfileId: recommendationSignals?.profileId,
+    })
+  }, [works, recommendationSignals, effectiveUserId, isOwnWork])
+
+  // Top Shelf: Community's top 10 most-saved, cherished manuscripts (zero duplicates, capped at 10)
+  const topShelfWorks = useMemo(() => {
+    const candidateWorks = works.filter((w) => !isOwnWork(w.id))
+    return getTopShelfWorks(candidateWorks, {
+      currentUserId: effectiveUserId,
+      currentUserProfileId: recommendationSignals?.profileId,
+      limit: 10,
     })
   }, [works, recommendationSignals, effectiveUserId, isOwnWork])
 
@@ -1400,6 +1413,116 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
                       <span className="truncate">{work.genre || 'Fiction'}</span>
                       <span className="text-[9px] text-amber-600 dark:text-amber-400 font-semibold uppercase">
                         {work.status === 'Completed' ? 'Complete' : 'Quick Arc'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* =========================================================================
+          SECTION: TOP SHELF (COMMUNITY'S TOP 10 MOST-SAVED MASTERPIECES)
+          ========================================================================= */}
+      {topShelfWorks.length > 0 && (
+        <section id="top-shelf" className="w-full space-y-4" style={{ contentVisibility: 'auto', containIntrinsicSize: '550px' }}>
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-3 border-b border-[var(--border-subtle)]">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="flex h-5 w-5 items-center justify-center rounded bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                  <Bookmark className="h-3.5 w-3.5 fill-current" />
+                </span>
+                <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] tracking-tight">
+                  Top Shelf
+                </h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--ink-muted)]">
+                  Top 10 Community Picks
+                </span>
+              </div>
+              <p className="font-serif text-xs sm:text-sm text-[var(--ink-secondary)]">
+                The most saved and cherished manuscripts across the HatchPen reading community.
+              </p>
+            </div>
+          </div>
+
+          <div
+            ref={topShelfCarouselRef}
+            className="flex items-stretch gap-3 sm:gap-3.5 overflow-x-auto scroll-smooth py-1 px-0.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+            style={{ scrollSnapType: 'x mandatory' }}
+          >
+            {topShelfWorks.map((work, idx) => {
+              const wSlug = getWorkSlug(work)
+              const saved = isWorkSaved(work.id)
+              const savesCount = Number(work.totalSaves || (work as any).save_count || 0)
+
+              return (
+                <div
+                  key={work.id}
+                  style={{ scrollSnapAlign: 'start' }}
+                  className="w-[145px] sm:w-[160px] md:w-[170px] shrink-0 flex flex-col justify-between rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-xs hover:shadow-md transition-all duration-300 overflow-hidden group"
+                >
+                  {/* Cover with badge */}
+                  <div className="relative aspect-[2/3] w-full overflow-hidden bg-[var(--bg-subtle)]">
+                    <Link
+                      to="/works/$workId"
+                      params={{ workId: wSlug }}
+                      preload="intent"
+                      className="block w-full h-full no-underline"
+                    >
+                      <OptimizedImage
+                        src={work.cover}
+                        alt={work.title}
+                        width={170}
+                        height={255}
+                        containerClassName="w-full h-full"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    </Link>
+
+                    {/* Rank Badge #1..#10 */}
+                    <span className="absolute top-2 left-2 z-10 rounded bg-black/85 backdrop-blur-xs px-1.5 py-0.5 text-[9px] font-mono font-bold text-white border border-white/20 shadow-xs flex items-center gap-1">
+                      <span className="text-purple-400 font-extrabold">#{idx + 1}</span>
+                      <span>{savesCount.toLocaleString()} Saves</span>
+                    </span>
+
+                    {/* Bookmark Toggle */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        toggleSaveWork(work.id)
+                      }}
+                      className="absolute top-2 right-2 z-10 p-1.5 rounded-full bg-black/60 hover:bg-black/85 text-white/90 hover:text-white backdrop-blur-xs transition cursor-pointer"
+                      title={saved ? 'Remove from Saved' : 'Save to Shelf'}
+                    >
+                      <Bookmark className={`h-3.5 w-3.5 ${saved ? 'fill-current text-purple-400' : ''}`} />
+                    </button>
+                  </div>
+
+                  {/* Info */}
+                  <div className="p-3 flex flex-col flex-1 justify-between gap-2">
+                    <div className="space-y-1">
+                      <Link
+                        to="/works/$workId"
+                        params={{ workId: wSlug }}
+                        preload="intent"
+                        className="font-serif text-xs sm:text-sm font-bold text-[var(--ink-primary)] line-clamp-1 group-hover:underline no-underline block"
+                      >
+                        {work.title}
+                      </Link>
+                      <p className="font-mono text-[10px] sm:text-[11px] text-[var(--ink-muted)] truncate">
+                        {work.author?.name || 'Unknown Author'}
+                      </p>
+                    </div>
+
+                    <div className="pt-2 border-t border-[var(--border-subtle)] flex items-center justify-between text-[10px] font-mono text-[var(--ink-muted)]">
+                      <span className="truncate">{work.genre || 'Fiction'}</span>
+                      <span className="text-[9px] text-purple-600 dark:text-purple-400 font-semibold flex items-center gap-1">
+                        <Heart className="h-2.5 w-2.5 fill-current" />
+                        <span>{Number(work.likeCount || (work as any).like_count || 0).toLocaleString()}</span>
                       </span>
                     </div>
                   </div>
