@@ -278,7 +278,7 @@ export function calculateForYouRecommendations(params: {
     const matchesActiveShift = Boolean(verifiedShift && workGenreSlugs.includes(verifiedShift.topGenreSlug))
     if (matchesActiveShift) {
       score += config.WEIGHTS.ACTIVE_READING_GENRE_AFFINITY
-      primaryDriver = `Based on your recent reading in ${work.genre}`
+      primaryDriver = `Based on your recent reading in ${work.genre || 'Fiction'}`
     }
 
     // Signal B: Declared Onboarding Genre Match
@@ -288,7 +288,7 @@ export function calculateForYouRecommendations(params: {
     if (matchingPreferredGenres.length > 0) {
       score += config.WEIGHTS.ONBOARDING_GENRE_MATCH + (matchingPreferredGenres.length - 1) * 8
       if (!primaryDriver) {
-        primaryDriver = `Based on your interest in ${work.genre}`
+        primaryDriver = `Based on your interest in ${work.genre || 'Fiction'}`
       }
     }
 
@@ -297,7 +297,7 @@ export function calculateForYouRecommendations(params: {
     if (matchesPreferredCategory) {
       score += config.WEIGHTS.ONBOARDING_CATEGORY_MATCH
       if (!primaryDriver) {
-        primaryDriver = `Recommended ${work.category}`
+        primaryDriver = `Recommended ${work.category || 'Novels'}`
       }
     }
 

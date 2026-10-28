@@ -77,8 +77,8 @@ export function getTopShelfWorks(
 
     seenIds.add(work.id)
 
-    const saves = Math.max(0, Number(work.totalSaves || (work as any).save_count || 0) || 0)
-    const hearts = Math.max(0, Number(work.likeCount || (work as any).like_count || 0) || 0)
+    const saves = Math.max(0, Number(work.totalSaves ?? (work as any).save_count ?? 0) || 0)
+    const hearts = Math.max(0, Number(work.likeCount ?? (work as any).like_count ?? (work as any).likesCount ?? work.ratingCount ?? 0) || 0)
     const reads = Math.max(0, parseTotalReads(work.totalReads) || 0)
     const rawTime = work.publishedAt ? new Date(work.publishedAt).getTime() : 0
     const publishedTime = isNaN(rawTime) ? 0 : rawTime

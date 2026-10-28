@@ -842,7 +842,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
 
                     {/* ── BOTTOM-LEFT: Chapter count ── */}
                     <div className="absolute bottom-2 left-2 z-10 bg-black/75 text-white font-mono text-[8.5px] px-1.5 py-0.5 rounded backdrop-blur-2xs border border-white/10">
-                      {work.publishedChaptersCount ?? work.chaptersCount} Ch
+                      {work.publishedChaptersCount ?? work.chaptersCount ?? 0} Ch
                     </div>
 
                     {/* ── BOTTOM-RIGHT: Status Badge (Ongoing, Completed, etc.) ── */}
@@ -1474,7 +1474,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
 
                     {/* ── BOTTOM-LEFT: Chapter count ── */}
                     <div className="absolute bottom-2 left-2 z-10 bg-black/75 text-white font-mono text-[8.5px] px-1.5 py-0.5 rounded backdrop-blur-2xs border border-white/10">
-                      {work.publishedChaptersCount ?? work.chaptersCount} Ch
+                      {work.publishedChaptersCount ?? work.chaptersCount ?? 0} Ch
                     </div>
 
                     {/* ── BOTTOM-RIGHT: Status Badge ── */}

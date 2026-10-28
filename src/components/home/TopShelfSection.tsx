@@ -172,7 +172,7 @@ export function TopShelfSection({
                   <span className="truncate">{work.genre || 'Fiction'}</span>
                   <span className="text-[9px] text-purple-600 dark:text-purple-400 font-semibold flex items-center gap-1">
                     <Heart className="h-2.5 w-2.5 fill-current" />
-                    <span>{Number((work as any).likeCount || (work as any).like_count || (work as any).likesCount || 0).toLocaleString()}</span>
+                    <span>{Number(work.likeCount ?? (work as any).like_count ?? (work as any).likesCount ?? work.ratingCount ?? 0).toLocaleString()}</span>
                   </span>
                 </div>
               </div>

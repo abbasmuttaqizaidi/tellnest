@@ -92,6 +92,8 @@ export interface Work {
   language: string
   status: 'Ongoing' | 'Completed' | 'On Hiatus' | 'Cancelled'
   visibility: 'Public' | 'Unlisted' | 'Draft'
+  isIndexable?: boolean
+  is_indexable?: boolean
   isMature: boolean
   featured?: boolean
   trending?: boolean
@@ -114,6 +116,8 @@ export interface Work {
   publishedChaptersCount: number
   totalReads: string
   totalSaves: number
+  likeCount?: number
+  like_count?: number
   ratingScore: number
   ratingCount: number
   createdAt: string
@@ -294,6 +298,8 @@ export const WORKS: Work[] = [
     publishedChaptersCount: 5,
     totalReads: '120K',
     totalSaves: 4800,
+    likeCount: 310,
+    like_count: 310,
     ratingScore: 4.9,
     ratingCount: 310,
     createdAt: '2026-10-07',
@@ -326,6 +332,8 @@ export const WORKS: Work[] = [
     publishedChaptersCount: 12,
     totalReads: '215K',
     totalSaves: 12400,
+    likeCount: 1890,
+    like_count: 1890,
     ratingScore: 4.95,
     ratingCount: 1890,
     createdAt: '2025-01-10',
@@ -392,6 +400,8 @@ There is no lesson to be drawn from this, except that quietness is not the absen
     publishedChaptersCount: 8,
     totalReads: '168K',
     totalSaves: 9400,
+    likeCount: 1420,
+    like_count: 1420,
     ratingScore: 4.85,
     ratingCount: 1420,
     createdAt: '2025-06-04',
@@ -440,6 +450,8 @@ Klein arrived with his brass calipers and three reams of manifold carbon paper.`
     publishedChaptersCount: 10,
     totalReads: '340K',
     totalSaves: 15900,
+    likeCount: 2910,
+    like_count: 2910,
     ratingScore: 4.92,
     ratingCount: 2910,
     createdAt: '2024-11-20',
@@ -490,6 +502,8 @@ There had only been Robert MacIntyre, a brass ruling pen, and an unbreakable vow
     publishedChaptersCount: 5,
     totalReads: '92K',
     totalSaves: 5800,
+    likeCount: 840,
+    like_count: 840,
     ratingScore: 4.96,
     ratingCount: 840,
     createdAt: '2025-02-14',
@@ -547,6 +561,8 @@ between noon and death.`
     publishedChaptersCount: 4,
     totalReads: '124K',
     totalSaves: 7100,
+    likeCount: 1110,
+    like_count: 1110,
     ratingScore: 4.88,
     ratingCount: 1110,
     createdAt: '2025-07-02',
@@ -614,6 +630,8 @@ She was alive on Tuesday.`
     totalSaves: 10200,
     ratingScore: 4.91,
     ratingCount: 1530,
+    likeCount: 1530,
+    like_count: 1530,
     createdAt: '2024-09-15',
     publishedAt: '2024-09-15',
     updatedAt: '3 months ago',
@@ -667,6 +685,8 @@ Donald MacLean would stand behind me with a folded rule in his fist. If my hand 
     totalSaves: 4900,
     ratingScore: 4.97,
     ratingCount: 720,
+    likeCount: 720,
+    like_count: 720,
     createdAt: '2024-12-01',
     publishedAt: '2024-12-01',
     updatedAt: '4 months ago',
