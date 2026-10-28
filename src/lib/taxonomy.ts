@@ -171,6 +171,15 @@ export const GLOBAL_CATEGORIES: GlobalCategory[] = [
     displayOrder: 16,
     worksCount: 320,
   },
+  {
+    id: 'cat-religion-spirituality',
+    name: 'Religion & Spirituality',
+    slug: 'religion-spirituality',
+    description: 'Sacred texts, theological monographs, contemplative spiritual treatises, and faith-inspired prose.',
+    accentLetter: 'R',
+    displayOrder: 17,
+    worksCount: 350,
+  },
 ]
 
 /**
@@ -487,6 +496,15 @@ export const GLOBAL_GENRES: GlobalGenre[] = [
     displayOrder: 33,
     worksCount: 490,
   },
+  {
+    id: 'genre-faith-spirituality',
+    name: 'Faith & Spirituality',
+    slug: 'faith-spirituality',
+    group: 'Other',
+    description: 'Sacred journeys, theological dilemmas, divine wonder, and deep explorations of personal faith.',
+    displayOrder: 34,
+    worksCount: 410,
+  },
 ]
 
 /**
@@ -527,6 +545,7 @@ export const SUGGESTED_TAGS = {
     'Social Justice',
     'Class Divide',
     'Immigration / Diaspora',
+    'Faith & Spirituality',
   ],
   Settings: [
     'Urban',

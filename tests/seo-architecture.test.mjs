@@ -260,16 +260,16 @@ test('Sitemap Escaping & Formatting: escapeXml and formatLastmod behave determin
   assert.equal(formatLastmod(null), undefined)
 })
 
-test('Taxonomy Coverage: All 16 canonical categories must have canonical slugs for SEO indexing', () => {
-  assert.equal(GLOBAL_CATEGORIES.length, 16, 'Exactly 16 canonical categories must be defined')
+test('Taxonomy Coverage: All canonical categories must have canonical slugs for SEO indexing', () => {
+  assert.equal(GLOBAL_CATEGORIES.length, 17, 'Exactly 17 canonical categories must be defined')
   for (const cat of GLOBAL_CATEGORIES) {
     assert.ok(cat.slug, `Category ${cat.name} must have a valid slug`)
     assert.match(cat.slug, /^[a-z0-9-]+$/, `Slug ${cat.slug} must be URL-safe kebab-case`)
   }
 })
 
-test('Taxonomy Coverage: All 33 canonical genres must have canonical slugs for SEO indexing', () => {
-  assert.equal(GLOBAL_GENRES.length, 33, 'Exactly 33 canonical genres must be defined in taxonomy')
+test('Taxonomy Coverage: All canonical genres must have canonical slugs for SEO indexing', () => {
+  assert.equal(GLOBAL_GENRES.length, 34, 'Exactly 34 canonical genres must be defined in taxonomy')
   for (const genre of GLOBAL_GENRES) {
     assert.ok(genre.slug, `Genre ${genre.name} must have a valid slug`)
     assert.match(genre.slug, /^[a-z0-9-]+$/, `Slug ${genre.slug} must be URL-safe kebab-case`)
