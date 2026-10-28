@@ -69,7 +69,7 @@ import {
 } from 'lucide-react'
 
 import { generateMeta } from '../lib/seo'
-import { formatHeartCount } from '../lib/utils'
+import { formatHeartCount, formatRelativeTimestamp } from '../lib/utils'
 
 export const Route = createFileRoute('/secret-adminpanel')({
   head: () =>
@@ -131,7 +131,7 @@ function SecretAdminPanelPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [dashboardData, setDashboardData] = useState<AdminDashboardData | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [activeFilter, setActiveFilter] = useState<'all' | 'real' | 'mock' | 'authors' | 'readers' | 'saved'>('all')
+  const [activeFilter, setActiveFilter] = useState<'all' | 'online' | 'today' | 'this_week' | 'real' | 'mock' | 'authors' | 'readers' | 'saved'>('all')
   const [activeTabByUser, setActiveTabByUser] = useState<Record<string, 'works' | 'reading' | 'interests'>>({})
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [selectedWorkForHearts, setSelectedWorkForHearts] = useState<any | null>(null)
@@ -628,6 +628,15 @@ function SecretAdminPanelPage() {
 
       if (!matchesSearch) return false
 
+      if (activeFilter === 'online') {
+        return u.activeStatus === 'online'
+      }
+      if (activeFilter === 'today') {
+        return u.activeStatus === 'online' || u.activeStatus === 'today'
+      }
+      if (activeFilter === 'this_week') {
+        return u.activeStatus === 'online' || u.activeStatus === 'today' || u.activeStatus === 'this_week'
+      }
       if (activeFilter === 'real') {
         return !u.isMock
       }
@@ -2112,84 +2121,193 @@ function SecretAdminPanelPage() {
         </section>
       ) : activeAdminSection === 'users' ? (
         <>
-          {/* FILTER & SEARCH CONTROLS */}
-      <section className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-        {/* Search input */}
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--ink-muted)]" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by name, email, handle or Clerk ID..."
-            className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] pl-10 pr-4 py-2 text-xs text-[var(--ink-primary)] placeholder-[var(--ink-muted)] focus:outline-none focus:border-[var(--ink-primary)] transition-colors shadow-2xs"
-          />
-        </div>
+          {/* ACTIVE USERS TRACKING STATS BANNER (ADMIN STRICT) */}
+          <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 shadow-2xs flex items-center justify-between">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                  </span>
+                  <span className="font-mono text-xs uppercase tracking-wider text-[var(--ink-muted)]">
+                    Live Online Now
+                  </span>
+                </div>
+                <p className="font-serif text-2xl font-bold text-[var(--ink-primary)]">
+                  {unifiedUsers.filter((u) => u.activeStatus === 'online').length}
+                </p>
+                <p className="text-[11px] text-[var(--ink-muted)]">
+                  Active within the last 5 minutes
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveFilter('online')}
+                className="text-xs font-mono font-medium text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+              >
+                Filter &rarr;
+              </button>
+            </div>
 
-        {/* Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-          <button
-            onClick={() => setActiveFilter('all')}
-            className={`px-3 py-1.5 rounded-full text-xs font-mono transition-all cursor-pointer ${
-              activeFilter === 'all'
-                ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-semibold shadow-xs'
-                : 'bg-[var(--bg-surface)] text-[var(--ink-muted)] border border-[var(--border-subtle)] hover:text-[var(--ink-primary)]'
-            }`}
-          >
-            All ({unifiedUsers.length})
-          </button>
-          <button
-            onClick={() => setActiveFilter('real')}
-            className={`px-3 py-1.5 rounded-full text-xs font-mono transition-all cursor-pointer ${
-              activeFilter === 'real'
-                ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-semibold shadow-xs'
-                : 'bg-[var(--bg-surface)] text-[var(--ink-muted)] border border-[var(--border-subtle)] hover:text-[var(--ink-primary)]'
-            }`}
-          >
-            Real Users ({unifiedUsers.filter((u) => !u.isMock).length})
-          </button>
-          <button
-            onClick={() => setActiveFilter('mock')}
-            className={`px-3 py-1.5 rounded-full text-xs font-mono transition-all cursor-pointer ${
-              activeFilter === 'mock'
-                ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-semibold shadow-xs'
-                : 'bg-[var(--bg-surface)] text-[var(--ink-muted)] border border-[var(--border-subtle)] hover:text-[var(--ink-primary)]'
-            }`}
-          >
-            Mock Personas ({unifiedUsers.filter((u) => u.isMock).length})
-          </button>
-          <button
-            onClick={() => setActiveFilter('authors')}
-            className={`px-3 py-1.5 rounded-full text-xs font-mono transition-all cursor-pointer ${
-              activeFilter === 'authors'
-                ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-semibold shadow-xs'
-                : 'bg-[var(--bg-surface)] text-[var(--ink-muted)] border border-[var(--border-subtle)] hover:text-[var(--ink-primary)]'
-            }`}
-          >
-            Authors ({unifiedUsers.filter((u) => u.works.length > 0).length})
-          </button>
-          <button
-            onClick={() => setActiveFilter('readers')}
-            className={`px-3 py-1.5 rounded-full text-xs font-mono transition-all cursor-pointer ${
-              activeFilter === 'readers'
-                ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-semibold shadow-xs'
-                : 'bg-[var(--bg-surface)] text-[var(--ink-muted)] border border-[var(--border-subtle)] hover:text-[var(--ink-primary)]'
-            }`}
-          >
-            Active Readers ({unifiedUsers.filter((u) => u.readingProgress.length > 0).length})
-          </button>
-          <button
-            onClick={() => setActiveFilter('saved')}
-            className={`px-3 py-1.5 rounded-full text-xs font-mono transition-all cursor-pointer ${
-              activeFilter === 'saved'
-                ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-semibold shadow-xs'
-                : 'bg-[var(--bg-surface)] text-[var(--ink-muted)] border border-[var(--border-subtle)] hover:text-[var(--ink-primary)]'
-            }`}
-          >
-            Library Holders ({unifiedUsers.filter((u) => u.savedWorks.length > 0).length})
-          </button>
-        </div>
-      </section>
+            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 shadow-2xs flex items-center justify-between">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-amber-500"></span>
+                  <span className="font-mono text-xs uppercase tracking-wider text-[var(--ink-muted)]">
+                    Daily Active (24h)
+                  </span>
+                </div>
+                <p className="font-serif text-2xl font-bold text-[var(--ink-primary)]">
+                  {unifiedUsers.filter((u) => u.activeStatus === 'online' || u.activeStatus === 'today').length}
+                </p>
+                <p className="text-[11px] text-[var(--ink-muted)]">
+                  Active in past 24 hours
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveFilter('today')}
+                className="text-xs font-mono font-medium text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
+              >
+                Filter &rarr;
+              </button>
+            </div>
+
+            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 shadow-2xs flex items-center justify-between">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-sky-500"></span>
+                  <span className="font-mono text-xs uppercase tracking-wider text-[var(--ink-muted)]">
+                    Weekly Active (7d)
+                  </span>
+                </div>
+                <p className="font-serif text-2xl font-bold text-[var(--ink-primary)]">
+                  {unifiedUsers.filter((u) => u.activeStatus === 'online' || u.activeStatus === 'today' || u.activeStatus === 'this_week').length}
+                </p>
+                <p className="text-[11px] text-[var(--ink-muted)]">
+                  Active in past 7 days
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveFilter('this_week')}
+                className="text-xs font-mono font-medium text-sky-600 dark:text-sky-400 hover:underline cursor-pointer"
+              >
+                Filter &rarr;
+              </button>
+            </div>
+          </section>
+
+          {/* FILTER & SEARCH CONTROLS */}
+          <section className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+            {/* Search input */}
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--ink-muted)]" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by name, email, handle or Clerk ID..."
+                className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] pl-10 pr-4 py-2 text-xs text-[var(--ink-primary)] placeholder-[var(--ink-muted)] focus:outline-none focus:border-[var(--ink-primary)] transition-colors shadow-2xs"
+              />
+            </div>
+
+            {/* Filter Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+              <button
+                onClick={() => setActiveFilter('all')}
+                className={`px-3 py-1.5 rounded-full text-xs font-mono transition-all cursor-pointer ${
+                  activeFilter === 'all'
+                    ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-semibold shadow-xs'
+                    : 'bg-[var(--bg-surface)] text-[var(--ink-muted)] border border-[var(--border-subtle)] hover:text-[var(--ink-primary)]'
+                }`}
+              >
+                All ({unifiedUsers.length})
+              </button>
+              <button
+                onClick={() => setActiveFilter('online')}
+                className={`px-3 py-1.5 rounded-full text-xs font-mono transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeFilter === 'online'
+                    ? 'bg-emerald-600 text-white font-semibold shadow-xs'
+                    : 'bg-[var(--bg-surface)] text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
+                }`}
+              >
+                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                Online ({unifiedUsers.filter((u) => u.activeStatus === 'online').length})
+              </button>
+              <button
+                onClick={() => setActiveFilter('today')}
+                className={`px-3 py-1.5 rounded-full text-xs font-mono transition-all cursor-pointer ${
+                  activeFilter === 'today'
+                    ? 'bg-amber-600 text-white font-semibold shadow-xs'
+                    : 'bg-[var(--bg-surface)] text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/40'
+                }`}
+              >
+                Active Today ({unifiedUsers.filter((u) => u.activeStatus === 'online' || u.activeStatus === 'today').length})
+              </button>
+              <button
+                onClick={() => setActiveFilter('this_week')}
+                className={`px-3 py-1.5 rounded-full text-xs font-mono transition-all cursor-pointer ${
+                  activeFilter === 'this_week'
+                    ? 'bg-sky-600 text-white font-semibold shadow-xs'
+                    : 'bg-[var(--bg-surface)] text-sky-700 dark:text-sky-400 border border-sky-200 dark:border-sky-800 hover:bg-sky-50 dark:hover:bg-sky-950/40'
+                }`}
+              >
+                Active This Week ({unifiedUsers.filter((u) => u.activeStatus === 'online' || u.activeStatus === 'today' || u.activeStatus === 'this_week').length})
+              </button>
+              <button
+                onClick={() => setActiveFilter('real')}
+                className={`px-3 py-1.5 rounded-full text-xs font-mono transition-all cursor-pointer ${
+                  activeFilter === 'real'
+                    ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-semibold shadow-xs'
+                    : 'bg-[var(--bg-surface)] text-[var(--ink-muted)] border border-[var(--border-subtle)] hover:text-[var(--ink-primary)]'
+                }`}
+              >
+                Real ({unifiedUsers.filter((u) => !u.isMock).length})
+              </button>
+              <button
+                onClick={() => setActiveFilter('mock')}
+                className={`px-3 py-1.5 rounded-full text-xs font-mono transition-all cursor-pointer ${
+                  activeFilter === 'mock'
+                    ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-semibold shadow-xs'
+                    : 'bg-[var(--bg-surface)] text-[var(--ink-muted)] border border-[var(--border-subtle)] hover:text-[var(--ink-primary)]'
+                }`}
+              >
+                Mock ({unifiedUsers.filter((u) => u.isMock).length})
+              </button>
+              <button
+                onClick={() => setActiveFilter('authors')}
+                className={`px-3 py-1.5 rounded-full text-xs font-mono transition-all cursor-pointer ${
+                  activeFilter === 'authors'
+                    ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-semibold shadow-xs'
+                    : 'bg-[var(--bg-surface)] text-[var(--ink-muted)] border border-[var(--border-subtle)] hover:text-[var(--ink-primary)]'
+                }`}
+              >
+                Authors ({unifiedUsers.filter((u) => u.works.length > 0).length})
+              </button>
+              <button
+                onClick={() => setActiveFilter('readers')}
+                className={`px-3 py-1.5 rounded-full text-xs font-mono transition-all cursor-pointer ${
+                  activeFilter === 'readers'
+                    ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-semibold shadow-xs'
+                    : 'bg-[var(--bg-surface)] text-[var(--ink-muted)] border border-[var(--border-subtle)] hover:text-[var(--ink-primary)]'
+                }`}
+              >
+                Readers ({unifiedUsers.filter((u) => u.readingProgress.length > 0).length})
+              </button>
+              <button
+                onClick={() => setActiveFilter('saved')}
+                className={`px-3 py-1.5 rounded-full text-xs font-mono transition-all cursor-pointer ${
+                  activeFilter === 'saved'
+                    ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-semibold shadow-xs'
+                    : 'bg-[var(--bg-surface)] text-[var(--ink-muted)] border border-[var(--border-subtle)] hover:text-[var(--ink-primary)]'
+                }`}
+              >
+                Holders ({unifiedUsers.filter((u) => u.savedWorks.length > 0).length})
+              </button>
+            </div>
+          </section>
 
       {/* USER LIST CARDS */}
       <section className="space-y-6">
@@ -2213,6 +2331,14 @@ function SecretAdminPanelPage() {
         ) : (
           filteredUsers.map((user) => {
             const currentTab = activeTabByUser[user.clerkId] || 'works'
+            const statusColor =
+              user.activeStatus === 'online'
+                ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]'
+                : user.activeStatus === 'today'
+                ? 'bg-amber-500'
+                : user.activeStatus === 'this_week'
+                ? 'bg-sky-500'
+                : 'bg-neutral-400 dark:bg-neutral-600'
 
             return (
               <div
@@ -2229,7 +2355,7 @@ function SecretAdminPanelPage() {
                       name={user.displayName}
                       size="xl"
                       showStatus={true}
-                      statusColor="bg-emerald-500"
+                      statusColor={statusColor}
                     />
 
                     <div className="space-y-1">
@@ -2243,6 +2369,26 @@ function SecretAdminPanelPage() {
                         <Badge variant="subtle" size="sm" className="font-mono text-[10px]">
                           {user.status}
                         </Badge>
+                        {user.activeStatus === 'online' ? (
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            Online Now
+                          </span>
+                        ) : user.activeStatus === 'today' ? (
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800">
+                            <span className="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
+                            Active Today ({formatRelativeTimestamp(user.lastSeenAt)})
+                          </span>
+                        ) : user.activeStatus === 'this_week' ? (
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/50 border border-sky-200 dark:border-sky-800">
+                            <span className="h-1.5 w-1.5 rounded-full bg-sky-500"></span>
+                            Active This Week ({formatRelativeTimestamp(user.lastSeenAt)})
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono text-[var(--ink-muted)] bg-[var(--bg-subtle)] border border-[var(--border-subtle)]">
+                            Last seen {formatRelativeTimestamp(user.lastSeenAt)}
+                          </span>
+                        )}
                         {user.isMock ? (
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
                             Mock Persona
@@ -2281,6 +2427,14 @@ function SecretAdminPanelPage() {
                         <span className="text-[11px] font-mono">
                           Joined {new Date(user.createdAt).toLocaleDateString()}
                         </span>
+                        {user.lastSeenAt && (
+                          <>
+                            <span>•</span>
+                            <span className="text-[11px] font-mono text-[var(--ink-muted)]">
+                              Activity: {formatRelativeTimestamp(user.lastSeenAt)}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>

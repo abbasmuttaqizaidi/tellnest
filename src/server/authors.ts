@@ -72,6 +72,48 @@ export const syncClerkUserServerFn = createServerFn({ method: 'POST' })
     return await syncClerkUserToProfile(data)
   })
 
+const userPresenceRateLimitMap = new Map<string, number>()
+
+/**
+ * Server Function: Records lightweight presence heartbeat for authenticated user.
+ * Throttled to max 1 DB update per 60 seconds per user.
+ */
+export const recordUserPresenceServerFn = createServerFn({ method: 'POST' })
+  .validator((params: { clerkUserId: string }) => {
+    if (!params.clerkUserId || typeof params.clerkUserId !== 'string') {
+      throw new Error('clerkUserId is required')
+    }
+    return { clerkUserId: params.clerkUserId.trim() }
+  })
+  .handler(async ({ data: { clerkUserId } }) => {
+    const now = Date.now()
+    const lastPing = userPresenceRateLimitMap.get(clerkUserId) || 0
+    if (now - lastPing < 60_000) {
+      return { success: true, throttled: true }
+    }
+    userPresenceRateLimitMap.set(clerkUserId, now)
+
+    if (userPresenceRateLimitMap.size > 5000) {
+      for (const [key, ts] of userPresenceRateLimitMap.entries()) {
+        if (now - ts > 300_000) {
+          userPresenceRateLimitMap.delete(key)
+        }
+      }
+    }
+
+    try {
+      const { createAdminClient } = await import('../lib/supabase/server.ts')
+      const admin = createAdminClient()
+      await admin
+        .from('profiles')
+        .update({ last_seen_at: new Date().toISOString() })
+        .eq('clerk_user_id', clerkUserId)
+      return { success: true }
+    } catch {
+      return { success: false }
+    }
+  })
+
 /**
  * Server Function: Save onboarding details into Supabase database for the user.
  */

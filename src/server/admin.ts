@@ -96,6 +96,8 @@ export interface AdminUser {
   location?: string | null
   createdAt: string
   lastSignInAt: string | null
+  lastSeenAt?: string | null
+  activeStatus?: 'online' | 'today' | 'this_week' | 'dormant'
   status: 'active' | 'suspended' | 'banned'
   works: AdminUserWork[]
   readingProgress: AdminUserReading[]
@@ -127,6 +129,9 @@ export interface AdminDashboardData {
     totalWorks: number
     activeReadingSessions: number
     totalLibrarySaves: number
+    onlineNowCount?: number
+    activeTodayCount?: number
+    activeThisWeekCount?: number
   }
 }
 
@@ -334,6 +339,50 @@ export const getAdminUsersServerFn = createServerFn({ method: 'POST' })
         ? (matchingProfile.preferences.privacy || {})
         : {}
 
+      // Deduce effective last seen timestamp across presence ping, Clerk sign-in, and recent interactions
+      const activityTimestamps: number[] = []
+      if (matchingProfile?.last_seen_at) {
+        const t = new Date(matchingProfile.last_seen_at).getTime()
+        if (!isNaN(t)) activityTimestamps.push(t)
+      }
+      if (lastSignIn) {
+        const t = new Date(lastSignIn).getTime()
+        if (!isNaN(t)) activityTimestamps.push(t)
+      }
+      for (const r of userReading) {
+        if (r.lastReadAt) {
+          const t = new Date(r.lastReadAt).getTime()
+          if (!isNaN(t)) activityTimestamps.push(t)
+        }
+      }
+      for (const s of userSaved) {
+        if (s.savedAt) {
+          const t = new Date(s.savedAt).getTime()
+          if (!isNaN(t)) activityTimestamps.push(t)
+        }
+      }
+      for (const w of userWorks) {
+        if (w.createdAt) {
+          const t = new Date(w.createdAt).getTime()
+          if (!isNaN(t)) activityTimestamps.push(t)
+        }
+      }
+
+      const maxActivityTs = activityTimestamps.length > 0 ? Math.max(...activityTimestamps) : null
+      const effectiveLastSeenAt = maxActivityTs ? new Date(maxActivityTs).toISOString() : null
+
+      let activeStatus: 'online' | 'today' | 'this_week' | 'dormant' = 'dormant'
+      if (maxActivityTs) {
+        const diffMs = Date.now() - maxActivityTs
+        if (diffMs <= 5 * 60 * 1000) {
+          activeStatus = 'online'
+        } else if (diffMs <= 24 * 60 * 60 * 1000) {
+          activeStatus = 'today'
+        } else if (diffMs <= 7 * 24 * 60 * 60 * 1000) {
+          activeStatus = 'this_week'
+        }
+      }
+
       usersMap.set(u.id, {
         clerkId: u.id,
         profileId,
@@ -347,6 +396,8 @@ export const getAdminUsersServerFn = createServerFn({ method: 'POST' })
         location: matchingProfile?.location || null,
         createdAt: matchingProfile?.created_at || createdDate,
         lastSignInAt: lastSignIn,
+        lastSeenAt: effectiveLastSeenAt,
+        activeStatus,
         status: (matchingProfile?.account_status as any) || 'active',
         works: userWorks,
         readingProgress: userReading,
@@ -411,6 +462,39 @@ export const getAdminUsersServerFn = createServerFn({ method: 'POST' })
           ? (p.preferences.privacy || {})
           : {}
 
+        const profileActivityTimestamps: number[] = []
+        if (p.last_seen_at) {
+          const t = new Date(p.last_seen_at).getTime()
+          if (!isNaN(t)) profileActivityTimestamps.push(t)
+        }
+        for (const r of userReading) {
+          if (r.lastReadAt) {
+            const t = new Date(r.lastReadAt).getTime()
+            if (!isNaN(t)) profileActivityTimestamps.push(t)
+          }
+        }
+        for (const w of userWorks) {
+          if (w.createdAt) {
+            const t = new Date(w.createdAt).getTime()
+            if (!isNaN(t)) profileActivityTimestamps.push(t)
+          }
+        }
+
+        const maxProfileTs = profileActivityTimestamps.length > 0 ? Math.max(...profileActivityTimestamps) : null
+        const pLastSeenAt = maxProfileTs ? new Date(maxProfileTs).toISOString() : null
+
+        let pActiveStatus: 'online' | 'today' | 'this_week' | 'dormant' = 'dormant'
+        if (maxProfileTs) {
+          const diffMs = Date.now() - maxProfileTs
+          if (diffMs <= 5 * 60 * 1000) {
+            pActiveStatus = 'online'
+          } else if (diffMs <= 24 * 60 * 60 * 1000) {
+            pActiveStatus = 'today'
+          } else if (diffMs <= 7 * 24 * 60 * 60 * 1000) {
+            pActiveStatus = 'this_week'
+          }
+        }
+
         usersMap.set(p.clerk_user_id, {
           clerkId: p.clerk_user_id,
           profileId: p.id,
@@ -424,6 +508,8 @@ export const getAdminUsersServerFn = createServerFn({ method: 'POST' })
           location: p.location || null,
           createdAt: p.created_at,
           lastSignInAt: null,
+          lastSeenAt: pLastSeenAt,
+          activeStatus: pActiveStatus,
           status: p.account_status || 'active',
           works: userWorks,
           readingProgress: userReading,
@@ -446,7 +532,13 @@ export const getAdminUsersServerFn = createServerFn({ method: 'POST' })
     }
 
     const users = Array.from(usersMap.values())
-    const realUsersCount = users.filter((u) => !u.isMock).length
+    const realUsers = users.filter((u) => !u.isMock)
+    const realUsersCount = realUsers.length
+
+    // Active metrics strictly isolated to the admin console
+    const onlineNowCount = realUsers.filter((u) => u.activeStatus === 'online').length
+    const activeTodayCount = realUsers.filter((u) => u.activeStatus === 'online' || u.activeStatus === 'today').length
+    const activeThisWeekCount = realUsers.filter((u) => u.activeStatus === 'online' || u.activeStatus === 'today' || u.activeStatus === 'this_week').length
 
     return {
       users,
@@ -456,6 +548,9 @@ export const getAdminUsersServerFn = createServerFn({ method: 'POST' })
         totalWorks: works.length,
         activeReadingSessions: readingProgress.length,
         totalLibrarySaves: libraryItems.length,
+        onlineNowCount,
+        activeTodayCount,
+        activeThisWeekCount,
       },
     }
   })

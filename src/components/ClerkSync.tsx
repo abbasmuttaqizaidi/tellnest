@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useUser, useAuth } from '@clerk/react'
 import { useRouter } from '@tanstack/react-router'
-import { syncClerkUserServerFn } from '../server/authors'
+import { syncClerkUserServerFn, recordUserPresenceServerFn } from '../server/authors'
 import { createClerkSupabaseClient } from '../lib/supabase/client'
 import { useApp } from '../context/AppContext'
 
@@ -96,6 +96,32 @@ export function ClerkSync() {
 
     sync()
   }, [user, isUserLoaded, isSignedIn, getToken])
+
+  // Active Presence Heartbeat (Every 2.5 minutes while tab is visible)
+  useEffect(() => {
+    if (!isUserLoaded || !isSignedIn || !user) return
+
+    const pingPresence = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        recordUserPresenceServerFn({ data: { clerkUserId: user.id } }).catch(() => {})
+      }
+    }
+
+    pingPresence()
+
+    const interval = setInterval(pingPresence, 150_000) // 2.5 minutes
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        pingPresence()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+  }, [isUserLoaded, isSignedIn, user?.id])
 
   // Proactively remove Clerk Development Mode banner from the DOM
   useEffect(() => {
