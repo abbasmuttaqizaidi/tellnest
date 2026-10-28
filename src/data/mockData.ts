@@ -95,6 +95,9 @@ export interface Work {
   isMature: boolean
   featured?: boolean
   trending?: boolean
+  trendingRank?: number
+  trendingTier?: 'A' | 'B'
+  trendingScore?: number
   rising?: boolean
   editorPick?: boolean
   // Collections per live_instructions.md lines 196-230

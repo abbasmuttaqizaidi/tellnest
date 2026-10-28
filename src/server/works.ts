@@ -805,6 +805,22 @@ export async function executeGetPlatformWorks(
         throw lastQueryError || new Error('Database query failed to fetch platform works')
       }
 
+      // Fetch active Trending V1 snapshot to map canonical weekly rankings
+      let activeTrendingSnapshot: any = null
+      try {
+        const { getActiveTrendingSnapshot } = await import('./trendingEngine.ts')
+        activeTrendingSnapshot = await getActiveTrendingSnapshot(admin)
+      } catch (trendErr: any) {
+        console.warn('[executeGetPlatformWorks] Failed to fetch active trending snapshot:', trendErr?.message)
+      }
+
+      const trendingMetaMap = new Map<string, { rank: number; tier: 'A' | 'B'; score: number }>()
+      if (activeTrendingSnapshot && Array.isArray(activeTrendingSnapshot.rankings)) {
+        for (const item of activeTrendingSnapshot.rankings) {
+          trendingMetaMap.set(item.workId, { rank: item.rank, tier: item.tier, score: item.score })
+        }
+      }
+
       return rawRows.map((row: any) => {
         let mappedStatus: 'Ongoing' | 'Completed' | 'On Hiatus' | 'Cancelled' = 'Ongoing'
         if (row.status === 'completed') mappedStatus = 'Completed'
@@ -855,6 +871,22 @@ export async function executeGetPlatformWorks(
           }
         }
 
+        const trendingMeta = trendingMetaMap.get(row.id)
+        // If snapshot is present, snapshot is the canonical source of truth.
+        // If snapshot is not yet generated / unavailable (e.g. mock test environment), preserve rawCollections 'trending_now'.
+        const isTrending = trendingMetaMap.size > 0
+          ? Boolean(trendingMeta)
+          : rawCollections.includes('trending_now')
+
+        // Strict Trending V1 isolation: Trending Now collection is strictly dictated by active snapshot
+        if (trendingMetaMap.size > 0) {
+          if (isTrending) {
+            if (!rawCollections.includes('trending_now')) rawCollections.push('trending_now')
+          } else {
+            rawCollections = rawCollections.filter((c) => c !== 'trending_now')
+          }
+        }
+
         const publishedChapters = Array.isArray(row.chapters)
           ? row.chapters.filter((ch: any) => {
               if ((ch.status || '').toLowerCase() !== 'published') return false
@@ -890,7 +922,10 @@ export async function executeGetPlatformWorks(
             rawCollections.includes('editor_picks') ||
             rawCollections.includes('spotlight') ||
             rawCollections.includes('staff_favorites'),
-          trending: rawCollections.includes('trending_now'),
+          trending: isTrending,
+          trendingRank: trendingMeta?.rank,
+          trendingTier: trendingMeta?.tier,
+          trendingScore: trendingMeta?.score,
           rising: isAuthenticated && rawCollections.includes('rising_stories'),
           editorPick: rawCollections.includes('editor_picks'),
           new_this_week: isNewThisWeek,
@@ -1356,6 +1391,31 @@ export const trackStrictViewServerFn = createServerFn({ method: 'POST' })
         if (shouldIncrementChapter) {
           isNewChapterView = true
           await incrementChapterViewAtomic(admin, targetChapterUuid)
+        }
+
+        // Trending V1: Record chapter open in rolling engagement table
+        // Deduplicate repeated opens by same viewer within 1 hour to prevent mount/refresh spam
+        try {
+          const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+          const { data: recentOpen } = await admin
+            .from('trending_chapter_opens')
+            .select('id')
+            .eq('viewer_key', viewerKey)
+            .eq('chapter_id', targetChapterUuid)
+            .gte('opened_at', oneHourAgo)
+            .limit(1)
+            .maybeSingle()
+
+          if (!recentOpen) {
+            await admin.from('trending_chapter_opens').insert({
+              viewer_key: viewerKey,
+              work_id: targetWorkUuid,
+              chapter_id: targetChapterUuid,
+            })
+          }
+        } catch (openErr: any) {
+          // Non-blocking: table unapplied or operational errors do not break user reading flow
+          console.warn('[trackStrictViewServerFn] Error recording trending chapter open:', openErr?.message)
         }
       }
     }

@@ -587,13 +587,20 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
 
   const [activeLeaderboardGenre, setActiveLeaderboardGenre] = useState<string>('all')
 
-  // Trending & community ranked serials
+  // Trending & community ranked serials (Trending V1: canonical weekly snapshot, up to 10 stories)
   const trendingSerials = useMemo(() => {
-    let list = works.filter((w) => w.trending || w.featured || parseTotalReads(w.totalReads) > 50000)
+    let list = works.filter((w) => Boolean(w.trending))
+    // Deterministic ordering by canonical weekly snapshot rank
+    list.sort((a, b) => ((a as any).trendingRank ?? 999) - ((b as any).trendingRank ?? 999))
     if (activeLeaderboardGenre !== 'all') {
-      list = list.filter((w) => w.genre?.toLowerCase().includes(activeLeaderboardGenre.toLowerCase()))
+      list = list.filter((w) => {
+        const primary = (w.genre || '').toLowerCase()
+        const secondary = Array.isArray(w.genres) ? w.genres.map((g) => (g.name || g.slug || '').toLowerCase()) : []
+        const target = activeLeaderboardGenre.toLowerCase()
+        return primary.includes(target) || secondary.some((g) => g.includes(target))
+      })
     }
-    return list.slice(0, 3)
+    return list.slice(0, 10)
   }, [works, activeLeaderboardGenre])
 
   // Writer atelier adaptive states
@@ -1161,85 +1168,100 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
           </div>
         </div>
 
-        {/* Leaderboard Bento Grid: 3 Rich Serials */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {trendingSerials.map((work, idx) => {
-            const wSlug = getWorkSlug(work)
-            const saved = isWorkSaved(work.id)
-            return (
-              <div
-                key={work.id}
-                className="rounded-2xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-xs hover:shadow-md transition-all duration-300 flex flex-col overflow-hidden group"
-              >
-                {/* Visual Cover Header */}
-                <div className="relative h-60 sm:h-64 overflow-hidden bg-[var(--bg-subtle)]">
-                  <img
-                    src={work.cover}
-                    alt={work.title}
-                    loading="lazy"
-                    decoding="async"
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent pointer-events-none" />
+        {/* Leaderboard Bento Grid: Up to 10 Rich Serials */}
+        {trendingSerials.length === 0 ? (
+          <div className="py-12 px-4 text-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]">
+            <p className="font-serif text-base text-[var(--ink-secondary)]">
+              No stories trending this week yet. Fresh rankings update every Monday.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {trendingSerials.map((work, idx) => {
+              const wSlug = getWorkSlug(work)
+              const saved = isWorkSaved(work.id)
+              return (
+                <div
+                  key={work.id}
+                  className="rounded-2xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-xs hover:shadow-md transition-all duration-300 flex flex-col overflow-hidden group"
+                >
+                  {/* Visual Cover Header */}
+                  <div className="relative h-60 sm:h-64 overflow-hidden bg-[var(--bg-subtle)]">
+                    <img
+                      src={work.cover}
+                      alt={work.title}
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent pointer-events-none" />
 
-                  {/* Rank & Genre Pill (Top-Left) */}
-                  <div className="absolute top-3 left-3 bg-black/75 text-white backdrop-blur-md px-2.5 py-1 rounded font-mono text-[11px] uppercase tracking-wider flex items-center gap-1 border border-white/20 shadow-xs z-10">
-                    <span className="font-bold text-amber-400">#{idx + 1}</span>
-                    <span>in {work.genre}</span>
-                  </div>
-
-                  {/* Bookmark Button (Top-Right) */}
-                  <button
-                    type="button"
-                    onClick={() => toggleSaveWork(work.id)}
-                    className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/60 backdrop-blur-md text-white flex items-center justify-center hover:bg-black transition-colors cursor-pointer z-10"
-                    title={saved ? 'Remove Bookmark' : 'Save to Library'}
-                  >
-                    <Bookmark className={`h-4 w-4 ${saved ? 'fill-amber-400 text-amber-400' : ''}`} />
-                  </button>
-
-                  {/* Status Badge (Bottom-Right) */}
-                  {(work.status || (work as any).publicationStatus) && (
-                    <span className="absolute bottom-3 right-4 z-10 inline-flex items-center rounded-md bg-black/80 backdrop-blur-md px-2 py-0.5 text-[9px] font-mono font-semibold text-white uppercase tracking-wider border border-white/15 shadow-xs">
-                      <span>{work.status || (work as any).publicationStatus || 'Ongoing'}</span>
-                    </span>
-                  )}
-
-                  {/* Title & Season Info */}
-                  <div className="absolute bottom-3 left-4 right-28 text-white">
-                    <span className="font-mono text-[10px] tracking-wider uppercase text-white/80">
-                      Season 1 • {work.publishedChaptersCount ?? work.chaptersCount} Chapters
-                    </span>
-                    <h4 className="font-serif text-lg font-bold text-white leading-snug line-clamp-1 mt-0.5">
-                      {work.title}
-                    </h4>
-                  </div>
-                </div>
-
-                {/* Card Content & Metrics */}
-                <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-4">
-                  <p className="font-serif text-xs sm:text-sm text-[var(--ink-secondary)] line-clamp-2 leading-relaxed">
-                    {work.synopsis}
-                  </p>
-
-                  <div className="space-y-3 pt-2 border-t border-[var(--border-subtle)]">
-                    {/* Metrics Bar */}
-                    <div className="flex items-center justify-between text-[var(--ink-muted)] font-mono text-[11px] bg-[var(--bg-canvas)] px-3 py-1.5 rounded-lg border border-[var(--border-subtle)]">
-                      <span className="flex items-center gap-1">
-                        <Eye className="h-3 w-3 text-[var(--ink-faint)]" />
-                        {formatViewCount(work.totalReads, true)} Reads
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Bookmark className="h-3 w-3 text-red-500" />
-                        {Math.round(parseTotalReads(work.totalReads) * 0.08).toLocaleString()} Saves
-                      </span>
-                      <span className="flex items-center gap-1 font-semibold text-[var(--ink-primary)]">
-                        <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
-                        4.94
-                      </span>
+                    {/* Rank & Genre Pill (Top-Left) */}
+                    <div className="absolute top-3 left-3 bg-black/75 text-white backdrop-blur-md px-2.5 py-1 rounded font-mono text-[11px] uppercase tracking-wider flex items-center gap-1 border border-white/20 shadow-xs z-10">
+                      <span className="font-bold text-amber-400">#{(work as any).trendingRank ?? (idx + 1)}</span>
+                      <span>in {work.genre}</span>
+                      {(work as any).trendingTier && (
+                        <span className="ml-1 px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-semibold">
+                          Tier {(work as any).trendingTier}
+                        </span>
+                      )}
                     </div>
 
-                    {/* Author & Action */}
+                    {/* Bookmark Button (Top-Right) */}
+                    <button
+                      type="button"
+                      onClick={() => toggleSaveWork(work.id)}
+                      className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/60 backdrop-blur-md text-white flex items-center justify-center hover:bg-black transition-colors cursor-pointer z-10"
+                      title={saved ? 'Remove Bookmark' : 'Save to Library'}
+                    >
+                      <Bookmark className={`h-4 w-4 ${saved ? 'fill-amber-400 text-amber-400' : ''}`} />
+                    </button>
+
+                    {/* Status Badge (Bottom-Right) */}
+                    {(work.status || (work as any).publicationStatus) && (
+                      <span className="absolute bottom-3 right-4 z-10 inline-flex items-center rounded-md bg-black/80 backdrop-blur-md px-2 py-0.5 text-[9px] font-mono font-semibold text-white uppercase tracking-wider border border-white/15 shadow-xs">
+                        <span>{work.status || (work as any).publicationStatus || 'Ongoing'}</span>
+                      </span>
+                    )}
+
+                    {/* Title & Season Info */}
+                    <div className="absolute bottom-3 left-4 right-28 text-white">
+                      <span className="font-mono text-[10px] tracking-wider uppercase text-white/80">
+                        Season 1 • {work.publishedChaptersCount ?? work.chaptersCount} Chapters
+                      </span>
+                      <h4 className="font-serif text-lg font-bold text-white leading-snug line-clamp-1 mt-0.5">
+                        {work.title}
+                      </h4>
+                    </div>
+                  </div>
+
+                  {/* Card Content & Metrics */}
+                  <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-4">
+                    <p className="font-serif text-xs sm:text-sm text-[var(--ink-secondary)] line-clamp-2 leading-relaxed">
+                      {work.synopsis}
+                    </p>
+
+                    <div className="space-y-3 pt-2 border-t border-[var(--border-subtle)]">
+                      {/* Metrics Bar */}
+                      <div className="flex items-center justify-between text-[var(--ink-muted)] font-mono text-[11px] bg-[var(--bg-canvas)] px-3 py-1.5 rounded-lg border border-[var(--border-subtle)]">
+                        <span className="flex items-center gap-1">
+                          <Eye className="h-3 w-3 text-[var(--ink-faint)]" />
+                          {formatViewCount(work.totalReads, true)} Reads
+                        </span>
+                        {work.totalSaves > 0 ? (
+                          <span className="flex items-center gap-1">
+                            <Bookmark className="h-3 w-3 text-red-500" />
+                            {work.totalSaves.toLocaleString()} Saves
+                          </span>
+                        ) : null}
+                        {(work as any).trendingTier ? (
+                          <span className="flex items-center gap-1 font-semibold text-amber-500">
+                            Tier {(work as any).trendingTier}
+                          </span>
+                        ) : null}
+                      </div>
+
+                      {/* Author & Action */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="w-7 h-7 rounded-full overflow-hidden bg-[var(--bg-subtle)] border border-[var(--border-subtle)]">
@@ -1273,6 +1295,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
             )
           })}
         </div>
+        )}
       </section>
 
       {/* =========================================================================

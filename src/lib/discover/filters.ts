@@ -246,6 +246,17 @@ export function filterAndSortWorks(
       return true
     })
     .sort((a, b) => {
+      if (activeTab === 'trending') {
+        const hasRankA = typeof (a as any).trendingRank === 'number'
+        const hasRankB = typeof (b as any).trendingRank === 'number'
+        if (hasRankA || hasRankB) {
+          const rankA = hasRankA ? (a as any).trendingRank : 999
+          const rankB = hasRankB ? (b as any).trendingRank : 999
+          const diff = rankA - rankB
+          if (diff !== 0) return diff
+          return a.id.localeCompare(b.id)
+        }
+      }
       if (sortBy === 'rating') {
         const diff = (b.ratingScore || 0) - (a.ratingScore || 0)
         if (diff !== 0) return diff

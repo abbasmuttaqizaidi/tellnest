@@ -33,6 +33,10 @@ const config = defineConfig({
           route: '/sitemap.xml',
           handler: './src/server/sitemap-handler.ts',
         },
+        {
+          route: '/api/cron/trending-weekly',
+          handler: './src/server/cron-trending-handler.ts',
+        },
       ],
       errorHandler: './src/error.ts',
       vercel: {
