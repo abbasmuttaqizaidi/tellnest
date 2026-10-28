@@ -229,3 +229,32 @@ test('Top Shelf Architectural Parity: TopShelfSection integrated in PublicHome a
   const loggedInContent = fs.readFileSync('src/components/home/LoggedInHome.tsx', 'utf8')
   assert.ok(loggedInContent.includes('TopShelfSection'), 'LoggedInHome must reuse TopShelfSection')
 })
+
+test('Top Shelf Server Tier Optimization: executeGetTopShelf precomputes top 10 on server with caching', async () => {
+  const { executeGetTopShelf, clearTopShelfCache } = await import('../src/server/works.ts')
+  clearTopShelfCache()
+
+  const mockCandidateWorks = Array.from({ length: 25 }, (_, i) => ({
+    id: `server-story-${i + 1}`,
+    title: `Server Story ${i + 1}`,
+    visibility: 'Public',
+    status: 'Completed',
+    publishedChaptersCount: 2,
+    totalSaves: 1000 - i * 10,
+    likeCount: 200,
+    totalReads: '5000',
+    publishedAt: '2026-03-01T00:00:00.000Z',
+    author: { id: `author-${i + 1}` },
+  }))
+
+  const result = await executeGetTopShelf(
+    { limit: 10 },
+    {
+      getPlatformWorks: async () => mockCandidateWorks,
+    }
+  )
+
+  assert.equal(result.length, 10)
+  assert.equal(result[0].id, 'server-story-1')
+  assert.equal(result[9].id, 'server-story-10')
+})

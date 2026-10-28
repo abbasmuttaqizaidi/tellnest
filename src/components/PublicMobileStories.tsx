@@ -52,6 +52,7 @@ interface PublicMobileStoriesProps {
   onOpenAuth: () => void
   onOpenWriteModal: () => void
   works?: Work[]
+  initialTopShelfWorks?: Work[]
 }
 
 export interface CuratedStoryItem {
@@ -358,7 +359,12 @@ const MOODS: MoodItem[] = [
   },
 ]
 
-export function PublicMobileStories({ onOpenAuth, onOpenWriteModal, works }: PublicMobileStoriesProps) {
+export function PublicMobileStories({
+  onOpenAuth,
+  onOpenWriteModal,
+  works,
+  initialTopShelfWorks,
+}: PublicMobileStoriesProps) {
   const navigate = useNavigate()
   const [currentIndex, setCurrentIndex] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -1227,7 +1233,7 @@ export function PublicMobileStories({ onOpenAuth, onOpenWriteModal, works }: Pub
         id="top-shelf-mobile"
         className="w-full py-8 px-4 sm:px-6 max-w-md mx-auto bg-white border-t border-neutral-100 flex flex-col justify-center"
       >
-        <TopShelfSection works={works} id="top-shelf-mobile-section" />
+        <TopShelfSection works={works} initialTopShelfWorks={initialTopShelfWorks} id="top-shelf-mobile-section" />
       </section>
 
       {/* =====================================================================

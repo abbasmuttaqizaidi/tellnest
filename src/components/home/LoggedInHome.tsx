@@ -57,6 +57,8 @@ export interface HomeLoaderData {
   initialBootstrap: UserSessionBootstrap | null
   initialRecSignals: UserRecommendationSignals | null
   initialWorks?: any[] | null
+  initialTopShelf?: any[] | null
+  catalogError?: boolean
 }
 
 export interface LoggedInHomeProps {
@@ -1262,9 +1264,9 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
                           {formatViewCount(work.totalReads, true)} Reads
                         </span>
                         {work.totalSaves > 0 ? (
-                          <span className="flex items-center gap-1">
+                          <span className="flex items-center gap-1" title={`${formatViewCount(work.totalSaves, false)} Saves`}>
                             <Bookmark className="h-3 w-3 text-red-500" />
-                            {work.totalSaves.toLocaleString()} Saves
+                            {formatViewCount(work.totalSaves, true)} Saves
                           </span>
                         ) : null}
                       </div>
@@ -1313,14 +1315,9 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
         <section id="bingeable-reads" className="w-full space-y-4" style={{ contentVisibility: 'auto', containIntrinsicSize: '550px' }}>
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-3 border-b border-[var(--border-subtle)]">
             <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="flex h-5 w-5 items-center justify-center rounded bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                  <Zap className="h-3.5 w-3.5 fill-current" />
-                </span>
-                <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] tracking-tight">
-                  Bingeable Reads for You
-                </h3>
-              </div>
+              <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] tracking-tight">
+                Bingeable Reads for You
+              </h3>
               <p className="font-serif text-xs sm:text-sm text-[var(--ink-secondary)]">
                 Quick, complete stories and two-chapter arcs you can finish in one sitting.
               </p>
@@ -1417,6 +1414,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
           ========================================================================= */}
       <TopShelfSection
         works={works}
+        initialTopShelfWorks={loaderData?.initialTopShelf || undefined}
         currentUserId={effectiveUserId}
         currentUserProfileId={recommendationSignals?.profileId}
       />

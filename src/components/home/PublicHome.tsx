@@ -267,6 +267,7 @@ export default function PublicHome({ loaderData }: PublicHomeProps = {}) {
         onOpenAuth={openAuthModal}
         onOpenWriteModal={openPublicWriteModal}
         works={works}
+        initialTopShelfWorks={loaderData?.initialTopShelf || undefined}
       />
 
       {/* Desktop Editorial Homepage (md and above) */}
@@ -604,7 +605,11 @@ export default function PublicHome({ loaderData }: PublicHomeProps = {}) {
           3. TOP SHELF (COMMUNITY'S TOP 10 MOST-SAVED MASTERPIECES)
           ========================================================================= */}
       <div className="py-12 sm:py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-b border-[#D7CFC3]/50 dark:border-neutral-800">
-        <TopShelfSection works={works} id="top-shelf" />
+        <TopShelfSection
+          works={works}
+          initialTopShelfWorks={loaderData?.initialTopShelf || undefined}
+          id="top-shelf"
+        />
       </div>
 
       {/* =========================================================================

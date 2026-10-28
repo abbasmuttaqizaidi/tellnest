@@ -4,10 +4,12 @@ import { Bookmark, Heart, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { getWorkSlug, type Work } from '../../data/mockData'
 import { getTopShelfWorks } from '../../lib/recommendations/topShelf'
+import { formatViewCount, formatHeartCount } from '../../lib/utils'
 import { OptimizedImage } from '../OptimizedImage'
 
 export interface TopShelfSectionProps {
   works?: Work[]
+  initialTopShelfWorks?: Work[]
   currentUserId?: string | null
   currentUserProfileId?: string | null
   limit?: number
@@ -18,6 +20,7 @@ export interface TopShelfSectionProps {
 
 export function TopShelfSection({
   works: propWorks,
+  initialTopShelfWorks,
   currentUserId = null,
   currentUserProfileId = null,
   limit = 10,
@@ -31,13 +34,18 @@ export function TopShelfSection({
   const candidatePool = propWorks && propWorks.length > 0 ? propWorks : allWorks
 
   const topShelfWorks = useMemo(() => {
+    // Optimization: If precomputed / server-provided Top Shelf works exist, consume directly
+    if (initialTopShelfWorks && initialTopShelfWorks.length > 0) {
+      return initialTopShelfWorks.filter((w) => !isOwnWork(w.id)).slice(0, limit)
+    }
+
     const candidateWorks = candidatePool.filter((w) => !isOwnWork(w.id))
     return getTopShelfWorks(candidateWorks, {
       currentUserId,
       currentUserProfileId,
       limit,
     })
-  }, [candidatePool, isOwnWork, currentUserId, currentUserProfileId, limit])
+  }, [initialTopShelfWorks, candidatePool, isOwnWork, currentUserId, currentUserProfileId, limit])
 
   const scrollCarousel = (direction: -1 | 1) => {
     if (!carouselRef.current) return
@@ -57,9 +65,6 @@ export function TopShelfSection({
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-3 border-b border-[var(--border-subtle)]">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="flex h-5 w-5 items-center justify-center rounded bg-purple-500/10 text-purple-600 dark:text-purple-400">
-              <Bookmark className="h-3.5 w-3.5 fill-current" />
-            </span>
             <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] tracking-tight">
               Top Shelf
             </h3>
@@ -105,6 +110,7 @@ export function TopShelfSection({
           const wSlug = getWorkSlug(work)
           const saved = isWorkSaved(work.id)
           const savesCount = Number(work.totalSaves || (work as any).save_count || 0)
+          const rawLikes = Number(work.likeCount ?? (work as any).like_count ?? (work as any).likesCount ?? work.ratingCount ?? 0)
 
           return (
             <div
@@ -131,9 +137,12 @@ export function TopShelfSection({
                 </Link>
 
                 {/* Rank Badge #1..#10 */}
-                <span className="absolute top-2 left-2 z-10 rounded bg-black/85 backdrop-blur-xs px-1.5 py-0.5 text-[9px] font-mono font-bold text-white border border-white/20 shadow-xs flex items-center gap-1">
+                <span
+                  title={`${formatViewCount(savesCount, false)} Saves`}
+                  className="absolute top-2 left-2 z-10 rounded bg-black/85 backdrop-blur-xs px-1.5 py-0.5 text-[9px] font-mono font-bold text-white border border-white/20 shadow-xs flex items-center gap-1"
+                >
                   <span className="text-purple-400 font-extrabold">#{idx + 1}</span>
-                  <span>{savesCount.toLocaleString()} Saves</span>
+                  <span>{formatViewCount(savesCount, true)} Saves</span>
                 </span>
 
                 {/* Bookmark Toggle */}
@@ -170,9 +179,12 @@ export function TopShelfSection({
 
                 <div className="pt-2 border-t border-[var(--border-subtle)] flex items-center justify-between text-[10px] font-mono text-[var(--ink-muted)]">
                   <span className="truncate">{work.genre || 'Fiction'}</span>
-                  <span className="text-[9px] text-purple-600 dark:text-purple-400 font-semibold flex items-center gap-1">
+                  <span
+                    title={`${formatHeartCount(rawLikes, false)} Likes`}
+                    className="text-[9px] text-[var(--ink-primary)] font-semibold flex items-center gap-1"
+                  >
                     <Heart className="h-2.5 w-2.5 fill-current" />
-                    <span>{Number(work.likeCount ?? (work as any).like_count ?? (work as any).likesCount ?? work.ratingCount ?? 0).toLocaleString()}</span>
+                    <span>{formatHeartCount(rawLikes, true)}</span>
                   </span>
                 </div>
               </div>

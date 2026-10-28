@@ -532,9 +532,16 @@ export const publishWorkServerFn = createServerFn({ method: 'POST' })
 
 const platformWorksCache = new Map<string, { data: any[]; timestamp: number }>()
 const PLATFORM_WORKS_CACHE_TTL_MS = 30_000 // 30 seconds server-side cache
+const topShelfCache = new Map<string, { data: any[]; timestamp: number }>()
+const TOP_SHELF_CACHE_TTL_MS = 60_000 // 60 seconds server-side cache for Top Shelf
 
 export function clearPlatformWorksCache() {
   platformWorksCache.clear()
+  topShelfCache.clear()
+}
+
+export function clearTopShelfCache() {
+  topShelfCache.clear()
 }
 
 export interface PlatformWorksDependencies {
@@ -1215,6 +1222,276 @@ export async function executeGetNewVoices(
 export const getNewVoicesServerFn = createServerFn({ method: 'GET' })
   .handler(async () => {
     return await executeGetNewVoices({ excludeBingeable: true })
+  })
+
+export interface TopShelfDependencies extends PlatformWorksDependencies {
+  getPlatformWorks?: () => Promise<any[]>
+  getTopShelfWorks?: (candidateWorks: any[], options?: any) => any[]
+}
+
+/**
+ * Executes Top Shelf extraction with server memory caching.
+ * Protects client devices by avoiding full-catalog iterations on low-power devices.
+ */
+export async function executeGetTopShelf(
+  options: {
+    limit?: number
+    currentUserId?: string | null
+    currentUserProfileId?: string | null
+  } = {},
+  dependencies: TopShelfDependencies = {}
+) {
+  const limit = Math.max(1, Math.min(50, options.limit || 10))
+  const userId = options.currentUserId || 'anon'
+  const cacheKey = `${userId}:${limit}`
+
+  if (!dependencies.queryRows && !dependencies.getPlatformWorks) {
+    const cached = topShelfCache.get(cacheKey)
+    if (cached && Date.now() - cached.timestamp < TOP_SHELF_CACHE_TTL_MS) {
+      return cached.data
+    }
+  }
+
+  // 1. Explicit mock dependency check (for tests)
+  if (dependencies.getPlatformWorks) {
+    const works = await dependencies.getPlatformWorks()
+    const { getTopShelfWorks } = dependencies.getTopShelfWorks
+      ? { getTopShelfWorks: dependencies.getTopShelfWorks }
+      : await import('../lib/recommendations/topShelf.ts')
+    return getTopShelfWorks(works, {
+      currentUserId: options.currentUserId,
+      currentUserProfileId: options.currentUserProfileId,
+      limit,
+    })
+  }
+
+  // 2. Primary Standard Path: Direct Database SQL/REST query with LIMIT
+  try {
+    const adminClientFactory = dependencies.createAdminClient || (async () => {
+      const { createAdminClient } = await import('../lib/supabase/server.ts')
+      return createAdminClient()
+    })
+    const admin = await adminClientFactory()
+
+    let query = admin
+      .from('works_with_collections')
+      .select(`
+        *,
+        profiles:author_id (id, username, display_name, avatar_path, bio, created_at),
+        categories:category_id (id, name, slug),
+        work_genres (genres (id, name, slug)),
+        acts (id, act_number, title, slug, description, status),
+        chapters (id, chapter_number, title, slug, word_count, reading_time_minutes, status, published_at, act_id)
+      `)
+      .eq('visibility', 'public')
+      .eq('publication_status', 'published')
+      .neq('status', 'cancelled')
+      .neq('status', 'draft')
+      .order('save_count', { ascending: false })
+      .order('like_count', { ascending: false })
+      .order('view_count', { ascending: false })
+      .order('published_at', { ascending: false })
+      .limit(limit)
+
+    if (options.currentUserProfileId) {
+      query = query.neq('author_id', options.currentUserProfileId)
+    }
+
+    const { data: supaRows, error: supaErr } = await query
+
+    if (!supaErr && Array.isArray(supaRows) && supaRows.length > 0) {
+      const mappedDirectWorks = supaRows.map((w: any) => {
+        const rawRow = {
+          id: w.id,
+          author_id: w.author_id,
+          title: w.title,
+          slug: w.slug,
+          description: w.description,
+          cover_image_path: w.cover_image_path,
+          language: w.language,
+          category_id: w.category_id,
+          status: w.status,
+          visibility: w.visibility,
+          publication_status: w.publication_status,
+          is_indexable: w.is_indexable,
+          content_rating: w.content_rating,
+          reading_time_minutes: w.reading_time_minutes,
+          word_count: w.word_count,
+          chapter_count: w.chapter_count,
+          view_count: w.view_count,
+          impression_count: w.impression_count,
+          like_count: w.like_count,
+          save_count: w.save_count,
+          comment_count: w.comment_count,
+          published_at: w.published_at,
+          last_published_at: w.last_published_at,
+          created_at: w.created_at,
+          updated_at: w.updated_at,
+          last_activity_at: w.last_activity_at,
+          last_activity_type: w.last_activity_type,
+          last_activity_detail: w.last_activity_detail,
+          collections: w.collections,
+          trending_marked_by_admin: Boolean(w.trending_marked_by_admin),
+          author_name: w.profiles?.display_name || w.profiles?.username || 'Hatchpen Author',
+          author_handle: w.profiles?.username || 'author',
+          author_avatar: w.profiles?.avatar_path || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
+          author_bio: w.profiles?.bio || '',
+          author_created_at: w.profiles?.created_at,
+          category_name: w.categories?.name || 'Novels',
+          category_slug: w.categories?.slug || 'novels',
+          genres: (w.work_genres || []).map((wg: any) => wg.genres).filter(Boolean),
+          acts: w.acts || [],
+          chapters: w.chapters || [],
+        }
+
+        const mappedGenres = Array.isArray(rawRow.genres) ? rawRow.genres : []
+        const primaryGenre = mappedGenres[0] || { name: 'Literary Fiction', slug: 'literary-fiction' }
+
+        const rawActs = Array.isArray(rawRow.acts) ? rawRow.acts : []
+        const publishedActs = rawActs.filter((a: any) => (a.status || '').toLowerCase() === 'published')
+        const publishedActIds = new Set<string>(publishedActs.map((a: any) => a.id))
+
+        const publishedChapters = Array.isArray(rawRow.chapters)
+          ? rawRow.chapters.filter((ch: any) => {
+              if ((ch.status || '').toLowerCase() !== 'published') return false
+              const actId = ch.actId || ch.act_id
+              if (actId && !publishedActIds.has(actId)) return false
+              return true
+            })
+          : []
+        const publishedCount =
+          publishedChapters.length > 0
+            ? publishedChapters.length
+            : (Number(rawRow.chapter_count) || 0)
+
+        return {
+          id: rawRow.id,
+          title: rawRow.title,
+          slug: rawRow.slug || '',
+          subtitle: '',
+          cover: rawRow.cover_image_path || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80',
+          category: rawRow.category_name || 'Novels',
+          categorySlug: rawRow.category_slug || 'novels',
+          genre: primaryGenre.name,
+          genreSlug: primaryGenre.slug,
+          genres: mappedGenres,
+          tags: ['Serialized', 'Archival'],
+          language: rawRow.language || 'English',
+          status: (rawRow.status === 'completed' ? 'Completed' : rawRow.status === 'on_hiatus' ? 'On Hiatus' : 'Ongoing') as any,
+          visibility: (rawRow.visibility === 'public' ? 'Public' : 'Unlisted') as any,
+          publicationStatus: rawRow.publication_status || 'published',
+          isIndexable: rawRow.is_indexable !== false,
+          isMature: false,
+          featured: false,
+          trending: false,
+          rising: false,
+          editorPick: false,
+          new_this_week: false,
+          new_chapters_this_week: false,
+          collection: [],
+          synopsis: rawRow.description || '',
+          fullDescription: rawRow.description || '',
+          chaptersCount: publishedCount,
+          publishedChaptersCount: publishedCount,
+          totalReads: String(rawRow.view_count || '0'),
+          impressionCount: Number(rawRow.impression_count || 0),
+          totalSaves: Number(rawRow.save_count || 0),
+          likeCount: Number(rawRow.like_count || 0),
+          like_count: Number(rawRow.like_count || 0),
+          ratingScore: 5.0,
+          ratingCount: Number(rawRow.like_count || 0),
+          createdAt: rawRow.created_at ? new Date(rawRow.created_at).toISOString() : new Date().toISOString(),
+          updatedAt: rawRow.updated_at ? new Date(rawRow.updated_at).toISOString() : new Date().toISOString(),
+          publishedAt: rawRow.published_at ? new Date(rawRow.published_at).toISOString() : undefined,
+          lastActivityAt: rawRow.last_activity_at ? new Date(rawRow.last_activity_at).toISOString() : rawRow.created_at,
+          lastActivityType: rawRow.last_activity_type,
+          lastActivityDetail: rawRow.last_activity_detail,
+          author: {
+            id: rawRow.author_id || 'author-unknown',
+            name: rawRow.author_name || 'Hatchpen Author',
+            handle: rawRow.author_handle || 'author',
+            avatar: rawRow.author_avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
+            bio: rawRow.author_bio || '',
+            location: '',
+            worksCount: 1,
+            followersCount: '0',
+            createdAt: rawRow.author_created_at ? new Date(rawRow.author_created_at).toISOString() : undefined,
+          },
+          acts: Array.isArray(rawRow.acts)
+            ? rawRow.acts.map((act: any) => ({
+                id: act.id,
+                workId: act.work_id || rawRow.id,
+                number: act.act_number ?? act.number ?? 1,
+                title: act.title || `Act ${act.act_number || 1}`,
+                slug: act.slug || '',
+                description: act.description || '',
+                status: act.status || 'published',
+                viewCount: Number(act.view_count || 0),
+              }))
+            : [],
+          chapters: publishedChapters.map((ch: any) => ({
+            id: ch.id,
+            workId: ch.work_id || rawRow.id,
+            number: ch.chapter_number ?? ch.number ?? 1,
+            title: ch.title || `Chapter ${ch.chapter_number || 1}`,
+            slug: ch.slug || '',
+            content: ch.content || '',
+            wordCount: Number(ch.word_count || 0),
+            readTimeMinutes: Number(ch.reading_time_minutes || 0),
+            status: ch.status || 'published',
+            publishedAt: ch.published_at || ch.publishedAt,
+            actId: ch.act_id || ch.actId,
+          })),
+        }
+      })
+
+      if (!dependencies.queryRows) {
+        topShelfCache.set(cacheKey, { data: mappedDirectWorks, timestamp: Date.now() })
+      }
+      return mappedDirectWorks
+    }
+  } catch (err: any) {
+    console.warn('[executeGetTopShelf] Direct DB query fallback:', err?.message || err)
+  }
+
+  // 3. Graceful Fallback: In-memory calculation from platform works (for tests/offline mock)
+  const platformWorksFactory = dependencies.getPlatformWorks || (() => executeGetPlatformWorks(dependencies))
+  const works = await platformWorksFactory()
+
+  const { getTopShelfWorks } = dependencies.getTopShelfWorks
+    ? { getTopShelfWorks: dependencies.getTopShelfWorks }
+    : await import('../lib/recommendations/topShelf.ts')
+
+  const topShelf = getTopShelfWorks(works, {
+    currentUserId: options.currentUserId,
+    currentUserProfileId: options.currentUserProfileId,
+    limit,
+  })
+
+  if (!dependencies.queryRows) {
+    topShelfCache.set(cacheKey, { data: topShelf, timestamp: Date.now() })
+  }
+
+  return topShelf
+}
+
+/**
+ * Server Function: Precomputes and returns Top Shelf manuscripts with 60s memory caching.
+ * Offloads sorting computation from client devices to the server tier.
+ */
+export const getTopShelfServerFn = createServerFn({ method: 'GET' })
+  .validator((params?: { limit?: number }) => ({
+    limit: params?.limit ? Math.min(Math.max(1, Number(params.limit)), 50) : 10,
+  }))
+  .handler(async ({ data }) => {
+    let currentUserId: string | null = null
+    try {
+      const { auth } = await import('@clerk/tanstack-react-start/server')
+      const authState = await auth()
+      currentUserId = authState?.userId || null
+    } catch {}
+
+    return await executeGetTopShelf({ limit: data?.limit, currentUserId })
   })
 
 // In-memory rate limiting to prevent spam loops from inflating views (max 30 view attempts per min per viewerKey)
