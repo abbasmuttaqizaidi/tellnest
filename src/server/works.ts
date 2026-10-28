@@ -65,6 +65,7 @@ export async function executeGetPublicWork(
       view_count,
       like_count,
       save_count,
+      impression_count,
       created_at,
       updated_at,
       last_activity_at,
@@ -219,6 +220,7 @@ export async function executeGetPublicWork(
     chaptersCount: publishedCount,
     publishedChaptersCount: publishedCount,
     totalReads: String(data.view_count || '0'),
+    impressionCount: Number(data.impression_count || 0),
     totalSaves: Number(data.save_count || 0),
     ratingScore: 5.0,
     ratingCount: 0,
@@ -750,6 +752,7 @@ export async function executeGetPlatformWorks(
               word_count: w.word_count,
               chapter_count: w.chapter_count,
               view_count: w.view_count,
+              impression_count: w.impression_count,
               like_count: w.like_count,
               save_count: w.save_count,
               comment_count: w.comment_count,
@@ -761,6 +764,7 @@ export async function executeGetPlatformWorks(
               last_activity_type: w.last_activity_type,
               last_activity_detail: w.last_activity_detail,
               collections: w.collections,
+              trending_marked_by_admin: Boolean(w.trending_marked_by_admin),
               author_name: w.profiles?.display_name || w.profiles?.username || 'Hatchpen Author',
               author_handle: w.profiles?.username || 'author',
               author_avatar: w.profiles?.avatar_path || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
@@ -814,10 +818,35 @@ export async function executeGetPlatformWorks(
         console.warn('[executeGetPlatformWorks] Failed to fetch active trending snapshot:', trendErr?.message)
       }
 
-      const trendingMetaMap = new Map<string, { rank: number; tier: 'A' | 'B'; score: number }>()
+      // Build unified trending ranking map:
+      // Priority 1: Admin Force-Marked stories (trending_marked_by_admin === true)
+      //              Unconditionally receive top ranks (#1, #2, ...), bypassing all algorithmic thresholds
+      // Priority 2: Algorithmic Trending V1 snapshot rankings (fills remaining slots up to 10)
+      const finalTrendingMap = new Map<string, { rank: number; tier?: 'A' | 'B'; score?: number; isMarkedByAdmin: boolean }>()
+      let nextRank = 1
+
+      // 1. Assign top sequential ranks to admin-marked stories
+      for (const row of rawRows) {
+        if (row.trending_marked_by_admin) {
+          finalTrendingMap.set(row.id, {
+            rank: nextRank++,
+            isMarkedByAdmin: true,
+          })
+          if (nextRank > 10) break
+        }
+      }
+
+      // 2. Assign remaining slots to algorithmic snapshot rankings (skipping any already marked by admin)
       if (activeTrendingSnapshot && Array.isArray(activeTrendingSnapshot.rankings)) {
         for (const item of activeTrendingSnapshot.rankings) {
-          trendingMetaMap.set(item.workId, { rank: item.rank, tier: item.tier, score: item.score })
+          if (finalTrendingMap.has(item.workId)) continue
+          if (nextRank > 10) break
+          finalTrendingMap.set(item.workId, {
+            rank: nextRank++,
+            tier: item.tier,
+            score: item.score,
+            isMarkedByAdmin: false,
+          })
         }
       }
 
@@ -871,15 +900,15 @@ export async function executeGetPlatformWorks(
           }
         }
 
-        const trendingMeta = trendingMetaMap.get(row.id)
-        // If snapshot is present, snapshot is the canonical source of truth.
-        // If snapshot is not yet generated / unavailable (e.g. mock test environment), preserve rawCollections 'trending_now'.
-        const isTrending = trendingMetaMap.size > 0
+        const trendingMeta = finalTrendingMap.get(row.id)
+        // If snapshot or admin-marked story is present, that is canonical.
+        // Fallback for mock test environment without DB: rawCollections 'trending_now'.
+        const isTrending = finalTrendingMap.size > 0
           ? Boolean(trendingMeta)
-          : rawCollections.includes('trending_now')
+          : (Boolean(row.trending_marked_by_admin) || rawCollections.includes('trending_now'))
 
-        // Strict Trending V1 isolation: Trending Now collection is strictly dictated by active snapshot
-        if (trendingMetaMap.size > 0) {
+        // Strict Trending isolation & Admin Override
+        if (finalTrendingMap.size > 0 || row.trending_marked_by_admin) {
           if (isTrending) {
             if (!rawCollections.includes('trending_now')) rawCollections.push('trending_now')
           } else {
@@ -926,6 +955,7 @@ export async function executeGetPlatformWorks(
           trendingRank: trendingMeta?.rank,
           trendingTier: trendingMeta?.tier,
           trendingScore: trendingMeta?.score,
+          trendingMarkedByAdmin: Boolean(row.trending_marked_by_admin),
           rising: isAuthenticated && rawCollections.includes('rising_stories'),
           editorPick: rawCollections.includes('editor_picks'),
           new_this_week: isNewThisWeek,
@@ -940,6 +970,7 @@ export async function executeGetPlatformWorks(
           chaptersCount: publishedCount,
           publishedChaptersCount: publishedCount,
           totalReads: String(row.view_count || '0'),
+          impressionCount: Number(row.impression_count || 0),
           totalSaves: Number(row.save_count || 0),
           ratingScore: 5.0,
           ratingCount: 0,
@@ -1169,16 +1200,17 @@ export async function executeGetNewVoices(
   const works = await platformWorksFactory()
 
   const { filterAndOrderNewVoicesStories } = await import('../lib/recommendations/newVoices.ts')
-  return filterAndOrderNewVoicesStories(works, clerkUserId)
+  const shouldExcludeBingeable = dependencies.excludeBingeable ?? false
+  return filterAndOrderNewVoicesStories(works, clerkUserId, new Date(), { excludeBingeable: shouldExcludeBingeable })
 }
 
 /**
  * Server Function: Fetches qualifying published debut stories by eligible New Voices writers.
- * Authenticated members only.
+ * Authenticated members only. Excludes <= 2 chapters bingeable stories.
  */
 export const getNewVoicesServerFn = createServerFn({ method: 'GET' })
   .handler(async () => {
-    return await executeGetNewVoices()
+    return await executeGetNewVoices({ excludeBingeable: true })
   })
 
 // In-memory rate limiting to prevent spam loops from inflating views (max 30 view attempts per min per viewerKey)
@@ -1234,6 +1266,36 @@ async function incrementWorkViewAtomic(admin: any, workId: string) {
     const { data: currentWork } = await admin.from('works').select('view_count').eq('id', workId).single()
     const newWorkViews = (currentWork?.view_count || 0) + 1
     await admin.from('works').update({ view_count: newWorkViews }).eq('id', workId)
+  } catch {}
+}
+
+async function incrementWorkImpressionAtomic(admin: any, workId: string) {
+  // 1. Try atomic Postgres RPC
+  try {
+    const { error: rpcErr } = await admin.rpc('increment_work_impression', { p_work_id: workId })
+    if (!rpcErr) return
+  } catch {}
+
+  // 2. Direct PG query fallback if available
+  if (process.env.DATABASE_URL) {
+    try {
+      const { Client } = await import('pg')
+      const client = new Client({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 2500 })
+      await client.connect()
+      try {
+        await client.query('UPDATE works SET impression_count = COALESCE(impression_count, 0) + 1 WHERE id = $1', [workId])
+        return
+      } finally {
+        await client.end()
+      }
+    } catch {}
+  }
+
+  // 3. REST update fallback
+  try {
+    const { data: currentWork } = await admin.from('works').select('impression_count').eq('id', workId).single()
+    const newCount = (currentWork?.impression_count || 0) + 1
+    await admin.from('works').update({ impression_count: newCount }).eq('id', workId)
   } catch {}
 }
 
@@ -1424,6 +1486,77 @@ export const trackStrictViewServerFn = createServerFn({ method: 'POST' })
       success: true,
       isNewWorkView,
       isNewChapterView,
+    }
+  })
+
+/**
+ * Server Function: Track unique story impressions strictly in Database:
+ * - Triggered ONLY when a user lands on the story overview page (/works/$workId).
+ * - NOT triggered on chapter reads.
+ * - Deduplicated cross-device for authenticated members (u-${user.id}) and anonymous visitors (v-${uuid}).
+ * - Even if the user never opens a chapter and immediately navigates away or closes tab: impression +1.
+ * - Repeated visits from same device or another device (logged in as same user) will NOT increment impression_count.
+ */
+export const trackWorkImpressionServerFn = createServerFn({ method: 'POST' })
+  .validator((params: { viewerKey: string; workId: string }) => {
+    if (!params.viewerKey || !params.viewerKey.trim()) {
+      throw new Error('Viewer key is required for deduplication')
+    }
+    if (!params.workId || !params.workId.trim()) {
+      throw new Error('Work ID is required')
+    }
+    return {
+      viewerKey: params.viewerKey.trim(),
+      workId: params.workId.trim(),
+    }
+  })
+  .handler(async ({ data: { viewerKey, workId } }) => {
+    if (!checkViewerRateLimit(viewerKey)) {
+      return { success: false, rateLimited: true, isNewImpression: false }
+    }
+
+    const { createAdminClient } = await import('../lib/supabase/server')
+    const admin = createAdminClient()
+
+    // 1. Resolve work UUID if passed as slug
+    let targetWorkUuid = workId
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(workId)
+    if (!isUuid) {
+      const { data: wRow } = await admin.from('works').select('id').eq('slug', workId).maybeSingle()
+      if (wRow?.id) targetWorkUuid = wRow.id
+      else return { success: false, message: 'Work not found' }
+    }
+
+    let isNewImpression = false
+
+    // 2. Strict Unique Impression Deduplication (Database constraint on (viewer_key, work_id))
+    try {
+      const { error: insertErr } = await admin.from('unique_impressions').insert({
+        viewer_key: viewerKey,
+        work_id: targetWorkUuid,
+      })
+
+      if (!insertErr) {
+        isNewImpression = true
+      } else if (insertErr.code === '23505') {
+        // Unique constraint caught safely (already viewed on this or another device)
+        isNewImpression = false
+      } else {
+        console.warn('[trackWorkImpressionServerFn] unique_impressions insert error:', insertErr.message)
+      }
+    } catch (e: any) {
+      if (e?.code !== '23505') {
+        console.warn('[trackWorkImpressionServerFn] Exception during impression insert:', e?.message)
+      }
+    }
+
+    if (isNewImpression) {
+      await incrementWorkImpressionAtomic(admin, targetWorkUuid)
+    }
+
+    return {
+      success: true,
+      isNewImpression,
     }
   })
 

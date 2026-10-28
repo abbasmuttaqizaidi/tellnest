@@ -780,6 +780,10 @@ function WorkManagementPage() {
                 <span>•</span>
                 <span>{totalWordCount.toLocaleString()} words</span>
                 <span>•</span>
+                <span title={`${(Number(work.impressionCount) || 0).toLocaleString()} Unique Folio Impressions`}>
+                  {formatViewCount(work.impressionCount || 0, true)} impressions
+                </span>
+                <span>•</span>
                 <span title={`${formatViewCount(work.totalReads, false)} Lifetime Reads`}>
                   {formatViewCount(work.totalReads, true)} reads
                 </span>

@@ -1,8 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { Eye, X, ChevronDown, ChevronRight, Plus, Minus, Save, Check } from 'lucide-react'
+import { Eye, X, ChevronDown, ChevronRight, Plus, Minus, Save, Check, RefreshCw } from 'lucide-react'
 import { type Work, type Act, type Chapter } from '../data/mockData'
-import { adminBatchSaveViewsServerFn } from '../server/admin'
+import { adminBatchSaveViewsServerFn, getAdminWorkActsAnalyticsServerFn } from '../server/admin'
 import { parseTotalReads } from '../lib/utils'
 
 interface ViewsBreakdownModalProps {
@@ -32,15 +32,67 @@ export const ViewsBreakdownModal: React.FC<ViewsBreakdownModalProps> = ({
   })
 
   const [isSaving, setIsSaving] = useState(false)
+  const [isLoadingDb, setIsLoadingDb] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [localWork, setLocalWork] = useState<Work>(work)
 
-  React.useEffect(() => {
+  useEffect(() => {
     setLocalWork(work)
     setHasChanges(false)
     setSaveSuccess(false)
-  }, [work, isOpen])
+
+    if (isOpen && work?.id && adminToken) {
+      setIsLoadingDb(true)
+      getAdminWorkActsAnalyticsServerFn({
+        data: { adminToken, workId: work.id },
+      })
+        .then((res) => {
+          if (res && Array.isArray(res.acts)) {
+            const actsMapped = res.acts.map((a) => ({
+              id: a.id,
+              workId: work.id,
+              number: a.actNumber,
+              title: a.title,
+              slug: `act-${a.actNumber}`,
+              description: a.description || '',
+              status: 'published' as const,
+              viewCount: a.viewCount,
+            }))
+
+            const allChs: Chapter[] = []
+            const actExpandMap: Record<string, boolean> = {}
+
+            res.acts.forEach((a) => {
+              actExpandMap[a.id] = true
+              a.chapters.forEach((c) => {
+                allChs.push({
+                  id: c.id,
+                  number: c.chapterNumber,
+                  title: c.title,
+                  actId: a.id,
+                  actNumber: a.actNumber,
+                  viewCount: c.viewCount,
+                  status: 'published',
+                } as any)
+              })
+            })
+
+            const dbWorkViews = res.totalUniqueViews ?? parseTotalReads(work.totalReads)
+
+            setLocalWork((prev) => ({
+              ...prev,
+              totalReads: String(dbWorkViews),
+              acts: actsMapped.length > 0 ? actsMapped : prev.acts,
+              chapters: allChs.length > 0 ? allChs : prev.chapters,
+            }))
+            setExpandedActs((prev) => ({ ...actExpandMap, ...prev }))
+          }
+        })
+        .catch((err) => console.warn('[ViewsBreakdownModal] DB load notice:', err))
+        .finally(() => setIsLoadingDb(false))
+    }
+  }, [work?.id, isOpen, adminToken])
 
   if (!isOpen) return null
 
@@ -59,17 +111,28 @@ export const ViewsBreakdownModal: React.FC<ViewsBreakdownModalProps> = ({
         const updated = Math.max(0, current + delta)
         return { ...prev, totalReads: String(updated) }
       } else {
+        let chapterDelta = 0
         const updatedChapters = (prev.chapters || []).map((ch) => {
           if (ch.id !== targetId) return ch
           const cur = Number(ch.viewCount || 0)
-          return { ...ch, viewCount: Math.max(0, cur + delta) }
+          const next = Math.max(0, cur + delta)
+          chapterDelta = next - cur
+          return { ...ch, viewCount: next }
         })
         const updatedActs = (prev.acts || []).map((act) => {
           const actChs = updatedChapters.filter((c) => c.actId === act.id)
           const sum = actChs.reduce((s, c) => s + (c.viewCount || 0), 0)
           return { ...act, viewCount: sum }
         })
-        return { ...prev, chapters: updatedChapters, acts: updatedActs }
+        // Crucial fix: adjust total book views synchronously by the chapter delta
+        const currentTotal = parseTotalReads(prev.totalReads)
+        const updatedTotal = Math.max(0, currentTotal + chapterDelta)
+        return {
+          ...prev,
+          totalReads: String(updatedTotal),
+          chapters: updatedChapters,
+          acts: updatedActs,
+        }
       }
     })
   }
@@ -84,8 +147,11 @@ export const ViewsBreakdownModal: React.FC<ViewsBreakdownModalProps> = ({
       if (targetType === 'work') {
         return { ...prev, totalReads: String(valid) }
       } else {
+        let chapterDelta = 0
         const updatedChapters = (prev.chapters || []).map((ch) => {
           if (ch.id !== targetId) return ch
+          const cur = Number(ch.viewCount || 0)
+          chapterDelta = valid - cur
           return { ...ch, viewCount: valid }
         })
         const updatedActs = (prev.acts || []).map((act) => {
@@ -93,7 +159,15 @@ export const ViewsBreakdownModal: React.FC<ViewsBreakdownModalProps> = ({
           const sum = actChs.reduce((s, c) => s + (c.viewCount || 0), 0)
           return { ...act, viewCount: sum }
         })
-        return { ...prev, chapters: updatedChapters, acts: updatedActs }
+        // Crucial fix: adjust total book views synchronously by the chapter delta
+        const currentTotal = parseTotalReads(prev.totalReads)
+        const updatedTotal = Math.max(0, currentTotal + chapterDelta)
+        return {
+          ...prev,
+          totalReads: String(updatedTotal),
+          chapters: updatedChapters,
+          acts: updatedActs,
+        }
       }
     })
   }

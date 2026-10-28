@@ -15,6 +15,7 @@ import {
   adminUpdateUserProfileServerFn,
   adminSendEmailServerFn,
   adminUpdateWorkCoverServerFn,
+  adminToggleWorkTrendingServerFn,
   type AdminUser,
   type AdminDashboardData,
   type AdminWorkRow,
@@ -24,6 +25,7 @@ import {
 import { Badge, Button, Modal } from '../design-system'
 import { UnisexAvatar } from '../components/UnisexAvatar'
 import { HeartsBreakdownModal } from '../components/HeartsBreakdownModal'
+import { SavesAdjustmentModal } from '../components/SavesAdjustmentModal'
 import { CloudinaryImageUpload } from '../components/CloudinaryImageUpload'
 import {
   ShieldAlert,
@@ -53,6 +55,7 @@ import {
   Edit,
   Heart,
   Sliders,
+  TrendingUp,
   Globe,
   Mail,
   Send,
@@ -132,6 +135,7 @@ function SecretAdminPanelPage() {
   const [activeTabByUser, setActiveTabByUser] = useState<Record<string, 'works' | 'reading' | 'interests'>>({})
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [selectedWorkForHearts, setSelectedWorkForHearts] = useState<any | null>(null)
+  const [selectedWorkForSaves, setSelectedWorkForSaves] = useState<any | null>(null)
 
   // Direct Mailer / Email Broadcast State (Anti-Spam Hardened)
   const [mailRecipientsMode, setMailRecipientsMode] = useState<'custom' | 'all'>('custom')
@@ -433,6 +437,35 @@ function SecretAdminPanelPage() {
     }
   }
 
+  const [togglingTrendingWorkId, setTogglingTrendingWorkId] = useState<string | null>(null)
+
+  const handleToggleTrending = async (work: AdminWorkRow) => {
+    if (!adminToken) return
+    const nextVal = !work.trendingMarkedByAdmin
+    setTogglingTrendingWorkId(work.id)
+    try {
+      await adminToggleWorkTrendingServerFn({
+        data: {
+          adminToken,
+          workId: work.id,
+          isTrending: nextVal,
+        },
+      })
+      // 1. Optimistically update local adminWorks state
+      setAdminWorks((prev) =>
+        prev.map((w) => (w.id === work.id ? { ...w, trendingMarkedByAdmin: nextVal } : w))
+      )
+      // 2. Also reload works in AppContext so home page updates immediately
+      reloadWorksFromDb()
+      showToast(nextVal ? `"${work.title}" pinned to Trending!` : `"${work.title}" unpinned from Trending`)
+    } catch (err: any) {
+      console.error('[handleToggleTrending] Error:', err)
+      showToast(err?.message || 'Failed to update trending status')
+    } finally {
+      setTogglingTrendingWorkId(null)
+    }
+  }
+
   const fetchDashboard = async (token: string, isManual = false) => {
     if (isManual) setRefreshing(true)
     else setLoading(true)
@@ -649,6 +682,7 @@ function SecretAdminPanelPage() {
         viewCount: parsedViews,
         likeCount: (w as any).likeCount || 0,
         status: w.status,
+        trendingMarkedByAdmin: Boolean((w as any).trendingMarkedByAdmin || (w as any).trending_marked_by_admin),
       }
     })
 
@@ -1807,6 +1841,8 @@ function SecretAdminPanelPage() {
                   <th className="py-3 px-4 font-semibold">Posted</th>
                   <th className="py-3 px-4 font-semibold text-right">No. of Views</th>
                   <th className="py-3 px-4 font-semibold text-right">Hearts</th>
+                  <th className="py-3 px-4 font-semibold text-right">Saves</th>
+                  <th className="py-3 px-4 font-semibold text-center">Trending</th>
                   <th className="py-3 px-4 font-semibold text-center">Status</th>
                   <th className="py-3 px-4 font-semibold text-right">Action</th>
                 </tr>
@@ -1814,14 +1850,14 @@ function SecretAdminPanelPage() {
               <tbody className="divide-y divide-[var(--border-subtle)] text-xs font-mono">
                 {loadingWorks ? (
                   <tr>
-                    <td colSpan={7} className="py-16 text-center text-[var(--ink-muted)] font-mono">
+                    <td colSpan={9} className="py-16 text-center text-[var(--ink-muted)] font-mono">
                       <RefreshCw className="h-6 w-6 mx-auto mb-2 animate-spin text-[var(--ink-faint)]" />
                       Loading works (50 per page)...
                     </td>
                   </tr>
                 ) : filteredAdminWorks.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-[var(--ink-muted)] font-mono">
+                    <td colSpan={9} className="py-12 text-center text-[var(--ink-muted)] font-mono">
                       No works found in database.
                     </td>
                   </tr>
@@ -1905,18 +1941,21 @@ function SecretAdminPanelPage() {
                         </div>
                       </td>
 
-                      {/* 4. No. of Views (Interactive Trigger for Acts Breakdown Popup) */}
+                      {/* 4. No. of Views & Impressions (Interactive Trigger for Acts Breakdown Popup) */}
                       <td className="py-3 px-4 text-right">
                         <button
                           type="button"
                           onClick={() => openActsAnalyticsModal(work)}
                           className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-mono font-semibold text-[var(--ink-primary)] bg-[var(--bg-subtle)] border border-[var(--border-subtle)] hover:border-[var(--ink-primary)] hover:bg-[var(--bg-surface)] hover:shadow-xs transition-all cursor-pointer group"
-                          title="Click to view Acts & Chapters readership breakdown"
+                          title={`${work.viewCount.toLocaleString()} reads • ${(work.impressionCount || 0).toLocaleString()} impressions • Click to view Acts & Chapters breakdown`}
                         >
                           <Eye className="h-3.5 w-3.5 text-[var(--ink-muted)] group-hover:text-[var(--ink-primary)] transition-colors" />
-                          <span>{work.viewCount.toLocaleString()}</span>
+                          <div className="text-right leading-tight">
+                            <div>{work.viewCount.toLocaleString()} <span className="text-[9px] text-[var(--ink-faint)] font-sans">reads</span></div>
+                            <div className="text-[9px] text-[var(--ink-faint)] font-sans font-normal">{(work.impressionCount || 0).toLocaleString()} impr</div>
+                          </div>
                           <span className="text-[10px] text-[var(--ink-faint)] group-hover:text-[var(--ink-muted)] font-sans">
-                            acts ↗
+                            ↗
                           </span>
                         </button>
                       </td>
@@ -1941,6 +1980,47 @@ function SecretAdminPanelPage() {
                           <span className="text-[10px] text-[var(--ink-faint)] group-hover:text-[var(--ink-muted)] font-sans">
                             adjust ↗
                           </span>
+                        </button>
+                      </td>
+
+                      {/* 4.6. Saves (Interactive Trigger for Library Saves Adjustment Modal) */}
+                      <td className="py-3 px-4 text-right">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const matched = allWorks.find((w) => w.id === work.id) || work
+                            setSelectedWorkForSaves(matched)
+                          }}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-mono font-semibold text-[var(--ink-primary)] bg-[var(--bg-subtle)] border border-[var(--border-subtle)] hover:border-[var(--ink-primary)] hover:bg-[var(--bg-surface)] hover:shadow-xs transition-all cursor-pointer group"
+                          title={`${((work as any).saveCount ?? (work as any).totalSaves ?? 0).toLocaleString()} library saves • Click to adjust`}
+                        >
+                          <Bookmark className="h-3.5 w-3.5 fill-current text-[var(--ink-primary)] group-hover:scale-110 transition-transform" />
+                          <span>{((work as any).saveCount ?? (work as any).totalSaves ?? 0).toLocaleString()}</span>
+                          <span className="text-[10px] text-[var(--ink-faint)] group-hover:text-[var(--ink-muted)] font-sans">
+                            adjust ↗
+                          </span>
+                        </button>
+                      </td>
+
+                      {/* 4.75. Trending Admin Pin Override Toggle */}
+                      <td className="py-3 px-4 text-center">
+                        <button
+                          type="button"
+                          disabled={togglingTrendingWorkId === work.id}
+                          onClick={() => handleToggleTrending(work)}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-mono transition-all cursor-pointer border ${
+                            work.trendingMarkedByAdmin
+                              ? 'bg-amber-500/15 text-amber-500 border-amber-500/40 hover:bg-amber-500/25 shadow-xs font-semibold'
+                              : 'bg-[var(--bg-subtle)] text-[var(--ink-muted)] border-[var(--border-subtle)] hover:text-[var(--ink-primary)] hover:border-[var(--border-strong)]'
+                          }`}
+                          title={
+                            work.trendingMarkedByAdmin
+                              ? `Pinned by Admin to Trending • Click to Unpin "${work.title}"`
+                              : `Click to Force Pin "${work.title}" to Trending (Bypasses all algorithmic checks)`
+                          }
+                        >
+                          <TrendingUp className={`h-3 w-3 ${work.trendingMarkedByAdmin ? 'text-amber-500' : 'text-[var(--ink-faint)]'}`} />
+                          <span>{work.trendingMarkedByAdmin ? 'Pinned' : 'Pin'}</span>
                         </button>
                       </td>
 
@@ -2346,6 +2426,19 @@ function SecretAdminPanelPage() {
                                   >
                                     <Heart className="h-2.5 w-2.5 fill-current text-[var(--ink-primary)]" />
                                     <span>Hearts</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const matched = allWorks.find((w) => w.id === work.id) || work
+                                      setSelectedWorkForSaves(matched)
+                                    }}
+                                    className="inline-flex items-center gap-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2 py-1 text-[10px] font-mono font-medium text-[var(--ink-primary)] hover:border-[var(--ink-primary)] cursor-pointer"
+                                    title={`Adjust library saves for "${work.title}"`}
+                                  >
+                                    <Bookmark className="h-2.5 w-2.5 fill-current text-[var(--ink-primary)]" />
+                                    <span>Saves</span>
                                   </button>
 
                                   <button
@@ -4663,6 +4756,24 @@ function SecretAdminPanelPage() {
             }
             reloadWorksFromDb()
             showToast(`Story hearts updated to ${newTotal.toLocaleString()}!`)
+          }}
+        />
+      )}
+
+      {/* SAVES ADJUSTMENT MODAL */}
+      {selectedWorkForSaves && (
+        <SavesAdjustmentModal
+          isOpen={Boolean(selectedWorkForSaves)}
+          onClose={() => setSelectedWorkForSaves(null)}
+          work={selectedWorkForSaves}
+          adminToken={adminToken}
+          onSavesUpdated={(newTotal) => {
+            if (adminToken) {
+              fetchDashboard(adminToken, true)
+              fetchWorks(adminToken, worksPage)
+            }
+            reloadWorksFromDb()
+            showToast(`Story library saves updated to ${newTotal.toLocaleString()}!`)
           }}
         />
       )}

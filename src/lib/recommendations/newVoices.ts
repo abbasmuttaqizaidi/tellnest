@@ -1,4 +1,5 @@
 import type { Work } from '../../data/mockData.ts'
+import { getWorkPublishedChapterCount } from './bingeable.ts'
 
 /**
  * Calculates the exact expiration timestamp 5 calendar months after account creation.
@@ -103,13 +104,23 @@ export function isStoryEligibleForNewVoices(
 export function filterAndOrderNewVoicesStories(
   works: Work[],
   currentUserId?: string | null,
-  referenceDate: Date = new Date()
+  referenceDate: Date = new Date(),
+  options?: { excludeBingeable?: boolean }
 ): Work[] {
+  const shouldExcludeBingeable = options?.excludeBingeable ?? false
+
   return works
     .filter((work) => {
       // Exclude reader's own manuscripts from discovery if authenticated
       if (currentUserId && (work.author?.id === currentUserId || (work as any).author_id === currentUserId)) {
         return false
+      }
+      // Bingeable stories (<= 2 chapters) are strictly excluded from New Voices Showcase
+      if (shouldExcludeBingeable) {
+        const chCount = getWorkPublishedChapterCount(work)
+        if (chCount <= 2) {
+          return false
+        }
       }
       return isStoryEligibleForNewVoices(work, work.author?.createdAt, referenceDate)
     })

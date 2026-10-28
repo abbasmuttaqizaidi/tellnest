@@ -27,6 +27,7 @@ import {
   Search,
   Star,
   Eye,
+  Zap,
 } from 'lucide-react'
 import { formatViewCount, parseTotalReads } from '../../lib/utils'
 import {
@@ -36,6 +37,7 @@ import {
 import type { UserSessionBootstrap } from '../../server/authors'
 import { calculateForYouRecommendations } from '../../lib/recommendations/engine'
 import { filterAndOrderNewVoicesStories } from '../../lib/recommendations/newVoices'
+import { calculateBingeableReads, getWorkPublishedChapterCount } from '../../lib/recommendations/bingeable'
 import { NewVoicesOpportunityModal } from '../NewVoicesOpportunityModal'
 
 import {
@@ -324,6 +326,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
   const [signalsError, setSignalsError] = useState<boolean>(false)
 
   const forYouCarouselRef = useRef<HTMLDivElement>(null)
+  const bingeableCarouselRef = useRef<HTMLDivElement>(null)
   const recRequestIdRef = useRef<number>(0)
 
   useEffect(() => {
@@ -536,9 +539,22 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
   ])
 
   // Dedicated New Voices: original qualifying stories from writers in first 5 calendar months
+  // Strictly excludes <= 2 chapters bingeable reads per platform rule
   const newVoicesWorks = useMemo(() => {
-    return filterAndOrderNewVoicesStories(works, effectiveUserId)
+    return filterAndOrderNewVoicesStories(works, effectiveUserId, new Date(), { excludeBingeable: true })
   }, [works, effectiveUserId])
+
+  // Dedicated Bingeable Reads: Single-sitting complete reads (<= 2 published chapters)
+  const bingeableWorks = useMemo(() => {
+    const candidateWorks = works.filter((w) => !isOwnWork(w.id))
+    return calculateBingeableReads({
+      candidateWorks,
+      readingHistory: recommendationSignals?.readingHistory || [],
+      userPreferences: recommendationSignals?.preferences || null,
+      currentUserId: effectiveUserId,
+      currentUserProfileId: recommendationSignals?.profileId,
+    })
+  }, [works, recommendationSignals, effectiveUserId, isOwnWork])
 
   // Books currently in-progress (sorted by most recently read)
   const inProgressList = useMemo(() => {
@@ -1200,11 +1216,6 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
                     <div className="absolute top-3 left-3 bg-black/75 text-white backdrop-blur-md px-2.5 py-1 rounded font-mono text-[11px] uppercase tracking-wider flex items-center gap-1 border border-white/20 shadow-xs z-10">
                       <span className="font-bold text-amber-400">#{(work as any).trendingRank ?? (idx + 1)}</span>
                       <span>in {work.genre}</span>
-                      {(work as any).trendingTier && (
-                        <span className="ml-1 px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-semibold">
-                          Tier {(work as any).trendingTier}
-                        </span>
-                      )}
                     </div>
 
                     {/* Bookmark Button (Top-Right) */}
@@ -1254,11 +1265,6 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
                             {work.totalSaves.toLocaleString()} Saves
                           </span>
                         ) : null}
-                        {(work as any).trendingTier ? (
-                          <span className="flex items-center gap-1 font-semibold text-amber-500">
-                            Tier {(work as any).trendingTier}
-                          </span>
-                        ) : null}
                       </div>
 
                       {/* Author & Action */}
@@ -1297,6 +1303,112 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
         </div>
         )}
       </section>
+
+      {/* =========================================================================
+          SECTION: BINGEABLE READS FOR YOU (SINGLE-SITTING COMPLETE & 2-CHAPTER ARCS)
+          ========================================================================= */}
+      {bingeableWorks.length > 0 && (
+        <section id="bingeable-reads" className="w-full space-y-4" style={{ contentVisibility: 'auto', containIntrinsicSize: '550px' }}>
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-3 border-b border-[var(--border-subtle)]">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="flex h-5 w-5 items-center justify-center rounded bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                  <Zap className="h-3.5 w-3.5 fill-current" />
+                </span>
+                <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] tracking-tight">
+                  Bingeable Reads for You
+                </h3>
+              </div>
+              <p className="font-serif text-xs sm:text-sm text-[var(--ink-secondary)]">
+                Quick, complete stories and two-chapter arcs you can finish in one sitting.
+              </p>
+            </div>
+          </div>
+
+          <div
+            ref={bingeableCarouselRef}
+            className="flex items-stretch gap-3 sm:gap-3.5 overflow-x-auto scroll-smooth py-1 px-0.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+            style={{ scrollSnapType: 'x mandatory' }}
+          >
+            {bingeableWorks.map((work) => {
+              const wSlug = getWorkSlug(work)
+              const saved = isWorkSaved(work.id)
+              const chCount = getWorkPublishedChapterCount(work)
+
+              return (
+                <div
+                  key={work.id}
+                  style={{ scrollSnapAlign: 'start' }}
+                  className="w-[145px] sm:w-[160px] md:w-[170px] shrink-0 flex flex-col justify-between rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-xs hover:shadow-md transition-all duration-300 overflow-hidden group"
+                >
+                  {/* Cover with badge */}
+                  <div className="relative aspect-[2/3] w-full overflow-hidden bg-[var(--bg-subtle)]">
+                    <Link
+                      to="/works/$workId"
+                      params={{ workId: wSlug }}
+                      preload="intent"
+                      className="block w-full h-full no-underline"
+                    >
+                      <OptimizedImage
+                        src={work.cover}
+                        alt={work.title}
+                        width={170}
+                        height={255}
+                        containerClassName="w-full h-full"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    </Link>
+
+                    {/* Quick read chapter badge */}
+                    <span className="absolute top-2 left-2 z-10 rounded bg-black/80 backdrop-blur-xs px-1.5 py-0.5 text-[9px] font-mono font-semibold text-amber-400 border border-amber-400/20 shadow-xs flex items-center gap-1">
+                      <Zap className="h-2.5 w-2.5 fill-current" />
+                      <span>{chCount === 1 ? '1 Chapter' : '2 Chapters'}</span>
+                    </span>
+
+                    {/* Bookmark Toggle */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        toggleSaveWork(work.id)
+                      }}
+                      className="absolute top-2 right-2 z-10 p-1.5 rounded-full bg-black/60 hover:bg-black/85 text-white/90 hover:text-white backdrop-blur-xs transition cursor-pointer"
+                      title={saved ? 'Remove from Saved' : 'Save to Shelf'}
+                    >
+                      <Bookmark className={`h-3.5 w-3.5 ${saved ? 'fill-current text-amber-400' : ''}`} />
+                    </button>
+                  </div>
+
+                  {/* Info */}
+                  <div className="p-3 flex flex-col flex-1 justify-between gap-2">
+                    <div className="space-y-1">
+                      <Link
+                        to="/works/$workId"
+                        params={{ workId: wSlug }}
+                        preload="intent"
+                        className="font-serif text-xs sm:text-sm font-bold text-[var(--ink-primary)] line-clamp-1 group-hover:underline no-underline block"
+                      >
+                        {work.title}
+                      </Link>
+                      <p className="font-mono text-[10px] sm:text-[11px] text-[var(--ink-muted)] truncate">
+                        {work.author?.name || 'Unknown Author'}
+                      </p>
+                    </div>
+
+                    <div className="pt-2 border-t border-[var(--border-subtle)] flex items-center justify-between text-[10px] font-mono text-[var(--ink-muted)]">
+                      <span className="truncate">{work.genre || 'Fiction'}</span>
+                      <span className="text-[9px] text-amber-600 dark:text-amber-400 font-semibold uppercase">
+                        {work.status === 'Completed' ? 'Complete' : 'Quick Arc'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
 
       {/* =========================================================================
           SECTION 4: READING SHELF

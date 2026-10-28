@@ -1435,8 +1435,11 @@ export interface AdminWorkRow {
   }
   postedAt: string
   viewCount: number
+  impressionCount?: number
   likeCount: number
+  saveCount: number
   status: string
+  trendingMarkedByAdmin: boolean
 }
 
 export interface AdminWorksResponse {
@@ -1482,8 +1485,11 @@ export const getAdminWorksServerFn = createServerFn({ method: 'GET' })
           published_at,
           created_at,
           view_count,
+          impression_count,
           like_count,
+          save_count,
           status,
+          trending_marked_by_admin,
           author:profiles(
             id,
             display_name,
@@ -1516,8 +1522,11 @@ export const getAdminWorksServerFn = createServerFn({ method: 'GET' })
           },
           postedAt: w.published_at || w.created_at || new Date().toISOString(),
           viewCount: w.view_count || 0,
+          impressionCount: Number(w.impression_count || 0),
           likeCount: Number(w.like_count || 0),
+          saveCount: Number(w.save_count || 0),
           status: w.status || 'Ongoing',
+          trendingMarkedByAdmin: Boolean(w.trending_marked_by_admin),
         }
       })
 
@@ -1569,6 +1578,7 @@ export interface WorkActsAnalyticsResponse {
   workTitle: string
   totalUniqueViews: number
   totalHearts: number
+  totalSaves?: number
   acts: WorkActAnalytics[]
 }
 
@@ -1586,10 +1596,10 @@ export const getAdminWorkActsAnalyticsServerFn = createServerFn({ method: 'GET' 
     const admin = createAdminClient()
 
     try {
-      // 1. Fetch work title & total view_count, like_count
+      // 1. Fetch work title & total view_count, like_count, save_count
       const { data: dbWork } = await admin
         .from('works')
-        .select('id, title, view_count, like_count')
+        .select('id, title, view_count, like_count, save_count')
         .eq('id', data.workId)
         .maybeSingle()
 
@@ -1610,6 +1620,7 @@ export const getAdminWorkActsAnalyticsServerFn = createServerFn({ method: 'GET' 
       const workTitle = dbWork?.title || 'Manuscript'
       const totalViews = Number(dbWork?.view_count || 0)
       const totalHearts = Number(dbWork?.like_count || 0)
+      const totalSaves = Number(dbWork?.save_count || 0)
 
       const chaptersList = dbChapters || []
       const actsList = dbActs || []
@@ -1643,6 +1654,7 @@ export const getAdminWorkActsAnalyticsServerFn = createServerFn({ method: 'GET' 
           workTitle,
           totalUniqueViews: totalViews,
           totalHearts,
+          totalSaves,
           acts,
         }
       }
@@ -1655,6 +1667,7 @@ export const getAdminWorkActsAnalyticsServerFn = createServerFn({ method: 'GET' 
         workTitle,
         totalUniqueViews: totalViews,
         totalHearts,
+        totalSaves,
         acts: [
           {
             id: `act-1-${data.workId}`,
@@ -1681,6 +1694,7 @@ export const getAdminWorkActsAnalyticsServerFn = createServerFn({ method: 'GET' 
         workTitle: 'Manuscript',
         totalUniqueViews: 0,
         totalHearts: 0,
+        totalSaves: 0,
         acts: [],
       }
     }
@@ -1951,6 +1965,44 @@ export const adminUpdateWorkCoverServerFn = createServerFn({ method: 'POST' })
   })
 
 // ==========================================
+// 10.5. ADMIN TOGGLE WORK TRENDING (EDITORIAL PIN OVERRIDE)
+// ==========================================
+
+export interface AdminToggleWorkTrendingPayload {
+  adminToken: string
+  workId: string
+  isTrending: boolean
+}
+
+export const adminToggleWorkTrendingServerFn = createServerFn({ method: 'POST' })
+  .validator((params: AdminToggleWorkTrendingPayload) => {
+    if (!params.adminToken) throw new Error('Admin authorization token is required')
+    if (!params.workId?.trim()) throw new Error('Work ID is required')
+    return params
+  })
+  .handler(async ({ data }) => {
+    if (!isValidAdminToken(data.adminToken)) {
+      throw new Error('Unauthorized: Invalid or expired administration key')
+    }
+    const admin = createAdminClient()
+    const { error } = await admin
+      .from('works')
+      .update({ trending_marked_by_admin: data.isTrending })
+      .eq('id', data.workId)
+
+    if (error) {
+      console.error('[adminToggleWorkTrendingServerFn] Database error:', error.message)
+      throw new Error(error.message)
+    }
+
+    return {
+      success: true,
+      workId: data.workId,
+      isTrending: data.isTrending,
+    }
+  })
+
+// ==========================================
 // 11. ADMIN CREATE / UPDATE ACT SERVER FUNCTION
 // ==========================================
 
@@ -2218,6 +2270,80 @@ export const adminBatchSaveHeartsServerFn = createServerFn({ method: 'POST' })
       success: true,
       message: 'All heart counts updated successfully in database',
       newWorkHearts: finalWorkHearts,
+    }
+  })
+
+/**
+ * Server Function: Admin fetch live library saves for a work.
+ */
+export const getAdminWorkSavesServerFn = createServerFn({ method: 'GET' })
+  .validator((params: { adminToken: string; workId: string }) => {
+    if (!params.adminToken) throw new Error('Admin token is required')
+    if (!params.workId) throw new Error('Work ID is required')
+    return params
+  })
+  .handler(async ({ data: { adminToken, workId } }) => {
+    if (!isValidAdminToken(adminToken)) {
+      throw new Error('Unauthorized: Invalid administration key')
+    }
+
+    const admin = createAdminClient()
+    const { data: workRow, error } = await admin
+      .from('works')
+      .select('id, title, save_count')
+      .eq('id', workId)
+      .maybeSingle()
+
+    if (error) {
+      throw new Error(`Failed to fetch work saves: ${error.message}`)
+    }
+
+    return {
+      success: true,
+      workId,
+      title: workRow?.title || '',
+      saveCount: Number(workRow?.save_count || 0),
+    }
+  })
+
+/**
+ * Server Function: Admin update work library saves count directly.
+ */
+export const adminUpdateWorkSavesServerFn = createServerFn({ method: 'POST' })
+  .validator((params: {
+    adminToken: string
+    workId: string
+    saveCount: number
+  }) => {
+    if (!params.adminToken) throw new Error('Admin authorization token is required')
+    if (!params.workId) throw new Error('Work ID is required')
+    if (typeof params.saveCount !== 'number' || isNaN(params.saveCount)) {
+      throw new Error('Save count must be a valid number')
+    }
+    return params
+  })
+  .handler(async ({ data: { adminToken, workId, saveCount } }) => {
+    if (!isValidAdminToken(adminToken)) {
+      throw new Error('Unauthorized: Invalid administration key')
+    }
+
+    const admin = createAdminClient()
+    const finalSaves = Math.max(0, Math.round(saveCount))
+
+    const { error } = await admin
+      .from('works')
+      .update({ save_count: finalSaves })
+      .eq('id', workId)
+
+    if (error) {
+      throw new Error(`Failed to update work saves: ${error.message}`)
+    }
+
+    return {
+      success: true,
+      workId,
+      newSaveCount: finalSaves,
+      message: `Work library saves updated to ${finalSaves.toLocaleString()} successfully`,
     }
   })
 

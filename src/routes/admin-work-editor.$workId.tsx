@@ -34,12 +34,14 @@ import {
   Image as ImageIcon,
   Tag,
   PenTool,
+  Bookmark,
 } from 'lucide-react'
 import { generateMeta } from '../lib/seo'
 import { getWorkSlug, type Work, type Act, type Chapter } from '../data/mockData'
 import { CloudinaryImageUpload } from '../components/CloudinaryImageUpload'
 import { ViewsBreakdownModal } from '../components/ViewsBreakdownModal'
 import { HeartsBreakdownModal } from '../components/HeartsBreakdownModal'
+import { SavesAdjustmentModal } from '../components/SavesAdjustmentModal'
 import { formatViewCount, formatHeartCount } from '../lib/utils'
 
 import { getPublicWorkServerFn } from '../server/works'
@@ -190,6 +192,7 @@ function AdminWorkEditorPage() {
   const [loadingDbActs, setLoadingDbActs] = useState(false)
   const [showViewsModal, setShowViewsModal] = useState(false)
   const [showHeartsModal, setShowHeartsModal] = useState(false)
+  const [showSavesModal, setShowSavesModal] = useState(false)
 
   // Sync state ONLY on initial load of this manuscript or when work ID changes, NOT on every background re-fetch while editing
   useEffect(() => {
@@ -800,6 +803,17 @@ function AdminWorkEditorPage() {
                   <span>{formatHeartCount(Number((localWorkOverride || work).likeCount ?? (localWorkOverride || work as any).like_count) || 0, true)} Hearts</span>
                   <span className="text-[9px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold">(Adjust)</span>
                 </button>
+                <span>•</span>
+                <button
+                  type="button"
+                  onClick={() => setShowSavesModal(true)}
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded border border-[var(--border-subtle)] hover:border-[var(--ink-primary)] bg-[var(--bg-subtle)] hover:bg-[var(--bg-canvas)] text-[var(--ink-primary)] transition cursor-pointer font-bold text-[11px]"
+                  title={`${(Number((localWorkOverride || work).totalSaves ?? (localWorkOverride || work as any).save_count) || 0).toLocaleString()} library saves • Click to adjust story saves`}
+                >
+                  <Bookmark className="h-3 w-3 fill-current text-[var(--ink-primary)]" />
+                  <span>{formatViewCount(Number((localWorkOverride || work).totalSaves ?? (localWorkOverride || work as any).save_count) || 0, true)} Saves</span>
+                  <span className="text-[9px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold">(Adjust)</span>
+                </button>
               </div>
             </div>
           </div>
@@ -821,6 +835,14 @@ function AdminWorkEditorPage() {
               onClick={() => setShowHeartsModal(true)}
             >
               Adjust Hearts
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<Bookmark className="h-3.5 w-3.5 fill-current text-[var(--ink-primary)]" />}
+              onClick={() => setShowSavesModal(true)}
+            >
+              Adjust Saves
             </Button>
             <Button
               variant="outline"
@@ -1636,6 +1658,27 @@ function AdminWorkEditorPage() {
           })
           reloadWorksFromDb()
           showToast(`Story hearts updated to ${newTotalHearts.toLocaleString()}!`)
+        }}
+      />
+
+      {/* MODAL: SAVES ADJUSTMENT WITH ADMIN INCREMENT / DECREMENT */}
+      <SavesAdjustmentModal
+        isOpen={showSavesModal}
+        onClose={() => setShowSavesModal(false)}
+        work={localWorkOverride || work}
+        adminToken={adminToken}
+        onSavesUpdated={(newTotalSaves) => {
+          setLocalWorkOverride((prev: any) => {
+            const base = prev || work
+            return {
+              ...base,
+              totalSaves: newTotalSaves,
+              save_count: newTotalSaves,
+              saveCount: newTotalSaves,
+            }
+          })
+          reloadWorksFromDb()
+          showToast(`Story library saves updated to ${newTotalSaves.toLocaleString()}!`)
         }}
       />
 

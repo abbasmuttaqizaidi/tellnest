@@ -125,11 +125,17 @@ function WorkAnalyticsPage() {
 
         <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5">
           <div className="flex items-center justify-between text-[var(--ink-muted)] mb-2">
-            <span className="font-mono text-[10px] uppercase tracking-wider">Unique Readers</span>
+            <span className="font-mono text-[10px] uppercase tracking-wider">Story Impressions</span>
             <Users className="h-4 w-4" />
           </div>
-          <p className="font-serif text-2xl font-semibold text-[var(--ink-primary)]">68,240</p>
-          <p className="font-mono text-[11px] text-[var(--ink-faint)] mt-1">Across 42 regions</p>
+          <p className="font-serif text-2xl font-semibold text-[var(--ink-primary)]" title={`${(Number(work.impressionCount) || 0).toLocaleString()} Unique Impressions`}>
+            {formatViewCount(work.impressionCount || 0, true)}
+          </p>
+          <p className="font-mono text-[11px] text-[var(--ink-faint)] mt-1">
+            {Number(work.impressionCount) > 0
+              ? `${Math.min(100, Math.round(((parseInt(String(work.totalReads || '0').replace(/,/g, ''), 10) || 0) / (Number(work.impressionCount) || 1)) * 100))}% read-through rate`
+              : 'Unique landing visits'}
+          </p>
         </div>
 
         <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5">

@@ -98,6 +98,10 @@ export interface Work {
   trendingRank?: number
   trendingTier?: 'A' | 'B'
   trendingScore?: number
+  trendingMarkedByAdmin?: boolean
+  trending_marked_by_admin?: boolean
+  impressionCount?: number
+  impression_count?: number
   rising?: boolean
   editorPick?: boolean
   // Collections per live_instructions.md lines 196-230

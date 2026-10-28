@@ -23,9 +23,10 @@ import {
 } from 'lucide-react'
 import { getWorkSlug } from '../data/mockData'
 import { generateMeta } from '../lib/seo'
-import { getPublicWorkServerFn } from '../server/works'
+import { getPublicWorkServerFn, trackWorkImpressionServerFn } from '../server/works'
 import { getWorkHeartStatusServerFn, toggleWorkHeartServerFn } from '../server/hearts'
 import { HeartsBreakdownModal } from '../components/HeartsBreakdownModal'
+import { SavesAdjustmentModal } from '../components/SavesAdjustmentModal'
 import { AuthorProfileModal } from '../components/AuthorProfileModal'
 import { formatViewCount, formatHeartCount } from '../lib/utils'
 import CommentsSection from '../components/CommentsSection'
@@ -169,7 +170,35 @@ function WorkDetailPage() {
 
   const canonicalSlug = work ? getWorkSlug(work) : ''
   const saved = work ? isWorkSaved(work.id) : false
-  const { user } = useUser()
+  const { user, isLoaded: isUserLoaded } = useUser()
+
+  // Track unique story impression strictly in live DB on landing (independent of chapter reads)
+  useEffect(() => {
+    if (!work) return
+    if (!isUserLoaded) return // Wait for Clerk auth state to resolve for cross-device identity
+    if (typeof window === 'undefined') return
+
+    let viewerKey: string
+    if (user?.id) {
+      // Deterministic cross-device identity for authenticated members (prevents duplicate impressions on mobile vs laptop)
+      viewerKey = `u-${user.id}`
+    } else {
+      let stored = localStorage.getItem('hatchpen_viewer_uuid') || localStorage.getItem('tellnest_viewer_uuid')
+      if (!stored) {
+        stored = 'v-' + Math.random().toString(36).substring(2) + Date.now().toString(36)
+        localStorage.setItem('hatchpen_viewer_uuid', stored)
+        localStorage.setItem('tellnest_viewer_uuid', stored)
+      }
+      viewerKey = stored
+    }
+
+    trackWorkImpressionServerFn({
+      data: {
+        viewerKey,
+        workId: work.id,
+      },
+    }).catch(() => {})
+  }, [work?.id, isUserLoaded, user?.id])
   const authorId = work?.author?.id || 'author-unknown'
   const authorName = work?.author?.name || 'Hatchpen Author'
   const authorHandle = work?.author?.handle || 'author'
@@ -225,21 +254,26 @@ function WorkDetailPage() {
     return null
   })
   const [showAdminHeartsModal, setShowAdminHeartsModal] = useState<boolean>(false)
+  const [showAdminSavesModal, setShowAdminSavesModal] = useState<boolean>(false)
   const [workHearted, setWorkHearted] = useState<boolean>(false)
   const [workHeartCount, setWorkHeartCount] = useState<number>(() => {
     return Number(work?.likeCount ?? (work as any)?.like_count ?? 0)
+  })
+  const [workSaveCount, setWorkSaveCount] = useState<number>(() => {
+    return Number(work?.totalSaves ?? (work as any)?.save_count ?? 0)
   })
   const [isHeartSubmitting, setIsHeartSubmitting] = useState<boolean>(false)
   const [isHeartBouncing, setIsHeartBouncing] = useState<boolean>(false)
   const [showHeartBurst, setShowHeartBurst] = useState<boolean>(false)
   const [authorModalOpen, setAuthorModalOpen] = useState<boolean>(false)
 
-  // Sync heart count if work changes
+  // Sync heart and save counts if work changes
   useEffect(() => {
     if (work) {
       setWorkHeartCount(Number(work.likeCount ?? (work as any).like_count ?? 0))
+      setWorkSaveCount(Number(work.totalSaves ?? (work as any).save_count ?? 0))
     }
-  }, [work?.id, work?.likeCount, (work as any)?.like_count])
+  }, [work?.id, work?.likeCount, (work as any)?.like_count, work?.totalSaves, (work as any)?.save_count])
 
   // Fetch live work heart status
   useEffect(() => {
@@ -262,7 +296,9 @@ function WorkDetailPage() {
   // Toggle Save Work
   const handleToggleSave = () => {
     if (!work?.id) return
+    const currentlySaved = isSavedWork(work.id)
     toggleSaveWork(work.id)
+    setWorkSaveCount((prev) => Math.max(0, currentlySaved ? prev - 1 : prev + 1))
   }
 
   // Smooth scroll to comments section (Instagram comment shortcut)
@@ -684,9 +720,21 @@ function WorkDetailPage() {
               <p className="text-lg font-semibold text-[var(--ink-primary)]">{formatViewCount(work.totalReads, true)}</p>
               <p className="text-[10px] text-[var(--ink-muted)] uppercase tracking-wider">Total Reads</p>
             </div>
-            <div title={`${(Number(work.totalSaves) || 0).toLocaleString()} Saves`}>
-              <p className="text-lg font-semibold text-[var(--ink-primary)]">{formatViewCount(work.totalSaves, true)}</p>
-              <p className="text-[10px] text-[var(--ink-muted)] uppercase tracking-wider">Library Saves</p>
+            <div title={`${(Number(workSaveCount) || 0).toLocaleString()} Saves`}>
+              <p className="text-lg font-semibold text-[var(--ink-primary)]">{formatViewCount(workSaveCount, true)}</p>
+              <p className="text-[10px] text-[var(--ink-muted)] uppercase tracking-wider flex items-center justify-center gap-1">
+                <span>Library Saves</span>
+                {adminToken && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminSavesModal(true)}
+                    className="text-[9px] font-mono text-[var(--ink-primary)] font-bold underline hover:opacity-75 cursor-pointer ml-0.5"
+                    title="Admin: Adjust Library Saves"
+                  >
+                    (Adjust)
+                  </button>
+                )}
+              </p>
             </div>
             <div>
               <p className="text-lg font-semibold text-[var(--ink-primary)]">{chaptersList.length || work.publishedChaptersCount || work.chaptersCount || 0}</p>
@@ -712,6 +760,22 @@ function WorkDetailPage() {
               </p>
             </div>
           </div>
+
+          {/* Private Creator Metrics Indicator (Strictly visible to the author & admin) */}
+          {(isAuthor || isSelf || adminToken) && (
+            <div className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] font-mono text-[11px] text-[var(--ink-muted)]">
+              <span className="flex items-center gap-1.5">
+                <Eye className="h-3.5 w-3.5 text-[var(--ink-faint)]" />
+                <span className="font-semibold text-[var(--ink-primary)]">
+                  {(Number(work.impressionCount) || 0).toLocaleString()}
+                </span>
+                <span>unique folio impressions</span>
+              </span>
+              <span className="text-[10px] text-[var(--ink-faint)] uppercase tracking-wider">
+                Private to Author & Admin
+              </span>
+            </div>
+          )}
 
         </div>
       </div>
@@ -848,6 +912,20 @@ function WorkDetailPage() {
           onHeartsUpdated={(newTotal) => {
             setWorkHeartCount(newTotal)
             showToast(`Story hearts updated to ${newTotal.toLocaleString()}!`)
+          }}
+        />
+      )}
+
+      {/* ADMIN SAVES ADJUSTMENT MODAL */}
+      {showAdminSavesModal && work && (
+        <SavesAdjustmentModal
+          isOpen={showAdminSavesModal}
+          onClose={() => setShowAdminSavesModal(false)}
+          work={work}
+          adminToken={adminToken}
+          onSavesUpdated={(newTotal) => {
+            setWorkSaveCount(newTotal)
+            showToast(`Story library saves updated to ${newTotal.toLocaleString()}!`)
           }}
         />
       )}

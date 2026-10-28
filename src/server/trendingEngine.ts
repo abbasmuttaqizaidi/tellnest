@@ -119,9 +119,12 @@ export function computeTrendingRankings(
     // Qualification check: public, published, and has >= 1 published chapter
     const isPublic = c.visibility === 'public'
     const isPublished =
-      c.status === 'published' &&
-      (c.publicationStatus === undefined || c.publicationStatus === 'published') &&
-      (c.isPublished === undefined || c.isPublished === true)
+      (c.publicationStatus === 'published' || c.status === 'published' || c.isPublished === true) &&
+      c.publicationStatus !== 'draft' &&
+      c.publicationStatus !== 'archived' &&
+      c.status !== 'draft' &&
+      c.status !== 'archived' &&
+      c.isPublished !== false
     const hasChapters = Array.isArray(c.publishedChapterIds) && c.publishedChapterIds.length > 0
 
     if (isPublic && isPublished && hasChapters) {

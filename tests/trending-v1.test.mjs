@@ -374,6 +374,69 @@ test('Trending V1: Discover Trending tab orders stories by trendingRank', () => 
   assert.equal(sorted[1].id, 'work-low-rank')
 })
 
+test('Trending V1: Admin-marked stories (trending_marked_by_admin = true) bypass algorithmic eligibility and receive Priority 1 rank', () => {
+  // Work A: Inactive for 2 months, 0 reads, 0 saves, but marked by admin
+  const workA = {
+    id: 'work-admin-pinned',
+    title: 'Editorial Selection (Inactive 2 Months)',
+    trending_marked_by_admin: true,
+  }
+  // Work B: Organically calculated story in snapshot
+  const activeTrendingSnapshot = {
+    rankings: [
+      { workId: 'work-organic-1', rank: 1, tier: 'A', score: 1.25 },
+      { workId: 'work-organic-2', rank: 2, tier: 'B', score: 0.85 },
+    ],
+  }
+  // Work C: Inactive story NOT marked by admin
+  const workC = {
+    id: 'work-inactive-regular',
+    title: 'Regular Inactive Story',
+    trending_marked_by_admin: false,
+  }
+
+  const rawRows = [workA, { id: 'work-organic-1', trending_marked_by_admin: false }, { id: 'work-organic-2', trending_marked_by_admin: false }, workC]
+
+  // Replicate the exact unified ranking logic from executeGetPlatformWorks in works.ts
+  const finalTrendingMap = new Map()
+  let nextRank = 1
+
+  for (const row of rawRows) {
+    if (row.trending_marked_by_admin) {
+      finalTrendingMap.set(row.id, {
+        rank: nextRank++,
+        isMarkedByAdmin: true,
+      })
+      if (nextRank > 10) break
+    }
+  }
+
+  if (activeTrendingSnapshot && Array.isArray(activeTrendingSnapshot.rankings)) {
+    for (const item of activeTrendingSnapshot.rankings) {
+      if (finalTrendingMap.has(item.workId)) continue
+      if (nextRank > 10) break
+      finalTrendingMap.set(item.workId, {
+        rank: nextRank++,
+        tier: item.tier,
+        score: item.score,
+        isMarkedByAdmin: false,
+      })
+    }
+  }
+
+  // Work A gets Rank 1 unconditionally
+  assert.equal(finalTrendingMap.has('work-admin-pinned'), true)
+  assert.equal(finalTrendingMap.get('work-admin-pinned').rank, 1)
+  assert.equal(finalTrendingMap.get('work-admin-pinned').isMarkedByAdmin, true)
+
+  // Organic works shift to Rank 2 and 3
+  assert.equal(finalTrendingMap.get('work-organic-1').rank, 2)
+  assert.equal(finalTrendingMap.get('work-organic-2').rank, 3)
+
+  // Regular inactive Work C is NOT trending
+  assert.equal(finalTrendingMap.has('work-inactive-regular'), false)
+})
+
 // 14. SNAPSHOT PERSISTENCE, ATOMIC ACTIVATION & FAILURE PRESERVATION
 // ==============================================================================
 
