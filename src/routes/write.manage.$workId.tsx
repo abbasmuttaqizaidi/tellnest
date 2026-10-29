@@ -522,6 +522,8 @@ function WorkManagementPage() {
     if (!target) return
     const targetAct = acts.find((a) => a.id === newActId)
 
+    const prevChapters = [...chapters]
+
     // Optimistic update
     setChapters((prev) =>
       prev.map((c) =>
@@ -546,8 +548,10 @@ function WorkManagementPage() {
         },
       })
       showToast(newActId ? `Chapter moved to ${targetAct?.title || 'Act'}` : 'Chapter unassigned from Act')
-    } catch (e) {
+    } catch (e: any) {
       console.warn('[handleAssignChapterAct] DB error:', e)
+      setChapters(prevChapters)
+      showToast(e?.message || 'Failed to move chapter')
     }
   }
 
@@ -1356,7 +1360,13 @@ function WorkManagementPage() {
               className="w-full py-3.5 border border-dashed border-[var(--border-subtle)] hover:border-[var(--border-strong)] rounded-xl text-center text-xs font-mono font-medium text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-surface)] transition-colors flex items-center justify-center gap-2 cursor-pointer"
             >
               <Layers className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-              <span>+ Add Act {['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][acts.length] || String(acts.length + 1)} Divider</span>
+              <span>
+                + Add Act {(() => {
+                  const existingNums = acts.map((a) => Number(a.number || a.act_number || 0))
+                  const nextActNum = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 1
+                  return ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][nextActNum - 1] || String(nextActNum)
+                })()} Divider
+              </span>
             </button>
           </div>
         ) : (

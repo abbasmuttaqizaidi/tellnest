@@ -822,7 +822,17 @@ export async function executeSaveWriterChapter(data: SaveWriterChapterPayload, a
         updateData.banner_image_path = data.bannerImage?.trim() || null
       }
       if (data.actId !== undefined) {
-        updateData.act_id = data.actId || null
+        if (data.actId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.actId)) {
+          const { data: actRow } = await admin
+            .from('acts')
+            .select('id')
+            .eq('id', data.actId)
+            .eq('work_id', workUuid)
+            .maybeSingle()
+          updateData.act_id = actRow?.id || null
+        } else {
+          updateData.act_id = null
+        }
       }
 
       const updateBuilder = admin
@@ -1334,21 +1344,54 @@ export const deleteWriterActServerFn = createServerFn({ method: 'POST' })
     const admin = createAdminClient()
     const nowIso = new Date().toISOString()
 
-    // 1. Unlink chapters belonging to this act (set act_id = null)
-    await admin
+    // 1. Resolve work UUID if provided for tenant isolation
+    let workUuid = data.workId?.trim()
+    if (workUuid) {
+      const isWorkUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(workUuid)
+      if (!isWorkUuid) {
+        const { data: wRow } = await admin.from('works').select('id').eq('slug', workUuid.toLowerCase()).maybeSingle()
+        if (wRow?.id) workUuid = wRow.id
+      }
+    }
+
+    // 2. Unlink chapters belonging to this act (set act_id = null)
+    let chQuery = admin
       .from('chapters')
       .update({ act_id: null, updated_at: nowIso })
       .eq('act_id', data.actId)
 
-    // 2. Delete the act record
-    const { error } = await admin
+    if (workUuid) {
+      chQuery = chQuery.eq('work_id', workUuid)
+    }
+    await chQuery
+
+    // 3. Delete the act record
+    let actQuery = admin
       .from('acts')
       .delete()
       .eq('id', data.actId)
 
+    if (workUuid) {
+      actQuery = actQuery.eq('work_id', workUuid)
+    }
+
+    const { error } = await actQuery
+
     if (error) {
       console.error('[deleteWriterActServerFn] Error deleting act:', error.message)
       throw new Error(`Failed to delete act: ${error.message}`)
+    }
+
+    // 4. Update work's last activity
+    if (workUuid) {
+      await admin
+        .from('works')
+        .update({
+          last_activity_at: nowIso,
+          last_activity_type: 'act_removed',
+          updated_at: nowIso,
+        })
+        .eq('id', workUuid)
     }
 
     return { success: true }

@@ -316,8 +316,8 @@ test('Chapter Editor Lifecycle: Prevent premature unassigned insertion & rogue i
 
   // 4. executeSaveWriterChapter must strictly update and preserve act_id, never silently inserting rogue duplicate chapters
   assert.ok(
-    writerServerFile.includes('updateData.act_id = data.actId || null'),
-    'executeSaveWriterChapter must preserve act_id when updating chapter'
+    writerServerFile.includes('updateData.act_id = actRow?.id || null'),
+    'executeSaveWriterChapter must preserve and safely assign act_id when updating chapter'
   )
   assert.ok(
     writerServerFile.includes('Chapters must be created via createWriterChapterServerFn before updating'),
@@ -377,4 +377,22 @@ test('Delete Chapter & Delete Act Lifecycle Invariants: Resilience against colli
   const existingNumbers = currentActs.map((a) => a.number)
   const safeNextNum = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1
   assert.strictEqual(safeNextNum, 4, 'Next act after deleting intermediate Act 2 must be Act 4, avoiding collision with Act 3')
+
+  // 7. Verify executeSaveWriterChapter safely verifies actId before updating to prevent foreign key errors
+  assert.ok(
+    writerServerFile.includes('updateData.act_id = actRow?.id || null'),
+    'executeSaveWriterChapter must safely verify that act exists in DB before updating act_id'
+  )
+
+  // 8. Verify deleteWriterActServerFn updates work activity with act_removed
+  assert.ok(
+    writerServerFile.includes('last_activity_type: \'act_removed\''),
+    'deleteWriterActServerFn must record act_removed activity on parent work'
+  )
+
+  // 9. Verify handleAssignChapterAct has error rollback in write.manage
+  assert.ok(
+    manageFile.includes('setChapters(prevChapters)'),
+    'write.manage must implement rollback if assigning chapter to an act fails'
+  )
 })
