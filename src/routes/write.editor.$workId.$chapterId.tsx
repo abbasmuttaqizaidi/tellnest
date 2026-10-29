@@ -14,6 +14,7 @@ import {
   Copy,
   RefreshCw,
   Plus,
+  X,
 } from 'lucide-react'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { generateMeta } from '../lib/seo'
@@ -174,6 +175,8 @@ function ChapterEditorPage() {
     serverSubtitle: string
     serverContent: string
   } | null>(null)
+  const [publishActModalOpen, setPublishActModalOpen] = useState(false)
+  const [selectedPublishActId, setSelectedPublishActId] = useState<string>('')
   const isSavingRef = useRef(false)
 
   // Native inter-tab presence tracking via BroadcastChannel (Same Browser, Multiple Tabs)
@@ -631,11 +634,13 @@ function ChapterEditorPage() {
     await handleManualSave(true)
   }
 
-  const handlePublish = async () => {
-    if (autosaveStatus !== 'saved') {
-      showToast('Please save your chapter changes before publishing.')
-      return
+  const executePublish = async (chosenActId: string | null) => {
+    setPublishActModalOpen(false)
+    if (chosenActId) {
+      setActId(chosenActId)
+      latestStateRef.current.actId = chosenActId
     }
+
     if (isSavingRef.current) return
     if (!work || !currentChapter) return
 
@@ -652,7 +657,7 @@ function ChapterEditorPage() {
     const curTitle = latestStateRef.current.title
     const curContent = latestStateRef.current.content
     const curSubtitle = latestStateRef.current.subtitle
-    const curActId = actId || targetActIdFromSearch || null
+    const curActId = chosenActId !== undefined ? chosenActId : (actId || targetActIdFromSearch || null)
     latestStateRef.current.status = 'published'
 
     updateChapterContent(work.id, activeChapterId, curTitle, curContent, 'published', bannerImage)
@@ -701,6 +706,35 @@ function ChapterEditorPage() {
     } finally {
       isSavingRef.current = false
     }
+  }
+
+  const handlePublish = async () => {
+    if (autosaveStatus !== 'saved') {
+      showToast('Please save your chapter changes before publishing.')
+      return
+    }
+    if (isSavingRef.current) return
+    if (!work || !currentChapter) return
+
+    const activeChapterId = persistedChapterIdRef.current || currentChapter.id
+    const isChapterUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(activeChapterId)
+
+    if (!isChapterUuid || activeChapterId === 'new') {
+      showToast('Please save your chapter changes before publishing.')
+      return
+    }
+
+    const currentEffectiveActId = actId || targetActIdFromSearch || null
+    const hasActs = Array.isArray(work.acts) && work.acts.length > 0
+
+    // Option A: If story is divided into acts, but this chapter has no act assigned, prompt author with modal
+    if (hasActs && !currentEffectiveActId) {
+      setSelectedPublishActId(work.acts[0]?.id || '')
+      setPublishActModalOpen(true)
+      return
+    }
+
+    await executePublish(currentEffectiveActId)
   }
 
   const currentAct = useMemo(() => {
@@ -1001,6 +1035,78 @@ function ChapterEditorPage() {
                   <span>Overwrite Server</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Option A: Assign Act Confirmation Modal on Publish */}
+      {publishActModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-3">
+              <div className="flex items-center gap-2.5 text-[var(--ink-primary)]">
+                <Layers className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                <h3 className="font-serif text-lg font-bold text-[var(--ink-primary)]">
+                  Assign Chapter to an Act?
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPublishActModalOpen(false)}
+                className="p-1 rounded-md text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-[var(--ink-secondary)] leading-relaxed font-sans">
+              Aapki story Dramatic Acts mein divided hai. Kya aap is chapter ko kisi Act ke andar assign karke publish karna chahte hain, ya standalone (Unassigned) publish karna chahte hain?
+            </p>
+
+            <div className="space-y-1.5 pt-1">
+              <label className="block text-[11px] font-mono font-medium text-[var(--ink-muted)] uppercase tracking-wider">
+                Select Dramatic Act:
+              </label>
+              <select
+                value={selectedPublishActId}
+                onChange={(e) => setSelectedPublishActId(e.target.value)}
+                className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2 text-xs font-mono text-[var(--ink-primary)] focus:outline-none focus:border-[var(--ink-primary)] cursor-pointer"
+              >
+                {(work.acts || []).map((act: any) => (
+                  <option key={act.id} value={act.id}>
+                    Act {act.number}: {act.title || `Act ${act.number}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-2 pt-3">
+              <button
+                type="button"
+                onClick={() => executePublish(selectedPublishActId)}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--ink-primary)] text-[var(--accent-contrast)] hover:opacity-90 px-4 py-2.5 text-xs font-semibold shadow-xs transition-all cursor-pointer"
+              >
+                <Send className="h-3.5 w-3.5" />
+                <span>Assign & Publish Chapter</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => executePublish(null)}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-canvas)] hover:bg-[var(--bg-subtle)] px-4 py-2 text-xs font-medium text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] transition-all cursor-pointer shadow-2xs"
+              >
+                <span>Publish without Act (Standalone)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPublishActModalOpen(false)}
+                className="w-full text-center text-xs text-[var(--ink-muted)] hover:text-[var(--ink-primary)] pt-1 cursor-pointer"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>

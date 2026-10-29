@@ -396,3 +396,67 @@ test('Delete Chapter & Delete Act Lifecycle Invariants: Resilience against colli
     'write.manage must implement rollback if assigning chapter to an act fails'
   )
 })
+
+test('Chapter Publishing Option A Modal: Prompt author when publishing unassigned chapter in act-based story', async (t) => {
+  const editorFile = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/routes/write.editor.$workId.$chapterId.tsx'),
+    'utf-8'
+  )
+
+  // 1. Verify publishActModalOpen and selectedPublishActId states exist
+  assert.ok(
+    editorFile.includes('publishActModalOpen'),
+    'write.editor must track publishActModalOpen state for Option A confirmation'
+  )
+  assert.ok(
+    editorFile.includes('selectedPublishActId'),
+    'write.editor must track selectedPublishActId for author act assignment on publish'
+  )
+
+  // 2. Verify handlePublish triggers modal when story has acts and chapter is unassigned
+  assert.ok(
+    editorFile.includes('const hasActs = Array.isArray(work.acts) && work.acts.length > 0'),
+    'handlePublish must check if story has acts'
+  )
+  assert.ok(
+    editorFile.includes('if (hasActs && !currentEffectiveActId)'),
+    'handlePublish must detect unassigned chapter in act-divided story and intercept publish'
+  )
+  assert.ok(
+    editorFile.includes('setPublishActModalOpen(true)'),
+    'handlePublish must open Option A modal when chapter is unassigned'
+  )
+
+  // 3. Verify executePublish accepts chosenActId and updates state / ref
+  assert.ok(
+    editorFile.includes('const executePublish = async (chosenActId: string | null) =>'),
+    'executePublish must accept explicit chosenActId parameter'
+  )
+  assert.ok(
+    editorFile.includes('setActId(chosenActId)'),
+    'executePublish must update actId state when chosen'
+  )
+
+  // 4. Verify Option A Modal UI elements
+  assert.ok(
+    editorFile.includes('Assign Chapter to an Act?'),
+    'Option A modal must feature the title "Assign Chapter to an Act?"'
+  )
+  assert.ok(
+    editorFile.includes('Assign & Publish Chapter'),
+    'Option A modal must include "Assign & Publish Chapter" action button'
+  )
+  assert.ok(
+    editorFile.includes('Publish without Act (Standalone)'),
+    'Option A modal must include "Publish without Act (Standalone)" action button'
+  )
+  assert.ok(
+    editorFile.includes('executePublish(selectedPublishActId)'),
+    'Option A modal primary action must pass selectedPublishActId to executePublish'
+  )
+  assert.ok(
+    editorFile.includes('executePublish(null)'),
+    'Option A modal secondary action must pass null to executePublish for standalone publish'
+  )
+})
+
