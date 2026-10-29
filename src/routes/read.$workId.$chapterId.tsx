@@ -1254,9 +1254,20 @@ function ReaderPage() {
               </span>
             </Link>
           ) : (
-            <div className="order-1 sm:order-2 p-4 rounded-lg border border-dashed border-[var(--border-subtle)] text-left sm:text-right">
-              <span className="text-[11px] font-mono text-[var(--ink-muted)]">You have caught up to latest release</span>
-            </div>
+            <Link
+              to="/works/$workId"
+              params={{ workId: canonicalSlug }}
+              className="order-1 sm:order-2 group flex flex-col items-start sm:items-end sm:text-right p-4 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:border-[var(--ink-primary)] transition-all no-underline text-inherit shadow-2xs hover:shadow-xs"
+              aria-label={`Story Overview: Return to ${work.title}`}
+            >
+              <span className="flex items-center gap-1 text-[11px] font-mono text-emerald-600 dark:text-emerald-400">
+                <span>Story Overview & Discussion</span>
+                <ChevronRight className="h-3 w-3" />
+              </span>
+              <span className="mt-1 font-serif text-sm sm:text-base font-semibold text-[var(--ink-primary)] group-hover:underline truncate w-full">
+                Review & Reflections on {work.title}
+              </span>
+            </Link>
           )}
 
           {/* Previous Chapter Card (order-2 on mobile, left on desktop) */}

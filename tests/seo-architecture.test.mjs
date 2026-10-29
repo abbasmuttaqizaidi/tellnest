@@ -1396,5 +1396,20 @@ test('Author Privacy Invariant: Settings privacy preferences strictly respected 
   )
 })
 
+test('Internal Link Equity Audit: Works route renders contextual author and genre discovery links', () => {
+  const worksCode = fs.readFileSync(path.join(rootDir, 'src/routes/works.$workId.tsx'), 'utf-8')
+  assert.ok(worksCode.includes('moreByAuthor'), 'Works route must compute moreByAuthor')
+  assert.ok(worksCode.includes('relatedInGenre'), 'Works route must compute relatedInGenre')
+  assert.ok(worksCode.includes('More by {authorDisplayName}'), 'Works route must render More by author header')
+  assert.ok(worksCode.includes('Explore {work.genre}'), 'Works route must render Explore genre header')
+  assert.ok(worksCode.includes('to="/genre/$slug"'), 'Works route must link to genre hub')
+})
+
+test('Internal Link Equity Audit: Reader route provides return link to Story Overview upon finishing release', () => {
+  const readerCode = fs.readFileSync(path.join(rootDir, 'src/routes/read.$workId.$chapterId.tsx'), 'utf-8')
+  assert.ok(readerCode.includes('to="/works/$workId"'), 'Reader route must link back to works overview')
+  assert.ok(readerCode.includes('params={{ workId: canonicalSlug }}'), 'Reader return link must use canonicalSlug')
+})
+
 
 

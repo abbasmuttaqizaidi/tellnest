@@ -32,6 +32,7 @@ import { AuthorProfileModal } from '../components/AuthorProfileModal'
 import { ShareStoryModal } from '../components/ShareStoryModal'
 import { formatViewCount, formatHeartCount } from '../lib/utils'
 import CommentsSection from '../components/CommentsSection'
+import WorkCard from '../components/WorkCard'
 import defaultBookCover from '../assets/default-book-cover.webp'
 
 export const Route = createFileRoute('/works/$workId')({
@@ -297,6 +298,45 @@ function WorkDetailPage() {
   const categorySlug = work?.categorySlug || (work?.category ? work.category.toLowerCase().replace(/[^a-z0-9]+/g, '-') : 'novels')
   const genreSlug = work?.genreSlug || (work?.genre ? work.genre.toLowerCase().replace(/[^a-z0-9]+/g, '-') : 'literary-fiction')
   const workTags = Array.isArray(work?.tags) ? work.tags : []
+
+  const moreByAuthor = useMemo(() => {
+    if (!work || !Array.isArray(allWorks)) return []
+    const aId = work.author?.id
+    const aHandle = (work.author?.handle || '').toLowerCase().trim()
+    return allWorks
+      .filter((w) => {
+        if (w.id === work.id) return false
+        if (w.visibility !== 'public') return false
+        if ((w.publicationStatus || (w as any).publication_status) !== 'published') return false
+        const matchId = aId && w.author?.id === aId
+        const matchHandle = aHandle && (w.author?.handle || '').toLowerCase().trim() === aHandle
+        return matchId || matchHandle
+      })
+      .slice(0, 4)
+  }, [work, allWorks])
+
+  const relatedInGenre = useMemo(() => {
+    if (!work || !Array.isArray(allWorks)) return []
+    const currentGenre = (work.genre || '').toLowerCase().trim()
+    if (!currentGenre) return []
+    const aId = work.author?.id
+    const aHandle = (work.author?.handle || '').toLowerCase().trim()
+    return allWorks
+      .filter((w) => {
+        if (w.id === work.id) return false
+        const matchId = aId && w.author?.id === aId
+        const matchHandle = aHandle && (w.author?.handle || '').toLowerCase().trim() === aHandle
+        if (matchId || matchHandle) return false
+        if (w.visibility !== 'public') return false
+        if ((w.publicationStatus || (w as any).publication_status) !== 'published') return false
+        const wGenre = (w.genre || '').toLowerCase().trim()
+        const wGenres = Array.isArray(w.genres)
+          ? w.genres.map((g: any) => (typeof g === 'string' ? g : g.name || '').toLowerCase().trim())
+          : []
+        return wGenre === currentGenre || wGenres.includes(currentGenre)
+      })
+      .slice(0, 4)
+  }, [work, allWorks])
 
   const [chapterSearch, setChapterSearch] = useState('')
 
@@ -963,6 +1003,68 @@ function WorkDetailPage() {
           subtitle="Community reviews, critique, and literary discourse on this complete work"
         />
       </section>
+
+      {/* MORE BY THIS AUTHOR SECTION (Internal Link Equity) */}
+      {moreByAuthor.length > 0 && (
+        <section className="py-8 sm:py-10 border-t border-[var(--border-subtle)] scroll-mt-20">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="font-serif text-xl sm:text-2xl font-bold text-[var(--ink-primary)]">
+                More by {authorDisplayName}
+              </h2>
+              <p className="text-xs text-[var(--ink-secondary)] mt-1">
+                Explore other published manuscripts from this author
+              </p>
+            </div>
+            {authorSlug && (
+              <Link
+                to="/author/$authorId"
+                params={{ authorId: authorSlug }}
+                className="text-xs font-mono font-medium text-[var(--ink-primary)] hover:underline inline-flex items-center gap-1 shrink-0"
+              >
+                <span>View Author Profile</span>
+                <ArrowRight className="h-3 w-3" />
+              </Link>
+            )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            {moreByAuthor.map((relatedWork) => (
+              <WorkCard key={relatedWork.id} work={relatedWork} layout="portrait" />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* SIMILAR STORIES IN GENRE (Crawl Depth & Engagement) */}
+      {relatedInGenre.length > 0 && (
+        <section className="py-8 sm:py-10 border-t border-[var(--border-subtle)] scroll-mt-20">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="font-serif text-xl sm:text-2xl font-bold text-[var(--ink-primary)]">
+                Explore {work.genre}
+              </h2>
+              <p className="text-xs text-[var(--ink-secondary)] mt-1">
+                Readers who enjoyed this manuscript also read
+              </p>
+            </div>
+            {genreSlug && (
+              <Link
+                to="/genre/$slug"
+                params={{ slug: genreSlug }}
+                className="text-xs font-mono font-medium text-[var(--ink-primary)] hover:underline inline-flex items-center gap-1 shrink-0"
+              >
+                <span>All {work.genre} Stories</span>
+                <ArrowRight className="h-3 w-3" />
+              </Link>
+            )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            {relatedInGenre.map((genreWork) => (
+              <WorkCard key={genreWork.id} work={genreWork} layout="portrait" />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ADMIN HEARTS ADJUSTMENT MODAL */}
       {showAdminHeartsModal && work && (
