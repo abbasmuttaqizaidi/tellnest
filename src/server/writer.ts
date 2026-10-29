@@ -825,14 +825,25 @@ export async function executeSaveWriterChapter(data: SaveWriterChapterPayload, a
         updateData.act_id = data.actId || null
       }
 
-      const { error: chErr } = await admin
+      const updateBuilder = admin
         .from('chapters')
         .update(updateData)
         .eq('id', data.chapterId)
 
+      const updateRes = typeof updateBuilder?.select === 'function'
+        ? await updateBuilder.select('id')
+        : await updateBuilder
+
+      const chErr = updateRes?.error
+      const updatedRows = updateRes?.data
+
       if (chErr) {
         console.error('[saveWriterChapterServerFn] Error updating chapter in DB:', chErr.message)
         throw new Error(chErr.message)
+      }
+
+      if (Array.isArray(updatedRows) && updatedRows.length === 0) {
+        throw new Error('Chapter not found on server. It may have been deleted or moved.')
       }
     } else {
       throw new Error(
@@ -953,9 +964,19 @@ export const createWriterChapterServerFn = createServerFn({ method: 'POST' })
     const slug = `ch-${nextNumber}-${uniqueSuffix}`
 
     // 3. Resolve act_id if provided (Do not force latest act if not provided; chapters can be unassigned)
+    // Bulletproof: verify that act actually exists on server so deleted acts don't trigger foreign key errors
     let actId: string | null = null
     if (data.actId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.actId)) {
-      actId = data.actId
+      const { data: actRow } = await admin
+        .from('acts')
+        .select('id')
+        .eq('id', data.actId)
+        .eq('work_id', workUuid)
+        .maybeSingle()
+
+      if (actRow?.id) {
+        actId = actRow.id
+      }
     }
 
     const cleanContent = typeof data.content === 'string' ? data.content.replace(/\\+[ \t]*(?=\r?\n|$)/g, '') : ''
@@ -1182,17 +1203,19 @@ export const createWriterActServerFn = createServerFn({ method: 'POST' })
       if (wRow?.id) workUuid = wRow.id
     }
 
-    // 2. Determine act number
-    let actNumber = data.actNumber
-    if (!actNumber || isNaN(actNumber)) {
-      const { data: existingActs } = await admin
-        .from('acts')
-        .select('act_number')
-        .eq('work_id', workUuid)
-        .order('act_number', { ascending: false })
-        .limit(1)
+    // 2. Determine act number safely (prevent duplicate key collision if an earlier act was deleted)
+    const { data: existingActs } = await admin
+      .from('acts')
+      .select('act_number')
+      .eq('work_id', workUuid)
+      .order('act_number', { ascending: false })
 
-      actNumber = ((existingActs?.[0]?.act_number) || 0) + 1
+    const existingNums = new Set((existingActs || []).map((a: any) => Number(a.act_number)))
+    let actNumber = data.actNumber && !isNaN(data.actNumber) ? Number(data.actNumber) : undefined
+
+    if (!actNumber || existingNums.has(actNumber)) {
+      const maxNum = existingActs?.[0]?.act_number ? Number(existingActs[0].act_number) : 0
+      actNumber = maxNum + 1
     }
 
     const uniqueSuffix = Math.random().toString(36).substring(2, 6)

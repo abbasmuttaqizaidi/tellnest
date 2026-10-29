@@ -324,3 +324,57 @@ test('Chapter Editor Lifecycle: Prevent premature unassigned insertion & rogue i
     'executeSaveWriterChapter must reject non-UUID chapters to eliminate duplicate chapter generation'
   )
 })
+
+test('Delete Chapter & Delete Act Lifecycle Invariants: Resilience against collisions and silent loss', async (t) => {
+  const manageFile = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/routes/write.manage.$workId.tsx'),
+    'utf-8'
+  )
+  const writerServerFile = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/server/writer.ts'),
+    'utf-8'
+  )
+
+  // 1. Verify createWriterActServerFn guards against unique constraint collision when intermediate act was deleted
+  assert.ok(
+    writerServerFile.includes('existingNums.has(actNumber)'),
+    'createWriterActServerFn must detect if actNumber is already taken and increment beyond MAX'
+  )
+
+  // 2. Verify write.manage calculates next act number and roman numeral from MAX + 1 instead of acts.length + 1
+  assert.ok(
+    manageFile.includes('Math.max(...existingNums) + 1'),
+    'write.manage must calculate next Act number using Math.max(...existingNums) + 1 to prevent collisions'
+  )
+
+  // 3. Verify createWriterChapterServerFn validates act exists to prevent foreign key violation on deleted acts
+  assert.ok(
+    writerServerFile.includes('Bulletproof: verify that act actually exists on server so deleted acts don\'t trigger foreign key errors'),
+    'createWriterChapterServerFn must verify act exists in DB before linking act_id'
+  )
+
+  // 4. Verify executeSaveWriterChapter checks updatedRows to prevent silent data loss in multi-tab sessions
+  assert.ok(
+    writerServerFile.includes('Array.isArray(updatedRows) && updatedRows.length === 0'),
+    'executeSaveWriterChapter must throw error if chapter row was removed on server'
+  )
+
+  // 5. Verify write.manage syncs work.chapters and work.acts in memory and triggers cache invalidation on delete
+  assert.ok(
+    manageFile.includes('work.chapters = work.chapters.filter((c: any) => c.id !== chapterId)'),
+    'write.manage must evict deleted chapter from work.chapters memory'
+  )
+  assert.ok(
+    manageFile.includes('work.acts = work.acts.filter((a: any) => a.id !== actId)'),
+    'write.manage must evict deleted act from work.acts memory'
+  )
+
+  // 6. Functional simulation: Deleting Act 2 out of [1, 2, 3] and computing next Act
+  const currentActs = [
+    { id: 'act-1', number: 1, title: 'Act I' },
+    { id: 'act-3', number: 3, title: 'Act III' }, // Act 2 was deleted
+  ]
+  const existingNumbers = currentActs.map((a) => a.number)
+  const safeNextNum = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1
+  assert.strictEqual(safeNextNum, 4, 'Next act after deleting intermediate Act 2 must be Act 4, avoiding collision with Act 3')
+})

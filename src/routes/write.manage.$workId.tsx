@@ -375,7 +375,8 @@ function WorkManagementPage() {
 
   const openCreateActModal = () => {
     setEditingAct(null)
-    const nextActNum = acts.length + 1
+    const existingNums = acts.map((a) => Number(a.number || a.act_number || 0))
+    const nextActNum = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 1
     const roman = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][nextActNum - 1] || String(nextActNum)
     setActTitle(`Act ${roman}: `)
     setActDescription('')
@@ -410,6 +411,26 @@ function WorkManagementPage() {
             : c
         )
       )
+      if (work) {
+        if (Array.isArray(work.acts)) {
+          work.acts = work.acts.filter((a: any) => a.id !== actId)
+        }
+        if (Array.isArray(work.chapters)) {
+          work.chapters.forEach((c: any) => {
+            if (c.actId === actId || c.act_id === actId) {
+              c.actId = undefined
+              c.act_id = null
+              c.actNumber = undefined
+              c.actTitle = undefined
+            }
+          })
+        }
+      }
+      await Promise.all([
+        reloadWriterWorksFromDb?.(),
+        reloadWorksFromDb?.(),
+      ]).catch(() => {})
+
       showToast(`Act "${actTitle}" removed`)
       setDeleteActTarget(null)
     } catch (err: any) {
@@ -446,7 +467,8 @@ function WorkManagementPage() {
         )
         showToast(`Act updated: "${enteredTitle}"`)
       } else {
-        const nextNum = acts.length + 1
+        const existingNums = acts.map((a) => Number(a.number || a.act_number || 0))
+        const nextNum = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 1
         let assignedIds: string[] = []
         if (chapters.length > 0) {
           if (assignMode === 'all') {
@@ -477,6 +499,10 @@ function WorkManagementPage() {
               )
             )
           }
+          await Promise.all([
+            reloadWriterWorksFromDb?.(),
+            reloadWorksFromDb?.(),
+          ]).catch(() => {})
           setViewMode('grouped')
           showToast(`Act created: "${enteredTitle}"`)
         }
@@ -585,6 +611,14 @@ function WorkManagementPage() {
           chapterId,
         },
       })
+      if (work && Array.isArray(work.chapters)) {
+        work.chapters = work.chapters.filter((c: any) => c.id !== chapterId)
+      }
+      await Promise.all([
+        reloadWriterWorksFromDb?.(),
+        reloadWorksFromDb?.(),
+      ]).catch(() => {})
+
       if (res?.workRevertedToDraft) {
         setPublicationStatus('Draft')
         setVisibility('Draft')
@@ -592,10 +626,6 @@ function WorkManagementPage() {
           work.publicationStatus = 'Draft'
           work.visibility = 'Draft'
         }
-        await Promise.all([
-          reloadWriterWorksFromDb?.(),
-          reloadWorksFromDb?.(),
-        ])
         showToast(`Chapter "${chapterTitle}" deleted. Manuscript reverted to Draft as no published chapters remain.`)
       } else {
         showToast(`Chapter "${chapterTitle}" deleted`)
