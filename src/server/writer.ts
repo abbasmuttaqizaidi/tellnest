@@ -209,6 +209,7 @@ export interface CreateWriterWorkPayload {
   language?: string
   status?: 'Ongoing' | 'Completed'
   visibility?: 'Public' | 'Unlisted' | 'Draft'
+  isMature?: boolean
   includeInitialAct?: boolean
 }
 
@@ -436,8 +437,8 @@ export async function executeCreateWriterWork(
       visibility: mappedVisibility,
       publication_status: mappedPublicationStatus,
       is_indexable: false,
-      content_rating: 'general',
-      content_warning_required: false,
+      content_rating: data.isMature ? 'mature' : 'general',
+      content_warning_required: !!data.isMature,
       reading_time_minutes: 5,
       word_count: 1250,
       chapter_count: 1,
@@ -453,6 +454,7 @@ export async function executeCreateWriterWork(
       last_activity_type: 'work_created',
       last_activity_detail: {
         title: data.title.trim(),
+        subtitle: data.subtitle?.trim() || '',
         createdAt: nowIso,
         summaryText: 'Draft manuscript registered',
       },
@@ -481,6 +483,45 @@ export async function executeCreateWriterWork(
         'assign genre to manuscript',
         new Error(genreErr.message)
       )
+    }
+  }
+
+  // 6b. Insert tags into tags & work_tags if provided
+  if (Array.isArray(data.tags) && data.tags.length > 0) {
+    try {
+      for (const rawTag of data.tags) {
+        const cleanTagName = String(rawTag).trim().replace(/^[#,\s]+|[,\s]+$/g, '')
+        if (!cleanTagName) continue
+        const tagSlug = cleanTagName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+        if (!tagSlug) continue
+
+        let tagId: string | null = null
+        const { data: existingTag } = await admin
+          .from('tags')
+          .select('id')
+          .or(`slug.eq.${tagSlug},name.ilike.${cleanTagName}`)
+          .maybeSingle()
+
+        if (existingTag?.id) {
+          tagId = existingTag.id
+        } else {
+          const { data: newTag } = await admin
+            .from('tags')
+            .insert({ name: cleanTagName, slug: tagSlug })
+            .select('id')
+            .maybeSingle()
+          if (newTag?.id) tagId = newTag.id
+        }
+
+        if (tagId) {
+          await admin.from('work_tags').insert({
+            work_id: newWork.id,
+            tag_id: tagId,
+          })
+        }
+      }
+    } catch (tagErr: any) {
+      console.warn('[executeCreateWriterWork] Tags insert warning:', tagErr?.message)
     }
   }
 
@@ -607,11 +648,17 @@ export const getWriterWorkDetailsServerFn = createServerFn({ method: 'GET' })
         impression_count,
         save_count,
         reading_time_minutes,
+        content_rating,
+        content_warning_required,
+        content_warning_text,
         created_at,
         updated_at,
         last_activity_at,
+        last_activity_detail,
         category:categories(id, name, slug),
-        author:profiles(id, clerk_user_id, display_name, username, avatar_path)
+        author:profiles(id, clerk_user_id, display_name, username, avatar_path),
+        work_genres(genres(id, name, slug)),
+        work_tags(tags(id, name, slug))
       `)
 
     if (isUuid) {
@@ -673,23 +720,33 @@ export const getWriterWorkDetailsServerFn = createServerFn({ method: 'GET' })
       }
     })
 
+    const genreList = Array.isArray((dbWork as any).work_genres)
+      ? (dbWork as any).work_genres.map((wg: any) => wg.genres).filter(Boolean)
+      : []
+    const primaryGenre = genreList[0]
+    const tagList = Array.isArray((dbWork as any).work_tags)
+      ? (dbWork as any).work_tags.map((wt: any) => wt.tags?.name).filter(Boolean)
+      : []
+    const activityDetail = typeof dbWork.last_activity_detail === 'object' && dbWork.last_activity_detail ? dbWork.last_activity_detail : null
+
     return {
       id: dbWork.id,
       title: dbWork.title,
       slug: dbWork.slug,
-      subtitle: '',
+      subtitle: activityDetail?.subtitle || '',
       cover: dbWork.cover_image_path || '/default-book-cover.webp',
       category: categoryObj?.name || 'Novels',
       categorySlug: categoryObj?.slug || 'novels',
-      genre: 'Literary Fiction',
-      genreSlug: 'literary-fiction',
-      tags: ['Serialized'],
+      genre: primaryGenre?.name || 'Literary Fiction',
+      genreSlug: primaryGenre?.slug || 'literary-fiction',
+      genres: genreList,
+      tags: tagList.length > 0 ? tagList : ['Serialized'],
       language: dbWork.language || 'English',
       status: dbWork.status === 'completed' ? 'Completed' : 'Ongoing',
       visibility: (dbWork.visibility === 'public' ? 'Public' : dbWork.visibility === 'draft' ? 'Draft' : 'Unlisted') as any,
       publicationStatus: (dbWork.publication_status === 'published' ? 'Published' : dbWork.publication_status === 'archived' ? 'Archived' : 'Draft') as any,
       publishedAt: dbWork.published_at || null,
-      isMature: false,
+      isMature: dbWork.content_rating === 'mature' || dbWork.content_rating === 'explicit' || dbWork.content_warning_required === true,
       synopsis: dbWork.description || '',
       fullDescription: dbWork.description || '',
       chaptersCount: chapters.length,
@@ -1604,4 +1661,234 @@ export const updateWriterWorkCoverServerFn = createServerFn({ method: 'POST' })
   })
   .handler(async ({ data }) => {
     return executeWriterWorkCover(data)
+  })
+
+export interface UpdateWriterWorkMetadataPayload {
+  workId: string
+  clerkUserId?: string
+  title: string
+  subtitle?: string
+  description?: string
+  categoryName?: string
+  genreName?: string
+  cover?: string
+  tags?: string[]
+  language?: string
+  status?: 'Ongoing' | 'Completed'
+  visibility?: 'Public' | 'Unlisted' | 'Draft'
+  publicationStatus?: 'Published' | 'Draft' | 'Archived'
+  isMature?: boolean
+}
+
+/**
+ * Core business logic to update a manuscript's full metadata (title, subtitle, description/synopsis,
+ * category, genre, tags, language, status, visibility, mature rating, cover) in PostgreSQL.
+ */
+export async function executeSaveWriterWorkMetadata(
+  data: UpdateWriterWorkMetadataPayload,
+  adminClient?: any
+) {
+  if (!data.workId?.trim()) throw new Error('Work ID is required')
+  if (!data.title?.trim()) throw new Error('Manuscript title is required')
+
+  const admin = adminClient || createAdminClient()
+  const nowIso = new Date().toISOString()
+
+  // 1. Resolve Work UUID
+  let workUuid = data.workId.trim()
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(workUuid)
+  if (!isUuid) {
+    const { data: wRow } = await admin.from('works').select('id, author_id').eq('slug', workUuid.toLowerCase()).maybeSingle()
+    if (wRow?.id) workUuid = wRow.id
+  }
+
+  // Verify work exists
+  const { data: dbWork, error: fetchErr } = await admin
+    .from('works')
+    .select('id, author_id, title, slug, description, cover_image_path, language, status, visibility, publication_status, content_rating, content_warning_required, category_id')
+    .eq('id', workUuid)
+    .maybeSingle()
+
+  if (fetchErr || !dbWork) {
+    throw new Error(`Manuscript not found: ${fetchErr?.message || 'Work does not exist'}`)
+  }
+
+  // 2. Resolve Category if provided
+  let categoryId: string | null = dbWork.category_id || null
+  const rawCategory = data.categoryName?.trim()
+  if (rawCategory) {
+    const { data: catData } = await admin
+      .from('categories')
+      .select('id, name')
+      .ilike('name', rawCategory)
+      .maybeSingle()
+    if (catData?.id) {
+      categoryId = catData.id
+    } else {
+      const slugCandidate = rawCategory.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+      const { data: catBySlug } = await admin
+        .from('categories')
+        .select('id')
+        .eq('slug', slugCandidate)
+        .maybeSingle()
+      if (catBySlug?.id) categoryId = catBySlug.id
+    }
+  }
+
+  // 3. Resolve & Update Genre in work_genres if provided
+  let resolvedGenreId: string | null = null
+  const rawGenre = data.genreName?.trim()
+  if (rawGenre) {
+    const { data: genreByName } = await admin
+      .from('genres')
+      .select('id, name')
+      .ilike('name', rawGenre)
+      .maybeSingle()
+
+    if (genreByName?.id) {
+      resolvedGenreId = genreByName.id
+    } else {
+      const slugCandidate = rawGenre.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+      const { data: genreBySlug } = await admin
+        .from('genres')
+        .select('id')
+        .eq('slug', slugCandidate)
+        .maybeSingle()
+      if (genreBySlug?.id) resolvedGenreId = genreBySlug.id
+    }
+
+    if (resolvedGenreId) {
+      try {
+        await admin.from('work_genres').delete().eq('work_id', workUuid)
+        await admin.from('work_genres').insert({
+          work_id: workUuid,
+          genre_id: resolvedGenreId,
+        })
+      } catch (gErr: any) {
+        console.warn('[executeSaveWriterWorkMetadata] Genre update warning:', gErr?.message)
+      }
+    }
+  }
+
+  // 4. Resolve & Update Thematic Tags in tags and work_tags if provided
+  if (Array.isArray(data.tags)) {
+    try {
+      const resolvedTagIds: string[] = []
+      for (const rawTag of data.tags) {
+        const cleanTagName = String(rawTag).trim().replace(/^[#,\s]+|[,\s]+$/g, '')
+        if (!cleanTagName) continue
+        const tagSlug = cleanTagName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+        if (!tagSlug) continue
+
+        // Check if tag already exists in tags table
+        const { data: existingTag } = await admin
+          .from('tags')
+          .select('id')
+          .or(`slug.eq.${tagSlug},name.ilike.${cleanTagName}`)
+          .maybeSingle()
+
+        if (existingTag?.id) {
+          resolvedTagIds.push(existingTag.id)
+        } else {
+          const { data: newTag } = await admin
+            .from('tags')
+            .insert({ name: cleanTagName, slug: tagSlug })
+            .select('id')
+            .maybeSingle()
+          if (newTag?.id) {
+            resolvedTagIds.push(newTag.id)
+          }
+        }
+      }
+
+      // Sync junction table work_tags
+      await admin.from('work_tags').delete().eq('work_id', workUuid)
+      if (resolvedTagIds.length > 0) {
+        const uniqueTagIds = Array.from(new Set(resolvedTagIds))
+        await admin.from('work_tags').insert(
+          uniqueTagIds.map((tid) => ({
+            work_id: workUuid,
+            tag_id: tid,
+          }))
+        )
+      }
+    } catch (tagErr: any) {
+      console.warn('[executeSaveWriterWorkMetadata] Tags update warning:', tagErr?.message)
+    }
+  }
+
+  // 5. Build update payload for works table
+  const mappedStatus = data.status ? (data.status.toLowerCase() === 'completed' ? 'completed' : 'ongoing') : dbWork.status
+  const mappedVisibility = data.visibility ? data.visibility.toLowerCase() : dbWork.visibility
+  const mappedPubStatus = data.publicationStatus ? data.publicationStatus.toLowerCase() : dbWork.publication_status
+
+  const isPublicAndPublished = mappedPubStatus === 'published' && mappedVisibility === 'public'
+
+  const updateData: Record<string, any> = {
+    title: data.title.trim(),
+    description: data.description !== undefined ? (data.description.trim() || null) : dbWork.description,
+    category_id: categoryId,
+    language: data.language?.trim() || dbWork.language || 'English',
+    status: mappedStatus,
+    visibility: mappedVisibility,
+    publication_status: mappedPubStatus,
+    is_indexable: isPublicAndPublished,
+    content_rating: data.isMature !== undefined ? (data.isMature ? 'mature' : 'general') : dbWork.content_rating,
+    content_warning_required: data.isMature !== undefined ? !!data.isMature : dbWork.content_warning_required,
+    last_activity_at: nowIso,
+    last_activity_type: 'work_metadata_updated',
+    last_activity_detail: {
+      title: data.title.trim(),
+      subtitle: data.subtitle?.trim() || '',
+      summaryText: 'Manuscript details updated by author',
+      updatedAt: nowIso,
+    },
+    updated_at: nowIso,
+  }
+
+  if (data.cover !== undefined) {
+    updateData.cover_image_path = data.cover.trim() || null
+  }
+
+  const { data: updatedWork, error: updateErr } = await admin
+    .from('works')
+    .update(updateData)
+    .eq('id', workUuid)
+    .select('*')
+    .single()
+
+  if (updateErr || !updatedWork) {
+    console.error('[executeSaveWriterWorkMetadata] Update error:', updateErr?.message)
+    throw new Error(`Failed to update manuscript: ${updateErr?.message || 'Database update error'}`)
+  }
+
+  return {
+    success: true,
+    workId: updatedWork.id,
+    title: updatedWork.title,
+    subtitle: data.subtitle?.trim() || '',
+    description: updatedWork.description,
+    cover: updatedWork.cover_image_path,
+    category: data.categoryName || 'Novels',
+    genre: data.genreName || 'Literary Fiction',
+    tags: data.tags || [],
+    language: updatedWork.language,
+    status: updatedWork.status === 'completed' ? 'Completed' : 'Ongoing',
+    visibility: updatedWork.visibility === 'public' ? 'Public' : updatedWork.visibility === 'draft' ? 'Draft' : 'Unlisted',
+    publicationStatus: updatedWork.publication_status === 'published' ? 'Published' : updatedWork.publication_status === 'archived' ? 'Archived' : 'Draft',
+    isMature: updatedWork.content_rating === 'mature' || updatedWork.content_warning_required === true,
+  }
+}
+
+/**
+ * 11. Update manuscript metadata (title, subtitle, description, taxonomy, tags, cover, etc.)
+ */
+export const updateWriterWorkMetadataServerFn = createServerFn({ method: 'POST' })
+  .validator((params: UpdateWriterWorkMetadataPayload) => {
+    if (!params.workId?.trim()) throw new Error('Work ID is required')
+    if (!params.title?.trim()) throw new Error('Manuscript title is required')
+    return params
+  })
+  .handler(async ({ data }) => {
+    return executeSaveWriterWorkMetadata(data)
   })

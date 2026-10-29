@@ -189,6 +189,7 @@ function CreateWorkPage() {
           language,
           status,
           visibility,
+          isMature,
           includeInitialAct: false,
         },
       })

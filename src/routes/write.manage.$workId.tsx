@@ -1,8 +1,17 @@
 import { createFileRoute, Link, useNavigate, useRouter } from '@tanstack/react-router'
 import { useState, useMemo, useEffect, useRef } from 'react'
+import { useUser } from '@clerk/react'
 import { useApp } from '../context/AppContext'
 import EmptyState from '../components/EmptyState'
-import { FilterDisclosure, AnimatedSearch } from '../design-system'
+import {
+  FilterDisclosure,
+  AnimatedSearch,
+  Button,
+  DropdownSelect,
+  Combobox,
+  type SelectOption,
+  type ComboboxOption,
+} from '../design-system'
 import {
   ArrowLeft,
   PenLine,
@@ -46,9 +55,43 @@ import {
   deleteWriterChapterServerFn,
   updateWriterWorkPublicationServerFn,
   updateWriterWorkCoverServerFn,
+  updateWriterWorkMetadataServerFn,
 } from '../server/writer'
 import { getPublicWorkServerFn } from '../server/works'
 import { formatViewCount } from '../lib/utils'
+
+const LANGUAGE_OPTIONS: SelectOption[] = [
+  { id: 'English', label: 'English' },
+  { id: 'French', label: 'French' },
+  { id: 'German', label: 'German' },
+  { id: 'Japanese', label: 'Japanese' },
+  { id: 'Spanish', label: 'Spanish' },
+  { id: 'Italian', label: 'Italian' },
+  { id: 'Portuguese', label: 'Portuguese' },
+]
+
+const STATUS_OPTIONS: SelectOption[] = [
+  { id: 'Ongoing', label: 'Ongoing (Serialized)' },
+  { id: 'Completed', label: 'Completed Work' },
+]
+
+const VISIBILITY_OPTIONS: SelectOption[] = [
+  { id: 'Draft', label: 'Private Draft' },
+  { id: 'Public', label: 'Public Discovery' },
+  { id: 'Unlisted', label: 'Unlisted' },
+]
+
+const POPULAR_SUGGESTIONS = [
+  'Isolation',
+  'Memory',
+  'Urban',
+  'Slow-Burn',
+  'Dystopian',
+  'Philosophy',
+  'Mythology',
+  'Psychological',
+  'Noir',
+]
 
 export const Route = createFileRoute('/write/manage/$workId')({
   staleTime: 0,
@@ -121,7 +164,18 @@ function normalizeAct(act: any) {
 function WorkManagementPage() {
   const { workId } = Route.useParams()
   const loaderData = Route.useLoaderData()
-  const { getWorkById, allWorks, addNewChapter, showToast, reloadWriterWorksFromDb, reloadWorksFromDb } = useApp()
+  const {
+    categories,
+    genres,
+    getWorkById,
+    allWorks,
+    addNewChapter,
+    showToast,
+    reloadWriterWorksFromDb,
+    reloadWorksFromDb,
+    updateWork,
+  } = useApp()
+  const { user } = useUser()
   const navigate = useNavigate()
   const router = useRouter()
 
@@ -129,6 +183,192 @@ function WorkManagementPage() {
 
   const contextWork = getWorkById(workId)
   const work = loaderData?.work || contextWork || allWorks[0]
+
+  // Edit Story / Manuscript Metadata Modal State
+  const [editStoryModalOpen, setEditStoryModalOpen] = useState(false)
+  const [editTitle, setEditTitle] = useState(work?.title || '')
+  const [editSubtitle, setEditSubtitle] = useState(work?.subtitle || '')
+  const [editDescription, setEditDescription] = useState(work?.synopsis || work?.description || '')
+  const [editCategory, setEditCategory] = useState(work?.category || 'Novels')
+  const [editGenre, setEditGenre] = useState(work?.genre || 'Literary Fiction')
+  const [editCover, setEditCover] = useState<string>(work?.cover || defaultBookCover)
+  const [editTags, setEditTags] = useState<string[]>(Array.isArray(work?.tags) ? work.tags : [])
+  const [editTagInput, setEditTagInput] = useState('')
+  const [editLanguage, setEditLanguage] = useState(work?.language || 'English')
+  const [editStatus, setEditStatus] = useState<'Ongoing' | 'Completed'>(
+    work?.status === 'Completed' ? 'Completed' : 'Ongoing'
+  )
+  const [editVisibility, setEditVisibility] = useState<'Public' | 'Unlisted' | 'Draft'>(
+    work?.visibility || 'Draft'
+  )
+  const [editIsMature, setEditIsMature] = useState<boolean>(!!work?.isMature)
+  const [isSavingMetadata, setIsSavingMetadata] = useState(false)
+
+  const openEditStoryModal = () => {
+    setEditTitle(work?.title || '')
+    setEditSubtitle(work?.subtitle || '')
+    setEditDescription(work?.synopsis || work?.description || '')
+    setEditCategory(work?.category || 'Novels')
+    setEditGenre(work?.genre || 'Literary Fiction')
+    setEditCover(coverUrl || work?.cover || defaultBookCover)
+    setEditTags(Array.isArray(work?.tags) ? [...work.tags] : [])
+    setEditTagInput('')
+    setEditLanguage(work?.language || 'English')
+    setEditStatus(work?.status === 'Completed' ? 'Completed' : 'Ongoing')
+    setEditVisibility(work?.visibility || 'Draft')
+    setEditIsMature(!!work?.isMature)
+    setEditStoryModalOpen(true)
+  }
+
+  const categoryOptions: ComboboxOption[] = useMemo(() => {
+    return [...categories]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((cat) => ({
+        id: cat.name,
+        label: cat.name,
+        description: cat.description,
+      }))
+  }, [categories])
+
+  const genreOptions: ComboboxOption[] = useMemo(() => {
+    return [...genres]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((g) => ({
+        id: g.name,
+        label: g.name,
+        description: g.group ? `${g.group}` : undefined,
+        badge: g.group || undefined,
+      }))
+  }, [genres])
+
+  const handleEditCategoryChange = (val: string) => {
+    setEditCategory(val)
+    if (val.toLowerCase().includes('religion')) {
+      const match = genres.find(
+        (g) => g.name.toLowerCase().includes('faith') || g.slug === 'faith-spirituality'
+      )
+      if (match) {
+        setEditGenre(match.name)
+      } else {
+        setEditGenre('Faith & Spirituality')
+      }
+    }
+  }
+
+  const handleEditGenreChange = (val: string) => {
+    setEditGenre(val)
+    if (val.toLowerCase().includes('faith')) {
+      const match = categories.find(
+        (c) => c.name.toLowerCase().includes('religion') || c.slug === 'religion-spirituality'
+      )
+      if (match) {
+        setEditCategory(match.name)
+      } else {
+        setEditCategory('Religion & Spirituality')
+      }
+    }
+  }
+
+  const handleAddEditTag = (tagToAdd: string) => {
+    const clean = tagToAdd.trim().replace(/^[#,\s]+|[,\s]+$/g, '')
+    if (clean && !editTags.some((t) => t.toLowerCase() === clean.toLowerCase())) {
+      setEditTags([...editTags, clean])
+    }
+    setEditTagInput('')
+  }
+
+  const handleRemoveEditTag = (tagToRemove: string) => {
+    setEditTags(editTags.filter((t) => t !== tagToRemove))
+  }
+
+  const handleKeyDownEditTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault()
+      handleAddEditTag(editTagInput)
+    }
+  }
+
+  const handleSaveStoryDetails = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    if (!editTitle.trim()) {
+      showToast('Manuscript title cannot be empty')
+      return
+    }
+    if (!work?.id) return
+
+    try {
+      setIsSavingMetadata(true)
+      const isDefaultCover = !editCover || editCover === defaultBookCover || editCover.includes('default-book-cover')
+      const targetCover = isDefaultCover ? undefined : editCover.trim()
+
+      await updateWriterWorkMetadataServerFn({
+        data: {
+          workId: work.id,
+          clerkUserId: user?.id,
+          title: editTitle.trim(),
+          subtitle: editSubtitle.trim() || undefined,
+          description: editDescription.trim() || undefined,
+          categoryName: editCategory,
+          genreName: editGenre,
+          cover: targetCover,
+          tags: editTags,
+          language: editLanguage,
+          status: editStatus,
+          visibility: editVisibility,
+          isMature: editIsMature,
+        },
+      })
+
+      // Update local work object references
+      work.title = editTitle.trim()
+      work.subtitle = editSubtitle.trim()
+      work.synopsis = editDescription.trim()
+      work.fullDescription = editDescription.trim()
+      work.category = editCategory
+      work.genre = editGenre
+      work.tags = editTags
+      work.language = editLanguage
+      work.status = editStatus
+      work.visibility = editVisibility
+      work.isMature = editIsMature
+      if (targetCover) {
+        work.cover = targetCover
+        setCoverUrl(targetCover)
+      }
+      setWorkStatus(editStatus)
+      setVisibility(editVisibility)
+
+      // Sync AppContext state
+      updateWork(work.id, {
+        title: editTitle.trim(),
+        subtitle: editSubtitle.trim(),
+        synopsis: editDescription.trim(),
+        fullDescription: editDescription.trim(),
+        category: editCategory,
+        genre: editGenre,
+        tags: editTags,
+        language: editLanguage,
+        status: editStatus,
+        visibility: editVisibility,
+        isMature: editIsMature,
+        cover: targetCover || work.cover,
+      })
+
+      await Promise.all([
+        reloadWriterWorksFromDb?.(),
+        reloadWorksFromDb?.(),
+      ])
+
+      showToast('Manuscript details updated successfully!')
+      setEditStoryModalOpen(false)
+      router.invalidate()
+    } catch (err: any) {
+      console.error('[handleSaveStoryDetails] Error:', err)
+      showToast(err?.message || 'Failed to update manuscript details')
+    } finally {
+      setIsSavingMetadata(false)
+    }
+  }
 
   const preloadEditor = () => {
     if (work?.id) {
@@ -231,6 +471,16 @@ function WorkManagementPage() {
           if (freshWork.visibility) setVisibility(freshWork.visibility)
           if (freshWork.status) setWorkStatus(freshWork.status)
           if (freshWork.cover) setCoverUrl(freshWork.cover)
+          if (work) {
+            if (freshWork.title) work.title = freshWork.title
+            if (freshWork.subtitle !== undefined) work.subtitle = freshWork.subtitle
+            if (freshWork.synopsis !== undefined) work.synopsis = freshWork.synopsis
+            if (freshWork.category) work.category = freshWork.category
+            if (freshWork.genre) work.genre = freshWork.genre
+            if (freshWork.tags) work.tags = freshWork.tags
+            if (freshWork.language) work.language = freshWork.language
+            if (freshWork.isMature !== undefined) work.isMature = freshWork.isMature
+          }
         }
       })
       .catch((err) => {
@@ -789,16 +1039,71 @@ function WorkManagementPage() {
                 </span>
 
                 {work.category && (
-                  <span className="font-mono text-xs text-[var(--ink-muted)] hidden sm:inline">
-                    • {work.category}
+                  <span className="rounded-full bg-[var(--bg-subtle)] border border-[var(--border-subtle)] px-2.5 py-0.5 font-mono text-[10px] text-[var(--ink-primary)] font-medium">
+                    {work.category}
+                  </span>
+                )}
+
+                {work.genre && (
+                  <span className="rounded-full bg-[var(--bg-subtle)] border border-[var(--border-subtle)] px-2.5 py-0.5 font-mono text-[10px] text-[var(--ink-secondary)]">
+                    {work.genre}
+                  </span>
+                )}
+
+                {work.isMature && (
+                  <span className="rounded-full bg-red-500/10 border border-red-500/30 px-2 py-0.5 font-mono text-[10px] text-red-600 dark:text-red-400 font-semibold">
+                    18+ Mature
                   </span>
                 )}
               </div>
 
-              {/* Manuscript Title */}
-              <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] tracking-tight truncate">
-                {work.title}
-              </h1>
+              {/* Manuscript Title with Quick Edit Button */}
+              <div className="flex items-center gap-2">
+                <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] tracking-tight truncate">
+                  {work.title}
+                </h1>
+                <button
+                  type="button"
+                  onClick={openEditStoryModal}
+                  className="p-1 rounded-md text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer shrink-0"
+                  title="Edit Manuscript Details"
+                >
+                  <Edit3 className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Subtitle / Tagline */}
+              {work.subtitle && (
+                <p className="font-serif italic text-xs text-[var(--ink-muted)] line-clamp-1">
+                  {work.subtitle}
+                </p>
+              )}
+
+              {/* Synopsis / Description Preview */}
+              {(work.synopsis || work.description) && (
+                <p className="font-sans text-xs text-[var(--ink-secondary)] line-clamp-2 max-w-2xl leading-relaxed pt-0.5">
+                  {work.synopsis || work.description}
+                </p>
+              )}
+
+              {/* Thematic Tags Strip */}
+              {Array.isArray(work.tags) && work.tags.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                  {work.tags.slice(0, 6).map((tag: string) => (
+                    <span
+                      key={tag}
+                      className="inline-flex items-center rounded-sm bg-[var(--bg-canvas)] border border-[var(--border-subtle)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--ink-muted)]"
+                    >
+                      #{tag}
+                    </span>
+                  ))}
+                  {work.tags.length > 6 && (
+                    <span className="font-mono text-[10px] text-[var(--ink-faint)]">
+                      +{work.tags.length - 6} more
+                    </span>
+                  )}
+                </div>
+              )}
 
               {/* Clean Inline Metrics Strip */}
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs text-[var(--ink-muted)] pt-0.5">
@@ -852,6 +1157,17 @@ function WorkManagementPage() {
                 <span>{isUpdatingPub ? 'Publishing...' : 'Publish'}</span>
               </button>
             )}
+
+            {/* Edit Manuscript Details */}
+            <button
+              type="button"
+              onClick={openEditStoryModal}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2 text-xs font-medium text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:border-[var(--border-strong)] transition-colors cursor-pointer shadow-2xs"
+              title="Edit manuscript title, synopsis, taxonomy, tags, and settings"
+            >
+              <Edit3 className="h-3.5 w-3.5 text-black dark:text-white" />
+              <span>Edit Details</span>
+            </button>
 
             {/* Publication & Visibility Settings */}
             <button
@@ -2022,6 +2338,339 @@ function WorkManagementPage() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Story / Manuscript Details Modal */}
+      {editStoryModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-2xl max-h-[88vh] flex flex-col rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-6 py-4 shrink-0 bg-[var(--bg-surface)]">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-lg bg-[var(--bg-subtle)] text-[var(--ink-primary)]">
+                  <Edit3 className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="font-serif text-lg font-semibold text-[var(--ink-primary)]">
+                    Edit Manuscript Details
+                  </h3>
+                  <p className="font-mono text-xs text-[var(--ink-muted)]">
+                    Modify premise, literary classification, tags, and publication parameters
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditStoryModalOpen(false)}
+                className="p-1 text-[var(--ink-muted)] hover:text-[var(--ink-primary)] rounded hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Scrollable Form Content */}
+            <form onSubmit={handleSaveStoryDetails} className="flex flex-col flex-1 min-h-0">
+              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+                
+                {/* Section 1: Premise & Identity */}
+                <div className="space-y-4">
+                  <div className="pb-2 border-b border-[var(--border-subtle)]">
+                    <h4 className="font-serif text-sm font-semibold text-[var(--ink-primary)]">
+                      Manuscript Identity
+                    </h4>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
+                      Title <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      placeholder="e.g. A Winter in Kyoto"
+                      className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3.5 py-2 font-serif text-base text-[var(--ink-primary)] focus:outline-none focus:border-[var(--ink-primary)] transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
+                      Subtitle or Tagline (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={editSubtitle}
+                      onChange={(e) => setEditSubtitle(e.target.value)}
+                      placeholder="e.g. A serialized study of atmospheric silence"
+                      className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3.5 py-2 font-serif italic text-xs text-[var(--ink-secondary)] focus:outline-none focus:border-[var(--ink-primary)] transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
+                      Synopsis / Overview
+                    </label>
+                    <textarea
+                      rows={4}
+                      value={editDescription}
+                      onChange={(e) => setEditDescription(e.target.value)}
+                      placeholder="A compelling synopsis for readers browsing your folio..."
+                      className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] p-3 text-xs text-[var(--ink-primary)] leading-relaxed focus:outline-none focus:border-[var(--ink-primary)] transition-colors resize-y"
+                    />
+                  </div>
+                </div>
+
+                {/* Section 2: Taxonomy & Classification */}
+                <div className="space-y-4">
+                  <div className="pb-2 border-b border-[var(--border-subtle)]">
+                    <h4 className="font-serif text-sm font-semibold text-[var(--ink-primary)]">
+                      Literary Taxonomy & Tags
+                    </h4>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
+                        Category
+                      </label>
+                      <Combobox
+                        options={categoryOptions}
+                        value={editCategory}
+                        onChange={handleEditCategoryChange}
+                        placeholder="Search or select category..."
+                        size="md"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
+                        Primary Genre
+                      </label>
+                      <Combobox
+                        options={genreOptions}
+                        value={editGenre}
+                        onChange={handleEditGenreChange}
+                        placeholder="Search or select genre..."
+                        size="md"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-1">
+                    <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
+                      Manuscript Language
+                    </label>
+                    <div className="sm:w-1/2">
+                      <DropdownSelect
+                        options={LANGUAGE_OPTIONS}
+                        value={editLanguage}
+                        onChange={(val) => setEditLanguage(val)}
+                        size="md"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Thematic Tags Selector */}
+                  <div className="pt-1 space-y-2">
+                    <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)]">
+                      Thematic Tags
+                    </label>
+
+                    {/* Selected Tags */}
+                    {editTags.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5 pb-1">
+                        {editTags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 font-mono text-[11px] bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--ink-primary)] select-none"
+                          >
+                            <span>{tag}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveEditTag(tag)}
+                              className="hover:text-red-500 transition-colors cursor-pointer"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Tag Input */}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={editTagInput}
+                        onChange={(e) => setEditTagInput(e.target.value)}
+                        onKeyDown={handleKeyDownEditTag}
+                        placeholder="Type a tag and press Enter..."
+                        className="flex-1 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-1.5 text-xs text-[var(--ink-primary)] focus:outline-none focus:border-[var(--ink-primary)]"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleAddEditTag(editTagInput)}
+                        disabled={!editTagInput.trim()}
+                      >
+                        Add Tag
+                      </Button>
+                    </div>
+
+                    {/* Suggested Tags */}
+                    <div className="pt-1 flex flex-wrap items-center gap-1 text-[11px] font-mono text-[var(--ink-muted)]">
+                      <span className="text-[10px] text-[var(--ink-faint)] mr-1">Suggestions:</span>
+                      {POPULAR_SUGGESTIONS.map((sug) => {
+                        const isAdded = editTags.some((t) => t.toLowerCase() === sug.toLowerCase())
+                        return (
+                          <button
+                            key={sug}
+                            type="button"
+                            onClick={() => handleAddEditTag(sug)}
+                            disabled={isAdded}
+                            className={`rounded px-1.5 py-0.5 transition-colors cursor-pointer text-[10px] ${
+                              isAdded
+                                ? 'opacity-40 cursor-default'
+                                : 'bg-[var(--bg-subtle)] hover:bg-[var(--border-subtle)] text-[var(--ink-secondary)]'
+                            }`}
+                          >
+                            +{sug}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 3: Cover Artwork */}
+                <div className="space-y-4">
+                  <div className="pb-2 border-b border-[var(--border-subtle)]">
+                    <h4 className="font-serif text-sm font-semibold text-[var(--ink-primary)]">
+                      Cover Artwork
+                    </h4>
+                  </div>
+
+                  <CloudinaryImageUpload
+                    label="Cover Artwork"
+                    currentImageUrl={editCover}
+                    onImageUploaded={(url) => setEditCover(url)}
+                    onImageRemoved={() => setEditCover(defaultBookCover)}
+                    folder="covers"
+                    recommendedDimensions="600 × 900 px"
+                    aspectRatioHint="Portrait (2:3)"
+                    maxSizeMb={10}
+                    allowPlatformPicker={true}
+                  />
+
+                  <div className="flex items-center justify-between text-[11px] font-mono text-[var(--ink-muted)] pt-1">
+                    {editCover === defaultBookCover || editCover.includes('default-book-cover') ? (
+                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                        ✓ Default editorial cover active
+                      </span>
+                    ) : (
+                      <span>Custom artwork selected</span>
+                    )}
+                    {editCover !== defaultBookCover && !editCover.includes('default-book-cover') && (
+                      <button
+                        type="button"
+                        onClick={() => setEditCover(defaultBookCover)}
+                        className="text-[var(--ink-muted)] hover:text-[var(--ink-primary)] underline cursor-pointer"
+                      >
+                        Reset to Default Cover
+                      </button>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1">
+                      Or External Image URL
+                    </label>
+                    <input
+                      type="text"
+                      value={editCover === defaultBookCover ? '' : editCover}
+                      onChange={(e) => setEditCover(e.target.value || defaultBookCover)}
+                      placeholder="https://..."
+                      className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-1.5 text-xs font-mono text-[var(--ink-muted)] focus:outline-none focus:border-[var(--ink-primary)]"
+                    />
+                  </div>
+                </div>
+
+                {/* Section 4: Serialization Parameters */}
+                <div className="space-y-4">
+                  <div className="pb-2 border-b border-[var(--border-subtle)]">
+                    <h4 className="font-serif text-sm font-semibold text-[var(--ink-primary)]">
+                      Serialization & Audience Parameters
+                    </h4>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
+                        Publication Status
+                      </label>
+                      <DropdownSelect
+                        options={STATUS_OPTIONS}
+                        value={editStatus}
+                        onChange={(val) => setEditStatus(val as any)}
+                        size="md"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
+                        Catalog Visibility
+                      </label>
+                      <DropdownSelect
+                        options={VISIBILITY_OPTIONS}
+                        value={editVisibility}
+                        onChange={(val) => setEditVisibility(val as any)}
+                        size="md"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Mature Content Switch */}
+                  <div className="pt-2 border-t border-[var(--border-subtle)] flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-medium text-[var(--ink-primary)]">Mature Content (18+)</p>
+                      <p className="text-[11px] text-[var(--ink-muted)]">Flag if work contains adult themes or explicit violence.</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={editIsMature}
+                      onChange={(e) => setEditIsMature(e.target.checked)}
+                      className="h-4 w-4 rounded border-[var(--border-strong)] accent-black cursor-pointer"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="border-t border-[var(--border-subtle)] px-6 py-4 flex items-center justify-end gap-3 bg-[var(--bg-surface)] shrink-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="md"
+                  onClick={() => setEditStoryModalOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="md"
+                  isLoading={isSavingMetadata}
+                  disabled={!editTitle.trim() || isSavingMetadata}
+                >
+                  Save Manuscript Changes
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}
