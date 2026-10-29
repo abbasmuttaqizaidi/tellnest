@@ -24,6 +24,7 @@ import { ChapterAudioPlayer } from '../components/ChapterAudioPlayer'
 import { useChapterAudio } from '../lib/tts/useChapterAudio'
 import { getWorkSlug } from '../data/mockData'
 import { generateMeta } from '../lib/seo'
+import { getChapterSocialCardUrl } from '../lib/og'
 import { getPublicWorkServerFn, trackStrictViewServerFn } from '../server/works'
 import { saveReadingProgressServerFn } from '../server/reader'
 import { useReadingProgressStore } from '../lib/readingProgress/readingProgressStore'
@@ -101,12 +102,15 @@ export const Route = createFileRoute('/read/$workId/$chapterId')({
     const isChapterIdx = (chapter.is_indexable !== undefined ? chapter.is_indexable : (chapter as any).isIndexable) === true
     const isChapterEligible = isPublicWork && isWorkPub && isWorkIdx && isChapterPub && isChapterIdx
 
+    const ogImage = getChapterSocialCardUrl(chapter, work)
+
     return generateMeta({
       title,
       description: excerpt,
       canonicalUrl,
       ogType: 'article',
-      ogImage: work.cover,
+      ogImage,
+      ogImageAlt: `${chapter.title} — ${work.title} by ${work.author.name}`,
       author: work.author.name,
       noindex: !isChapterEligible,
       keywords: [work.title, chapter.title, work.author.name, 'read chapter online', 'serialized fiction'],

@@ -52,6 +52,9 @@ export interface SeoOptions {
   ogType?: 'website' | 'article' | 'book' | 'profile'
   ogImage?: string
   ogImageAlt?: string
+  ogImageWidth?: number
+  ogImageHeight?: number
+  ogImageType?: string
   author?: string
   publishedTime?: string
   modifiedTime?: string
@@ -67,6 +70,15 @@ export function generateMeta(options: SeoOptions = {}) {
   const ogImage = resolveAbsoluteUrl(rawOgImage)
   const ogType = options.ogType || 'website'
   const canonicalUrl = options.canonicalUrl ? resolveAbsoluteUrl(options.canonicalUrl) : undefined
+  const ogImageWidth = options.ogImageWidth || 1200
+  const ogImageHeight = options.ogImageHeight || 630
+  const ogImageType =
+    options.ogImageType ||
+    (ogImage.endsWith('.png')
+      ? 'image/png'
+      : ogImage.endsWith('.webp')
+      ? 'image/webp'
+      : 'image/jpeg')
 
   const meta: Array<{
     title?: string
@@ -89,12 +101,16 @@ export function generateMeta(options: SeoOptions = {}) {
     { property: 'og:description', content: description },
     { property: 'og:type', content: ogType },
     { property: 'og:image', content: ogImage },
+    { property: 'og:image:width', content: String(ogImageWidth) },
+    { property: 'og:image:height', content: String(ogImageHeight) },
+    { property: 'og:image:type', content: ogImageType },
     { property: 'og:image:alt', content: options.ogImageAlt || title },
     // Twitter Card
     { name: 'twitter:card', content: 'summary_large_image' },
     { name: 'twitter:title', content: title },
     { name: 'twitter:description', content: description },
     { name: 'twitter:image', content: ogImage },
+    { name: 'twitter:image:alt', content: options.ogImageAlt || title },
   ]
 
   if (canonicalUrl) {

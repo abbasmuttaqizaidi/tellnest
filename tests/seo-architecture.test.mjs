@@ -27,6 +27,13 @@ import {
   executeGetGenrePageData,
 } from '../src/server/works.ts'
 import sitemapHandler from '../src/server/sitemap-handler.ts'
+import {
+  getSocialCardUrl,
+  getStorySocialCardUrl,
+  getChapterSocialCardUrl,
+  generateOgSvgCard,
+} from '../src/lib/og.ts'
+import ogHandler from '../src/server/og-handler.ts'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -1147,4 +1154,123 @@ test('Social Marketing: ShareStoryModal and ReaderQuoteShareTooltip files exist 
   const quoteTooltipFile = path.join(rootDir, 'src/components/reader/ReaderQuoteShareTooltip.tsx')
   assert.ok(fs.existsSync(quoteTooltipFile), 'ReaderQuoteShareTooltip.tsx must exist')
 })
+
+// ---------------------------------------------------------------------------
+// Dynamic Social OpenGraph Cards Tests
+// ---------------------------------------------------------------------------
+
+test('Dynamic OG: generateMeta emits required 1200x630 dimensions and twitter summary_large_image', () => {
+  const meta = generateMeta({
+    title: 'The Cold Perimeter',
+    description: 'An architectural mystery in an icy wasteland.',
+    ogImage: 'https://hatchpen.com/og-image.png',
+  })
+
+  const ogWidth = meta.meta.find((m) => m.property === 'og:image:width')
+  const ogHeight = meta.meta.find((m) => m.property === 'og:image:height')
+  const ogType = meta.meta.find((m) => m.property === 'og:image:type')
+  const twitterCard = meta.meta.find((m) => m.name === 'twitter:card')
+  const twitterImgAlt = meta.meta.find((m) => m.name === 'twitter:image:alt')
+
+  assert.ok(ogWidth, 'og:image:width must be emitted')
+  assert.equal(ogWidth.content, '1200')
+
+  assert.ok(ogHeight, 'og:image:height must be emitted')
+  assert.equal(ogHeight.content, '630')
+
+  assert.ok(ogType, 'og:image:type must be emitted')
+  assert.equal(ogType.content, 'image/png')
+
+  assert.ok(twitterCard, 'twitter:card must be emitted')
+  assert.equal(twitterCard.content, 'summary_large_image')
+
+  assert.ok(twitterImgAlt, 'twitter:image:alt must be emitted')
+})
+
+test('Dynamic OG: getSocialCardUrl handles Cloudinary URLs with 1200x630 pad transformation', () => {
+  const rawCloudinary =
+    'https://res.cloudinary.com/pxluxw9a/image/upload/v1792058068/uxh1pnzrl66jxsjsft99.png'
+  const cardUrl = getSocialCardUrl({ coverUrl: rawCloudinary })
+
+  assert.ok(cardUrl.includes('/upload/w_1200,h_630,c_pad,b_rgb:0B0C0E,f_auto,q_auto/'))
+  assert.ok(cardUrl.includes('v1792058068/uxh1pnzrl66jxsjsft99.png'))
+})
+
+test('Dynamic OG: getSocialCardUrl handles external URLs via Cloudinary fetch 1200x630', () => {
+  const rawUnsplash =
+    'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80'
+  const cardUrl = getSocialCardUrl({ coverUrl: rawUnsplash })
+
+  assert.ok(cardUrl.startsWith('https://res.cloudinary.com/pxluxw9a/image/fetch/w_1200,h_630,c_pad,b_rgb:0B0C0E,f_auto,q_auto/'))
+  assert.ok(cardUrl.includes(encodeURI(rawUnsplash)))
+})
+
+test('Dynamic OG: getSocialCardUrl gracefully falls back to default 1200x630 brand card', () => {
+  assert.equal(getSocialCardUrl({}), 'https://hatchpen.com/og-image.png')
+  assert.equal(getSocialCardUrl({ coverUrl: '' }), 'https://hatchpen.com/og-image.png')
+  assert.equal(getSocialCardUrl({ coverUrl: '   ' }), 'https://hatchpen.com/og-image.png')
+})
+
+test('Dynamic OG: getStorySocialCardUrl extracts story details and returns 1200x630 card', () => {
+  const story = {
+    title: 'The Cartographer of Lost Ships',
+    author: { name: 'Elena Rostova' },
+    genre: 'Science Fiction',
+    cover: 'https://res.cloudinary.com/pxluxw9a/image/upload/v12345/cover.png',
+  }
+
+  const cardUrl = getStorySocialCardUrl(story)
+  assert.ok(cardUrl.includes('w_1200,h_630'))
+  assert.ok(cardUrl.includes('cover.png'))
+})
+
+test('Dynamic OG: getChapterSocialCardUrl extracts chapter & story details', () => {
+  const chapter = { title: 'Chapter 1: The Arrival' }
+  const story = {
+    title: 'Notes on Subarctic Light',
+    author: { name: 'Julian Vance' },
+    cover: 'https://images.unsplash.com/photo-sample',
+  }
+
+  const cardUrl = getChapterSocialCardUrl(chapter, story)
+  assert.ok(cardUrl.includes('w_1200,h_630'))
+  assert.ok(cardUrl.includes('image/fetch'))
+})
+
+test('Dynamic OG: generateOgSvgCard renders valid 1200x630 SVG with typography and branding', () => {
+  const svg = generateOgSvgCard({
+    title: 'The Cold Perimeter',
+    author: 'Elena Rostova',
+    genre: 'Science Fiction',
+    category: 'Novels',
+  })
+
+  assert.ok(svg.includes('width="1200" height="630"'))
+  assert.ok(svg.includes('The Cold Perimeter'))
+  assert.ok(svg.includes('Elena Rostova'))
+  assert.ok(svg.includes('SCIENCE FICTION'))
+  assert.ok(svg.includes('HATCHPEN'))
+  assert.ok(svg.includes('hatchpen.com'))
+})
+
+test('Dynamic OG Endpoint: ogHandler responds to /api/og with 1200x630 SVG image', async () => {
+  const event = {
+    node: {
+      req: {
+        url: '/api/og?title=The%20Cold%20Perimeter&author=Elena%20Rostova&genre=Sci-Fi',
+      },
+    },
+  }
+
+  const res = await ogHandler(event)
+  assert.equal(res.status, 200)
+  assert.equal(res.headers.get('content-type'), 'image/svg+xml; charset=utf-8')
+  assert.ok(res.headers.get('cache-control')?.includes('public'))
+
+  const text = await res.text()
+  assert.ok(text.includes('width="1200" height="630"'))
+  assert.ok(text.includes('The Cold Perimeter'))
+  assert.ok(text.includes('Elena Rostova'))
+})
+
 

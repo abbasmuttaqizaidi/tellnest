@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { getWorkSlug } from '../data/mockData'
 import { generateMeta } from '../lib/seo'
+import { getStorySocialCardUrl } from '../lib/og'
 import { getPublicWorkServerFn, trackWorkImpressionServerFn } from '../server/works'
 import { getWorkHeartStatusServerFn, toggleWorkHeartServerFn } from '../server/hearts'
 import { HeartsBreakdownModal } from '../components/HeartsBreakdownModal'
@@ -85,13 +86,15 @@ export const Route = createFileRoute('/works/$workId')({
     const rawIndexable = work.is_indexable !== undefined ? work.is_indexable : (work as any).isIndexable
     const isIndexable = isPublic && isPublished && rawIndexable === true
 
+    const ogImage = getStorySocialCardUrl(work)
+
     return generateMeta({
       title: `${work.title} by ${authorName}`,
       description: work.synopsis || (work.fullDescription ? work.fullDescription.slice(0, 160) : ''),
       canonicalUrl: `https://hatchpen.com/works/${canonicalSlug}`,
       ogType: 'book',
-      ogImage: work.cover || 'https://hatchpen.com/default-book-cover.webp',
-      ogImageAlt: `${work.title} cover art`,
+      ogImage,
+      ogImageAlt: `${work.title} by ${authorName} — Read on HatchPen`,
       author: authorName,
       noindex: !isIndexable,
       keywords: [

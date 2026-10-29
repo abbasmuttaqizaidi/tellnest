@@ -49,6 +49,10 @@ const config = defineConfig({
           route: '/api/tts',
           handler: './src/server/tts-handler.ts',
         },
+        {
+          route: '/api/og',
+          handler: './src/server/og-handler.ts',
+        },
       ],
       errorHandler: './src/error.ts',
       vercel: {
