@@ -1052,3 +1052,42 @@ export function getWorkSlug(work: Pick<Work, 'id' | 'title' | 'slug'>): string {
   return slugifyTitle(work.title) || work.id
 }
 
+/**
+ * Resolves a chapter from an array of chapters by flexible identifier:
+ * - Exact chapter UUID
+ * - Chapter SEO slug (e.g. 'prologue-the-beginning-a1b2')
+ * - Chapter number alias ('ch-1', 'chapter-1', '1')
+ * - Conventional aliases ('first', 'default')
+ */
+export function findReaderChapter(chapters: any[] | undefined, chapterId: string | undefined): any | undefined {
+  if (!Array.isArray(chapters) || chapters.length === 0) return undefined
+  if (!chapterId || !chapterId.trim()) return chapters[0]
+
+  const clean = chapterId.trim().toLowerCase()
+
+  // 1. Exact ID match (case-insensitive)
+  const exact = chapters.find((c) => (c.id || '').toLowerCase() === clean)
+  if (exact) return exact
+
+  // 2. Slug match
+  const bySlug = chapters.find((c) => (c.slug || '').toLowerCase() === clean)
+  if (bySlug) return bySlug
+
+  // 3. Conventional aliases ('first', 'default')
+  if (clean === 'first' || clean === 'default') {
+    return chapters[0]
+  }
+
+  // 4. Chapter number aliases ('ch-1', 'chapter-1', 'ch1', '1')
+  const numMatch = clean.match(/^(?:ch(?:apter)?-?)?(\d+)$/i)
+  if (numMatch) {
+    const num = parseInt(numMatch[1], 10)
+    const byNum = chapters.find(
+      (c) => Number(c.number ?? c.chapter_number) === num
+    )
+    if (byNum) return byNum
+  }
+
+  return undefined
+}
+

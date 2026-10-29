@@ -114,7 +114,80 @@ export async function executeGetPublicWork(
     query = query.eq('slug', clean)
   }
 
-  const { data, error } = await query.maybeSingle()
+  let { data, error } = await query.maybeSingle()
+
+  if (!data && !isUuid) {
+    // Graceful fallback for semantic slugs without the random hash suffix (e.g. "the-cold-perimeter" -> "the-cold-perimeter-94a1")
+    const fallbackRes = await client
+      .from('works')
+      .select(`
+        id,
+        title,
+        slug,
+        description,
+        cover_image_path,
+        language,
+        status,
+        visibility,
+        publication_status,
+        is_indexable,
+        word_count,
+        chapter_count,
+        reading_time_minutes,
+        view_count,
+        like_count,
+        save_count,
+        impression_count,
+        created_at,
+        updated_at,
+        last_activity_at,
+        author:profiles!works_author_id_fkey(
+          id,
+          username,
+          display_name,
+          avatar_path,
+          bio
+        ),
+        category:categories(id, name, slug),
+        work_genres (genres (id, name, slug)),
+        acts(
+          id,
+          work_id,
+          act_number,
+          title,
+          slug,
+          description,
+          status
+        ),
+        chapters(
+          id,
+          work_id,
+          act_id,
+          chapter_number,
+          title,
+          subtitle,
+          slug,
+          content,
+          word_count,
+          reading_time_minutes,
+          status,
+          is_indexable,
+          banner_image_path,
+          view_count,
+          published_at
+        )
+      `)
+      .in('visibility', ['public', 'unlisted'])
+      .eq('publication_status', 'published')
+      .ilike('slug', `${clean}-%`)
+      .limit(1)
+
+    if (Array.isArray(fallbackRes.data) && fallbackRes.data.length > 0) {
+      data = fallbackRes.data[0]
+      error = null
+    }
+  }
+
   if (error || !data) return null
 
   // Defense-in-depth: enforce allowed visibility and publication status

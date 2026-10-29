@@ -22,7 +22,7 @@ import {
 } from 'lucide-react'
 import { ChapterAudioPlayer } from '../components/ChapterAudioPlayer'
 import { useChapterAudio } from '../lib/tts/useChapterAudio'
-import { getWorkSlug } from '../data/mockData'
+import { getWorkSlug, findReaderChapter } from '../data/mockData'
 import { generateMeta } from '../lib/seo'
 import { getChapterSocialCardUrl } from '../lib/og'
 import { getPublicWorkServerFn, trackStrictViewServerFn } from '../server/works'
@@ -79,9 +79,7 @@ export const Route = createFileRoute('/read/$workId/$chapterId')({
       } catch (e) {}
     }
 
-    const chapter =
-      work?.chapters.find((c: any) => c.id === params.chapterId || c.number.toString() === params.chapterId) ||
-      (params.chapterId === 'first' || params.chapterId === 'default' ? work?.chapters[0] : undefined)
+    const chapter = findReaderChapter(work?.chapters, params.chapterId)
 
     if (!work || !chapter) {
       return generateMeta({
@@ -341,12 +339,14 @@ function ReaderPage() {
     return null
   })
 
-  // Find chapter with flexible ID or number matching, defaulting to first chapter only if requested explicitly
+  // Find chapter with flexible ID, slug, or number matching, defaulting to first chapter only if requested explicitly
   const currentChapterIndex = useMemo(() => {
     if (!work || !work.chapters.length) return -1
-    const idx = work.chapters.findIndex((c) => c.id === chapterId || c.number.toString() === chapterId)
-    if (idx !== -1) return idx
-    if (chapterId === 'first' || chapterId === 'default') return 0
+    const target = findReaderChapter(work.chapters, chapterId)
+    if (target) {
+      const idx = work.chapters.findIndex((c) => c.id === target.id)
+      if (idx !== -1) return idx
+    }
     return -1
   }, [work, chapterId])
 

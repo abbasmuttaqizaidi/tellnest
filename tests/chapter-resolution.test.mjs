@@ -178,3 +178,35 @@ test('Act Management: Next act number calculation properly increments', () => {
   assert.equal(nextNumber, 3)
 })
 
+// ---------------------------------------------------------------------------
+// Reader Page: findReaderChapter Semantic Permalinks Resolution Tests
+// ---------------------------------------------------------------------------
+
+test('Reader SEO Resolution: findReaderChapter resolves semantic chapter slugs and numbers', async () => {
+  const { findReaderChapter } = await import('../src/data/mockData.ts')
+
+  const chapters = [
+    { id: 'b56e8901-1111-4000-8000-000000000001', number: 1, slug: 'prologue-the-beginning-a1b2', title: 'Prologue' },
+    { id: 'b56e8901-2222-4000-8000-000000000002', number: 2, slug: 'chapter-2-the-descent-c3d4', title: 'The Descent' },
+    { id: 'b56e8901-3333-4000-8000-000000000003', number: 3, slug: 'chapter-3-revelations-e5f6', title: 'Revelations' },
+  ]
+
+  // 1. Exact ID
+  assert.equal(findReaderChapter(chapters, 'b56e8901-2222-4000-8000-000000000002')?.title, 'The Descent')
+
+  // 2. Exact Chapter Slug
+  assert.equal(findReaderChapter(chapters, 'prologue-the-beginning-a1b2')?.title, 'Prologue')
+  assert.equal(findReaderChapter(chapters, 'chapter-3-revelations-e5f6')?.title, 'Revelations')
+
+  // 3. SEO Permalinks & Aliases ('chapter-1', 'ch-2', '3')
+  assert.equal(findReaderChapter(chapters, 'chapter-1')?.title, 'Prologue')
+  assert.equal(findReaderChapter(chapters, 'ch-2')?.title, 'The Descent')
+  assert.equal(findReaderChapter(chapters, '3')?.title, 'Revelations')
+  assert.equal(findReaderChapter(chapters, 'first')?.title, 'Prologue')
+  assert.equal(findReaderChapter(chapters, 'default')?.title, 'Prologue')
+
+  // 4. Case-insensitivity
+  assert.equal(findReaderChapter(chapters, 'CHAPTER-2')?.title, 'The Descent')
+  assert.equal(findReaderChapter(chapters, 'Ch-1')?.title, 'Prologue')
+})
+
