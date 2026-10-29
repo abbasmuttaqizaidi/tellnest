@@ -45,6 +45,7 @@ import { generateMeta } from '../lib/seo'
 import { getWorkSlug } from '../data/mockData'
 import { CloudinaryImageUpload } from '../components/CloudinaryImageUpload'
 import defaultBookCover from '../assets/default-book-cover.webp'
+import { FormattedSynopsis } from '../components/FormattedSynopsis'
 import {
   getWriterWorkDetailsServerFn,
   saveWriterChapterServerFn,
@@ -1081,9 +1082,13 @@ function WorkManagementPage() {
 
               {/* Synopsis / Description Preview */}
               {(work.synopsis || work.description) && (
-                <p className="font-sans text-xs text-[var(--ink-secondary)] line-clamp-2 max-w-2xl leading-relaxed pt-0.5">
-                  {work.synopsis || work.description}
-                </p>
+                <div className="line-clamp-2 max-w-2xl pt-0.5">
+                  <FormattedSynopsis
+                    text={work.synopsis || work.description}
+                    className="space-y-1"
+                    paragraphClassName="font-sans text-xs text-[var(--ink-secondary)] leading-relaxed"
+                  />
+                </div>
               )}
 
               {/* Thematic Tags Strip */}

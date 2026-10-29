@@ -25,6 +25,7 @@ import { getWorkSlug } from '../data/mockData'
 import { OptimizedImage } from '../components/OptimizedImage'
 import { RouteHeader } from '../components/RouteHeader'
 import { Drawer } from '../design-system/Drawer'
+import { FormattedSynopsis } from '../components/FormattedSynopsis'
 import {
   getCompactLibraryWorksServerFn,
   getLibraryWorkDetailServerFn,
@@ -1102,9 +1103,9 @@ function LibraryPage({ isPreview = false, initialTab }: { isPreview?: boolean; i
                     <h4 className="font-mono text-[10px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
                       Synopsis
                     </h4>
-                    <p className="font-serif text-xs sm:text-sm text-[var(--ink-secondary)] leading-relaxed bg-[var(--bg-subtle)]/40 p-3 sm:p-3.5 rounded-xl border border-[var(--border-subtle)] line-clamp-4">
-                      {drawerDetail.description}
-                    </p>
+                    <div className="font-serif text-xs sm:text-sm text-[var(--ink-secondary)] leading-relaxed bg-[var(--bg-subtle)]/40 p-3 sm:p-3.5 rounded-xl border border-[var(--border-subtle)] line-clamp-4">
+                      <FormattedSynopsis text={drawerDetail.description} paragraphClassName="font-serif text-xs sm:text-sm text-[var(--ink-secondary)] leading-relaxed" />
+                    </div>
                   </div>
 
                   {/* Drawer Action Buttons */}

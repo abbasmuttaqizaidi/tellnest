@@ -34,6 +34,7 @@ import { formatViewCount, formatHeartCount } from '../lib/utils'
 import CommentsSection from '../components/CommentsSection'
 import WorkCard from '../components/WorkCard'
 import defaultBookCover from '../assets/default-book-cover.webp'
+import { FormattedSynopsis } from '../components/FormattedSynopsis'
 
 export const Route = createFileRoute('/works/$workId')({
   // In-Memory SWR (Desktop & Mobile): Keeps story details fresh in RAM for 60s; instant 0ms navigation
@@ -803,9 +804,11 @@ function WorkDetailPage() {
             <h3 className="font-mono text-xs uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
               Synopsis
             </h3>
-            <p className="text-sm leading-relaxed text-[var(--ink-secondary)] font-sans">
-              {work.fullDescription}
-            </p>
+            <FormattedSynopsis
+              text={work.fullDescription || work.synopsis || (work as any).description || ''}
+              className="space-y-2.5"
+              paragraphClassName="text-sm leading-relaxed text-[var(--ink-secondary)] font-sans"
+            />
           </div>
 
           {/* Tags */}
