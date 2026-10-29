@@ -27,16 +27,6 @@ export const Route = createFileRoute('/write/editor/$workId/$chapterId')({
     actId: typeof search.actId === 'string' ? search.actId : undefined,
   }),
   staleTime: 15_000,
-  pendingMs: 0,
-  pendingMinMs: 0,
-  pendingComponent: () => (
-    <div className="min-h-screen bg-[var(--bg-canvas)] flex items-center justify-center p-6">
-      <div className="flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-5 py-3.5 shadow-xl font-mono text-xs text-[var(--ink-primary)]">
-        <span className="h-4 w-4 rounded-full border-2 border-[var(--ink-primary)] border-t-transparent animate-spin shrink-0" />
-        <span className="font-semibold">Opening Chapter Editor...</span>
-      </div>
-    </div>
-  ),
   loader: async ({ params }) => {
     try {
       const dbWork = await getWriterWorkDetailsServerFn({ data: { workId: params.workId } })
@@ -95,9 +85,7 @@ function ChapterEditorPage() {
     if (chapterId === 'new') {
       const existingNums = work.chapters.map((c: any) => c.number || c.chapter_number || 0)
       const nextNumber = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 1
-      const preselectedAct =
-        targetActIdFromSearch ||
-        (work.acts && work.acts.length > 0 ? work.acts[0].id : null)
+      const preselectedAct = targetActIdFromSearch || null
       return {
         id: 'new',
         number: nextNumber,
@@ -475,11 +463,9 @@ function ChapterEditorPage() {
         })
         showToast('Chapter created and saved to database!')
 
-        navigate({
-          to: '/write/editor/$workId/$chapterId',
-          params: { workId: work.id, chapterId: newId },
-          replace: true,
-        })
+        if (typeof window !== 'undefined' && window.history?.replaceState) {
+          window.history.replaceState(null, '', `/write/editor/${work.id}/${newId}`)
+        }
         return
       } catch (err: any) {
         console.error('[handleManualSave] Error creating new chapter:', err)

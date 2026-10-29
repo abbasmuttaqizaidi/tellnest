@@ -69,14 +69,16 @@ test('Chapter Editor UX: Direct Editor Navigation & Deferred Chapter DB Creation
     'write.manage must preload editor route on hover/intent to optimize transition speed'
   )
 
-  // 9. Verify write.editor defines pendingMs: 0 and pendingComponent to eliminate 1-second freeze
+  // 9. Verify new draft chapter act assignment: only assign act if created from Act card, otherwise unassigned
   assert.ok(
-    editorFile.includes('pendingMs: 0'),
-    'write.editor must set pendingMs: 0 to eliminate 1-second router pending freeze'
+    editorFile.includes('const preselectedAct = targetActIdFromSearch || null'),
+    'write.editor must assign targetActId when created from Act card, and null when created from top'
   )
+
+  // 10. Verify manual save updates address bar without unmounting editor or displaying pending route screens
   assert.ok(
-    editorFile.includes('pendingComponent'),
-    'write.editor must provide pendingComponent for immediate route transition display'
+    editorFile.includes('window.history?.replaceState'),
+    'write.editor must update URL via replaceState on first save to avoid disruptive "Opening chapter..." screen during save'
   )
 })
 
