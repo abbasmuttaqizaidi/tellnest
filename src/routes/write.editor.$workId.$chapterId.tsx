@@ -165,6 +165,7 @@ function ChapterEditorPage() {
     serverSubtitle: string
     serverContent: string
   } | null>(null)
+  const isSavingRef = useRef(false)
 
   // Native inter-tab presence tracking via BroadcastChannel (Same Browser, Multiple Tabs)
   useEffect(() => {
@@ -322,24 +323,30 @@ function ChapterEditorPage() {
           found.actId = newActId ? newActId : null
         }
       }
-      try {
-        await saveWriterChapterServerFn({
-          data: JSON.parse(JSON.stringify({
-            workId: String(work.id),
-            chapterId: String(currentChapter.id),
-            title: String(title || ''),
-            subtitle: String(subtitle || ''),
-            content: String(content || ''),
-            status: (currentChapter.status || 'draft') as 'draft' | 'published',
-            actId: newActId ? String(newActId) : null,
-          })),
-        })
-        showToast('Manuscript Act updated')
-      } catch (e: any) {
-        if (e?.message && e.message.includes('Seroval')) {
+
+      // ONLY persist to DB if this chapter is already an established record (valid UUID).
+      // If it is 'new', keep it strictly in memory until user explicitly saves the draft.
+      const isChapterUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(currentChapter.id)
+      if (isChapterUuid) {
+        try {
+          await saveWriterChapterServerFn({
+            data: JSON.parse(JSON.stringify({
+              workId: String(work.id),
+              chapterId: String(currentChapter.id),
+              title: String(title || ''),
+              subtitle: String(subtitle || ''),
+              content: String(content || ''),
+              status: (currentChapter.status || 'draft') as 'draft' | 'published',
+              actId: newActId ? String(newActId) : null,
+            })),
+          })
           showToast('Manuscript Act updated')
-        } else {
-          console.warn('[handleActChange] Error:', e)
+        } catch (e: any) {
+          if (e?.message && e.message.includes('Seroval')) {
+            showToast('Manuscript Act updated')
+          } else {
+            console.warn('[handleActChange] Error:', e)
+          }
         }
       }
     }
@@ -408,6 +415,8 @@ function ChapterEditorPage() {
   // Explicit save: Only executed when user manually clicks Save button or presses Cmd+S / Ctrl+S
   const handleManualSave = async (force: boolean = false) => {
     if (!work || !currentChapter) return
+    if (isSavingRef.current) return
+    isSavingRef.current = true
 
     setAutosaveStatus('saving')
 
@@ -417,146 +426,138 @@ function ChapterEditorPage() {
     const currentBanner = bannerImage
     const currentActId = actId || null
 
-    // If chapter is unpersisted draft ('new'), create it in the database for the first time now
-    if (currentChapter.id === 'new') {
-      try {
-        const createRes = await createWriterChapterServerFn({
-          data: {
-            workId: String(work.id),
-            title: currentTitle,
-            subtitle: currentSubtitle,
-            content: currentContent,
-            bannerImage: currentBanner ? String(currentBanner).trim() : null,
-            actId: currentActId ? String(currentActId) : undefined,
-            status: 'draft',
-          },
-        })
-
-        if (!createRes?.chapter?.id) {
-          throw new Error('Failed to create new chapter in database')
-        }
-
-        const newId = createRes.chapter.id
-        const newNumber = createRes.chapter.number || currentChapter.number || 1
-
-        // Mutate current chapter reference with exact content and title
-        currentChapter.id = newId
-        currentChapter.number = newNumber
-        currentChapter.title = currentTitle
-        currentChapter.subtitle = currentSubtitle
-        currentChapter.content = currentContent
-        currentChapter.actId = currentActId
-        currentChapter.status = 'draft'
-
-        if (Array.isArray(work.chapters)) {
-          const newChObj = {
-            ...createRes.chapter,
-            id: newId,
-            number: newNumber,
-            title: currentTitle,
-            subtitle: currentSubtitle,
-            content: currentContent,
-            actId: currentActId,
-            status: 'draft' as const,
-            bannerImage: currentBanner,
-            banner_image_path: currentBanner,
-            updated_at: createRes.chapter.updated_at || new Date().toISOString(),
-          }
-          const exists = work.chapters.findIndex((c: any) => c.id === newId)
-          if (exists >= 0) {
-            work.chapters[exists] = newChObj
-          } else {
-            work.chapters.push(newChObj as any)
-          }
-        }
-
-        updateChapterContent(work.id, newId, currentTitle, currentContent, 'draft', currentBanner)
-        setPersistedChapterId(newId)
-        setLoadedUpdatedAt(createRes.chapter.updated_at || new Date().toISOString())
-        setAutosaveStatus('saved')
-        setSavedSnapshot({
-          title: currentTitle,
-          subtitle: currentSubtitle,
-          content: currentContent,
-          bannerImage: currentBanner,
-        })
-        showToast('Chapter created and saved to database!')
-
-        if (typeof window !== 'undefined' && window.history?.replaceState) {
-          window.history.replaceState(null, '', `/write/editor/${work.id}/${newId}`)
-        }
-        return
-      } catch (err: any) {
-        console.error('[handleManualSave] Error creating new chapter:', err)
-        setAutosaveStatus('dirty')
-        showToast(err?.message || 'Failed to create chapter in database')
-        return
-      }
-    }
-
-    updateChapterContent(work.id, currentChapter.id, currentTitle, currentContent, currentChapter.status, currentBanner)
-    currentChapter.title = currentTitle
-    currentChapter.subtitle = currentSubtitle
-    currentChapter.content = currentContent
-    currentChapter.actId = currentActId
-    if (Array.isArray(work.chapters)) {
-      const found = work.chapters.find((c: any) => c.id === currentChapter.id)
-      if (found) {
-        found.title = currentTitle
-        found.subtitle = currentSubtitle
-        found.content = currentContent
-        found.actId = currentActId
-        found.bannerImage = currentBanner || undefined
-        found.banner_image_path = currentBanner || undefined
-      }
-    }
-
     try {
-      const res = await saveWriterChapterServerFn({
-        data: JSON.parse(JSON.stringify({
-          workId: String(work.id),
-          chapterId: String(currentChapter.id),
-          title: String(currentTitle),
-          subtitle: String(currentSubtitle || ''),
-          content: String(currentContent || ''),
-          status: (currentChapter.status || 'draft') as 'draft' | 'published',
-          actId: currentActId ? String(currentActId) : null,
-          bannerImage: currentBanner ? String(currentBanner).trim() : null,
-          expectedUpdatedAt: loadedUpdatedAt ? String(loadedUpdatedAt) : new Date().toISOString(),
-          force: Boolean(force),
-        })),
-      })
+      // If chapter is unpersisted draft ('new'), create it in the database for the first time now
+      if (currentChapter.id === 'new') {
+        try {
+          const createRes = await createWriterChapterServerFn({
+            data: {
+              workId: String(work.id),
+              title: currentTitle,
+              subtitle: currentSubtitle,
+              content: currentContent,
+              bannerImage: currentBanner ? String(currentBanner).trim() : null,
+              actId: currentActId ? String(currentActId) : undefined,
+              status: 'draft',
+            },
+          })
 
-      if (res?.conflict) {
-        setConflictModalData({
-          serverUpdatedAt: res.serverUpdatedAt || new Date().toISOString(),
-          serverTitle: res.serverTitle || '',
-          serverSubtitle: res.serverSubtitle || '',
-          serverContent: res.serverContent || '',
+          if (!createRes?.chapter?.id) {
+            throw new Error('Failed to create new chapter in database')
+          }
+
+          const newId = createRes.chapter.id
+          const newNumber = createRes.chapter.number || currentChapter.number || 1
+
+          // Mutate current chapter reference with exact content and title
+          currentChapter.id = newId
+          currentChapter.number = newNumber
+          currentChapter.title = currentTitle
+          currentChapter.subtitle = currentSubtitle
+          currentChapter.content = currentContent
+          currentChapter.actId = currentActId
+          currentChapter.status = 'draft'
+
+          if (Array.isArray(work.chapters)) {
+            const newChObj = {
+              ...createRes.chapter,
+              id: newId,
+              number: newNumber,
+              title: currentTitle,
+              subtitle: currentSubtitle,
+              content: currentContent,
+              actId: currentActId,
+              status: 'draft' as const,
+              bannerImage: currentBanner,
+              banner_image_path: currentBanner,
+              updated_at: createRes.chapter.updated_at || new Date().toISOString(),
+            }
+            const exists = work.chapters.findIndex((c: any) => c.id === newId)
+            if (exists >= 0) {
+              work.chapters[exists] = newChObj
+            } else {
+              work.chapters.push(newChObj as any)
+            }
+          }
+
+          updateChapterContent(work.id, newId, currentTitle, currentContent, 'draft', currentBanner)
+          setPersistedChapterId(newId)
+          setLoadedUpdatedAt(createRes.chapter.updated_at || new Date().toISOString())
+          setAutosaveStatus('saved')
+          setSavedSnapshot({
+            title: currentTitle,
+            subtitle: currentSubtitle,
+            content: currentContent,
+            bannerImage: currentBanner,
+          })
+          showToast('Chapter created and saved to database!')
+
+          if (typeof window !== 'undefined' && window.history?.replaceState) {
+            window.history.replaceState(null, '', `/write/editor/${work.id}/${newId}`)
+          }
+          navigate({
+            to: '/write/editor/$workId/$chapterId',
+            params: { workId: work.id, chapterId: newId },
+            replace: true,
+            resetScroll: false,
+          })
+          return
+        } catch (err: any) {
+          console.error('[handleManualSave] Error creating new chapter:', err)
+          setAutosaveStatus('dirty')
+          showToast(err?.message || 'Failed to create chapter in database')
+          return
+        }
+      }
+
+      updateChapterContent(work.id, currentChapter.id, currentTitle, currentContent, currentChapter.status, currentBanner)
+      currentChapter.title = currentTitle
+      currentChapter.subtitle = currentSubtitle
+      currentChapter.content = currentContent
+      currentChapter.actId = currentActId
+      if (Array.isArray(work.chapters)) {
+        const found = work.chapters.find((c: any) => c.id === currentChapter.id)
+        if (found) {
+          found.title = currentTitle
+          found.subtitle = currentSubtitle
+          found.content = currentContent
+          found.actId = currentActId
+          found.bannerImage = currentBanner || undefined
+          found.banner_image_path = currentBanner || undefined
+        }
+      }
+
+      try {
+        const res = await saveWriterChapterServerFn({
+          data: JSON.parse(JSON.stringify({
+            workId: String(work.id),
+            chapterId: String(currentChapter.id),
+            title: String(currentTitle),
+            subtitle: String(currentSubtitle || ''),
+            content: String(currentContent || ''),
+            status: (currentChapter.status || 'draft') as 'draft' | 'published',
+            actId: currentActId ? String(currentActId) : null,
+            bannerImage: currentBanner ? String(currentBanner).trim() : null,
+            expectedUpdatedAt: loadedUpdatedAt ? String(loadedUpdatedAt) : new Date().toISOString(),
+            force: Boolean(force),
+          })),
         })
-        setAutosaveStatus('dirty')
-        return
-      }
 
-      if (res?.updatedAt) {
-        setLoadedUpdatedAt(res.updatedAt)
-      }
-      setConflictModalData(null)
-      setAutosaveStatus('saved')
-      setSavedSnapshot({
-        title: currentTitle,
-        subtitle: currentSubtitle,
-        content: currentContent,
-        bannerImage: currentBanner,
-      })
-      showToast('Chapter saved to database')
-    } catch (e: any) {
-      console.error('[handleManualSave] Save error:', e)
-      // Check if error is TanStack dev-runner Seroval serialization quirk
-      // The chapter was already successfully written and persisted to PostgreSQL!
-      if (e?.message && e.message.includes('Seroval')) {
+        if (res?.conflict) {
+          setConflictModalData({
+            serverUpdatedAt: res.serverUpdatedAt || new Date().toISOString(),
+            serverTitle: res.serverTitle || '',
+            serverSubtitle: res.serverSubtitle || '',
+            serverContent: res.serverContent || '',
+          })
+          setAutosaveStatus('dirty')
+          return
+        }
+
+        if (res?.updatedAt) {
+          setLoadedUpdatedAt(res.updatedAt)
+        }
         setConflictModalData(null)
-        setLoadedUpdatedAt(new Date().toISOString())
         setAutosaveStatus('saved')
         setSavedSnapshot({
           title: currentTitle,
@@ -565,14 +566,32 @@ function ChapterEditorPage() {
           bannerImage: currentBanner,
         })
         showToast('Chapter saved to database')
-        return
+      } catch (e: any) {
+        console.error('[handleManualSave] Save error:', e)
+        // Check if error is TanStack dev-runner Seroval serialization quirk
+        // The chapter was already successfully written and persisted to PostgreSQL!
+        if (e?.message && e.message.includes('Seroval')) {
+          setConflictModalData(null)
+          setLoadedUpdatedAt(new Date().toISOString())
+          setAutosaveStatus('saved')
+          setSavedSnapshot({
+            title: currentTitle,
+            subtitle: currentSubtitle,
+            content: currentContent,
+            bannerImage: currentBanner,
+          })
+          showToast('Chapter saved to database')
+          return
+        }
+        setAutosaveStatus('dirty')
+        if (typeof window !== 'undefined' && !window.navigator.onLine) {
+          showToast('Offline: Could not connect to server. Your text is safe on screen. Reconnect and click Save again.')
+        } else {
+          showToast(e?.message || 'Failed to save chapter')
+        }
       }
-      setAutosaveStatus('dirty')
-      if (typeof window !== 'undefined' && !window.navigator.onLine) {
-        showToast('Offline: Could not connect to server. Your text is safe on screen. Reconnect and click Save again.')
-      } else {
-        showToast(e?.message || 'Failed to save chapter')
-      }
+    } finally {
+      isSavingRef.current = false
     }
   }
 
@@ -607,57 +626,65 @@ function ChapterEditorPage() {
       showToast('Please save your chapter changes before publishing.')
       return
     }
+    if (isSavingRef.current) return
+    if (!work || !currentChapter) return
 
-    if (work && currentChapter) {
-      setAutosaveStatus('saving')
-      const curTitle = latestStateRef.current.title
-      const curContent = latestStateRef.current.content
-      const curSubtitle = latestStateRef.current.subtitle
-      latestStateRef.current.status = 'published'
+    if (currentChapter.id === 'new') {
+      showToast('Please save your chapter changes before publishing.')
+      return
+    }
 
-      updateChapterContent(work.id, currentChapter.id, curTitle, curContent, 'published', bannerImage)
-      if (Array.isArray(work.chapters)) {
-        const found = work.chapters.find((c: any) => c.id === currentChapter.id)
-        if (found) {
-          found.status = 'published'
-          found.title = curTitle
-          found.subtitle = curSubtitle
-          found.bannerImage = bannerImage || undefined
-          found.banner_image_path = bannerImage || undefined
-        }
+    isSavingRef.current = true
+    setAutosaveStatus('saving')
+    const curTitle = latestStateRef.current.title
+    const curContent = latestStateRef.current.content
+    const curSubtitle = latestStateRef.current.subtitle
+    latestStateRef.current.status = 'published'
+
+    updateChapterContent(work.id, currentChapter.id, curTitle, curContent, 'published', bannerImage)
+    if (Array.isArray(work.chapters)) {
+      const found = work.chapters.find((c: any) => c.id === currentChapter.id)
+      if (found) {
+        found.status = 'published'
+        found.title = curTitle
+        found.subtitle = curSubtitle
+        found.bannerImage = bannerImage || undefined
+        found.banner_image_path = bannerImage || undefined
       }
+    }
 
-      try {
-        await saveWriterChapterServerFn({
-          data: JSON.parse(JSON.stringify({
-            workId: String(work.id),
-            chapterId: String(currentChapter.id),
-            title: String(curTitle || ''),
-            subtitle: String(curSubtitle || ''),
-            content: String(curContent || ''),
-            status: 'published' as const,
-            actId: actId ? String(actId) : null,
-            bannerImage: bannerImage ? String(bannerImage).trim() : null,
-            expectedUpdatedAt: loadedUpdatedAt ? String(loadedUpdatedAt) : new Date().toISOString(),
-            force: true,
-          })),
-        })
+    try {
+      await saveWriterChapterServerFn({
+        data: JSON.parse(JSON.stringify({
+          workId: String(work.id),
+          chapterId: String(currentChapter.id),
+          title: String(curTitle || ''),
+          subtitle: String(curSubtitle || ''),
+          content: String(curContent || ''),
+          status: 'published' as const,
+          actId: actId ? String(actId) : null,
+          bannerImage: bannerImage ? String(bannerImage).trim() : null,
+          expectedUpdatedAt: loadedUpdatedAt ? String(loadedUpdatedAt) : new Date().toISOString(),
+          force: true,
+        })),
+      })
+      setAutosaveStatus('saved')
+      showToast('Chapter published to manuscript!')
+      setIsNavigating(true)
+      navigate({ to: '/write/manage/$workId', params: { workId: work.id } })
+    } catch (e: any) {
+      console.warn('[handlePublish] Error:', e)
+      if (e?.message && e.message.includes('Seroval')) {
         setAutosaveStatus('saved')
         showToast('Chapter published to manuscript!')
         setIsNavigating(true)
         navigate({ to: '/write/manage/$workId', params: { workId: work.id } })
-      } catch (e: any) {
-        console.warn('[handlePublish] Error:', e)
-        if (e?.message && e.message.includes('Seroval')) {
-          setAutosaveStatus('saved')
-          showToast('Chapter published to manuscript!')
-          setIsNavigating(true)
-          navigate({ to: '/write/manage/$workId', params: { workId: work.id } })
-          return
-        }
-        setAutosaveStatus('saved')
-        showToast('Failed to publish chapter')
+        return
       }
+      setAutosaveStatus('saved')
+      showToast('Failed to publish chapter')
+    } finally {
+      isSavingRef.current = false
     }
   }
 

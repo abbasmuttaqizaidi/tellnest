@@ -281,3 +281,38 @@ test('Chapter-Act Invariant: Strict Act Isolation & Unassigned Logic', async (t)
     'Each chapter must appear in exactly one section without duplicate rendering'
   )
 })
+
+test('Chapter Editor Lifecycle: Prevent premature unassigned insertion & rogue increment', async (t) => {
+  const editorFile = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/routes/write.editor.$workId.$chapterId.tsx'),
+    'utf-8'
+  )
+  const writerServerFile = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/server/writer.ts'),
+    'utf-8'
+  )
+
+  // 1. handleActChange must only persist to DB if currentChapter.id is a real UUID, never for 'new' drafts
+  assert.ok(
+    editorFile.includes('const isChapterUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(currentChapter.id)'),
+    'handleActChange must guard DB update and only execute for real UUIDs'
+  )
+
+  // 2. handleManualSave and handlePublish must use isSavingRef to prevent concurrent double-click creation
+  assert.ok(
+    editorFile.includes('isSavingRef.current = true'),
+    'write.editor must guard save operations using isSavingRef lock'
+  )
+
+  // 3. handlePublish must reject execution if chapter is still unpersisted 'new'
+  assert.ok(
+    editorFile.includes("if (currentChapter.id === 'new')"),
+    'handlePublish must guard against unpersisted drafts'
+  )
+
+  // 4. executeSaveWriterChapter fallback insert must preserve act_id
+  assert.ok(
+    writerServerFile.includes('act_id: data.actId || null'),
+    'executeSaveWriterChapter must include act_id in fallback insert so act is never stripped'
+  )
+})

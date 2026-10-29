@@ -867,6 +867,7 @@ export async function executeSaveWriterChapter(data: SaveWriterChapterPayload, a
         .from('chapters')
         .insert({
           work_id: workUuid,
+          act_id: data.actId || null,
           chapter_number: nextNum,
           title: data.title?.trim() || 'Untitled Chapter',
           subtitle: data.subtitle?.trim() || null,
