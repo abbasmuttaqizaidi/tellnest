@@ -162,6 +162,10 @@ export const saveUserOnboardingServerFn = createServerFn({ method: 'POST' })
       interestedInWriting: Boolean(data.interestedInWriting),
       termsAccepted: data.termsAccepted,
       completedAt: new Date().toISOString(),
+      username_verified: true,
+      verified_username: data.username.toLowerCase().trim(),
+      username_verified_at: currentPrefs.username_verified_at || new Date().toISOString(),
+      username_last_changed_at: currentPrefs.username_last_changed_at || new Date().toISOString(),
     }
 
     // Tareeqa B: Send Welcome Email via Resend on onboarding completion if not sent yet

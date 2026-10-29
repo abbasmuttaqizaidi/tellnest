@@ -493,19 +493,24 @@ test('Settings Backend: executeUpdateAccountProfile persists gender and interest
       return {
         select: () => {
           selectCount++
+          let hasNeq = false
           const chain = {}
           chain.eq = () => chain
-          chain.neq = () => chain
+          chain.neq = () => {
+            hasNeq = true
+            return chain
+          }
           chain.maybeSingle = async () => {
-            if (selectCount === 1) {
-              // Username collision check returns null (not taken)
+            if (hasNeq) {
+              // Username collision check returns null (not taken by anyone else)
               return { data: null, error: null }
             }
-            // Preferences query returns current preferences
+            // Current profile / preferences query
             return {
               data: {
                 id: 'prof_onboarded',
                 clerk_user_id: 'clerk_onboarding_user',
+                username: 'old_jane',
                 preferences: { genres: ['romance'] },
               },
               error: null,
@@ -766,4 +771,303 @@ test('Settings Backend: executeCheckUsernameAvailability verifies availability a
   assert.equal(resAvailable.isTaken, false)
   assert.match(resAvailable.message, /is available/)
 })
+
+// ==============================================================================
+// TEST SUITE: 32-Day Username Lock Invariants
+// ==============================================================================
+
+test('Settings Backend: executeGetSettingsData calculates 32-day username lock correctly', async () => {
+  const mockAuthState = { userId: 'clerk_locked_user' }
+  const createChainable = (resolvedValue) => {
+    const chain = () => chain
+    chain.select = () => chain
+    chain.eq = () => chain
+    chain.neq = () => chain
+    chain.order = () => chain
+    chain.single = async () => resolvedValue
+    chain.maybeSingle = async () => resolvedValue
+    chain.then = (onfulfilled) => Promise.resolve(resolvedValue).then(onfulfilled)
+    return chain
+  }
+
+  // 10 days ago -> locked (22 days remaining)
+  const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString()
+  const mockAdminLocked = {
+    from: (table) => {
+      if (table === 'profiles') {
+        return createChainable({
+          data: {
+            id: 'prof_locked',
+            clerk_user_id: 'clerk_locked_user',
+            username: 'locked_writer',
+            display_name: 'Locked Writer',
+            bio: '',
+            avatar_path: null,
+            preferences: {
+              username_verified: true,
+              username_verified_at: tenDaysAgo,
+            },
+          },
+          error: null,
+        })
+      }
+      return createChainable({ data: {}, error: null })
+    },
+  }
+
+  const resLocked = await executeGetSettingsData({
+    getAuthState: async () => mockAuthState,
+    adminClient: mockAdminLocked,
+  })
+
+  assert.equal(resLocked.profile.isUsernameLocked, true)
+  assert.equal(resLocked.profile.usernameLockDaysRemaining, 22)
+  assert.equal(resLocked.profile.usernameVerifiedAt, tenDaysAgo)
+
+  // 35 days ago -> unlocked
+  const thirtyFiveDaysAgo = new Date(Date.now() - 35 * 24 * 60 * 60 * 1000).toISOString()
+  const mockAdminUnlocked = {
+    from: (table) => {
+      if (table === 'profiles') {
+        return createChainable({
+          data: {
+            id: 'prof_unlocked',
+            clerk_user_id: 'clerk_locked_user',
+            username: 'free_writer',
+            display_name: 'Free Writer',
+            bio: '',
+            avatar_path: null,
+            preferences: {
+              username_verified: true,
+              username_verified_at: thirtyFiveDaysAgo,
+            },
+          },
+          error: null,
+        })
+      }
+      return createChainable({ data: {}, error: null })
+    },
+  }
+
+  const resUnlocked = await executeGetSettingsData({
+    getAuthState: async () => mockAuthState,
+    adminClient: mockAdminUnlocked,
+  })
+
+  assert.equal(resUnlocked.profile.isUsernameLocked, false)
+  assert.equal(resUnlocked.profile.usernameLockDaysRemaining, 0)
+})
+
+test('Settings Backend: executeUpdateAccountProfile rejects username change when 32-day lock is active', async () => {
+  const mockAuthState = { userId: 'clerk_test_lock' }
+  const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
+
+  const mockAdminClient = {
+    from: (table) => {
+      assert.equal(table, 'profiles')
+      return {
+        select: () => ({
+          eq: () => ({
+            single: async () => ({
+              data: {
+                id: 'prof_lock_1',
+                clerk_user_id: 'clerk_test_lock',
+                username: 'current_handle',
+                preferences: {
+                  username_verified_at: fiveDaysAgo,
+                },
+              },
+              error: null,
+            }),
+            maybeSingle: async () => ({
+              data: {
+                id: 'prof_lock_1',
+                clerk_user_id: 'clerk_test_lock',
+                username: 'current_handle',
+                preferences: {
+                  username_verified_at: fiveDaysAgo,
+                },
+              },
+              error: null,
+            }),
+          }),
+        }),
+      }
+    },
+  }
+
+  await assert.rejects(
+    async () => {
+      await executeUpdateAccountProfile({
+        getAuthState: async () => mockAuthState,
+        adminClient: mockAdminClient,
+        data: {
+          username: 'brand_new_handle',
+        },
+      })
+    },
+    {
+      message: /Username is locked\. You cannot change your username for 32 days after verification \(27 days remaining\)\./,
+    }
+  )
+})
+
+test('Settings Backend: executeUpdateAccountProfile allows non-username changes even when username is locked', async () => {
+  const mockAuthState = { userId: 'clerk_test_lock' }
+  const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
+  let profileUpdated = false
+
+  const mockAdminClient = {
+    from: (table) => {
+      assert.equal(table, 'profiles')
+      return {
+        select: () => ({
+          eq: () => ({
+            single: async () => ({
+              data: {
+                id: 'prof_lock_1',
+                clerk_user_id: 'clerk_test_lock',
+                username: 'current_handle',
+                preferences: {
+                  username_verified_at: fiveDaysAgo,
+                },
+              },
+              error: null,
+            }),
+            maybeSingle: async () => ({
+              data: {
+                id: 'prof_lock_1',
+                clerk_user_id: 'clerk_test_lock',
+                username: 'current_handle',
+                preferences: {
+                  username_verified_at: fiveDaysAgo,
+                },
+              },
+              error: null,
+            }),
+          }),
+        }),
+        update: (payload) => {
+          profileUpdated = true
+          assert.equal(payload.display_name, 'Updated Display Name')
+          assert.equal(payload.bio, 'Updated author bio.')
+          // Username should NOT be in payload
+          assert.equal(payload.username, undefined)
+          return {
+            eq: () => ({
+              select: () => ({
+                single: async () => ({
+                  data: {
+                    id: 'prof_lock_1',
+                    clerk_user_id: 'clerk_test_lock',
+                    username: 'current_handle',
+                    display_name: 'Updated Display Name',
+                    bio: 'Updated author bio.',
+                  },
+                  error: null,
+                }),
+              }),
+            }),
+          }
+        },
+      }
+    },
+  }
+
+  const result = await executeUpdateAccountProfile({
+    getAuthState: async () => mockAuthState,
+    adminClient: mockAdminClient,
+    data: {
+      displayName: 'Updated Display Name',
+      bio: 'Updated author bio.',
+      username: 'current_handle', // Same username, not changing it
+    },
+  })
+
+  assert.equal(profileUpdated, true)
+  assert.equal(result.display_name, 'Updated Display Name')
+})
+
+test('Settings Backend: executeUpdateAccountProfile allows username change after 32 days have passed', async () => {
+  const mockAuthState = { userId: 'clerk_test_lock' }
+  const fortyDaysAgo = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString()
+  let updatedPayload = null
+
+  let queryCount = 0
+  const mockAdminClient = {
+    from: (table) => {
+      assert.equal(table, 'profiles')
+      return {
+        select: () => {
+          queryCount++
+          const chain = {}
+          chain.eq = () => chain
+          chain.neq = () => chain
+          chain.single = async () => ({
+            data: {
+              id: 'prof_lock_1',
+              clerk_user_id: 'clerk_test_lock',
+              username: 'old_handle',
+              preferences: {
+                username_verified_at: fortyDaysAgo,
+              },
+            },
+            error: null,
+          })
+          chain.maybeSingle = async () => {
+            if (queryCount === 1) {
+              return {
+                data: {
+                  id: 'prof_lock_1',
+                  clerk_user_id: 'clerk_test_lock',
+                  username: 'old_handle',
+                  preferences: {
+                    username_verified_at: fortyDaysAgo,
+                  },
+                },
+                error: null,
+              }
+            }
+            // Collision query: no other user has new_handle
+            return { data: null, error: null }
+          }
+          return chain
+        },
+        update: (payload) => {
+          updatedPayload = payload
+          return {
+            eq: () => ({
+              select: () => ({
+                single: async () => ({
+                  data: {
+                    id: 'prof_lock_1',
+                    clerk_user_id: 'clerk_test_lock',
+                    username: payload.username,
+                    preferences: payload.preferences,
+                  },
+                  error: null,
+                }),
+              }),
+            }),
+          }
+        },
+      }
+    },
+  }
+
+  const result = await executeUpdateAccountProfile({
+    getAuthState: async () => mockAuthState,
+    adminClient: mockAdminClient,
+    data: {
+      username: 'fresh_new_handle',
+    },
+  })
+
+  assert.equal(result.username, 'fresh_new_handle')
+  assert.equal(updatedPayload.username, 'fresh_new_handle')
+  assert.equal(updatedPayload.preferences.username_verified, true)
+  assert.equal(updatedPayload.preferences.verified_username, 'fresh_new_handle')
+  assert.ok(updatedPayload.preferences.username_verified_at)
+})
+
 

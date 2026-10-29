@@ -421,7 +421,24 @@ export function UserOnboardingModal() {
         }
         footer={
           isPersonalizing ? null : step === 1 ? (
-            <div className="w-full">
+            <div className="w-full space-y-2.5">
+              {isUsernameVerified && (
+                <div className="p-3 rounded-xl border border-amber-300 dark:border-amber-700/70 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 flex items-start gap-2.5 text-xs text-left animate-in fade-in slide-in-from-bottom-2 duration-200 shadow-xs">
+                  <div className="w-5 h-5 rounded-full bg-amber-200 dark:bg-amber-900/80 flex items-center justify-center shrink-0 mt-0.5 text-amber-900 dark:text-amber-200 font-bold text-[10px]">
+                    32d
+                  </div>
+                  <div className="space-y-0.5 flex-1 min-w-0">
+                    <p className="font-semibold text-xs text-amber-950 dark:text-amber-100 flex items-center gap-1.5">
+                      <span>Username Lock Policy</span>
+                      <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-200/80 dark:bg-amber-900/80 text-amber-900 dark:text-amber-200 font-normal">32 Days</span>
+                    </p>
+                    <p className="text-[11px] text-amber-800/90 dark:text-amber-300/90 leading-relaxed">
+                      Once verified and saved, your username <strong>@{username.trim().toLowerCase()}</strong> will be locked and cannot be changed again for the next <strong>32 days</strong>.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <Button
                 variant="primary"
                 className="w-full py-2.5 text-sm font-medium"

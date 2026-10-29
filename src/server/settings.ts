@@ -21,6 +21,9 @@ export interface SettingsAccountProfile {
   isPublic: boolean
   accountStatus: string
   createdAt: string
+  usernameVerifiedAt?: string | null
+  isUsernameLocked?: boolean
+  usernameLockDaysRemaining?: number
 }
 
 export interface SettingsReadingPreferences {
@@ -227,6 +230,19 @@ export async function executeGetSettingsData(deps: {
   const nJson = (pJson.notifications && typeof pJson.notifications === 'object') ? pJson.notifications : {}
   const recJson = (pJson.recommendations && typeof pJson.recommendations === 'object') ? pJson.recommendations : {}
 
+  const verifiedAtStr = (pJson.username_verified_at || pJson.username_last_changed_at || null) as string | null
+  let usernameLockDaysRemaining = 0
+  if (verifiedAtStr) {
+    const verifiedDate = new Date(verifiedAtStr).getTime()
+    if (!isNaN(verifiedDate)) {
+      const elapsedMs = Date.now() - verifiedDate
+      const elapsedDays = Math.floor(elapsedMs / (1000 * 60 * 60 * 24))
+      if (elapsedDays < 32) {
+        usernameLockDaysRemaining = 32 - elapsedDays
+      }
+    }
+  }
+
   return {
     profile: {
       id: profile.id,
@@ -244,6 +260,9 @@ export async function executeGetSettingsData(deps: {
       isPublic: profile.is_public ?? false,
       accountStatus: profile.account_status || 'active',
       createdAt: profile.created_at || new Date().toISOString(),
+      usernameVerifiedAt: verifiedAtStr,
+      isUsernameLocked: usernameLockDaysRemaining > 0,
+      usernameLockDaysRemaining,
     },
     readingPreferences: {
       favoriteGenres: (Array.isArray(pJson.genres) && pJson.genres.length > 0 ? pJson.genres : (Array.isArray(pJson.interests) ? pJson.interests : []))
@@ -304,7 +323,7 @@ export async function executeGetSettingsData(deps: {
     taxonomy: {
       categories: (() => {
         const catMap = new Map<string, { slug: string; name: string; description?: string }>()
-        if (catRows) {
+        if (Array.isArray(catRows)) {
           for (const c of catRows) {
             catMap.set(c.slug, { slug: c.slug, name: c.name, description: c.description || undefined })
           }
@@ -318,7 +337,7 @@ export async function executeGetSettingsData(deps: {
       })(),
       genres: (() => {
         const genMap = new Map<string, { slug: string; name: string; group: string; description?: string }>()
-        if (genreRows) {
+        if (Array.isArray(genreRows)) {
           for (const g of genreRows) {
             const matched = GLOBAL_GENRES.find((gg) => gg.slug === g.slug)
             genMap.set(g.slug, {
@@ -392,18 +411,51 @@ export async function executeUpdateAccountProfile(deps: {
       throw new Error('Username cannot exceed 30 characters.')
     }
 
-    // Check collision with other user
-    const { data: existingUser } = await admin
+    const { data: currentProfile } = await admin
       .from('profiles')
-      .select('id, clerk_user_id')
-      .eq('username', normalized)
-      .neq('clerk_user_id', clerkUserId)
+      .select('id, clerk_user_id, username, preferences')
+      .eq('clerk_user_id', clerkUserId)
       .maybeSingle()
 
-    if (existingUser) {
-      throw new Error(`The username "${normalized}" is already taken. Please choose another username.`)
+    const currentUsername = (currentProfile?.username || '').toLowerCase()
+    if (normalized !== currentUsername) {
+      // 32-Day Username Lock Rule: Once verified, username cannot be changed for 32 days
+      const pJson = (currentProfile?.preferences && typeof currentProfile.preferences === 'object') ? currentProfile.preferences : {}
+      const verifiedAtStr = (pJson.username_verified_at || pJson.username_last_changed_at || null) as string | null
+      if (verifiedAtStr) {
+        const verifiedDate = new Date(verifiedAtStr).getTime()
+        if (!isNaN(verifiedDate)) {
+          const elapsedMs = Date.now() - verifiedDate
+          const elapsedDays = Math.floor(elapsedMs / (1000 * 60 * 60 * 24))
+          if (elapsedDays < 32) {
+            const daysRemaining = 32 - elapsedDays
+            throw new Error(`Username is locked. You cannot change your username for 32 days after verification (${daysRemaining} day${daysRemaining === 1 ? '' : 's'} remaining).`)
+          }
+        }
+      }
+
+      // Check collision with other user
+      const { data: existingUser } = await admin
+        .from('profiles')
+        .select('id, clerk_user_id')
+        .eq('username', normalized)
+        .neq('clerk_user_id', clerkUserId)
+        .maybeSingle()
+
+      if (existingUser) {
+        throw new Error(`The username "${normalized}" is already taken. Please choose another username.`)
+      }
+
+      updates.username = normalized
+      const currentPrefs = (currentProfile?.preferences && typeof currentProfile.preferences === 'object') ? currentProfile.preferences : {}
+      updates.preferences = {
+        ...currentPrefs,
+        username_verified: true,
+        verified_username: normalized,
+        username_verified_at: new Date().toISOString(),
+        username_last_changed_at: new Date().toISOString(),
+      }
     }
-    updates.username = normalized
   }
 
   if (deps.data.bio !== undefined) {
@@ -436,9 +488,11 @@ export async function executeUpdateAccountProfile(deps: {
       .select('preferences')
       .eq('clerk_user_id', clerkUserId)
       .maybeSingle()
-    const pObj = currentP?.preferences && typeof currentP.preferences === 'object' ? currentP.preferences : {}
+    const basePrefs = (updates.preferences && typeof updates.preferences === 'object')
+      ? updates.preferences
+      : (currentP?.preferences && typeof currentP.preferences === 'object' ? currentP.preferences : {})
     updates.preferences = {
-      ...pObj,
+      ...basePrefs,
       interestedInWriting: Boolean(deps.data.interestedInWriting),
     }
   }
