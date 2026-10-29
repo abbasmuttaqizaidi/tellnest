@@ -27,6 +27,7 @@ import {
   GitCompare,
   Image as ImageIcon,
   X,
+  Layers,
 } from 'lucide-react'
 import { ChapterDiffViewer } from './ChapterDiffViewer'
 import { CloudinaryImageUpload } from '../CloudinaryImageUpload'
@@ -45,6 +46,9 @@ export interface StoryRichEditorProps {
   workId?: string
   chapterNumber?: number
   actName?: string
+  acts?: Array<{ id: string; number: number; title: string }>
+  actId?: string
+  onActChange?: (actId: string) => void
   onExit?: () => void
   sidebarOpen?: boolean
   onToggleSidebar?: () => void
@@ -202,6 +206,9 @@ export function StoryRichEditor({
   workId,
   chapterNumber,
   actName,
+  acts,
+  actId,
+  onActChange,
   onExit,
   sidebarOpen,
   onToggleSidebar,
@@ -442,9 +449,32 @@ export function StoryRichEditor({
             )
           )}
 
-          <span className="font-serif font-semibold text-sm text-[var(--ink-primary)] truncate max-w-[180px] sm:max-w-xs md:max-w-md">
+          <span className="font-serif font-semibold text-sm text-[var(--ink-primary)] truncate max-w-[160px] sm:max-w-xs md:max-w-sm">
             {title.trim() || `Chapter ${chapterNumber || 1}`}
           </span>
+
+          {/* Act Selector Dropdown in Header */}
+          {acts && acts.length > 0 && (
+            <div className="flex items-center gap-1 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/60 px-2 py-0.5 text-xs font-mono text-[var(--ink-secondary)] hover:border-[var(--border-strong)] transition-colors">
+              <Layers className="h-3 w-3 text-amber-600 dark:text-amber-400 shrink-0" />
+              <select
+                value={actId || ''}
+                onChange={(e) => onActChange?.(e.target.value)}
+                className="bg-transparent text-xs font-mono text-[var(--ink-primary)] focus:outline-none cursor-pointer max-w-[120px] sm:max-w-[170px] truncate"
+                title="Assign chapter to a Dramatic Act"
+                aria-label="Assign chapter to Act"
+              >
+                <option value="" className="bg-[var(--bg-surface)] text-[var(--ink-primary)]">
+                  No Act (Unassigned)
+                </option>
+                {acts.map((act) => (
+                  <option key={act.id} value={act.id} className="bg-[var(--bg-surface)] text-[var(--ink-primary)]">
+                    Act {act.number}: {act.title || `Act ${act.number}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {/* Center: Live WYSIWYG Formatting Buttons */}
@@ -753,12 +783,22 @@ export function StoryRichEditor({
             </span>
           </button>
 
-          {/* Publish Button */}
+          {/* Publish Button - Disabled until chapter is saved */}
           {onPublish && (
             <button
               type="button"
               onClick={onPublish}
-              className="rounded bg-[var(--ink-primary)] px-3 py-1 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 shadow-xs"
+              disabled={autosaveStatus !== 'saved'}
+              title={
+                autosaveStatus !== 'saved'
+                  ? 'Save chapter changes before publishing'
+                  : 'Publish chapter to manuscript'
+              }
+              className={`rounded px-3 py-1.5 text-xs font-semibold shadow-xs transition-all ${
+                autosaveStatus !== 'saved'
+                  ? 'bg-[var(--bg-subtle)] text-[var(--ink-faint)] border border-[var(--border-subtle)] cursor-not-allowed opacity-50 select-none'
+                  : 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] hover:opacity-90 cursor-pointer'
+              }`}
             >
               Publish
             </button>
@@ -889,6 +929,30 @@ export function StoryRichEditor({
 
               {/* Chapter Header Elements */}
               <div className="space-y-3 pb-6 border-b border-[var(--border-subtle)]">
+                {/* Dramatic Act Selection */}
+                {acts && acts.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[11px] uppercase tracking-wider text-[var(--ink-muted)] flex items-center gap-1.5">
+                      <Layers className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                      <span>Dramatic Act:</span>
+                    </span>
+                    <select
+                      value={actId || ''}
+                      onChange={(e) => onActChange?.(e.target.value)}
+                      className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-2.5 py-1 text-xs font-mono text-[var(--ink-primary)] hover:border-[var(--border-strong)] focus:outline-none focus:border-[var(--ink-primary)] cursor-pointer"
+                      title="Assign chapter to a Dramatic Act"
+                      aria-label="Dramatic Act Selection"
+                    >
+                      <option value="">No Act (Unassigned)</option>
+                      {acts.map((act) => (
+                        <option key={act.id} value={act.id}>
+                          Act {act.number}: {act.title || `Act ${act.number}`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 <input
                   type="text"
                   value={title}

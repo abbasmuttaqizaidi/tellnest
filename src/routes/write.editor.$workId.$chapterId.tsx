@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   Copy,
   RefreshCw,
+  Plus,
 } from 'lucide-react'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { generateMeta } from '../lib/seo'
@@ -280,7 +281,15 @@ function ChapterEditorPage() {
 
   const handleActChange = async (newActId: string) => {
     setActId(newActId)
+    latestStateRef.current.actId = newActId
     if (work && currentChapter) {
+      currentChapter.actId = newActId ? newActId : null
+      if (Array.isArray(work.chapters)) {
+        const found = work.chapters.find((c: any) => c.id === currentChapter.id)
+        if (found) {
+          found.actId = newActId ? newActId : null
+        }
+      }
       try {
         await saveWriterChapterServerFn({
           data: JSON.parse(JSON.stringify({
@@ -301,6 +310,35 @@ function ChapterEditorPage() {
           console.warn('[handleActChange] Error:', e)
         }
       }
+    }
+  }
+
+  const handleQuickCreateNewChapter = async (targetAct?: string) => {
+    if (!work) return
+    const existingNums = (work.chapters || []).map((c: any) => c.number || 0)
+    const nextNumber = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 1
+    const defaultTitle = `Chapter ${nextNumber}`
+    try {
+      const res = await createWriterChapterServerFn({
+        data: {
+          workId: work.id,
+          title: defaultTitle,
+          actId: targetAct || actId || undefined,
+        },
+      })
+      if (res?.chapter) {
+        if (Array.isArray(work.chapters)) {
+          work.chapters.push(res.chapter as any)
+        }
+        showToast(`Created ${defaultTitle}. Opening editor...`)
+        navigate({
+          to: '/write/editor/$workId/$chapterId',
+          params: { workId: work.id, chapterId: res.chapter.id },
+        })
+      }
+    } catch (err: any) {
+      console.warn('[handleQuickCreateNewChapter] Error:', err)
+      showToast('Failed to create new chapter')
     }
   }
 
@@ -461,6 +499,11 @@ function ChapterEditorPage() {
   }
 
   const handlePublish = async () => {
+    if (autosaveStatus !== 'saved') {
+      showToast('Please save your chapter changes before publishing.')
+      return
+    }
+
     if (work && currentChapter) {
       setAutosaveStatus('saving')
       const curTitle = latestStateRef.current.title
@@ -558,10 +601,21 @@ function ChapterEditorPage() {
             </button>
           </div>
 
-          <h3 className="font-mono text-[10px] uppercase tracking-wider text-[var(--ink-muted)] mb-3 flex items-center justify-between">
-            <span>Manuscript Chapters</span>
-            <span>{work.chapters.length}</span>
-          </h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-mono text-[10px] uppercase tracking-wider text-[var(--ink-muted)] flex items-center gap-1.5">
+              <span>Manuscript Chapters</span>
+              <span className="text-[var(--ink-faint)]">({work.chapters.length})</span>
+            </h3>
+            <button
+              type="button"
+              onClick={() => handleQuickCreateNewChapter()}
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-medium text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] border border-[var(--border-subtle)] transition-colors cursor-pointer"
+              title="Add New Chapter"
+            >
+              <Plus className="h-3 w-3" />
+              <span>Add</span>
+            </button>
+          </div>
 
           {work.acts && work.acts.length > 0 ? (
             <div className="space-y-4">
@@ -722,6 +776,9 @@ function ChapterEditorPage() {
           workId={work.id}
           chapterNumber={currentChapter.number}
           actName={actName}
+          acts={work.acts || []}
+          actId={actId}
+          onActChange={handleActChange}
           onExit={handleExit}
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen(true)}

@@ -154,6 +154,7 @@ function WorkManagementPage() {
   const [newChapterModalOpen, setNewChapterModalOpen] = useState(false)
   const [newChapterTitle, setNewChapterTitle] = useState('')
   const [targetActId, setTargetActId] = useState<string>('')
+  const [isCreatingChapter, setIsCreatingChapter] = useState(false)
 
   // Act Modal State
   const [actModalOpen, setActModalOpen] = useState(false)
@@ -543,6 +544,46 @@ function WorkManagementPage() {
     })
   }, [chapters, chapterFilter, chapterSort, searchQuery])
 
+  const handleQuickCreateChapter = async (chosenActId?: string) => {
+    if (isCreatingChapter) return
+    setIsCreatingChapter(true)
+    setAddDropdownOpen(false)
+    setOpenActMenuId(null)
+
+    // Automatically provision next chapter number
+    const existingNums = chapters.map((c) => c.number || 0)
+    const nextNumber = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 1
+    const defaultTitle = `Chapter ${nextNumber}`
+
+    try {
+      const res = await createWriterChapterServerFn({
+        data: {
+          workId: work.id,
+          title: defaultTitle,
+          actId: chosenActId || undefined,
+        },
+      })
+      if (res?.chapter) {
+        setChapters((prev) => [...prev, res.chapter as any])
+        showToast(`Created ${defaultTitle}. Opening editor...`)
+        navigate({
+          to: '/write/editor/$workId/$chapterId',
+          params: { workId: work.id, chapterId: res.chapter.id },
+        })
+      }
+    } catch (err: any) {
+      console.warn('[handleQuickCreateChapter] DB creation failed, falling back to local:', err)
+      const created = addNewChapter(work.id, defaultTitle)
+      setChapters((prev) => [...prev, created as any])
+      navigate({
+        to: '/write/editor/$workId/$chapterId',
+        params: { workId: work.id, chapterId: (created as any).id },
+      })
+    } finally {
+      setIsCreatingChapter(false)
+    }
+  }
+
   const handleCreateChapter = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newChapterTitle.trim()) return
@@ -551,6 +592,7 @@ function WorkManagementPage() {
     const chosenActId = targetActId ? targetActId : undefined
     setNewChapterTitle('')
     setNewChapterModalOpen(false)
+    setIsCreatingChapter(true)
 
     try {
       const res = await createWriterChapterServerFn({
@@ -576,6 +618,8 @@ function WorkManagementPage() {
         to: '/write/editor/$workId/$chapterId',
         params: { workId: work.id, chapterId: (created as any).id },
       })
+    } finally {
+      setIsCreatingChapter(false)
     }
   }
 
@@ -871,10 +915,7 @@ function WorkManagementPage() {
                 <div className="absolute right-0 top-full mt-1.5 w-44 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-1.5 shadow-xl z-30 animate-in fade-in zoom-in-95 duration-100">
                   <button
                     type="button"
-                    onClick={() => {
-                      setAddDropdownOpen(false)
-                      openCreateChapterModal()
-                    }}
+                    onClick={() => handleQuickCreateChapter()}
                     className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors text-left cursor-pointer"
                   >
                     <Plus className="h-4 w-4 text-black dark:text-white shrink-0" strokeWidth={2.5} />
@@ -1057,10 +1098,7 @@ function WorkManagementPage() {
 
                             <button
                               type="button"
-                              onClick={() => {
-                                setOpenActMenuId(null)
-                                openCreateChapterModal(act.id)
-                              }}
+                              onClick={() => handleQuickCreateChapter(act.id)}
                               className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors text-left cursor-pointer"
                             >
                               <Plus className="h-3.5 w-3.5 text-black dark:text-white shrink-0" strokeWidth={2.2} />
@@ -1096,8 +1134,8 @@ function WorkManagementPage() {
                       <p>No chapters filed under {act.title} yet.</p>
                       <button
                         type="button"
-                        onClick={() => openCreateChapterModal(act.id)}
-                        className="inline-flex items-center gap-1 text-xs font-mono font-medium text-[var(--ink-primary)] hover:underline"
+                        onClick={() => handleQuickCreateChapter(act.id)}
+                        className="inline-flex items-center gap-1 text-xs font-mono font-medium text-[var(--ink-primary)] hover:underline cursor-pointer"
                       >
                         <Plus className="h-3 w-3" />
                         <span>Pen first chapter for this Act</span>
@@ -1365,7 +1403,7 @@ function WorkManagementPage() {
                 ) : (
                   <button
                     type="button"
-                    onClick={() => openCreateChapterModal()}
+                    onClick={() => handleQuickCreateChapter()}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--ink-primary)] text-[var(--accent-contrast)] px-4 py-2 text-xs font-semibold shadow-xs cursor-pointer"
                   >
                     <Plus className="h-3.5 w-3.5" />
@@ -1935,9 +1973,10 @@ function WorkManagementPage() {
                 </button>
                 <button
                   type="submit"
-                  className="rounded bg-[var(--ink-primary)] px-4 py-1.5 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 shadow-xs"
+                  disabled={isCreatingChapter}
+                  className="rounded bg-[var(--ink-primary)] px-4 py-1.5 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 shadow-xs disabled:opacity-50 cursor-pointer"
                 >
-                  Create & Launch Editor
+                  {isCreatingChapter ? 'Opening Editor...' : 'Create & Launch Editor'}
                 </button>
               </div>
             </form>
@@ -2043,6 +2082,16 @@ function WorkManagementPage() {
                 {isDeletingAct ? 'Deleting...' : 'Delete Act'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Chapter Creation & Editor Launch Feedback Overlay */}
+      {isCreatingChapter && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--bg-canvas)]/80 backdrop-blur-xs animate-in fade-in duration-100">
+          <div className="flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-5 py-4 shadow-xl font-mono text-xs text-[var(--ink-primary)]">
+            <span className="h-4 w-4 rounded-full border-2 border-amber-600 border-t-transparent animate-spin shrink-0" />
+            <span>Creating chapter & launching editor...</span>
           </div>
         </div>
       )}
