@@ -23,26 +23,15 @@ import { getWorkSlug } from '../data/mockData'
 import { StoryRichEditor } from '../components/studio/StoryRichEditor'
 
 export const Route = createFileRoute('/write/editor/$workId/$chapterId')({
+  validateSearch: (search: Record<string, unknown>): { actId?: string } => ({
+    actId: typeof search.actId === 'string' ? search.actId : undefined,
+  }),
+  staleTime: 0,
+  shouldReload: true,
   loader: async ({ params }) => {
     try {
       const dbWork = await getWriterWorkDetailsServerFn({ data: { workId: params.workId } })
       if (dbWork) {
-        // Self-healing: If manuscript has zero chapters, auto-provision initial Chapter One
-        if (!dbWork.chapters || dbWork.chapters.length === 0) {
-          try {
-            const newChRes = await createWriterChapterServerFn({
-              data: {
-                workId: dbWork.id,
-                title: 'Chapter One',
-              },
-            })
-            if (newChRes?.chapter) {
-              dbWork.chapters = [newChRes.chapter as any]
-            }
-          } catch (autoErr) {
-            console.warn('[Route /write/editor] Auto-provision chapter error:', autoErr)
-          }
-        }
         return { work: dbWork }
       }
     } catch (e) {
@@ -74,23 +63,52 @@ export const Route = createFileRoute('/write/editor/$workId/$chapterId')({
 
 function ChapterEditorPage() {
   const { workId, chapterId } = Route.useParams()
+  const search = Route.useSearch()
   const loaderData = Route.useLoaderData()
   const { getWorkById, updateChapterContent, showToast } = useApp()
   const navigate = useNavigate()
 
   const work = loaderData?.work || getWorkById(workId)
+  const targetActIdFromSearch = search?.actId
 
   // Resilient Chapter Resolution:
+  // 0. Handle 'new' unpersisted draft chapter
   // 1. Try exact ID match
   // 2. Fallbacks for aliases ('ch-1', 'first', 'default', '1')
-  // 3. Match by chapter number (e.g. from 'chapter-1' or 'ch-2')
-  // 4. Default to first draft or first chapter
+  // 3. Match explicit chapter slug or number format (e.g. "chapter-2", "ch-3")
+  // 4. Default to first chapter
   const currentChapter = useMemo(() => {
-    if (!work || !Array.isArray(work.chapters) || work.chapters.length === 0) {
+    if (!work || !Array.isArray(work.chapters)) {
       return null
     }
 
-    // 1. Exact ID match
+    // 0. Handle 'new' unpersisted draft chapter
+    if (chapterId === 'new') {
+      const existingNums = work.chapters.map((c: any) => c.number || c.chapter_number || 0)
+      const nextNumber = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 1
+      const preselectedAct =
+        targetActIdFromSearch ||
+        (work.acts && work.acts.length > 0 ? work.acts[0].id : null)
+      return {
+        id: 'new',
+        number: nextNumber,
+        title: `Chapter ${nextNumber}`,
+        subtitle: '',
+        content: '',
+        bannerImage: null,
+        actId: preselectedAct,
+        status: 'draft' as const,
+        wordCount: 0,
+        readTimeMinutes: 1,
+        updated_at: new Date().toISOString(),
+      }
+    }
+
+    if (work.chapters.length === 0) {
+      return null
+    }
+
+    // 1. Exact ID match (Always prioritized for UUIDs)
     const exact = work.chapters.find((c: any) => c.id === chapterId)
     if (exact) return exact
 
@@ -101,21 +119,21 @@ function ChapterEditorPage() {
       return work.chapters[0]
     }
 
-    // 3. Chapter number fallback
-    const match = chapterId.match(/\d+/)
+    // 3. Match explicit chapter slug or chapter number format (e.g. "chapter-2", "ch-3")
+    const match = chapterId.match(/^(?:chapter|ch)-(\d+)$/i)
     if (match) {
-      const num = parseInt(match[0], 10)
+      const num = parseInt(match[1], 10)
       const byNum = work.chapters.find((c: any) => c.number === num || c.chapter_number === num)
       if (byNum) return byNum
     }
 
-    // 4. Default to first draft or first chapter
-    return work.chapters.find((c: any) => c.status === 'draft') || work.chapters[0]
-  }, [work, chapterId])
+    // 4. Default to first chapter
+    return work.chapters[0]
+  }, [work, chapterId, targetActIdFromSearch])
 
   // Synchronize URL in address bar if resolved to a different real UUID
   useEffect(() => {
-    if (work && currentChapter && currentChapter.id !== chapterId) {
+    if (work && currentChapter && chapterId !== 'new' && currentChapter.id !== chapterId) {
       navigate({
         to: '/write/editor/$workId/$chapterId',
         params: { workId: work.id, chapterId: currentChapter.id },
@@ -131,7 +149,9 @@ function ChapterEditorPage() {
     currentChapter?.bannerImage || currentChapter?.banner_image_path || null
   )
   const [actId, setActId] = useState<string>(currentChapter?.actId || '')
-  const [autosaveStatus, setAutosaveStatus] = useState<'saved' | 'saving' | 'dirty'>('saved')
+  const [autosaveStatus, setAutosaveStatus] = useState<'saved' | 'saving' | 'dirty'>(() =>
+    chapterId === 'new' ? 'dirty' : 'saved'
+  )
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [focusMode, setFocusMode] = useState(false)
   const [isNavigating, setIsNavigating] = useState(false)
@@ -230,7 +250,7 @@ function ChapterEditorPage() {
       setActId(currentChapter.actId || '')
       setLoadedUpdatedAt(currentChapter.updated_at || currentChapter.updatedAt || new Date().toISOString())
       setConflictModalData(null)
-      setAutosaveStatus('saved')
+      setAutosaveStatus(currentChapter.id === 'new' ? 'dirty' : 'saved')
       setSavedSnapshot({
         title: initialTitle,
         subtitle: initialSubtitle,
@@ -313,33 +333,13 @@ function ChapterEditorPage() {
     }
   }
 
-  const handleQuickCreateNewChapter = async (targetAct?: string) => {
+  const handleQuickCreateNewChapter = (targetAct?: string) => {
     if (!work) return
-    const existingNums = (work.chapters || []).map((c: any) => c.number || 0)
-    const nextNumber = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 1
-    const defaultTitle = `Chapter ${nextNumber}`
-    try {
-      const res = await createWriterChapterServerFn({
-        data: {
-          workId: work.id,
-          title: defaultTitle,
-          actId: targetAct || actId || undefined,
-        },
-      })
-      if (res?.chapter) {
-        if (Array.isArray(work.chapters)) {
-          work.chapters.push(res.chapter as any)
-        }
-        showToast(`Created ${defaultTitle}. Opening editor...`)
-        navigate({
-          to: '/write/editor/$workId/$chapterId',
-          params: { workId: work.id, chapterId: res.chapter.id },
-        })
-      }
-    } catch (err: any) {
-      console.warn('[handleQuickCreateNewChapter] Error:', err)
-      showToast('Failed to create new chapter')
-    }
+    navigate({
+      to: '/write/editor/$workId/$chapterId',
+      params: { workId: work.id, chapterId: 'new' },
+      search: targetAct || actId ? { actId: targetAct || actId } : undefined,
+    })
   }
 
   // Check if current text differs from saved baseline (ignoring benign trailing newlines)
@@ -398,6 +398,88 @@ function ChapterEditorPage() {
     if (!work || !currentChapter) return
 
     setAutosaveStatus('saving')
+
+    // If chapter is unpersisted draft ('new'), create it in the database for the first time now
+    if (currentChapter.id === 'new') {
+      try {
+        const createRes = await createWriterChapterServerFn({
+          data: {
+            workId: String(work.id),
+            title: String(title.trim() || currentChapter.title || 'Untitled Chapter'),
+            actId: actId ? String(actId) : undefined,
+          },
+        })
+
+        if (!createRes?.chapter?.id) {
+          throw new Error('Failed to create new chapter in database')
+        }
+
+        const newId = createRes.chapter.id
+        currentChapter.id = newId
+        currentChapter.number = createRes.chapter.number
+
+        // Save the content, subtitle, bannerImage immediately
+        const saveRes = await saveWriterChapterServerFn({
+          data: JSON.parse(JSON.stringify({
+            workId: String(work.id),
+            chapterId: String(newId),
+            title: String(title.trim() || createRes.chapter.title),
+            subtitle: String(subtitle || ''),
+            content: String(content || ''),
+            status: 'draft',
+            actId: actId ? String(actId) : null,
+            bannerImage: bannerImage ? String(bannerImage).trim() : null,
+            expectedUpdatedAt: new Date().toISOString(),
+            force: true,
+          })),
+        })
+
+        if (Array.isArray(work.chapters)) {
+          const newChObj = {
+            ...createRes.chapter,
+            id: newId,
+            number: createRes.chapter.number,
+            title: title.trim() || createRes.chapter.title,
+            subtitle,
+            content,
+            actId: actId || null,
+            status: 'draft' as const,
+            bannerImage,
+            banner_image_path: bannerImage,
+          }
+          const exists = work.chapters.findIndex((c: any) => c.id === newId)
+          if (exists >= 0) {
+            work.chapters[exists] = newChObj
+          } else {
+            work.chapters.push(newChObj as any)
+          }
+        }
+
+        updateChapterContent(work.id, newId, title, content, 'draft', bannerImage)
+        setLoadedUpdatedAt(saveRes?.updatedAt || new Date().toISOString())
+        setAutosaveStatus('saved')
+        setSavedSnapshot({
+          title,
+          subtitle,
+          content,
+          bannerImage,
+        })
+        showToast('Chapter created and saved to database!')
+
+        navigate({
+          to: '/write/editor/$workId/$chapterId',
+          params: { workId: work.id, chapterId: newId },
+          replace: true,
+        })
+        return
+      } catch (err: any) {
+        console.error('[handleManualSave] Error creating new chapter:', err)
+        setAutosaveStatus('dirty')
+        showToast(err?.message || 'Failed to create chapter in database')
+        return
+      }
+    }
+
     updateChapterContent(work.id, currentChapter.id, title, content, currentChapter.status, bannerImage)
     if (Array.isArray(work.chapters)) {
       const found = work.chapters.find((c: any) => c.id === currentChapter.id)
@@ -763,6 +845,7 @@ function ChapterEditorPage() {
         )}
 
         <StoryRichEditor
+          key={currentChapter.id}
           title={title}
           setTitle={handleTitleChange}
           subtitle={subtitle}

@@ -3,33 +3,54 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 
-test('Chapter Editor UX: Direct Editor Navigation & Quick Add Chapter', async (t) => {
+test('Chapter Editor UX: Direct Editor Navigation & Deferred Chapter DB Creation', async (t) => {
   const manageFile = fs.readFileSync(
     path.resolve(process.cwd(), 'src/routes/write.manage.$workId.tsx'),
     'utf-8'
   )
-
-  // 1. Verify handleQuickCreateChapter exists and automatically increments chapter number
-  assert.ok(
-    manageFile.includes('handleQuickCreateChapter'),
-    'write.manage must implement handleQuickCreateChapter for direct chapter creation'
+  const editorFile = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/routes/write.editor.$workId.$chapterId.tsx'),
+    'utf-8'
   )
 
+  // 1. Verify handleStartNewChapter exists and navigates to 'new' chapter without DB creation
   assert.ok(
-    manageFile.includes('isCreatingChapter'),
-    'write.manage must track isCreatingChapter state for seamless transition feedback'
+    manageFile.includes('handleStartNewChapter'),
+    'write.manage must implement handleStartNewChapter for direct editor navigation'
   )
 
-  // 2. Verify + Add dropdown navigates directly to editor via handleQuickCreateChapter
+  // 2. Verify + Add dropdown navigates directly to editor via handleStartNewChapter
   assert.ok(
-    manageFile.includes('onClick={() => handleQuickCreateChapter()}'),
-    'Add Chapter action must directly trigger handleQuickCreateChapter without modal barrier'
+    manageFile.includes('onClick={() => handleStartNewChapter()}'),
+    'Add Chapter action must directly trigger handleStartNewChapter without modal barrier'
   )
 
-  // 3. Verify act cards trigger handleQuickCreateChapter with preselected act.id
+  // 3. Verify act cards trigger handleStartNewChapter with preselected act.id
   assert.ok(
-    manageFile.includes('handleQuickCreateChapter(act.id)'),
-    'Act cards must trigger quick chapter creation directly assigned to that act'
+    manageFile.includes('handleStartNewChapter(act.id)'),
+    'Act cards must trigger chapter navigation directly assigned to that act'
+  )
+
+  // 4. Verify DB creation is strictly deferred until editor save
+  assert.ok(
+    editorFile.includes("if (currentChapter.id === 'new')"),
+    'write.editor must defer database creation until manual save on new chapter'
+  )
+  assert.ok(
+    editorFile.includes('createWriterChapterServerFn({'),
+    'write.editor must create chapter in DB when user explicitly saves new draft'
+  )
+
+  // 5. Verify write.manage prioritizes loaderData.work over contextWork to prevent empty acts/lost chapters
+  assert.ok(
+    manageFile.includes('loaderData?.work || contextWork'),
+    'write.manage must prioritize loaderData.work from PostgreSQL over cached contextWork'
+  )
+
+  // 6. Verify StoryRichEditor uses key={currentChapter.id} so switching chapters always loads fresh content
+  assert.ok(
+    editorFile.includes('key={currentChapter.id}'),
+    'StoryRichEditor must remount with key={currentChapter.id} to ensure last chapter and all chapters display content correctly'
   )
 })
 
