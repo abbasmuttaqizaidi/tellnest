@@ -58,16 +58,16 @@ test('Chapter Editor UX: Dramatic Act Dropdown in Editor', async (t) => {
     'StoryRichEditorProps must accept onActChange callback'
   )
 
-  // 2. Verify Act selector dropdown is rendered in top toolbar
-  assert.ok(
-    richEditorFile.includes('aria-label="Assign chapter to Act"'),
-    'StoryRichEditor top toolbar must render Act selector dropdown'
-  )
-
-  // 3. Verify Act selector dropdown is rendered on drafting canvas
+  // 2. Verify Act selector dropdown is rendered on drafting canvas above Title input
   assert.ok(
     richEditorFile.includes('aria-label="Dramatic Act Selection"'),
     'StoryRichEditor drafting canvas must render Dramatic Act selector'
+  )
+
+  // 3. Verify top header gives clean full-width display to chapter name without cramped dropdown
+  assert.ok(
+    !richEditorFile.includes('aria-label="Assign chapter to Act"'),
+    'Top toolbar header should remain clean and uncluttered without redundant dropdown next to chapter title'
   )
 
   // 4. Verify No Act (Unassigned) option exists alongside all acts

@@ -449,32 +449,9 @@ export function StoryRichEditor({
             )
           )}
 
-          <span className="font-serif font-semibold text-sm text-[var(--ink-primary)] truncate max-w-[160px] sm:max-w-xs md:max-w-sm">
+          <span className="font-serif font-semibold text-sm text-[var(--ink-primary)] truncate max-w-[180px] sm:max-w-xs md:max-w-md">
             {title.trim() || `Chapter ${chapterNumber || 1}`}
           </span>
-
-          {/* Act Selector Dropdown in Header */}
-          {acts && acts.length > 0 && (
-            <div className="flex items-center gap-1 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/60 px-2 py-0.5 text-xs font-mono text-[var(--ink-secondary)] hover:border-[var(--border-strong)] transition-colors">
-              <Layers className="h-3 w-3 text-amber-600 dark:text-amber-400 shrink-0" />
-              <select
-                value={actId || ''}
-                onChange={(e) => onActChange?.(e.target.value)}
-                className="bg-transparent text-xs font-mono text-[var(--ink-primary)] focus:outline-none cursor-pointer max-w-[120px] sm:max-w-[170px] truncate"
-                title="Assign chapter to a Dramatic Act"
-                aria-label="Assign chapter to Act"
-              >
-                <option value="" className="bg-[var(--bg-surface)] text-[var(--ink-primary)]">
-                  No Act (Unassigned)
-                </option>
-                {acts.map((act) => (
-                  <option key={act.id} value={act.id} className="bg-[var(--bg-surface)] text-[var(--ink-primary)]">
-                    Act {act.number}: {act.title || `Act ${act.number}`}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
         </div>
 
         {/* Center: Live WYSIWYG Formatting Buttons */}
