@@ -221,11 +221,38 @@ export async function buildSitemapEntries(options?: BuildSitemapOptions): Promis
             seenAuthors.add(authorHandle)
             addEntry({
               loc: `${CANONICAL_BASE_URL}/author/${authorHandle}`,
-              changefreq: 'monthly',
-              priority: 0.7,
+              changefreq: 'weekly',
+              priority: 0.8,
             })
           }
         }
+      }
+
+      // Also index all public author profiles
+      try {
+        const { data: publicProfiles, error: profError } = await client
+          .from('profiles')
+          .select('id, username, is_public, updated_at')
+          .eq('is_public', true)
+          .order('updated_at', { ascending: false })
+          .limit(250)
+
+        if (!profError && Array.isArray(publicProfiles)) {
+          for (const p of publicProfiles) {
+            const handle = p.username || p.id
+            if (handle && !seenAuthors.has(handle)) {
+              seenAuthors.add(handle)
+              addEntry({
+                loc: `${CANONICAL_BASE_URL}/author/${handle}`,
+                lastmod: formatLastmod(p.updated_at),
+                changefreq: 'weekly',
+                priority: 0.8,
+              })
+            }
+          }
+        }
+      } catch {
+        // Optional profile query fallback
       }
 
       // Chapters belonging to eligible works (filtering out chapters in unpublished acts)

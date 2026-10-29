@@ -18,6 +18,16 @@ const CLERK_PUBLISHABLE_KEY =
   (typeof process !== 'undefined' && process.env?.VITE_CLERK_PUBLISHABLE_KEY) ||
   'pk_test_aW52aXRpbmctYm9hLTg5NDIuY2xlcmsuYWNjb3VudHMuZGV2JA'
 
+const GOOGLE_SITE_VERIFICATION =
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_SITE_VERIFICATION) ||
+  (typeof process !== 'undefined' && process.env?.VITE_GOOGLE_SITE_VERIFICATION) ||
+  ''
+
+const BING_SITE_VERIFICATION =
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_BING_SITE_VERIFICATION) ||
+  (typeof process !== 'undefined' && process.env?.VITE_BING_SITE_VERIFICATION) ||
+  ''
+
 const THEME_INIT_SCRIPT = `(function(){try{var root=document.documentElement;var saved=window.localStorage.getItem('theme')||'light';if(saved==='sage'||saved==='linen'||saved==='theme-sage'||saved==='theme-linen'){saved='light';window.localStorage.setItem('theme','light');}var prefersDark=window.matchMedia('(prefers-color-scheme: dark)').matches;var resolved=saved==='auto'?(prefersDark?'dark':'light'):saved;root.classList.remove('light','dark','theme-sepia','theme-linen','theme-sage','theme-paper');root.classList.add(resolved);if(resolved==='paper')root.classList.add('theme-paper');root.setAttribute('data-theme',resolved);root.style.colorScheme=resolved==='dark'?'dark':'light';}catch(e){}})();`
 
 const GLOBAL_JSON_LD = JSON.stringify({
@@ -97,6 +107,8 @@ export const Route = createRootRoute({
         name: 'author',
         content: 'HatchPen',
       },
+      ...(GOOGLE_SITE_VERIFICATION ? [{ name: 'google-site-verification', content: GOOGLE_SITE_VERIFICATION }] : []),
+      ...(BING_SITE_VERIFICATION ? [{ name: 'msvalidate.01', content: BING_SITE_VERIFICATION }] : []),
       {
         name: 'robots',
         content: 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',

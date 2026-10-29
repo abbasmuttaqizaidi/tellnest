@@ -1,14 +1,21 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import React, { useEffect, useState, useRef, useCallback } from 'react'
 import { Copy, Check, Share2 } from 'lucide-react'
+import { FaXTwitter, FaWhatsapp } from 'react-icons/fa6'
+import { useApp } from '../../context/AppContext'
 
-export interface ReaderQuoteShareTooltipProps {
+interface ReaderQuoteShareTooltipProps {
   containerRef: React.RefObject<HTMLElement | null>
   storyTitle: string
   authorName: string
-  chapterTitle?: string
+  chapterTitle: string
   workId: string
   chapterId: string
+  canonicalUrl?: string
+}
+
+interface Position {
+  top: number
+  left: number
 }
 
 export function ReaderQuoteShareTooltip({
@@ -18,188 +25,190 @@ export function ReaderQuoteShareTooltip({
   chapterTitle,
   workId,
   chapterId,
+  canonicalUrl,
 }: ReaderQuoteShareTooltipProps) {
-  const [selectedText, setSelectedText] = useState<string>('')
-  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null)
-  const [copied, setCopied] = useState<boolean>(false)
+  const shareUrl = canonicalUrl || `https://hatchpen.com/read/${workId}/${chapterId}`
+  const [selectedText, setSelectedText] = useState('')
+  const [position, setPosition] = useState<Position | null>(null)
+  const [copied, setCopied] = useState(false)
   const tooltipRef = useRef<HTMLDivElement>(null)
+  const { showToast } = useApp()
 
-  const handleSelectionChange = useCallback(() => {
+  const handleSelection = useCallback(() => {
     if (typeof window === 'undefined') return
     const selection = window.getSelection()
-
-    if (!selection || selection.isCollapsed || !selection.toString().trim()) {
+    if (!selection || selection.isCollapsed) {
+      setPosition(null)
       setSelectedText('')
-      setCoords(null)
       return
     }
 
     const text = selection.toString().trim()
-    // Require at least 8 characters to avoid triggering on accidental clicks
-    if (text.length < 8) {
+    // Require at least 5 characters to avoid accidental single-word triggers
+    if (text.length < 5) {
+      setPosition(null)
       setSelectedText('')
-      setCoords(null)
       return
     }
 
-    // Verify selection is within reader container
-    if (containerRef.current) {
-      const anchorNode = selection.anchorNode
-      const focusNode = selection.focusNode
-      if (
-        (anchorNode && !containerRef.current.contains(anchorNode)) ||
-        (focusNode && !containerRef.current.contains(focusNode))
-      ) {
-        setSelectedText('')
-        setCoords(null)
-        return
-      }
-    }
-
-    try {
+    // Check if selection is within the prose container
+    const container = containerRef.current
+    if (container && selection.rangeCount > 0) {
       const range = selection.getRangeAt(0)
-      const rect = range.getBoundingClientRect()
-
-      if (rect.width === 0 && rect.height === 0) {
+      const commonAncestor = range.commonAncestorContainer
+      const isInside = container.contains(commonAncestor.nodeType === Node.TEXT_NODE ? commonAncestor.parentNode : commonAncestor)
+      if (!isInside) {
+        setPosition(null)
         setSelectedText('')
-        setCoords(null)
         return
       }
 
-      // Position tooltip right above center of selection
-      const tooltipX = rect.left + rect.width / 2
-      const tooltipY = rect.top - 10 // small offset above selection
+      const rect = range.getBoundingClientRect()
+      // Position above the selection, centered horizontally
+      const tooltipHeight = 44
+      const tooltipWidth = 190
+      const scrollY = window.scrollY
+      const scrollX = window.scrollX
+
+      let top = rect.top + scrollY - tooltipHeight - 10
+      // If too close to viewport top, show beneath selection
+      if (rect.top < tooltipHeight + 16) {
+        top = rect.bottom + scrollY + 10
+      }
+
+      let left = rect.left + scrollX + rect.width / 2 - tooltipWidth / 2
+      // Clamp within viewport margins
+      left = Math.max(12, Math.min(left, window.innerWidth - tooltipWidth - 12))
 
       setSelectedText(text)
-      setCoords({
-        left: Math.max(80, Math.min(window.innerWidth - 80, tooltipX)),
-        top: Math.max(10, tooltipY),
-      })
-    } catch {
-      setSelectedText('')
-      setCoords(null)
+      setPosition({ top, left })
     }
   }, [containerRef])
 
   useEffect(() => {
-    document.addEventListener('selectionchange', handleSelectionChange)
-    const handleScroll = () => {
-      // Re-calculate or hide on scroll
-      handleSelectionChange()
+    const onMouseUp = () => {
+      // Delay slightly so browser finalizes selection bounds
+      setTimeout(handleSelection, 20)
     }
-    window.addEventListener('scroll', handleScroll, { passive: true })
+
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setPosition(null)
+        setSelectedText('')
+        return
+      }
+      setTimeout(handleSelection, 20)
+    }
+
+    const onScroll = () => {
+      // Reposition on scroll if active
+      if (selectedText) {
+        handleSelection()
+      }
+    }
+
+    document.addEventListener('mouseup', onMouseUp)
+    document.addEventListener('keyup', onKeyUp)
+    window.addEventListener('scroll', onScroll, { passive: true })
 
     return () => {
-      document.removeEventListener('selectionchange', handleSelectionChange)
-      window.removeEventListener('scroll', handleScroll)
+      document.removeEventListener('mouseup', onMouseUp)
+      document.removeEventListener('keyup', onKeyUp)
+      window.removeEventListener('scroll', onScroll)
     }
-  }, [handleSelectionChange])
+  }, [handleSelection, selectedText])
 
-  if (!coords || !selectedText) return null
+  if (!position || !selectedText) return null
 
-  const currentUrl =
-    typeof window !== 'undefined'
-      ? window.location.href
-      : `https://hatchpen.com/read/${workId}/${chapterId}`
-
-  const truncatedQuote =
-    selectedText.length > 200 ? `${selectedText.slice(0, 197)}...` : selectedText
-
-  const fullQuoteCopy = `“${selectedText}”\n\n— from "${storyTitle}" by ${authorName}${
-    chapterTitle ? ` (${chapterTitle})` : ''
-  }\nRead on HatchPen: ${currentUrl}`
-
-  const xTweetText = `“${truncatedQuote}”\n\n— "${storyTitle}" by ${authorName} on @HatchPen\n\n${currentUrl}`
-  const xShareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(xTweetText)}`
-
-  const whatsappText = `“${truncatedQuote}”\n\n— "${storyTitle}" by ${authorName}\nRead on HatchPen: ${currentUrl}`
-  const whatsappShareUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(whatsappText)}`
+  // Clean quote text for citations
+  const cleanSnippet = selectedText.replace(/\s+/g, ' ').slice(0, 240)
+  const fullCitation = `“${cleanSnippet}”\n— ${storyTitle} (${chapterTitle}) by ${authorName}\n${shareUrl}`
 
   const handleCopyQuote = async (e: React.MouseEvent) => {
-    e.preventDefault()
     e.stopPropagation()
     try {
-      if (navigator.clipboard) {
-        await navigator.clipboard.writeText(fullQuoteCopy)
-        setCopied(true)
-        setTimeout(() => setCopied(false), 2000)
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(fullCitation)
+      } else {
+        const input = document.createElement('textarea')
+        input.value = fullCitation
+        document.body.appendChild(input)
+        input.select()
+        document.execCommand('copy')
+        document.body.removeChild(input)
       }
-    } catch {}
+      setCopied(true)
+      showToast('Quote copied with citation!')
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      showToast('Failed to copy quote', 'error')
+    }
+  }
+
+  const handleShareTwitter = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const tweetText = `“${cleanSnippet.length > 180 ? cleanSnippet.slice(0, 177) + '...' : cleanSnippet}”\n\n— ${storyTitle} by ${authorName}`
+    const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}&url=${encodeURIComponent(shareUrl)}`
+    window.open(tweetUrl, '_blank', 'noopener,noreferrer,width=550,height=420')
+  }
+
+  const handleShareWhatsApp = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const waText = `“${cleanSnippet}”\n\n— *${storyTitle}* by ${authorName}\n${shareUrl}`
+    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(waText)}`
+    window.open(waUrl, '_blank', 'noopener,noreferrer')
   }
 
   return (
-    <AnimatePresence>
-      <div
-        ref={tooltipRef}
-        style={{
-          position: 'fixed',
-          top: `${coords.top}px`,
-          left: `${coords.left}px`,
-          transform: 'translate(-50%, -100%)',
-          zIndex: 9999,
-        }}
-        className="pointer-events-auto select-none"
-        onMouseDown={(e) => {
-          // Prevent losing selection on click
-          e.preventDefault()
-        }}
+    <div
+      ref={tooltipRef}
+      style={{
+        top: `${position.top}px`,
+        left: `${position.left}px`,
+      }}
+      className="absolute z-50 flex items-center gap-1 p-1 bg-neutral-900/95 dark:bg-neutral-950/95 text-white backdrop-blur-md rounded-xl border border-neutral-700/80 shadow-xl animate-in fade-in zoom-in-95 duration-150 select-none"
+    >
+      <button
+        type="button"
+        onClick={handleCopyQuote}
+        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium hover:bg-neutral-800 text-neutral-200 hover:text-white transition-colors cursor-pointer"
+        title="Copy quote with story citation"
+        aria-label="Copy quote with citation"
       >
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9, y: 6 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.9, y: 6 }}
-          transition={{ duration: 0.15, ease: 'easeOut' }}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-neutral-900/95 dark:bg-neutral-800/95 text-white shadow-xl backdrop-blur-md border border-white/15 text-xs font-medium"
-        >
-          {/* Copy Quote Button */}
-          <button
-            onClick={handleCopyQuote}
-            className={`flex items-center gap-1 px-2 py-1 rounded-lg transition-colors cursor-pointer text-xs ${
-              copied
-                ? 'bg-emerald-600/90 text-white'
-                : 'hover:bg-white/15 text-white/90 hover:text-white'
-            }`}
-            title="Copy quote with story attribution"
-          >
-            {copied ? (
-              <>
-                <Check className="w-3.5 h-3.5" />
-                <span className="font-sans">Copied!</span>
-              </>
-            ) : (
-              <>
-                <Copy className="w-3.5 h-3.5 opacity-80" />
-                <span className="font-sans">Quote</span>
-              </>
-            )}
-          </button>
+        {copied ? (
+          <>
+            <Check className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="text-[11px] font-mono text-emerald-300">Copied</span>
+          </>
+        ) : (
+          <>
+            <Copy className="w-3.5 h-3.5" />
+            <span className="text-[11px] font-mono">Quote</span>
+          </>
+        )}
+      </button>
 
-          <div className="w-[1px] h-3.5 bg-white/20" />
+      <div className="w-px h-4 bg-neutral-700 mx-0.5" />
 
-          {/* Share on X (Twitter) */}
-          <a
-            href={xShareUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-white/15 text-white/90 hover:text-white transition-colors no-underline cursor-pointer"
-            title="Share quote to X / Twitter"
-          >
-            <span className="font-mono font-bold text-[11px]">𝕏</span>
-            <span className="font-sans text-xs">Share</span>
-          </a>
+      <button
+        type="button"
+        onClick={handleShareTwitter}
+        className="p-1.5 rounded-lg text-neutral-300 hover:text-white hover:bg-neutral-800 transition-colors cursor-pointer"
+        title="Share quote to X (Twitter)"
+        aria-label="Share quote to X"
+      >
+        <FaXTwitter className="w-3.5 h-3.5" />
+      </button>
 
-          {/* Share on WhatsApp */}
-          <a
-            href={whatsappShareUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-white/15 text-white/90 hover:text-white transition-colors no-underline cursor-pointer"
-            title="Share quote to WhatsApp"
-          >
-            <span className="text-[12px]">💬</span>
-          </a>
-        </motion.div>
-      </div>
-    </AnimatePresence>
+      <button
+        type="button"
+        onClick={handleShareWhatsApp}
+        className="p-1.5 rounded-lg text-emerald-400 hover:text-emerald-300 hover:bg-neutral-800 transition-colors cursor-pointer"
+        title="Share quote to WhatsApp"
+        aria-label="Share quote to WhatsApp"
+      >
+        <FaWhatsapp className="w-3.5 h-3.5" />
+      </button>
+    </div>
   )
 }

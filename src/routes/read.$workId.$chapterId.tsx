@@ -135,7 +135,7 @@ export const Route = createFileRoute('/read/$workId/$chapterId')({
       breadcrumbs: [
         { name: 'Home', url: '/' },
         { name: 'Discover', url: '/discover' },
-        { name: work.title, url: `/works/${work.id}` },
+        { name: work.title, url: `/works/${canonicalSlug}` },
         { name: chapter.title, url: canonicalUrl },
       ],
     })
@@ -1354,6 +1354,7 @@ function ReaderPage() {
           chapterTitle={chapter.title}
           workId={work.id}
           chapterId={chapter.id}
+          canonicalUrl={`https://hatchpen.com/read/${canonicalSlug}/${chapter.id}`}
         />
       )}
 
