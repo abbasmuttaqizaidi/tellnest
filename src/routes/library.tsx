@@ -477,10 +477,10 @@ function LibraryPage({ isPreview = false, initialTab }: { isPreview?: boolean; i
                       </div>
                       
                       <div className="flex items-center justify-between text-[var(--ink-muted)] font-mono text-[9px] sm:text-[10px]">
-                        <span className="font-medium text-[var(--ink-primary)]">{safePercent}% completed</span>
+                        <span className="font-medium text-[var(--ink-primary)]">{safePercent}% of story</span>
                         <span className="w-1 h-1 rounded-full bg-[var(--border-strong)]" />
-                        <span className="truncate max-w-[120px] sm:max-w-[200px]">
-                          {progress.chapterTitle || `Ch. ${progress.chapterNumber}`}
+                        <span className="truncate max-w-[140px] sm:max-w-[220px]" title={`Ch. ${progress.chapterNumber || 1} of ${work.chaptersCount || 1}${progress.chapterTitle ? `: ${progress.chapterTitle}` : ''}`}>
+                          Ch. {progress.chapterNumber || 1} of {work.chaptersCount || 1} {progress.chapterTitle ? `(${progress.chapterTitle})` : ''}
                         </span>
                         <span className="hidden sm:inline-block w-1 h-1 rounded-full bg-[var(--border-strong)]" />
                         <span className="hidden sm:inline">Active</span>
@@ -574,8 +574,8 @@ function LibraryPage({ isPreview = false, initialTab }: { isPreview?: boolean; i
                               <h4 className="font-serif text-xs font-bold text-[var(--ink-primary)] truncate group-hover:underline">
                                 {work.title}
                               </h4>
-                              <p className="text-[10px] text-[var(--ink-muted)] truncate font-serif italic">
-                                Ch. {progress.chapterNumber || 1} · {percent}%
+                              <p className="text-[10px] text-[var(--ink-muted)] truncate font-mono">
+                                Ch. {progress.chapterNumber || 1} of {work.chaptersCount || 1} · {percent}% of story
                               </p>
                             </div>
 
@@ -816,8 +816,8 @@ function LibraryPage({ isPreview = false, initialTab }: { isPreview?: boolean; i
                         ) : progress && percent > 0 ? (
                           <div className="space-y-1 pt-0.5 max-w-[170px]">
                             <div className="flex items-center justify-between text-[9px] font-mono text-[var(--ink-muted)]">
-                              <span>Ch. {progress.chapterNumber || 1}</span>
-                              <span>{percent}%</span>
+                              <span>Ch. {progress.chapterNumber || 1} of {work.chaptersCount || 1}</span>
+                              <span>{percent}% of story</span>
                             </div>
                             <div className="w-full h-1 bg-[var(--bg-subtle)] rounded-full overflow-hidden border border-[var(--border-subtle)]">
                               <div

@@ -151,7 +151,7 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
               </span>
               {progress && (
                 <span className="text-[var(--ink-primary)] font-semibold">
-                  Progress: {Math.min(100, Math.max(0, Math.round(Number(progress.progressPercent || 0))))}%
+                  {Math.min(100, Math.max(0, Math.round(Number(progress.progressPercent || 0))))}% of story
                 </span>
               )}
             </div>

@@ -83,6 +83,7 @@ function CurrentlyReadingCard({
   const workSlug = getWorkSlug(work)
   const progressPercent = Math.min(100, Math.max(0, Math.round(Number(progress?.progressPercent || 0))))
   const chapterNumber = currentChapter?.number || progress?.chapterNumber || 1
+  const totalChapters = work.publishedChaptersCount ?? work.chaptersCount ?? (Array.isArray(work.chapters) ? work.chapters.length : 1)
   const chapterTitle = currentChapter?.title || progress?.chapterTitle || `Chapter ${chapterNumber}`
   const chapterId = currentChapter?.id || progress?.chapterId || 'ch-1'
   const saved = isWorkSaved(work.id)
@@ -147,14 +148,17 @@ function CurrentlyReadingCard({
               </h4>
             </Link>
 
-            {/* Chapter Title & Progress */}
+            {/* Chapter Location & Whole-Story Progress */}
             <div className="space-y-1 pt-0.5">
               <div className="flex items-center justify-between font-mono text-[10px] text-[var(--ink-muted)]">
-                <span className="font-medium text-[var(--ink-secondary)] truncate max-w-[120px] sm:max-w-[150px]">
-                  {chapterTitle}
+                <span
+                  className="font-medium text-[var(--ink-secondary)] truncate max-w-[130px] sm:max-w-[160px]"
+                  title={`Chapter ${chapterNumber} of ${totalChapters}: ${chapterTitle}`}
+                >
+                  Ch. {chapterNumber} of {totalChapters} <span className="opacity-75 font-normal">({chapterTitle})</span>
                 </span>
                 <span className="shrink-0 font-semibold text-[var(--ink-primary)]">
-                  {progressPercent}%
+                  {progressPercent}% of story
                 </span>
               </div>
 

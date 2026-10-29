@@ -836,9 +836,11 @@ function ReaderPage() {
           </Link>
 
           {/* Center: Current Chapter Index indicator */}
-          <div className="text-center font-mono text-[11px] text-[var(--ink-muted)] truncate max-w-[200px] sm:max-w-none">
-            <span className="font-semibold text-[var(--ink-primary)]">Ch. {chapter.number}</span>
-            <span className="hidden md:inline text-[var(--ink-faint)]"> / {work.publishedChaptersCount ?? work.chaptersCount} • {Math.round(progressPercent)}% read</span>
+          <div className="text-center font-mono text-[11px] text-[var(--ink-muted)] truncate max-w-[220px] sm:max-w-none">
+            <span className="font-semibold text-[var(--ink-primary)]">
+              Ch. {chapter.number} of {work.publishedChaptersCount ?? work.chaptersCount}
+            </span>
+            <span className="text-[var(--ink-faint)]"> • {Math.round(progressPercent)}% of story</span>
           </div>
 
           {/* Right: Reading Display & Audio Reader Triggers */}
