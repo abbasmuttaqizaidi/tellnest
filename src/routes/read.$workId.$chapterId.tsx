@@ -18,7 +18,10 @@ import {
   Share2,
   Eye,
   Lock,
+  Headphones,
 } from 'lucide-react'
+import { ChapterAudioPlayer } from '../components/ChapterAudioPlayer'
+import { useChapterAudio } from '../lib/tts/useChapterAudio'
 import { getWorkSlug } from '../data/mockData'
 import { generateMeta } from '../lib/seo'
 import { getPublicWorkServerFn, trackStrictViewServerFn } from '../server/works'
@@ -289,6 +292,7 @@ function ReaderPage() {
   const [bannerImageFailed, setBannerImageFailed] = useState(false)
   const [viewsModalOpen, setViewsModalOpen] = useState(false)
   const [authorModalOpen, setAuthorModalOpen] = useState(false)
+  const [isAudioOpen, setIsAudioOpen] = useState(false)
   const [adminToken, setAdminToken] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
       return (
@@ -406,6 +410,12 @@ function ReaderPage() {
   const rawParagraphTexts = useMemo(() => {
     return extractParagraphTexts(chapter?.content || '')
   }, [chapter?.content])
+
+  // Text-to-Speech (TTS) Engine hook
+  const audio = useChapterAudio({
+    paragraphs: rawParagraphTexts,
+    autoScroll: true,
+  })
 
   // 3. Zustand In-Memory State
   const progressPercent = useReadingProgressStore((s) => s.progressPercent)
@@ -795,8 +805,38 @@ function ReaderPage() {
             <span className="hidden md:inline text-[var(--ink-faint)]"> / {work.publishedChaptersCount ?? work.chaptersCount} • {Math.round(progressPercent)}% read</span>
           </div>
 
-          {/* Right: Reading Display & Typography Settings Trigger (Gear Icon) */}
-          <div className="flex items-center gap-1">
+          {/* Right: Reading Display & Audio Reader Triggers */}
+          <div className="flex items-center gap-1 sm:gap-1.5">
+            {/* Audio Reader (TTS) Trigger */}
+            {audio.isSupported && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isAudioOpen) {
+                    setIsAudioOpen(true)
+                    audio.play()
+                  } else {
+                    audio.togglePlay()
+                  }
+                }}
+                className={`flex h-9 w-9 sm:h-7 sm:w-7 items-center justify-center rounded transition-colors cursor-pointer min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 ${
+                  isAudioOpen && audio.isPlaying && !audio.isPaused
+                    ? 'text-emerald-500 bg-emerald-500/10'
+                    : isAudioOpen
+                    ? 'text-[var(--ink-primary)] bg-[var(--bg-subtle)]'
+                    : 'text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)]'
+                }`}
+                title={
+                  isAudioOpen && audio.isPlaying && !audio.isPaused
+                    ? 'Pause Audio Reader'
+                    : 'Listen to Chapter (Audio Reader)'
+                }
+                aria-label="Listen to chapter audio"
+              >
+                <Headphones className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+              </button>
+            )}
+
             <button
               onClick={() => setSettingsOpen(true)}
               className="flex h-9 w-9 sm:h-7 sm:w-7 items-center justify-center rounded text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0"
@@ -1095,26 +1135,41 @@ function ReaderPage() {
               This chapter has no narrative prose content yet.
             </div>
           ) : (
-            currentChapterParagraphs.map((pInfo, idx) => (
-              <p
-                key={pInfo.id}
-                id={pInfo.id}
-                data-paragraph-id={pInfo.id}
-                data-paragraph-order={pInfo.orderIndex}
-                data-paragraph-index={idx}
-                style={{
-                  marginBottom: activeParagraphGap,
-                  lineHeight: activeLineHeight,
-                }}
-                className={`whitespace-pre-line break-words ${
-                  idx === 0 && readerSettings.fontFamily === 'serif'
-                    ? 'first-letter:font-serif first-letter:text-4xl first-letter:float-left first-letter:pr-2.5 first-letter:leading-none first-letter:text-[var(--ink-primary)] first-letter:font-bold'
-                    : ''
-                }`}
-              >
-                {renderChapterParagraph(paragraphs[idx] || '')}
-              </p>
-            ))
+            currentChapterParagraphs.map((pInfo, idx) => {
+              const isSpeaking = isAudioOpen && audio.isPlaying && audio.currentParagraphIndex === idx
+              return (
+                <p
+                  key={pInfo.id}
+                  id={pInfo.id}
+                  data-paragraph-id={pInfo.id}
+                  data-paragraph-order={pInfo.orderIndex}
+                  data-paragraph-index={idx}
+                  onClick={() => {
+                    if (isAudioOpen) {
+                      audio.jumpToParagraph(idx)
+                    }
+                  }}
+                  style={{
+                    marginBottom: activeParagraphGap,
+                    lineHeight: activeLineHeight,
+                  }}
+                  className={`whitespace-pre-line break-words transition-all duration-300 ${
+                    isAudioOpen ? 'cursor-pointer' : ''
+                  } ${
+                    isSpeaking
+                      ? 'bg-[var(--bg-subtle)]/80 text-[var(--ink-primary)] rounded-xl px-3 py-2 -mx-3 border-l-4 border-l-[var(--ink-primary)] shadow-2xs'
+                      : ''
+                  } ${
+                    idx === 0 && readerSettings.fontFamily === 'serif' && !isSpeaking
+                      ? 'first-letter:font-serif first-letter:text-4xl first-letter:float-left first-letter:pr-2.5 first-letter:leading-none first-letter:text-[var(--ink-primary)] first-letter:font-bold'
+                      : ''
+                  }`}
+                  title={isAudioOpen ? 'Click to listen from this paragraph' : undefined}
+                >
+                  {renderChapterParagraph(paragraphs[idx] || '')}
+                </p>
+              )
+            })
           )}
         </article>
 
@@ -1255,6 +1310,28 @@ function ReaderPage() {
             </kbd>
           </button>
         </div>
+      )}
+      {/* Floating Audio Reader Dock */}
+      {isAudioOpen && audio.isSupported && (
+        <ChapterAudioPlayer
+          isPlaying={audio.isPlaying}
+          isPaused={audio.isPaused}
+          currentParagraphIndex={audio.currentParagraphIndex}
+          totalParagraphs={audio.totalParagraphs}
+          voiceGender={audio.voiceGender}
+          playbackRate={audio.playbackRate}
+          activeVoiceName={audio.activeVoiceName}
+          speechError={audio.speechError}
+          onTogglePlay={audio.togglePlay}
+          onNextParagraph={audio.nextParagraph}
+          onPrevParagraph={audio.prevParagraph}
+          onSetVoiceGender={audio.setVoiceGender}
+          onSetPlaybackRate={audio.setPlaybackRate}
+          onClose={() => {
+            audio.stop()
+            setIsAudioOpen(false)
+          }}
+        />
       )}
     </div>
   )

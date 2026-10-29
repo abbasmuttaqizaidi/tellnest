@@ -37,6 +37,10 @@ const config = defineConfig({
           route: '/api/cron/trending-weekly',
           handler: './src/server/cron-trending-handler.ts',
         },
+        {
+          route: '/api/tts',
+          handler: './src/server/tts-handler.ts',
+        },
       ],
       errorHandler: './src/error.ts',
       vercel: {
