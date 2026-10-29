@@ -1276,7 +1276,8 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
                     </h3>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Row 1 (Desktop): Display Name & Pronouns */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
                     <div className="flex items-center gap-3">
                       {/* Profile Avatar with on-hover pencil overlay */}
                       <div className="relative group shrink-0" title="Click to change avatar">
@@ -1333,109 +1334,148 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
-                      {/* Unique Handle */}
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-1.5">
-                            <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">
-                              Unique Handle
-                            </label>
-                            <div className="relative inline-flex" ref={usernameLockTooltipRef}>
-                              <button
-                                type="button"
-                                onClick={() => setShowUsernameLockTooltip((p) => !p)}
-                                onMouseEnter={() => setShowUsernameLockTooltip(true)}
-                                className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors cursor-pointer p-0.5 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                                title="Username lock policy"
-                                aria-label="Username lock policy details"
-                              >
-                                <Info className="w-3.5 h-3.5" />
-                              </button>
+                    {/* Pronouns */}
+                    <div>
+                      <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">
+                        Pronouns
+                      </label>
+                      <select
+                        value={normalizePronounsSelection(accountForm.pronouns)}
+                        onChange={(e) => {
+                          const val = e.target.value
+                          if (val === 'Other') {
+                            setAccountForm((p) => ({
+                              ...p,
+                              pronouns: p.pronouns && normalizePronounsSelection(p.pronouns) === 'Other' ? p.pronouns : 'Other',
+                            }))
+                          } else {
+                            setAccountForm((p) => ({ ...p, pronouns: val }))
+                          }
+                        }}
+                        className="w-full px-3.5 py-2.5 sm:py-2 rounded-xl sm:rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 text-base sm:text-xs focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-neutral-100 min-h-[44px] sm:min-h-0"
+                      >
+                        <option value="">Prefer not to say</option>
+                        <option value="She / Her">She / Her</option>
+                        <option value="He / Him">He / Him</option>
+                        <option value="They / Them">They / Them</option>
+                        <option value="Any / All Pronouns">Any / All Pronouns</option>
+                        <option value="Other">Other / Custom</option>
+                      </select>
+                      {normalizePronounsSelection(accountForm.pronouns) === 'Other' && (
+                        <input
+                          type="text"
+                          value={accountForm.pronouns === 'Other' ? '' : (accountForm.pronouns || '')}
+                          onChange={(e) => setAccountForm((p) => ({ ...p, pronouns: e.target.value || 'Other' }))}
+                          placeholder="Type custom pronouns (e.g. ze/hir)..."
+                          className="mt-2 w-full px-3.5 py-2 sm:py-2 rounded-xl sm:rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 text-base sm:text-xs focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-neutral-100"
+                        />
+                      )}
+                    </div>
+                  </div>
 
-                              {showUsernameLockTooltip && (
-                                <div
-                                  role="tooltip"
-                                  className="absolute left-0 sm:left-1/2 sm:-translate-x-1/2 bottom-full mb-2 w-64 p-3 rounded-xl bg-neutral-900 text-white dark:bg-neutral-800 border border-neutral-700 shadow-2xl z-50 text-left animate-in fade-in zoom-in-95"
-                                >
-                                  <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-300 mb-1">
-                                    <Lock className="w-3 h-3 text-amber-400" />
-                                    <span>32-Day Username Lock</span>
-                                  </div>
-                                  <p className="text-[11px] text-neutral-300 leading-relaxed">
-                                    Username verify hone ke baad agle <strong>32 din</strong> tak aap ise change nahi kar sakte hain. Handles can only be changed once every 32 days to protect author identity and story links.
-                                  </p>
-                                  {Boolean(data?.profile?.isUsernameLocked && data?.profile?.usernameLockDaysRemaining) ? (
-                                    <div className="mt-2 pt-1.5 border-t border-neutral-700/80 text-[10px] font-mono text-amber-400 flex items-center justify-between">
-                                      <span>Status: Locked</span>
-                                      <span>{data.profile.usernameLockDaysRemaining} days remaining</span>
-                                    </div>
-                                  ) : (
-                                    <div className="mt-2 pt-1.5 border-t border-neutral-700/80 text-[10px] font-mono text-neutral-400">
-                                      Policy: Locked for 32 days once verified
-                                    </div>
-                                  )}
-                                  <div className="absolute -bottom-1 left-3 sm:left-1/2 sm:-translate-x-1/2 w-2 h-2 bg-neutral-900 dark:bg-neutral-800 rotate-45 border-r border-b border-neutral-700" />
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700">
-                            <Lock className="w-3 h-3 text-neutral-500 dark:text-neutral-400" />
-                            <span>{data?.profile?.isUsernameLocked ? `Locked (${data.profile.usernameLockDaysRemaining ?? 32}d)` : 'Locked'}</span>
-                          </span>
-                        </div>
-                        <div className="relative">
-                          <span className="absolute left-3.5 top-3 sm:top-2 text-xs text-neutral-400 font-mono">@</span>
-                          <input
-                            type="text"
-                            disabled
-                            readOnly
-                            value={accountForm.username || ''}
-                            placeholder="handle"
-                            className="w-full pl-8 pr-3.5 py-2.5 sm:py-2 rounded-xl sm:rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-100/80 dark:bg-neutral-800/60 text-neutral-600 dark:text-neutral-400 text-base sm:text-xs font-mono cursor-not-allowed select-none min-h-[44px] sm:min-h-0 focus:outline-none"
-                          />
-                        </div>
-                        <p className="mt-1.5 text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
-                          <Lock className="w-3 h-3 shrink-0 text-amber-600 dark:text-amber-400" />
-                          <span>
-                            {data?.profile?.isUsernameLocked && data.profile.usernameLockDaysRemaining
-                              ? `Locked for 32 days (${data.profile.usernameLockDaysRemaining} days remaining).`
-                              : 'Locked for 32 days after verification.'}
-                          </span>
-                        </p>
-                      </div>
-
-                      {/* Account Email (Read-Only) */}
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
+                  {/* Row 2 (Desktop): Username / Handle & Email Address */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
+                    {/* Unique Handle */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-1.5">
                           <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">
-                            Email Address
+                            Unique Handle
                           </label>
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700">
-                            <Lock className="w-3 h-3 text-neutral-500 dark:text-neutral-400" />
-                            <span>Read-only</span>
-                          </span>
+                          <div className="relative inline-flex" ref={usernameLockTooltipRef}>
+                            <button
+                              type="button"
+                              onClick={() => setShowUsernameLockTooltip((p) => !p)}
+                              onMouseEnter={() => setShowUsernameLockTooltip(true)}
+                              className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors cursor-pointer p-0.5 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                              title="Username lock policy"
+                              aria-label="Username lock policy details"
+                            >
+                              <Info className="w-3.5 h-3.5" />
+                            </button>
+
+                            {showUsernameLockTooltip && (
+                              <div
+                                role="tooltip"
+                                className="absolute left-0 sm:left-1/2 sm:-translate-x-1/2 bottom-full mb-2 w-64 p-3 rounded-xl bg-neutral-900 text-white dark:bg-neutral-800 border border-neutral-700 shadow-2xl z-50 text-left animate-in fade-in zoom-in-95"
+                              >
+                                <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-300 mb-1">
+                                  <Lock className="w-3 h-3 text-amber-400" />
+                                  <span>32-Day Username Lock</span>
+                                </div>
+                                <p className="text-[11px] text-neutral-300 leading-relaxed">
+                                  Username verify hone ke baad agle <strong>32 din</strong> tak aap ise change nahi kar sakte hain. Handles can only be changed once every 32 days to protect author identity and story links.
+                                </p>
+                                {Boolean(data?.profile?.isUsernameLocked && data?.profile?.usernameLockDaysRemaining) ? (
+                                  <div className="mt-2 pt-1.5 border-t border-neutral-700/80 text-[10px] font-mono text-amber-400 flex items-center justify-between">
+                                    <span>Status: Locked</span>
+                                    <span>{data.profile.usernameLockDaysRemaining} days remaining</span>
+                                  </div>
+                                ) : (
+                                  <div className="mt-2 pt-1.5 border-t border-neutral-700/80 text-[10px] font-mono text-neutral-400">
+                                    Policy: Locked for 32 days once verified
+                                  </div>
+                                )}
+                                <div className="absolute -bottom-1 left-3 sm:left-1/2 sm:-translate-x-1/2 w-2 h-2 bg-neutral-900 dark:bg-neutral-800 rotate-45 border-r border-b border-neutral-700" />
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <div className="relative">
-                          <span className="absolute left-3.5 top-3 sm:top-2.5 text-xs text-neutral-400">
-                            <Mail className="w-3.5 h-3.5" />
-                          </span>
-                          <input
-                            type="email"
-                            disabled
-                            readOnly
-                            value={userEmail || ''}
-                            placeholder="your.email@example.com"
-                            className="w-full pl-9 pr-3.5 py-2.5 sm:py-2 rounded-xl sm:rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-100/80 dark:bg-neutral-800/60 text-neutral-600 dark:text-neutral-400 text-base sm:text-xs font-mono cursor-not-allowed select-none min-h-[44px] sm:min-h-0 focus:outline-none"
-                          />
-                        </div>
-                        <p className="mt-1.5 text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
-                          <Lock className="w-3 h-3 shrink-0 text-neutral-400" />
-                          <span>Primary account email is verified and cannot be edited.</span>
-                        </p>
+
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700">
+                          <Lock className="w-3 h-3 text-neutral-500 dark:text-neutral-400" />
+                          <span>{data?.profile?.isUsernameLocked ? `Locked (${data.profile.usernameLockDaysRemaining ?? 32}d)` : 'Locked'}</span>
+                        </span>
                       </div>
+                      <div className="relative">
+                        <span className="absolute left-3.5 top-3 sm:top-2 text-xs text-neutral-400 font-mono">@</span>
+                        <input
+                          type="text"
+                          disabled
+                          readOnly
+                          value={accountForm.username || ''}
+                          placeholder="handle"
+                          className="w-full pl-8 pr-3.5 py-2.5 sm:py-2 rounded-xl sm:rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-100/80 dark:bg-neutral-800/60 text-neutral-600 dark:text-neutral-400 text-base sm:text-xs font-mono cursor-not-allowed select-none min-h-[44px] sm:min-h-0 focus:outline-none"
+                        />
+                      </div>
+                      <p className="mt-1.5 text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
+                        <Lock className="w-3 h-3 shrink-0 text-amber-600 dark:text-amber-400" />
+                        <span>
+                          {data?.profile?.isUsernameLocked && data.profile.usernameLockDaysRemaining
+                            ? `Locked for 32 days (${data.profile.usernameLockDaysRemaining} days remaining).`
+                            : 'Locked for 32 days after verification.'}
+                        </span>
+                      </p>
+                    </div>
+
+                    {/* Account Email (Read-Only) */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                          Email Address
+                        </label>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700">
+                          <Lock className="w-3 h-3 text-neutral-500 dark:text-neutral-400" />
+                          <span>Read-only</span>
+                        </span>
+                      </div>
+                      <div className="relative">
+                        <span className="absolute left-3.5 top-3 sm:top-2.5 text-xs text-neutral-400">
+                          <Mail className="w-3.5 h-3.5" />
+                        </span>
+                        <input
+                          type="email"
+                          disabled
+                          readOnly
+                          value={userEmail || ''}
+                          placeholder="your.email@example.com"
+                          className="w-full pl-9 pr-3.5 py-2.5 sm:py-2 rounded-xl sm:rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-100/80 dark:bg-neutral-800/60 text-neutral-600 dark:text-neutral-400 text-base sm:text-xs font-mono cursor-not-allowed select-none min-h-[44px] sm:min-h-0 focus:outline-none"
+                        />
+                      </div>
+                      <p className="mt-1.5 text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
+                        <Lock className="w-3 h-3 shrink-0 text-neutral-400" />
+                        <span>Primary account email is verified and cannot be edited.</span>
+                      </p>
                     </div>
                   </div>
 
@@ -1459,7 +1499,7 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4 pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4 pt-1">
                     <div>
                       <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">
                         Website / Portfolio
@@ -1485,42 +1525,6 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
                         placeholder="e.g. Edinburgh, Scotland"
                         className="w-full px-3.5 py-2.5 sm:py-1.5 rounded-xl sm:rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 text-base sm:text-xs focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-neutral-100 min-h-[44px] sm:min-h-0"
                       />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">
-                        Pronouns
-                      </label>
-                      <select
-                        value={normalizePronounsSelection(accountForm.pronouns)}
-                        onChange={(e) => {
-                          const val = e.target.value
-                          if (val === 'Other') {
-                            setAccountForm((p) => ({
-                              ...p,
-                              pronouns: p.pronouns && normalizePronounsSelection(p.pronouns) === 'Other' ? p.pronouns : 'Other',
-                            }))
-                          } else {
-                            setAccountForm((p) => ({ ...p, pronouns: val }))
-                          }
-                        }}
-                        className="w-full px-3.5 py-2.5 sm:py-1.5 rounded-xl sm:rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 text-base sm:text-xs focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-neutral-100 min-h-[44px] sm:min-h-0"
-                      >
-                        <option value="">Prefer not to say</option>
-                        <option value="She / Her">She / Her</option>
-                        <option value="He / Him">He / Him</option>
-                        <option value="They / Them">They / Them</option>
-                        <option value="Any / All Pronouns">Any / All Pronouns</option>
-                        <option value="Other">Other / Custom</option>
-                      </select>
-                      {normalizePronounsSelection(accountForm.pronouns) === 'Other' && (
-                        <input
-                          type="text"
-                          value={accountForm.pronouns === 'Other' ? '' : (accountForm.pronouns || '')}
-                          onChange={(e) => setAccountForm((p) => ({ ...p, pronouns: e.target.value || 'Other' }))}
-                          placeholder="Type custom pronouns (e.g. ze/hir)..."
-                          className="mt-2 w-full px-3.5 py-2 sm:py-1.5 rounded-xl sm:rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 text-base sm:text-xs focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-neutral-100"
-                        />
-                      )}
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">
