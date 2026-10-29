@@ -118,7 +118,19 @@ export function detectActiveReadingShift(
   if (!history || !Array.isArray(history) || history.length === 0) return null
 
   const nowMs = Date.now()
-  const lookbackCutoffMs = nowMs - config.LOOKBACK_DAYS * 24 * 60 * 60 * 1000
+
+  // Resilient reference time anchor:
+  // Guards against client-server clock drift. If session records have timestamps newer than client Date.now()
+  // (e.g. server UTC vs client device clock difference), smoothly anchor to the latest valid session timestamp
+  // (capped at a 24-hour sanity window) so legitimate reading sessions are never dropped due to clock desync.
+  const maxSessionTimestamp = history.reduce((max, s) => {
+    const t = s?.lastReadAt ? new Date(s.lastReadAt).getTime() : 0
+    return !isNaN(t) && t < nowMs + 24 * 60 * 60 * 1000 && t > max ? t : max
+  }, 0)
+
+  const anchorNowMs = Math.max(nowMs, maxSessionTimestamp)
+  const lookbackCutoffMs = anchorNowMs - config.LOOKBACK_DAYS * 24 * 60 * 60 * 1000
+  const futureCutoffMs = anchorNowMs + 24 * 60 * 60 * 1000 // 24-hour tolerance for device clock skew
 
   // Filter sessions within lookback window and deduplicate exact duplicate events
   const seenIds = new Set<string>()
@@ -133,7 +145,7 @@ export function detectActiveReadingShift(
     }
     const timestamp = new Date(s.lastReadAt).getTime()
     if (isNaN(timestamp) || timestamp < lookbackCutoffMs) continue
-    if (timestamp > nowMs + 60000) continue // Future clock skew protection
+    if (timestamp > futureCutoffMs) continue // Reject genuine far-future corruption
 
     const eventKey = `${s.workId}::${s.chapterId || ''}::${s.lastReadAt}`
     if (seenEventKeys.has(eventKey)) continue

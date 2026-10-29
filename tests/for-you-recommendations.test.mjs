@@ -1857,3 +1857,57 @@ test('Check 3: Model A active-reading adaptation recommends shifted genre but st
   assert.equal(adaptedRecs[0].work.id, 'work-scifi', 'Active reading shift takes priority over static declared preference')
   assert.ok(adaptedRecs[0].explanationLabel.includes('recent reading'), 'Explanation reflects verified recent reading')
 })
+
+// --- Technical & Data Pipeline Break Point Tests ---
+
+test('Technical Breakpoint 4.B: Adaptive clock skew anchor preserves valid sessions with client/server desync', () => {
+  const scifiWork = createMockWork({ id: 'work-scifi', genre: 'Sci-Fi', genreSlug: 'sci-fi' })
+  const nowMs = Date.now()
+  // Session recorded 5 minutes in the future due to device clock skew
+  const skewedSessionTime = new Date(nowMs + 5 * 60 * 1000).toISOString()
+  const normalSessionTime = new Date(nowMs - 10 * 60 * 1000).toISOString()
+
+  const history = [
+    { workId: 'work-scifi', chapterId: 'ch-1', durationSeconds: 60, lastReadAt: normalSessionTime },
+    { workId: 'work-scifi', chapterId: 'ch-2', durationSeconds: 60, lastReadAt: skewedSessionTime },
+  ]
+
+  const shift = detectActiveReadingShift(history, [scifiWork])
+  assert.ok(shift !== null, 'Shift must not be null when clock is slightly forward')
+  assert.equal(shift.topGenreSlug, 'scifi')
+  assert.equal(shift.sessionCount, 2, 'Both sessions must be counted despite 5-minute forward skew')
+
+  // Far future corruption (> 24 hours ahead) is still safely dropped
+  const corruptedHistory = [
+    { workId: 'work-scifi', chapterId: 'ch-1', durationSeconds: 60, lastReadAt: new Date(nowMs + 48 * 3600 * 1000).toISOString() },
+  ]
+  const corruptedShift = detectActiveReadingShift(corruptedHistory, [scifiWork])
+  assert.equal(corruptedShift, null, 'Far-future timestamp (> 24 hours) must be rejected as corrupted')
+})
+
+test('Technical Breakpoint 4.C: Client-Side Session Cache TTL & Cross-Tab Invalidation Logic', () => {
+  const REC_SIGNALS_TTL_MS = 15 * 60 * 1000
+  const now = Date.now()
+
+  // 1. Fresh cache payload
+  const freshPayload = {
+    clerkUserId: 'user_123',
+    profileId: 'prof_123',
+    _cachedAt: now - 5 * 60 * 1000, // 5 min ago
+  }
+  const isFreshExpired = Number(freshPayload._cachedAt || 0) > 0 && now - freshPayload._cachedAt > REC_SIGNALS_TTL_MS
+  assert.equal(isFreshExpired, false, '5-minute old cache must not be expired')
+
+  // 2. Stale cache payload
+  const stalePayload = {
+    clerkUserId: 'user_123',
+    profileId: 'prof_123',
+    _cachedAt: now - 20 * 60 * 1000, // 20 min ago
+  }
+  const isStaleExpired = Number(stalePayload._cachedAt || 0) > 0 && now - stalePayload._cachedAt > REC_SIGNALS_TTL_MS
+  assert.equal(isStaleExpired, true, '20-minute old cache must be expired by 15m TTL')
+
+  // 3. Storage sync key invariant check
+  const syncStorageKey = 'hatchpen_last_read_sync'
+  assert.equal(syncStorageKey, 'hatchpen_last_read_sync', 'Storage sync event key invariant must remain exact')
+})

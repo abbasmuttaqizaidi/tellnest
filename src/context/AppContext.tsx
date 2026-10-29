@@ -1118,6 +1118,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       return next
     })
+
+    // Invalidate cached recommendation signals and notify other open tabs
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.removeItem('hatchpen_cached_rec_signals')
+        if (userProfileId) {
+          sessionStorage.removeItem(`hatchpen_cached_rec_signals_${userProfileId}`)
+        }
+        localStorage.setItem('hatchpen_last_read_sync', String(Date.now()))
+      } catch {}
+    }
   }
 
   const addWriterWork = (workData: Omit<WriterWorkSummary, 'id' | 'lastUpdated' | 'totalReads' | 'totalSaves'>) => {

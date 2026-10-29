@@ -276,7 +276,10 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
     return contextReadingProgress
   }, [contextReadingProgress, loaderData?.initialBootstrap?.readingProgress, works, isOwnWork])
 
-  // Optimization 2: Initialize recommendation signals with user-scoped isolation
+  // 15-minute TTL for cached recommendation signals to prevent multi-tab/stale profile recommendations
+  const REC_SIGNALS_TTL_MS = 15 * 60 * 1000
+
+  // Optimization 2: Initialize recommendation signals with user-scoped isolation & TTL validation
   const [recommendationSignals, setRecommendationSignals] = useState<UserRecommendationSignals | null>(() => {
     if (loaderData?.initialRecSignals) {
       if (!effectiveUserId || loaderData.initialRecSignals.clerkUserId === effectiveUserId) {
@@ -290,8 +293,10 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
           sessionStorage.getItem('hatchpen_cached_rec_signals')
         if (cachedRaw) {
           const cached = JSON.parse(cachedRaw)
-          // Strictly accept cached signals only when cached.clerkUserId === effectiveUserId
-          if (cached && cached.clerkUserId === effectiveUserId) {
+          const cachedAt = Number(cached?._cachedAt || 0)
+          const isExpired = cachedAt > 0 && Date.now() - cachedAt > REC_SIGNALS_TTL_MS
+          // Strictly accept cached signals only when valid, unexpired, and cached.clerkUserId === effectiveUserId
+          if (!isExpired && cached && cached.clerkUserId === effectiveUserId) {
             return cached
           }
         }
@@ -316,7 +321,9 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
           sessionStorage.getItem('hatchpen_cached_rec_signals')
         if (cachedRaw) {
           const cached = JSON.parse(cachedRaw)
-          if (cached && cached.clerkUserId === effectiveUserId) {
+          const cachedAt = Number(cached?._cachedAt || 0)
+          const isExpired = cachedAt > 0 && Date.now() - cachedAt > REC_SIGNALS_TTL_MS
+          if (!isExpired && cached && cached.clerkUserId === effectiveUserId) {
             return false
           }
         }
@@ -394,7 +401,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
             if (signals.clerkUserId && signals.clerkUserId !== currentUserId) {
               return
             }
-            const payload = JSON.stringify(signals)
+            const payload = JSON.stringify({ ...signals, _cachedAt: Date.now() })
             sessionStorage.setItem('hatchpen_cached_rec_signals', payload)
             sessionStorage.setItem(`hatchpen_cached_rec_signals_${currentUserId}`, payload)
           } catch {}
@@ -430,7 +437,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
         if (signals && typeof window !== 'undefined') {
           try {
             if (signals.clerkUserId && signals.clerkUserId !== currentUserId) return
-            const payload = JSON.stringify(signals)
+            const payload = JSON.stringify({ ...signals, _cachedAt: Date.now() })
             sessionStorage.setItem('hatchpen_cached_rec_signals', payload)
             sessionStorage.setItem(`hatchpen_cached_rec_signals_${currentUserId}`, payload)
           } catch {}
@@ -471,7 +478,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
               if (signals.clerkUserId && currentUserId && signals.clerkUserId !== currentUserId) {
                 return
               }
-              const payload = JSON.stringify(signals)
+              const payload = JSON.stringify({ ...signals, _cachedAt: Date.now() })
               sessionStorage.setItem('hatchpen_cached_rec_signals', payload)
               if (currentUserId) {
                 sessionStorage.setItem(`hatchpen_cached_rec_signals_${currentUserId}`, payload)
@@ -493,6 +500,24 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
       window.removeEventListener('hatchpen:onboarding-completed', handleOnboardingComplete)
     }
   }, [effectiveUserId])
+
+  // Listen for cross-tab reading progress updates to invalidate stale cached signals and re-fetch recommendations
+  useEffect(() => {
+    const handleStorageEvent = (e: StorageEvent) => {
+      if (e.key === 'hatchpen_last_read_sync' && effectiveUserId) {
+        try {
+          sessionStorage.removeItem('hatchpen_cached_rec_signals')
+          sessionStorage.removeItem(`hatchpen_cached_rec_signals_${effectiveUserId}`)
+        } catch {}
+        handleRetrySignals()
+      }
+    }
+
+    window.addEventListener('storage', handleStorageEvent)
+    return () => {
+      window.removeEventListener('storage', handleStorageEvent)
+    }
+  }, [effectiveUserId, handleRetrySignals])
 
   const mergedBookmarkedWorkIds = useMemo(() => {
     const set = new Set<string>()

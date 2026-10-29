@@ -26,19 +26,27 @@ function createMockAdmin(profileData = { id: 'prof-uuid-1', preferences: { genre
                 maybeSingle: async () => ({ data: profileData, error: null }),
                 gte() {
                   return {
-                    order: async () => ({
-                      data: [
-                        {
-                          work_id: 'work-1',
-                          chapter_id: 'ch-1',
-                          duration_seconds: 120,
-                          last_read_at: new Date().toISOString(),
-                        },
-                      ],
-                      error: null,
-                    }),
+                    order() {
+                      return {
+                        limit: async () => ({
+                          data: [
+                            {
+                              work_id: 'work-1',
+                              chapter_id: 'ch-1',
+                              duration_seconds: 120,
+                              last_read_at: new Date().toISOString(),
+                            },
+                          ],
+                          error: null,
+                        }),
+                      }
+                    },
                   }
                 },
+                limit: async () => ({
+                  data: [{ work_id: 'work-bookmarked-1' }],
+                  error: null,
+                }),
                 then(resolve) {
                   // bookmarks query
                   resolve({

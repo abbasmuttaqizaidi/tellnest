@@ -7,6 +7,7 @@ export interface UserRecommendationSignals {
   readingHistory: ReadingSessionRecord[]
   bookmarkedWorkIds: string[]
   preferences: UserPreferencesPayload | null
+  _cachedAt?: number
 }
 
 export class UnauthorizedError extends Error {
@@ -76,18 +77,20 @@ export async function executeGetUserRecommendationSignals(
   }
 
   // 3 & 4. Query user bookmarks and recent reading history (past 30 days) concurrently
+  // Bounded with .limit() to protect database and payload scalability for high-frequency readers
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
   const [
     { data: bookmarks, error: bookmarkErr },
     { data: historyRows, error: historyErr },
   ] = await Promise.all([
-    admin.from('bookmarks').select('work_id').eq('user_id', profile.id),
+    admin.from('bookmarks').select('work_id').eq('user_id', profile.id).limit(500),
     admin
       .from('reading_history')
       .select('id, work_id, chapter_id, duration_seconds, last_read_at')
       .eq('user_id', profile.id)
       .gte('last_read_at', thirtyDaysAgo)
-      .order('last_read_at', { ascending: false }),
+      .order('last_read_at', { ascending: false })
+      .limit(200),
   ])
 
   if (bookmarkErr) {
