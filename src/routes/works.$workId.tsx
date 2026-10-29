@@ -800,15 +800,17 @@ function WorkDetailPage() {
           </div>
 
           {/* Full Synopsis */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <h3 className="font-mono text-xs uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
               Synopsis
             </h3>
-            <FormattedSynopsis
-              text={work.fullDescription || work.synopsis || (work as any).description || ''}
-              className="space-y-2.5"
-              paragraphClassName="text-sm leading-relaxed text-[var(--ink-secondary)] font-sans"
-            />
+            <div className="max-h-[260px] overflow-y-auto pr-2 overscroll-contain">
+              <FormattedSynopsis
+                text={work.fullDescription || work.synopsis || (work as any).description || ''}
+                className="space-y-2.5"
+                paragraphClassName="text-sm leading-relaxed text-[var(--ink-secondary)] font-sans"
+              />
+            </div>
           </div>
 
           {/* Tags */}

@@ -65,10 +65,14 @@ test('FormattedSynopsis: Works and Manage routes integrate FormattedSynopsis', (
     'works.$workId.tsx must import FormattedSynopsis'
   )
 
-  // 2. works.$workId.tsx renders FormattedSynopsis in the synopsis block
+  // 2. works.$workId.tsx renders FormattedSynopsis in a vertically scrollable 10-line max-height container
   assert.ok(
     worksFile.includes('<FormattedSynopsis'),
     'works.$workId.tsx must render FormattedSynopsis component'
+  )
+  assert.ok(
+    worksFile.includes('max-h-[260px]') && worksFile.includes('overflow-y-auto'),
+    'works.$workId.tsx must enclose synopsis in a max-h-[260px] overflow-y-auto container to cap at ~10 lines'
   )
   assert.ok(
     worksFile.includes('text={work.fullDescription || work.synopsis'),
