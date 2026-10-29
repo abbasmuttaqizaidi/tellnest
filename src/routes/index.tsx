@@ -158,13 +158,16 @@ function HomePage() {
   // 2. While Clerk is hydrating on client (isLoaded === false):
   // Check server-rendered auth OR client-side session indicators
   const isServerAuthenticated = Boolean(loaderData?.authUser?.isAuthenticated)
+  const isExplicitlyLoggedOut =
+    typeof window !== 'undefined' && sessionStorage.getItem('hatchpen_just_logged_out') === 'true'
   const hasClientSession =
+    !isExplicitlyLoggedOut &&
     typeof window !== 'undefined' &&
     (window.localStorage.getItem('hatchpen_has_session') === 'true' ||
       document.cookie.includes('hatchpen_has_session=true') ||
       document.cookie.includes('__session'))
 
-  if (isServerAuthenticated || hasClientSession) {
+  if (!isExplicitlyLoggedOut && (isServerAuthenticated || hasClientSession)) {
     return (
       <Suspense fallback={<LoggedInHomeSkeleton />}>
         <LoggedInHome loaderData={loaderData} />

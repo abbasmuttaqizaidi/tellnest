@@ -288,6 +288,8 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
   const handleSignOut = useCallback(async () => {
     if (typeof window !== 'undefined') {
       try {
+        sessionStorage.setItem('hatchpen_just_logged_out', 'true')
+        localStorage.removeItem('relay_auth_hint')
         localStorage.removeItem('hatchpen_has_session')
         localStorage.removeItem('hatchpen_cached_bookmarks')
         sessionStorage.removeItem('hatchpen_cached_rec_signals')
@@ -298,10 +300,11 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
       } catch {}
     }
     try {
-      await signOut()
-    } catch {}
-    if (typeof window !== 'undefined') {
-      window.location.href = '/'
+      await signOut({ redirectUrl: '/' })
+    } catch {
+      if (typeof window !== 'undefined') {
+        window.location.href = '/'
+      }
     }
   }, [signOut, user?.id])
 

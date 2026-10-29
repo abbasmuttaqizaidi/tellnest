@@ -35,8 +35,72 @@ export interface HeaderProps {
 
 export default function Header({ serverAuthenticated }: HeaderProps = {}) {
   const navigate = useNavigate()
-  const { user, isSignedIn, isLoaded } = useUser()
+  const { user, isSignedIn: rawIsSignedIn, isLoaded } = useUser()
   const { signOut } = useClerk()
+
+  // Immediate optimistic logout tracker so buttons never disappear during async signOut network wait
+  const [optimisticLoggedOut, setOptimisticLoggedOut] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('hatchpen_just_logged_out') === 'true'
+    }
+    return false
+  })
+
+  // When Clerk finishes hydrating and confirms unauthenticated, clean up the temporary flag
+  useEffect(() => {
+    if (isLoaded) {
+      if (!rawIsSignedIn) {
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('hatchpen_just_logged_out')
+        }
+        setOptimisticLoggedOut(false)
+      } else {
+        setOptimisticLoggedOut(false)
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('hatchpen_just_logged_out')
+        }
+      }
+    }
+  }, [isLoaded, rawIsSignedIn])
+
+  const hasSessionIndicator =
+    !optimisticLoggedOut &&
+    (Boolean(serverAuthenticated) ||
+      (typeof window !== 'undefined' &&
+        (localStorage.getItem('hatchpen_has_session') === 'true' ||
+          document.cookie.includes('hatchpen_has_session=true') ||
+          document.cookie.includes('__session'))))
+
+  const isAuthResolving = !isLoaded && hasSessionIndicator
+  const isSignedIn = !optimisticLoggedOut && isLoaded && Boolean(rawIsSignedIn)
+
+  const handleSignOut = async () => {
+    setOptimisticLoggedOut(true)
+    setUserMenuOpen(false)
+    setMobileDrawerOpen(false)
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.setItem('hatchpen_just_logged_out', 'true')
+        localStorage.removeItem('relay_auth_hint')
+        localStorage.removeItem('hatchpen_has_session')
+        localStorage.removeItem('hatchpen_cached_bookmarks')
+        localStorage.removeItem('hatchpen_custom_avatar')
+        localStorage.removeItem('tellnest_custom_avatar')
+        sessionStorage.removeItem('hatchpen_cached_rec_signals')
+        if (user?.id) {
+          sessionStorage.removeItem(`hatchpen_cached_rec_signals_${user.id}`)
+        }
+        document.cookie = 'hatchpen_has_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
+      } catch {}
+    }
+    try {
+      await signOut({ redirectUrl: '/' })
+    } catch {
+      if (typeof window !== 'undefined') {
+        window.location.href = '/'
+      }
+    }
+  }
   const {
     unreadNotificationCount,
     siteTheme,
@@ -410,7 +474,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
               )}
             </button>
           )}
-          {!isLoaded ? (
+          {isAuthResolving ? (
             <div className="hidden md:block h-8 w-8 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-subtle)] animate-pulse shrink-0" />
           ) : isSignedIn ? (
             <div className="hidden md:block relative" ref={userMenuRef}>
@@ -516,29 +580,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
                     </Link>
                     <button
                       type="button"
-                      onClick={async () => {
-                        if (typeof window !== 'undefined') {
-                          localStorage.removeItem('relay_auth_hint')
-                          localStorage.removeItem('hatchpen_has_session')
-                          localStorage.removeItem('hatchpen_cached_bookmarks')
-                          localStorage.removeItem('hatchpen_custom_avatar')
-                          localStorage.removeItem('tellnest_custom_avatar')
-                          try {
-                            sessionStorage.removeItem('hatchpen_cached_rec_signals')
-                            if (user?.id) {
-                              sessionStorage.removeItem(`hatchpen_cached_rec_signals_${user.id}`)
-                            }
-                          } catch {}
-                          document.cookie = 'hatchpen_has_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
-                        }
-                        setUserMenuOpen(false)
-                        try {
-                          await signOut()
-                        } catch {}
-                        if (typeof window !== 'undefined') {
-                          window.location.href = '/'
-                        }
-                      }}
+                      onClick={handleSignOut}
                       className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-xs text-rose-600 dark:text-rose-400 hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
                     >
                       <LogOut className="h-3.5 w-3.5" />
@@ -754,29 +796,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
             ) : (
               <button
                 type="button"
-                onClick={async () => {
-                  if (typeof window !== 'undefined') {
-                    localStorage.removeItem('relay_auth_hint')
-                    localStorage.removeItem('hatchpen_has_session')
-                    localStorage.removeItem('hatchpen_cached_bookmarks')
-                    localStorage.removeItem('hatchpen_custom_avatar')
-                    localStorage.removeItem('tellnest_custom_avatar')
-                    try {
-                      sessionStorage.removeItem('hatchpen_cached_rec_signals')
-                      if (user?.id) {
-                        sessionStorage.removeItem(`hatchpen_cached_rec_signals_${user.id}`)
-                      }
-                    } catch {}
-                    document.cookie = 'hatchpen_has_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
-                  }
-                  setMobileDrawerOpen(false)
-                  try {
-                    await signOut()
-                  } catch {}
-                  if (typeof window !== 'undefined') {
-                    window.location.href = '/'
-                  }
-                }}
+                onClick={handleSignOut}
                 className="w-full text-left py-1.5 px-2.5 font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-2 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
               >
                 <LogOut className="h-4 w-4" />
