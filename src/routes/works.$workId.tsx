@@ -220,6 +220,7 @@ function WorkDetailPage() {
   const authorId = work?.author?.id || 'author-unknown'
   const authorName = work?.author?.name || 'Hatchpen Author'
   const authorHandle = work?.author?.handle || 'author'
+  const authorSlug = work?.author?.handle || work?.author?.id || 'author-unknown'
   const authorAvatar = work?.author?.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80'
   const followed = work ? (isAuthorFollowed(authorId) || isAuthorFollowed(authorHandle)) : false
   const isSelf = Boolean(
