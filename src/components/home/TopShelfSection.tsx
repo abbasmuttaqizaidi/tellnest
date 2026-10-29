@@ -128,7 +128,7 @@ export function TopShelfSection({
                 >
                   <OptimizedImage
                     src={work.cover}
-                    alt={work.title}
+                    alt={`${work.title} by ${work.author?.name || 'Author'} — #${idx + 1} Top Shelf story cover`}
                     width={170}
                     height={255}
                     containerClassName="w-full h-full"

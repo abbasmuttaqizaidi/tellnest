@@ -46,7 +46,7 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
         >
           <OptimizedImage
             src={work.cover}
-            alt={work.title}
+            alt={`${work.title} by ${authorDisplayName} — ${work.genre || 'Original'} story cover`}
             width={200}
             height={300}
             sizes="(max-width: 640px) 80px, 144px"
@@ -133,7 +133,7 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
             >
               <OptimizedImage
                 src={authorAvatarUrl}
-                alt={authorDisplayName}
+                alt={`${authorDisplayName} profile avatar`}
                 width={24}
                 height={24}
                 className="h-5 w-5 rounded-full object-cover grayscale"
@@ -173,7 +173,7 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
           <Link to="/works/$workId" params={{ workId: workSlug }} preload="intent">
             <OptimizedImage
               src={work.cover}
-              alt={work.title}
+              alt={`${work.title} by ${authorDisplayName} — ${work.genre || 'Original'} story cover`}
               width={320}
               height={426}
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"

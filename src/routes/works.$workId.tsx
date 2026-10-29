@@ -520,8 +520,11 @@ function WorkDetailPage() {
           <div className="relative aspect-[3/4] w-full max-w-[260px] sm:max-w-[320px] overflow-hidden rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] shadow-md">
             <img
               src={work.cover || defaultBookCover}
-              alt={work.title}
+              alt={`${work.title} by ${authorDisplayName} — Original ${work.genre || 'Literary'} manuscript cover on HatchPen`}
+              width={320}
+              height={427}
               fetchPriority="high"
+              loading="eager"
               decoding="async"
               onError={(e) => {
                 const target = e.currentTarget

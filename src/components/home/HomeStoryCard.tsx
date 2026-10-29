@@ -52,7 +52,7 @@ export function HomeStoryCard({
         >
           <OptimizedImage
             src={work.cover}
-            alt={work.title}
+            alt={`${work.title} by ${work.author?.name || 'Author'} — ${genre} story cover on HatchPen`}
             width={260}
             height={390}
             containerClassName="w-full h-full"

@@ -922,10 +922,11 @@ function ReaderPage() {
             <div className="w-full overflow-hidden rounded-xl border border-[var(--border-subtle)] shadow-xs">
               <img
                 src={getOptimizedImageUrl(chapter.bannerImage, { width: 1200, quality: 'auto' })}
-                alt={chapter.title}
+                alt={`${chapter.title} chapter illustration — ${work.title} by ${work.author?.name || 'Author'}`}
                 onError={() => setBannerImageFailed(true)}
                 className="w-full h-36 sm:h-48 md:h-56 object-cover object-center"
                 loading="lazy"
+                decoding="async"
               />
             </div>
           </div>

@@ -1411,5 +1411,20 @@ test('Internal Link Equity Audit: Reader route provides return link to Story Ove
   assert.ok(readerCode.includes('params={{ workId: canonicalSlug }}'), 'Reader return link must use canonicalSlug')
 })
 
+test('Image SEO & Core Web Vitals: Hero story cover has high priority, eager loading, explicit dimensions, and descriptive alt', () => {
+  const worksCode = fs.readFileSync(path.join(rootDir, 'src/routes/works.$workId.tsx'), 'utf-8')
+  assert.ok(worksCode.includes('fetchPriority="high"'), 'Hero cover must specify fetchPriority high')
+  assert.ok(worksCode.includes('loading="eager"'), 'Hero cover must specify eager loading')
+  assert.ok(worksCode.includes('width={320}'), 'Hero cover must declare explicit width')
+  assert.ok(worksCode.includes('height={427}'), 'Hero cover must declare explicit height')
+  assert.ok(worksCode.includes('manuscript cover on HatchPen'), 'Hero cover must have descriptive alt for Image SEO')
+})
+
+test('Image SEO: WorkCards provide rich descriptive alt tags with title, author, and genre', () => {
+  const cardCode = fs.readFileSync(path.join(rootDir, 'src/components/WorkCard.tsx'), 'utf-8')
+  assert.ok(cardCode.includes('${work.title} by ${authorDisplayName} — ${work.genre || \'Original\'} story cover'), 'WorkCard must have rich alt text for covers')
+  assert.ok(cardCode.includes('${authorDisplayName} profile avatar'), 'WorkCard must have descriptive alt for avatar')
+})
+
 
 
