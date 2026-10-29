@@ -1397,24 +1397,14 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
                             className="w-full pl-8 pr-3.5 py-2.5 sm:py-2 rounded-xl sm:rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-100/80 dark:bg-neutral-800/60 text-neutral-600 dark:text-neutral-400 text-base sm:text-xs font-mono cursor-not-allowed select-none min-h-[44px] sm:min-h-0 focus:outline-none"
                           />
                         </div>
-                        {data?.profile?.isUsernameLocked && data.profile.usernameLockDaysRemaining ? (
-                          <div className="mt-2 p-2.5 rounded-lg border border-amber-300/80 dark:border-amber-700/60 bg-amber-50/80 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 flex items-start gap-2 text-xs">
-                            <Lock className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
-                            <div className="space-y-0.5">
-                              <p className="font-medium text-amber-900 dark:text-amber-100">
-                                Username locked for {data.profile.usernameLockDaysRemaining} more days
-                              </p>
-                              <p className="text-[11px] text-amber-700 dark:text-amber-300/90 leading-relaxed">
-                                Once verified, handles cannot be changed for 32 days to preserve author identity and story links.
-                              </p>
-                            </div>
-                          </div>
-                        ) : (
-                          <p className="mt-1.5 text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
-                            <Lock className="w-3 h-3 shrink-0 text-neutral-400" />
-                            <span>Your handle is verified and locked for 32 days.</span>
-                          </p>
-                        )}
+                        <p className="mt-1.5 text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
+                          <Lock className="w-3 h-3 shrink-0 text-amber-600 dark:text-amber-400" />
+                          <span>
+                            {data?.profile?.isUsernameLocked && data.profile.usernameLockDaysRemaining
+                              ? `Locked for 32 days (${data.profile.usernameLockDaysRemaining} days remaining).`
+                              : 'Locked for 32 days after verification.'}
+                          </span>
+                        </p>
                       </div>
 
                       {/* Account Email (Read-Only) */}
