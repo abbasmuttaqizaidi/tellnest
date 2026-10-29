@@ -34,6 +34,14 @@ const config = defineConfig({
           handler: './src/server/sitemap-handler.ts',
         },
         {
+          route: '/rss.xml',
+          handler: './src/server/rss-handler.ts',
+        },
+        {
+          route: '/feed.xml',
+          handler: './src/server/rss-handler.ts',
+        },
+        {
           route: '/api/cron/trending-weekly',
           handler: './src/server/cron-trending-handler.ts',
         },

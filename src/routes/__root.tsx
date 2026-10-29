@@ -173,6 +173,12 @@ export const Route = createRootRoute({
         href: '/site.webmanifest',
       },
       {
+        rel: 'alternate',
+        type: 'application/rss+xml',
+        title: 'HatchPen Stories & Updates',
+        href: 'https://hatchpen.com/rss.xml',
+      },
+      {
         rel: 'preconnect',
         href: 'https://fonts.googleapis.com',
       },

@@ -7,6 +7,8 @@ Allow: /read/
 Allow: /author/
 Allow: /category/
 Allow: /genre/
+Allow: /rss.xml
+Allow: /feed.xml
 
 # Disallow private user states and authenticated editors
 Disallow: /settings
