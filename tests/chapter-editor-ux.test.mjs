@@ -47,10 +47,10 @@ test('Chapter Editor UX: Direct Editor Navigation & Deferred Chapter DB Creation
     'write.manage must prioritize loaderData.work from PostgreSQL over cached contextWork'
   )
 
-  // 6. Verify StoryRichEditor uses key={currentChapter.id} so switching chapters always loads fresh content
+  // 6. Verify StoryRichEditor preserves session during draft saving and remounts across chapter switches
   assert.ok(
-    editorFile.includes('key={currentChapter.id}'),
-    'StoryRichEditor must remount with key={currentChapter.id} to ensure last chapter and all chapters display content correctly'
+    editorFile.includes("key={chapterId === 'new' ? 'draft-session' : currentChapter.id}"),
+    'StoryRichEditor must preserve draft session on save and remount on chapter switch'
   )
 
   // 7. Verify navigation disables resetScroll so page does not jump or scroll up on click
@@ -79,6 +79,16 @@ test('Chapter Editor UX: Direct Editor Navigation & Deferred Chapter DB Creation
   assert.ok(
     editorFile.includes('window.history?.replaceState'),
     'write.editor must update URL via replaceState on first save to avoid disruptive "Opening chapter..." screen during save'
+  )
+
+  // 11. Verify state transition safety to prevent content flushing on save
+  assert.ok(
+    editorFile.includes('setPersistedChapterId(newId)'),
+    'write.editor must track persistedChapterId to preserve typed prose upon saving new chapter'
+  )
+  assert.ok(
+    editorFile.includes('content: currentContent'),
+    'write.editor must include typed content in createWriterChapterServerFn payload'
   )
 })
 
@@ -173,5 +183,101 @@ test('Chapter Editor UX: Publish Button Disabled until Saved Invariant', async (
   assert.ok(
     chapterRouteFile.includes('if (autosaveStatus !== \'saved\')'),
     'handlePublish in chapter route must reject execution if autosaveStatus !== "saved"'
+  )
+})
+
+test('Chapter-Act Invariant: Strict Act Isolation & Unassigned Logic', async (t) => {
+  const writerServerFile = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/server/writer.ts'),
+    'utf-8'
+  )
+  const editorFile = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/routes/write.editor.$workId.$chapterId.tsx'),
+    'utf-8'
+  )
+  const manageFile = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/routes/write.manage.$workId.tsx'),
+    'utf-8'
+  )
+
+  // 1. Verify getWriterWorkDetailsServerFn does not default unassigned chapter actNumber to 1
+  assert.ok(
+    writerServerFile.includes('actNumber: parentAct ? parentAct.number : undefined'),
+    'writer.ts must NOT default unassigned chapter actNumber to 1, avoiding false matching with Act 1'
+  )
+
+  // 2. Verify write.editor strictly matches act chapters by actId only
+  assert.ok(
+    editorFile.includes('(c: any) => c.actId === act.id'),
+    'write.editor must strictly match act chapters by actId only, never falling back to actNumber'
+  )
+  assert.ok(
+    !editorFile.includes('c.actId === act.id || c.actNumber === act.number'),
+    'write.editor must NOT use actNumber fallback which causes ghost duplicates across multiple acts'
+  )
+
+  // 3. Verify write.manage strictly matches act chapters by actId only
+  assert.ok(
+    manageFile.includes('(ch) => ch.actId === act.id'),
+    'write.manage must strictly match act chapters by actId only'
+  )
+  assert.ok(
+    !manageFile.includes('ch.actId === act.id || ch.actNumber === act.number'),
+    'write.manage must NOT use actNumber fallback which causes ghost duplicates across multiple acts'
+  )
+
+  // 4. Functional simulation of Case 1 (No Acts)
+  const case1Work = {
+    acts: [],
+    chapters: [
+      { id: 'ch-1', number: 1, title: 'Chapter 1', actId: null },
+      { id: 'ch-2', number: 2, title: 'Chapter 2', actId: null },
+    ],
+  }
+  const case1HasActs = case1Work.acts && case1Work.acts.length > 0
+  assert.strictEqual(case1HasActs, false, 'Case 1: Story has no acts')
+  // In Case 1, no unassigned block is rendered; chapters are displayed as flat list
+
+  // 5. Functional simulation of Case 2 & Case 3 (Story with Acts)
+  const act1 = { id: 'act-1-uuid', number: 1, title: 'Act I' }
+  const act2 = { id: 'act-2-uuid', number: 2, title: 'Act II' }
+  const case2Work = {
+    acts: [act1, act2],
+    chapters: [
+      { id: 'ch-1', number: 1, title: 'The Beginning', actId: 'act-1-uuid' },
+      { id: 'ch-2', number: 2, title: 'The Midpoint', actId: 'act-2-uuid' },
+      { id: 'ch-3', number: 3, title: 'The Things We Take Home', actId: null },
+    ],
+  }
+
+  // Act 1 chapters
+  const act1Chapters = case2Work.chapters.filter((c) => c.actId === act1.id)
+  assert.deepStrictEqual(act1Chapters.map((c) => c.id), ['ch-1'], 'Act 1 must only contain ch-1')
+
+  // Act 2 chapters
+  const act2Chapters = case2Work.chapters.filter((c) => c.actId === act2.id)
+  assert.deepStrictEqual(act2Chapters.map((c) => c.id), ['ch-2'], 'Act 2 must only contain ch-2')
+
+  // Unassigned chapters
+  const unassignedChapters = case2Work.chapters.filter(
+    (c) => !c.actId || !case2Work.acts.some((a) => a.id === c.actId)
+  )
+  assert.deepStrictEqual(
+    unassignedChapters.map((c) => c.id),
+    ['ch-3'],
+    'Only unassigned chapter ch-3 must appear in Unassigned block'
+  )
+
+  // Invariant verification: no chapter appears in more than one section
+  const allCategorizedIds = [
+    ...act1Chapters.map((c) => c.id),
+    ...act2Chapters.map((c) => c.id),
+    ...unassignedChapters.map((c) => c.id),
+  ]
+  const uniqueIds = new Set(allCategorizedIds)
+  assert.strictEqual(
+    allCategorizedIds.length,
+    uniqueIds.size,
+    'Each chapter must appear in exactly one section without duplicate rendering'
   )
 })

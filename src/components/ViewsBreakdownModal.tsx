@@ -211,7 +211,7 @@ export const ViewsBreakdownModal: React.FC<ViewsBreakdownModalProps> = ({
   const actsList: Act[] = (localWork.acts && localWork.acts.length > 0)
     ? localWork.acts.map((act) => {
         const actChapters = (localWork.chapters || []).filter(
-          (c) => c.actId === act.id || c.actNumber === act.number
+          (c) => c.actId === act.id
         )
         const actViewCount = actChapters.reduce((sum, c) => sum + (c.viewCount || 0), 0)
         return {

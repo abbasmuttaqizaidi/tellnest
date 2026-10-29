@@ -988,7 +988,7 @@ function WorkManagementPage() {
           <div className="space-y-5">
             {acts.map((act) => {
               const actChapters = displayedChapters.filter(
-                (ch) => ch.actId === act.id || ch.actNumber === act.number
+                (ch) => ch.actId === act.id
               )
               const actWordCount = actChapters.reduce((acc, c) => acc + (c.wordCount ?? (c as any).word_count ?? 0), 0)
 
@@ -1211,7 +1211,7 @@ function WorkManagementPage() {
             {/* Unassigned Chapters (If any chapters are floating without an Act) */}
             {(() => {
               const unassigned = displayedChapters.filter(
-                (ch) => !ch.actId || !acts.some((a) => a.id === ch.actId || a.number === ch.actNumber)
+                (ch) => !ch.actId || !acts.some((a) => a.id === ch.actId)
               )
               if (unassigned.length === 0) return null
 

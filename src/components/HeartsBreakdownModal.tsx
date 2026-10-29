@@ -249,7 +249,7 @@ export const HeartsBreakdownModal: React.FC<HeartsBreakdownModalProps> = ({
     rawActs.length > 0
       ? rawActs.map((act) => {
           const actChs = chaptersList.filter(
-            (c) => c.actId === act.id || c.actNumber === act.number
+            (c) => c.actId === act.id
           )
           return {
             id: act.id,

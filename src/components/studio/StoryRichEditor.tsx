@@ -299,12 +299,18 @@ export function StoryRichEditor({
     },
   })
 
-  // Synchronize content if chapter changes externally (e.g. navigation)
+  // Synchronize content if chapter changes externally (e.g. navigation or keep server version)
   useEffect(() => {
     if (editor && content !== undefined) {
-      const currentMd = (editor.storage as any)?.markdown?.getMarkdown?.()
-      if (currentMd !== undefined && currentMd !== content) {
-        editor.commands.setContent(content || '', { emitUpdate: false })
+      if (!editor.isFocused) {
+        const currentMd = (editor.storage as any)?.markdown?.getMarkdown?.()
+        if (currentMd !== undefined && currentMd !== content) {
+          // Never flush existing non-empty editor content if an empty string is accidentally passed
+          if (content === '' && editor.getText().trim().length > 0) {
+            return
+          }
+          editor.commands.setContent(content || '', { emitUpdate: false })
+        }
       }
     }
   }, [content, editor])

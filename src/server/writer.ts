@@ -661,8 +661,8 @@ export const getWriterWorkDetailsServerFn = createServerFn({ method: 'GET' })
         title: ch.title,
         subtitle: ch.subtitle || '',
         bannerImage: ch.banner_image_path || undefined,
-        actId: ch.act_id,
-        actNumber: parentAct ? parentAct.number : 1,
+        actId: ch.act_id || null,
+        actNumber: parentAct ? parentAct.number : undefined,
         actTitle: parentAct ? parentAct.title : undefined,
         status: (ch.status === 'published' ? 'published' : 'draft') as 'published' | 'draft',
         wordCount: ch.word_count || 0,
@@ -963,6 +963,10 @@ export interface CreateWriterChapterPayload {
   workId: string
   title: string
   actId?: string
+  content?: string
+  subtitle?: string
+  bannerImage?: string | null
+  status?: 'draft' | 'published'
 }
 
 /**
@@ -1003,6 +1007,10 @@ export const createWriterChapterServerFn = createServerFn({ method: 'POST' })
       actId = data.actId
     }
 
+    const cleanContent = typeof data.content === 'string' ? data.content.replace(/\\+[ \t]*(?=\r?\n|$)/g, '') : ''
+    const wordCount = cleanContent.trim().split(/\s+/).filter(Boolean).length
+    const readingTime = Math.max(1, Math.ceil(wordCount / 220))
+
     const { data: createdCh, error: createErr } = await admin
       .from('chapters')
       .insert({
@@ -1011,11 +1019,12 @@ export const createWriterChapterServerFn = createServerFn({ method: 'POST' })
         chapter_number: nextNumber,
         title: data.title.trim(),
         slug,
-        subtitle: '',
-        content: '',
-        word_count: 0,
-        reading_time_minutes: 1,
-        status: 'draft',
+        subtitle: data.subtitle?.trim() || '',
+        content: cleanContent,
+        word_count: wordCount,
+        reading_time_minutes: readingTime,
+        banner_image_path: data.bannerImage?.trim() || null,
+        status: data.status || 'draft',
         is_indexable: false,
         view_count: 0,
         created_at: nowIso,

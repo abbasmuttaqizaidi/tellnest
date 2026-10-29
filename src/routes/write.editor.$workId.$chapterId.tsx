@@ -69,9 +69,10 @@ function ChapterEditorPage() {
 
   const work = loaderData?.work || getWorkById(workId)
   const targetActIdFromSearch = search?.actId
+  const [persistedChapterId, setPersistedChapterId] = useState<string | null>(null)
 
   // Resilient Chapter Resolution:
-  // 0. Handle 'new' unpersisted draft chapter
+  // 0. Handle 'new' unpersisted draft chapter (only when not yet persisted)
   // 1. Try exact ID match
   // 2. Fallbacks for aliases ('ch-1', 'first', 'default', '1')
   // 3. Match explicit chapter slug or number format (e.g. "chapter-2", "ch-3")
@@ -81,8 +82,10 @@ function ChapterEditorPage() {
       return null
     }
 
+    const activeId = persistedChapterId || chapterId
+
     // 0. Handle 'new' unpersisted draft chapter
-    if (chapterId === 'new') {
+    if (activeId === 'new') {
       const existingNums = work.chapters.map((c: any) => c.number || c.chapter_number || 0)
       const nextNumber = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 1
       const preselectedAct = targetActIdFromSearch || null
@@ -106,18 +109,18 @@ function ChapterEditorPage() {
     }
 
     // 1. Exact ID match (Always prioritized for UUIDs)
-    const exact = work.chapters.find((c: any) => c.id === chapterId)
+    const exact = work.chapters.find((c: any) => c.id === activeId)
     if (exact) return exact
 
     // 2. Conventional aliases ('ch-1', 'first', 'default', '1')
-    if (chapterId === 'ch-1' || chapterId === 'first' || chapterId === 'default' || chapterId === '1') {
+    if (activeId === 'ch-1' || activeId === 'first' || activeId === 'default' || activeId === '1') {
       const ch1 = work.chapters.find((c: any) => c.number === 1 || c.chapter_number === 1)
       if (ch1) return ch1
       return work.chapters[0]
     }
 
     // 3. Match explicit chapter slug or chapter number format (e.g. "chapter-2", "ch-3")
-    const match = chapterId.match(/^(?:chapter|ch)-(\d+)$/i)
+    const match = activeId.match(/^(?:chapter|ch)-(\d+)$/i)
     if (match) {
       const num = parseInt(match[1], 10)
       const byNum = work.chapters.find((c: any) => c.number === num || c.chapter_number === num)
@@ -126,7 +129,7 @@ function ChapterEditorPage() {
 
     // 4. Default to first chapter
     return work.chapters[0]
-  }, [work, chapterId, targetActIdFromSearch])
+  }, [work, chapterId, persistedChapterId, targetActIdFromSearch])
 
   // Synchronize URL in address bar if resolved to a different real UUID
   useEffect(() => {
@@ -235,27 +238,39 @@ function ChapterEditorPage() {
   // Sync state if resolved chapter changes
   useEffect(() => {
     if (currentChapter) {
+      const isDraftTransition =
+        prevChapterIdRef.current === 'new' &&
+        persistedChapterId !== null &&
+        persistedChapterId === currentChapter.id
+
+      const isDifferentChapter =
+        prevChapterIdRef.current === null ||
+        (prevChapterIdRef.current !== currentChapter.id && !isDraftTransition)
+
       prevChapterIdRef.current = currentChapter.id
-      const initialTitle = currentChapter.title || 'Untitled Chapter'
-      const initialSubtitle = currentChapter.subtitle || ''
-      const initialContent = currentChapter.content || ''
-      const initialBanner = currentChapter.bannerImage || currentChapter.banner_image_path || null
-      setTitle(initialTitle)
-      setSubtitle(initialSubtitle)
-      setContent(initialContent)
-      setBannerImage(initialBanner)
-      setActId(currentChapter.actId || '')
-      setLoadedUpdatedAt(currentChapter.updated_at || currentChapter.updatedAt || new Date().toISOString())
-      setConflictModalData(null)
-      setAutosaveStatus(currentChapter.id === 'new' ? 'dirty' : 'saved')
-      setSavedSnapshot({
-        title: initialTitle,
-        subtitle: initialSubtitle,
-        content: initialContent,
-        bannerImage: initialBanner,
-      })
+
+      if (isDifferentChapter) {
+        const initialTitle = currentChapter.title || 'Untitled Chapter'
+        const initialSubtitle = currentChapter.subtitle || ''
+        const initialContent = currentChapter.content || ''
+        const initialBanner = currentChapter.bannerImage || currentChapter.banner_image_path || null
+        setTitle(initialTitle)
+        setSubtitle(initialSubtitle)
+        setContent(initialContent)
+        setBannerImage(initialBanner)
+        setActId(currentChapter.actId || '')
+        setLoadedUpdatedAt(currentChapter.updated_at || currentChapter.updatedAt || new Date().toISOString())
+        setConflictModalData(null)
+        setAutosaveStatus(currentChapter.id === 'new' ? 'dirty' : 'saved')
+        setSavedSnapshot({
+          title: initialTitle,
+          subtitle: initialSubtitle,
+          content: initialContent,
+          bannerImage: initialBanner,
+        })
+      }
     }
-  }, [currentChapter?.id])
+  }, [currentChapter?.id, persistedChapterId])
 
   // Real-time word count & estimated reading time calculation
   const wordCount = useMemo(() => {
@@ -396,14 +411,24 @@ function ChapterEditorPage() {
 
     setAutosaveStatus('saving')
 
+    const currentTitle = title.trim() || currentChapter.title || 'Untitled Chapter'
+    const currentContent = content
+    const currentSubtitle = subtitle
+    const currentBanner = bannerImage
+    const currentActId = actId || null
+
     // If chapter is unpersisted draft ('new'), create it in the database for the first time now
     if (currentChapter.id === 'new') {
       try {
         const createRes = await createWriterChapterServerFn({
           data: {
             workId: String(work.id),
-            title: String(title.trim() || currentChapter.title || 'Untitled Chapter'),
-            actId: actId ? String(actId) : undefined,
+            title: currentTitle,
+            subtitle: currentSubtitle,
+            content: currentContent,
+            bannerImage: currentBanner ? String(currentBanner).trim() : null,
+            actId: currentActId ? String(currentActId) : undefined,
+            status: 'draft',
           },
         })
 
@@ -412,37 +437,30 @@ function ChapterEditorPage() {
         }
 
         const newId = createRes.chapter.id
-        currentChapter.id = newId
-        currentChapter.number = createRes.chapter.number
+        const newNumber = createRes.chapter.number || currentChapter.number || 1
 
-        // Save the content, subtitle, bannerImage immediately
-        const saveRes = await saveWriterChapterServerFn({
-          data: JSON.parse(JSON.stringify({
-            workId: String(work.id),
-            chapterId: String(newId),
-            title: String(title.trim() || createRes.chapter.title),
-            subtitle: String(subtitle || ''),
-            content: String(content || ''),
-            status: 'draft',
-            actId: actId ? String(actId) : null,
-            bannerImage: bannerImage ? String(bannerImage).trim() : null,
-            expectedUpdatedAt: new Date().toISOString(),
-            force: true,
-          })),
-        })
+        // Mutate current chapter reference with exact content and title
+        currentChapter.id = newId
+        currentChapter.number = newNumber
+        currentChapter.title = currentTitle
+        currentChapter.subtitle = currentSubtitle
+        currentChapter.content = currentContent
+        currentChapter.actId = currentActId
+        currentChapter.status = 'draft'
 
         if (Array.isArray(work.chapters)) {
           const newChObj = {
             ...createRes.chapter,
             id: newId,
-            number: createRes.chapter.number,
-            title: title.trim() || createRes.chapter.title,
-            subtitle,
-            content,
-            actId: actId || null,
+            number: newNumber,
+            title: currentTitle,
+            subtitle: currentSubtitle,
+            content: currentContent,
+            actId: currentActId,
             status: 'draft' as const,
-            bannerImage,
-            banner_image_path: bannerImage,
+            bannerImage: currentBanner,
+            banner_image_path: currentBanner,
+            updated_at: createRes.chapter.updated_at || new Date().toISOString(),
           }
           const exists = work.chapters.findIndex((c: any) => c.id === newId)
           if (exists >= 0) {
@@ -452,14 +470,15 @@ function ChapterEditorPage() {
           }
         }
 
-        updateChapterContent(work.id, newId, title, content, 'draft', bannerImage)
-        setLoadedUpdatedAt(saveRes?.updatedAt || new Date().toISOString())
+        updateChapterContent(work.id, newId, currentTitle, currentContent, 'draft', currentBanner)
+        setPersistedChapterId(newId)
+        setLoadedUpdatedAt(createRes.chapter.updated_at || new Date().toISOString())
         setAutosaveStatus('saved')
         setSavedSnapshot({
-          title,
-          subtitle,
-          content,
-          bannerImage,
+          title: currentTitle,
+          subtitle: currentSubtitle,
+          content: currentContent,
+          bannerImage: currentBanner,
         })
         showToast('Chapter created and saved to database!')
 
@@ -475,12 +494,20 @@ function ChapterEditorPage() {
       }
     }
 
-    updateChapterContent(work.id, currentChapter.id, title, content, currentChapter.status, bannerImage)
+    updateChapterContent(work.id, currentChapter.id, currentTitle, currentContent, currentChapter.status, currentBanner)
+    currentChapter.title = currentTitle
+    currentChapter.subtitle = currentSubtitle
+    currentChapter.content = currentContent
+    currentChapter.actId = currentActId
     if (Array.isArray(work.chapters)) {
       const found = work.chapters.find((c: any) => c.id === currentChapter.id)
       if (found) {
-        found.bannerImage = bannerImage || undefined
-        found.banner_image_path = bannerImage || undefined
+        found.title = currentTitle
+        found.subtitle = currentSubtitle
+        found.content = currentContent
+        found.actId = currentActId
+        found.bannerImage = currentBanner || undefined
+        found.banner_image_path = currentBanner || undefined
       }
     }
 
@@ -489,12 +516,12 @@ function ChapterEditorPage() {
         data: JSON.parse(JSON.stringify({
           workId: String(work.id),
           chapterId: String(currentChapter.id),
-          title: String(title || ''),
-          subtitle: String(subtitle || ''),
-          content: String(content || ''),
+          title: String(currentTitle),
+          subtitle: String(currentSubtitle || ''),
+          content: String(currentContent || ''),
           status: (currentChapter.status || 'draft') as 'draft' | 'published',
-          actId: actId ? String(actId) : null,
-          bannerImage: bannerImage ? String(bannerImage).trim() : null,
+          actId: currentActId ? String(currentActId) : null,
+          bannerImage: currentBanner ? String(currentBanner).trim() : null,
           expectedUpdatedAt: loadedUpdatedAt ? String(loadedUpdatedAt) : new Date().toISOString(),
           force: Boolean(force),
         })),
@@ -517,10 +544,10 @@ function ChapterEditorPage() {
       setConflictModalData(null)
       setAutosaveStatus('saved')
       setSavedSnapshot({
-        title,
-        subtitle,
-        content,
-        bannerImage,
+        title: currentTitle,
+        subtitle: currentSubtitle,
+        content: currentContent,
+        bannerImage: currentBanner,
       })
       showToast('Chapter saved to database')
     } catch (e: any) {
@@ -532,10 +559,10 @@ function ChapterEditorPage() {
         setLoadedUpdatedAt(new Date().toISOString())
         setAutosaveStatus('saved')
         setSavedSnapshot({
-          title,
-          subtitle,
-          content,
-          bannerImage,
+          title: currentTitle,
+          subtitle: currentSubtitle,
+          content: currentContent,
+          bannerImage: currentBanner,
         })
         showToast('Chapter saved to database')
         return
@@ -697,8 +724,8 @@ function ChapterEditorPage() {
           {work.acts && work.acts.length > 0 ? (
             <div className="space-y-4">
               {work.acts.map((act: any) => {
-                const actChapters = work.chapters.filter(
-                  (c: any) => c.actId === act.id || c.actNumber === act.number
+                const actChapters = (work.chapters || []).filter(
+                  (c: any) => c.actId === act.id
                 )
                 return (
                   <div key={act.id} className="space-y-1">
@@ -741,7 +768,7 @@ function ChapterEditorPage() {
               })}
 
               {(() => {
-                const unassignedChapters = work.chapters.filter(
+                const unassignedChapters = (work.chapters || []).filter(
                   (c: any) => !c.actId || !work.acts.some((a: any) => a.id === c.actId)
                 )
                 if (unassignedChapters.length === 0) return null
@@ -840,7 +867,7 @@ function ChapterEditorPage() {
         )}
 
         <StoryRichEditor
-          key={currentChapter.id}
+          key={chapterId === 'new' ? 'draft-session' : currentChapter.id}
           title={title}
           setTitle={handleTitleChange}
           subtitle={subtitle}
