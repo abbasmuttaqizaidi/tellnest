@@ -33,14 +33,6 @@ export default function AuthorCard({ author }: AuthorCardProps) {
       ? `@${author.handle}`
       : 'Anonymous Author'
 
-  const handleAuthorClick = (e: React.MouseEvent) => {
-    if (!isSignedIn) {
-      e.preventDefault()
-      e.stopPropagation()
-      openAuthModal(`/author/${authorSlug}`)
-    }
-  }
-
   return (
     <div className="flex flex-col justify-between rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all">
       <div>
@@ -49,7 +41,6 @@ export default function AuthorCard({ author }: AuthorCardProps) {
             to="/author/$authorId"
             params={{ authorId: authorSlug }}
             preload="intent"
-            onClick={handleAuthorClick}
             className="flex items-center gap-3 no-underline text-inherit"
           >
             <UnisexAvatar

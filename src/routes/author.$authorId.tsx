@@ -19,6 +19,7 @@ import {
   Shield,
 } from 'lucide-react'
 import { generateMeta } from '../lib/seo'
+import { getAuthorSocialCardUrl } from '../lib/og'
 import { getPublicAuthorServerFn } from '../server/works'
 import { formatViewCount, parseTotalReads } from '../lib/utils'
 
@@ -52,9 +53,9 @@ export const Route = createFileRoute('/author/$authorId')({
       } catch (e) {}
     }
 
-    if (!author) {
+    if (!author || author.isPublic === false) {
       return generateMeta({
-        title: 'Author Archive',
+        title: 'Author Profile',
         noindex: true,
       })
     }
@@ -67,31 +68,66 @@ export const Route = createFileRoute('/author/$authorId')({
         ? `@${author.handle}`
         : 'Author'
 
-    return generateMeta({
-      title: `${metaAuthorName}${showMetaUsername && showMetaName ? ` (@${author.handle})` : ''} — Author Archive`,
+    const authorCanonicalUrl = `https://hatchpen.com/author/${author.handle || author.id}`
+    const ogImage = getAuthorSocialCardUrl({
+      name: metaAuthorName,
+      handle: showMetaUsername ? author.handle : undefined,
+      avatar: author.showAvatar !== false ? author.avatar : undefined,
+      bio: author.bio,
+    })
+
+    const personEntity: Record<string, any> = {
+      '@type': 'Person',
+      name: metaAuthorName,
+      alternateName: showMetaUsername ? `@${author.handle}` : undefined,
+      jobTitle: 'Author & Novelist',
+      worksFor: {
+        '@type': 'Organization',
+        name: 'HatchPen',
+        url: 'https://hatchpen.com',
+      },
       description: author.bio || `Read serialized fiction and literary works by ${metaAuthorName} on HatchPen.`,
-      canonicalUrl: `https://hatchpen.com/author/${author.handle || author.id}`,
+      image: author.showAvatar !== false ? author.avatar : undefined,
+      url: authorCanonicalUrl,
+    }
+
+    const isWorksCatalogHidden = author.worksVisibility === 'hidden'
+    const publishedWorks = isWorksCatalogHidden ? [] : (author.publishedWorks || [])
+    if (publishedWorks.length > 0) {
+      personEntity.authorOf = publishedWorks.map((w: any) => ({
+        '@type': 'Book',
+        name: w.title,
+        url: `https://hatchpen.com/works/${w.slug || w.id}`,
+      }))
+    }
+
+    return generateMeta({
+      title: `${metaAuthorName}${showMetaUsername && showMetaName ? ` (@${author.handle})` : ''} — Author & Books on HatchPen`,
+      description: author.bio || `Read serialized manuscripts, novels, and original fiction by ${metaAuthorName} on HatchPen.`,
+      canonicalUrl: authorCanonicalUrl,
       ogType: 'profile',
-      ogImage: author.showAvatar !== false ? author.avatar : undefined,
-      ogImageAlt: `${metaAuthorName} avatar`,
+      ogImage,
+      ogImageAlt: `${metaAuthorName} profile art`,
       keywords: [
         metaAuthorName,
         author.handle,
+        `${metaAuthorName} author`,
+        `${metaAuthorName} books`,
+        `${metaAuthorName} stories`,
         'author archive',
         'indie author',
         'serialized novelist',
+        'hatchpen author',
+      ],
+      breadcrumbs: [
+        { name: 'Home', url: '/' },
+        { name: 'Authors', url: '/discover' },
+        { name: metaAuthorName, url: authorCanonicalUrl },
       ],
       jsonLd: {
         '@context': 'https://schema.org',
         '@type': 'ProfilePage',
-        mainEntity: {
-          '@type': 'Person',
-          name: metaAuthorName,
-          alternateName: showMetaUsername ? `@${author.handle}` : undefined,
-          description: author.bio,
-          image: author.showAvatar !== false ? author.avatar : undefined,
-          url: `https://hatchpen.com/author/${author.handle || author.id}`,
-        },
+        mainEntity: personEntity,
       },
     })
   },
@@ -114,25 +150,43 @@ function AuthorProfilePage() {
   const [sortBy, setSortBy] = useState<'popularity' | 'updated' | 'title'>('popularity')
   const [searchQuery, setSearchQuery] = useState<string>('')
 
-  // 1. Requirement: Public users cannot view profile. Open login/signup modal popup.
-  useEffect(() => {
-    if (isLoaded && !isSignedIn) {
-      openAuthModal(`/author/${authorId}`)
-    }
-  }, [isLoaded, isSignedIn, authorId, openAuthModal])
-
   const author = loaderData?.author || getAuthorById(authorId)
 
   // Find works written by this author
   const authorWorks = useMemo(() => {
     if (!author) return []
-    return allWorks.filter(
+    const matched = allWorks.filter(
       (w) =>
-        w.author.id === author.id ||
-        w.author.handle.toLowerCase() === author.handle.toLowerCase() ||
-        w.author.id === authorId ||
-        w.author.handle.toLowerCase() === authorId.toLowerCase()
+        w.author?.id === author.id ||
+        w.author?.handle?.toLowerCase() === author.handle?.toLowerCase() ||
+        w.author?.id === authorId ||
+        w.author?.handle?.toLowerCase() === authorId.toLowerCase()
     )
+    if (matched.length > 0) return matched
+
+    // Fallback to published works from loaderData if available during SSR / unauthenticated visits
+    if (author.publishedWorks && author.publishedWorks.length > 0) {
+      return author.publishedWorks.map((pw: any) => ({
+        id: pw.id,
+        slug: pw.slug || pw.id,
+        title: pw.title,
+        cover: pw.cover,
+        genre: pw.genre || 'Literature',
+        synopsis: '',
+        status: 'Completed',
+        updatedAt: new Date().toISOString(),
+        totalReads: '0',
+        author: {
+          id: author.id,
+          name: author.name,
+          handle: author.handle,
+          avatar: author.avatar,
+        },
+        chapters: [],
+      }))
+    }
+
+    return []
   }, [allWorks, author, authorId])
 
   const filteredWorks = useMemo(() => {
@@ -157,32 +211,6 @@ function AuthorProfilePage() {
     })
   }, [authorWorks, activeTab, sortBy, searchQuery])
 
-  // Public / Unauthenticated User Gate
-  if (isLoaded && !isSignedIn) {
-    return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center px-4 py-12 text-center max-w-5xl mx-auto">
-        <div className="max-w-md w-full p-6 sm:p-8 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] space-y-4 shadow-sm">
-          <div className="w-12 h-12 rounded-full bg-[var(--bg-subtle)] border border-[var(--border-strong)] flex items-center justify-center mx-auto text-[var(--ink-primary)]">
-            <Lock className="w-5 h-5" />
-          </div>
-          <h2 className="font-serif text-xl sm:text-2xl font-bold text-[var(--ink-primary)]">
-            Sign In to View Profile
-          </h2>
-          <p className="text-xs sm:text-sm text-[var(--ink-secondary)] leading-relaxed">
-            HatchPen author profiles, serial manuscripts, and literary archives are reserved for registered community members.
-          </p>
-          <button
-            type="button"
-            onClick={() => openAuthModal(`/author/${authorId}`)}
-            className="w-full py-2.5 px-4 rounded-xl bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-xs font-semibold hover:opacity-90 transition-all cursor-pointer shadow-xs"
-          >
-            Sign In or Create Account
-          </button>
-        </div>
-      </div>
-    )
-  }
-
   if (!author) {
     return (
       <div className="py-20 px-4 max-w-xl mx-auto">
@@ -205,8 +233,9 @@ function AuthorProfilePage() {
     )
   )
 
-  // 2. Requirement: By default profile is private. If private & not self, hide profile.
-  const isProfilePublic = author.isPublic ?? false
+  // Public Profile Invariant: Authors with published stories are public by default.
+  // Only explicitly private profiles are hidden from visitors who are not the author.
+  const isProfilePublic = author.isPublic !== false
   if (!isProfilePublic && !isSelf) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center px-4 py-12 text-center max-w-5xl mx-auto">
@@ -339,7 +368,13 @@ function AuthorProfilePage() {
               </Link>
             ) : (
               <button
-                onClick={() => toggleFollowAuthor(author.id)}
+                onClick={() => {
+                  if (!isSignedIn) {
+                    openAuthModal(`/author/${authorId}`)
+                    return
+                  }
+                  toggleFollowAuthor(author.id)
+                }}
                 className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-xs font-semibold transition-all ${
                   followed
                     ? 'border border-[var(--border-strong)] bg-[var(--bg-subtle)] text-[var(--ink-secondary)]'

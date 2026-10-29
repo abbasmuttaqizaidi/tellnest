@@ -294,13 +294,21 @@ export const getPublicAuthorServerFn = createServerFn({ method: 'GET' })
     const [{ count: followersCount }, { count: worksCount }, { data: worksData }] = await Promise.all([
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', data.id),
       supabase.from('works').select('*', { count: 'exact', head: true }).eq('author_id', data.id).eq('visibility', 'public').eq('publication_status', 'published'),
-      supabase.from('works').select('view_count').eq('author_id', data.id).eq('visibility', 'public').eq('publication_status', 'published'),
+      supabase.from('works').select('id, slug, title, view_count, genre, cover_image_path').eq('author_id', data.id).eq('visibility', 'public').eq('publication_status', 'published').order('view_count', { ascending: false }).limit(20),
     ])
 
     const totalReadsNum = (worksData || []).reduce((acc: number, w: any) => acc + (Number(w.view_count) || 0), 0)
 
     const pJson = (data.preferences && typeof data.preferences === 'object') ? data.preferences : {}
     const pPriv = (pJson.privacy && typeof pJson.privacy === 'object') ? pJson.privacy : {}
+
+    const publishedWorks = (worksData || []).map((w: any) => ({
+      id: w.id,
+      slug: w.slug || w.id,
+      title: w.title,
+      genre: w.genre,
+      cover: w.cover_image_path,
+    }))
 
     return {
       id: data.id,
@@ -315,7 +323,8 @@ export const getPublicAuthorServerFn = createServerFn({ method: 'GET' })
       followersCount: followersCount ?? 0,
       totalReads: String(totalReadsNum),
       verified: Boolean(data.is_verified),
-      isPublic: data.is_public ?? false,
+      isPublic: data.is_public !== false,
+      publishedWorks,
       worksVisibility: (pPriv.worksVisibility === 'hidden' ? 'hidden' : 'public') as 'public' | 'hidden',
       showAvatar: pPriv.showAvatar !== undefined ? Boolean(pPriv.showAvatar) : true,
       showName: pPriv.showName !== undefined ? Boolean(pPriv.showName) : true,

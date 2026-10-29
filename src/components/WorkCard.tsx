@@ -30,14 +30,6 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
       : 'Anonymous Author'
   const authorAvatarUrl = showAuthorAvatar ? work.author.avatar : '/unisex-avatar.svg'
 
-  const handleAuthorClick = (e: React.MouseEvent) => {
-    if (!isSignedIn) {
-      e.preventDefault()
-      e.stopPropagation()
-      openAuthModal(`/author/${authorSlug}`)
-    }
-  }
-
   if (layout === 'horizontal') {
     return (
       <div
@@ -136,7 +128,7 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
               to="/author/$authorId"
               params={{ authorId: authorSlug }}
               preload="intent"
-              onClick={handleAuthorClick}
+              onClick={(e) => e.stopPropagation()}
               className="flex items-center gap-2 text-inherit no-underline hover:text-[var(--ink-primary)]"
             >
               <OptimizedImage
@@ -275,7 +267,7 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
           to="/author/$authorId"
           params={{ authorId: authorSlug }}
           preload="intent"
-          onClick={handleAuthorClick}
+          onClick={(e) => e.stopPropagation()}
           className="flex items-center gap-1 sm:gap-1.5 text-inherit no-underline hover:text-[var(--ink-primary)] min-w-0 flex-1"
         >
           <OptimizedImage

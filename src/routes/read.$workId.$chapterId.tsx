@@ -930,14 +930,14 @@ function ReaderPage() {
 
             {/* Desktop-Only Metadata (on Mobile, displayed directly below Heading & Actions) */}
             <div className="hidden sm:flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-[var(--ink-faint)]">
-              <button
-                type="button"
-                onClick={() => setAuthorModalOpen(true)}
-                className="hover:text-[var(--ink-primary)] transition-colors cursor-pointer text-left"
+              <Link
+                to="/author/$authorId"
+                params={{ authorId: work.author.handle || work.author.id }}
+                className="hover:text-[var(--ink-primary)] transition-colors cursor-pointer text-left no-underline text-inherit"
                 title="View Author Profile"
               >
                 by {work.author.showName !== false ? work.author.name : (work.author.showUsername !== false ? `@${work.author.handle}` : 'Author')}
-              </button>
+              </Link>
               <span>•</span>
               <span>{chapter.readTimeMinutes} min read</span>
               <span>•</span>
@@ -996,14 +996,14 @@ function ReaderPage() {
 
           {/* Mobile-Only Metadata (Writer Name, Min Reads & Words Directly After Heading & Actions) */}
           <div className="flex sm:hidden items-center flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-[var(--ink-faint)] pt-1">
-            <button
-              type="button"
-              onClick={() => setAuthorModalOpen(true)}
-              className="hover:text-[var(--ink-primary)] transition-colors cursor-pointer text-left font-medium text-[var(--ink-muted)]"
+            <Link
+              to="/author/$authorId"
+              params={{ authorId: work.author.handle || work.author.id }}
+              className="hover:text-[var(--ink-primary)] transition-colors cursor-pointer text-left font-medium text-[var(--ink-muted)] no-underline text-inherit"
               title="View Author Profile"
             >
               by {work.author.showName !== false ? work.author.name : (work.author.showUsername !== false ? `@${work.author.handle}` : 'Author')}
-            </button>
+            </Link>
             <span>•</span>
             <span>{chapter.readTimeMinutes} min read</span>
             <span>•</span>

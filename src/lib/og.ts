@@ -132,6 +132,27 @@ export function getChapterSocialCardUrl(
 }
 
 /**
+ * Generates a 1200x630 social card URL for an author profile.
+ */
+export function getAuthorSocialCardUrl(author?: {
+  name?: string | null
+  handle?: string | null
+  avatar?: string | null
+  bio?: string | null
+} | null): string {
+  if (!author) return DEFAULT_OG_IMAGE_URL
+
+  const authorName = author.name || author.handle || 'HatchPen Author'
+
+  return getSocialCardUrl({
+    title: `${authorName} — Author on HatchPen`,
+    author: authorName,
+    coverUrl: author.avatar || undefined,
+    type: 'general',
+  })
+}
+
+/**
  * Generates a stand-alone 1200x630 SVG Open Graph Card markup with HatchPen editorial branding.
  */
 export function generateOgSvgCard(options: {

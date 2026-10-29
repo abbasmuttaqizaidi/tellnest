@@ -31,6 +31,7 @@ import {
   getSocialCardUrl,
   getStorySocialCardUrl,
   getChapterSocialCardUrl,
+  getAuthorSocialCardUrl,
   generateOgSvgCard,
 } from '../src/lib/og.ts'
 import ogHandler from '../src/server/og-handler.ts'
@@ -1272,5 +1273,105 @@ test('Dynamic OG Endpoint: ogHandler responds to /api/og with 1200x630 SVG image
   assert.ok(text.includes('The Cold Perimeter'))
   assert.ok(text.includes('Elena Rostova'))
 })
+
+// ---------------------------------------------------------------------------
+// Author Profile Search & Discovery SEO Tests
+// ---------------------------------------------------------------------------
+
+test('Author SEO: getAuthorSocialCardUrl generates 1200x630 social card for authors', () => {
+  const author = {
+    name: 'Elena Rostova',
+    handle: 'elena_rostova',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb',
+    bio: 'Novelist exploring architectural ruins and speculative fiction.',
+  }
+
+  const cardUrl = getAuthorSocialCardUrl(author)
+  assert.ok(cardUrl.includes('w_1200,h_630'))
+  assert.ok(cardUrl.includes('image/fetch'))
+})
+
+test('Author SEO Route Audit: author.$authorId.tsx allows public viewing without login gates', () => {
+  const authorRouteCode = fs.readFileSync(path.join(rootDir, 'src/routes/author.$authorId.tsx'), 'utf-8')
+
+  // Invariant 1: Must NOT have "Sign In to View Profile" login wall gating the page
+  assert.ok(
+    !authorRouteCode.includes('Sign In to View Profile'),
+    'author.$authorId.tsx must not contain a login wall blocking public visitors & Googlebot'
+  )
+
+  // Invariant 2: Must emit Person schema with jobTitle and HatchPen worksFor
+  assert.ok(
+    authorRouteCode.includes("jobTitle: 'Author & Novelist'"),
+    'author route must declare jobTitle in Schema.org Person'
+  )
+  assert.ok(
+    authorRouteCode.includes("name: 'HatchPen'"),
+    'author route must declare HatchPen in worksFor'
+  )
+  assert.ok(
+    authorRouteCode.includes('authorOf'),
+    'author route must declare authorOf to link books to author'
+  )
+
+  // Invariant 3: Must emit BreadcrumbList
+  assert.ok(
+    authorRouteCode.includes("name: 'Authors'"),
+    'author route must include Authors breadcrumb item'
+  )
+})
+
+test('Author Internal Linking Audit: WorkCards, Works, and Reader routes link directly to author profiles', () => {
+  const workCardCode = fs.readFileSync(path.join(rootDir, 'src/components/WorkCard.tsx'), 'utf-8')
+  assert.ok(
+    !workCardCode.includes('handleAuthorClick'),
+    'WorkCard must not intercept author clicks with handleAuthorClick'
+  )
+  assert.ok(
+    workCardCode.includes('to="/author/$authorId"'),
+    'WorkCard must link to /author/$authorId'
+  )
+
+  const worksRouteCode = fs.readFileSync(path.join(rootDir, 'src/routes/works.$workId.tsx'), 'utf-8')
+  assert.ok(
+    worksRouteCode.includes('to="/author/$authorId"'),
+    'Works route must link directly to /author/$authorId'
+  )
+
+  const readerRouteCode = fs.readFileSync(path.join(rootDir, 'src/routes/read.$workId.$chapterId.tsx'), 'utf-8')
+  assert.ok(
+    readerRouteCode.includes('to="/author/$authorId"'),
+    'Reader route must link directly to /author/$authorId'
+  )
+})
+
+test('Author Privacy Invariant: Settings privacy preferences strictly respected in SEO metadata and UI', () => {
+  const authorRouteCode = fs.readFileSync(path.join(rootDir, 'src/routes/author.$authorId.tsx'), 'utf-8')
+
+  // Invariant 1: If author is explicitly private (isPublic === false), noindex must be emitted
+  assert.ok(
+    authorRouteCode.includes('author.isPublic === false'),
+    'author route must check isPublic === false'
+  )
+
+  // Invariant 2: If author hides name, metaAuthorName falls back to @handle
+  assert.ok(
+    authorRouteCode.includes('const showMetaName = author.showName !== false'),
+    'author route must respect showName preference'
+  )
+
+  // Invariant 3: If author hides avatar, image is omitted
+  assert.ok(
+    authorRouteCode.includes('author.showAvatar !== false ? author.avatar : undefined'),
+    'author route must respect showAvatar preference'
+  )
+
+  // Invariant 4: If author hides works catalog, authorOf is omitted
+  assert.ok(
+    authorRouteCode.includes("author.worksVisibility === 'hidden'"),
+    'author route must respect worksVisibility preference'
+  )
+})
+
 
 

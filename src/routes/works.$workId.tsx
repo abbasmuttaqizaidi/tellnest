@@ -591,9 +591,9 @@ function WorkDetailPage() {
           <div className="flex flex-wrap items-center justify-between gap-3 py-3 border-y border-[var(--border-subtle)]">
             {/* Left: Author Avatar, Name, Follow Button & Handle */}
             <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setAuthorModalOpen(true)}
+              <Link
+                to="/author/$authorId"
+                params={{ authorId: authorSlug }}
                 className="shrink-0 group cursor-pointer focus:outline-none"
                 title="View Author Profile"
                 aria-label="View Author Profile"
@@ -605,13 +605,13 @@ function WorkDetailPage() {
                   decoding="async"
                   className="h-10 w-10 rounded-full object-cover grayscale border border-[var(--border-strong)] group-hover:border-[var(--ink-primary)] transition-all"
                 />
-              </button>
+              </Link>
 
               <div>
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setAuthorModalOpen(true)}
+                  <Link
+                    to="/author/$authorId"
+                    params={{ authorId: authorSlug }}
                     className="text-inherit no-underline group text-left cursor-pointer focus:outline-none"
                     title="View Author Profile"
                     aria-label="View Author Profile"
@@ -619,7 +619,7 @@ function WorkDetailPage() {
                     <p className="text-sm font-semibold text-[var(--ink-primary)] group-hover:underline">
                       {authorDisplayName}
                     </p>
-                  </button>
+                  </Link>
 
                   {/* Follow Button: Compact & Right Next to Author Name */}
                   {!isSelf && (
@@ -649,14 +649,14 @@ function WorkDetailPage() {
                 </div>
 
                 {(isSelf || showAuthorUsername) && (
-                  <button
-                    type="button"
-                    onClick={() => setAuthorModalOpen(true)}
+                  <Link
+                    to="/author/$authorId"
+                    params={{ authorId: authorSlug }}
                     className="text-xs font-mono text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors cursor-pointer text-left block"
                     title="View Author Profile"
                   >
                     @{authorHandle}
-                  </button>
+                  </Link>
                 )}
               </div>
             </div>
