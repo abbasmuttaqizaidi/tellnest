@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate, useRouter } from '@tanstack/react-router'
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import EmptyState from '../components/EmptyState'
@@ -123,9 +123,21 @@ function WorkManagementPage() {
   const loaderData = Route.useLoaderData()
   const { getWorkById, allWorks, addNewChapter, showToast, reloadWriterWorksFromDb, reloadWorksFromDb } = useApp()
   const navigate = useNavigate()
+  const router = useRouter()
+
+  const [isOpeningEditor, setIsOpeningEditor] = useState(false)
 
   const contextWork = getWorkById(workId)
   const work = loaderData?.work || contextWork || allWorks[0]
+
+  const preloadEditor = () => {
+    if (work?.id) {
+      router.preloadRoute({
+        to: '/write/editor/$workId/$chapterId',
+        params: { workId: work.id, chapterId: 'new' },
+      }).catch(() => {})
+    }
+  }
   const [chapters, setChapters] = useState<any[]>(() => (work?.chapters || []).map(normalizeChapter))
   const [acts, setActs] = useState<any[]>(() => (work?.acts || []).map(normalizeAct))
   const [chapterFilter, setChapterFilter] = useState<string>('all')
@@ -208,6 +220,7 @@ function WorkManagementPage() {
 
   // Always refresh latest manuscript state directly from DB on mount/return
   useEffect(() => {
+    setIsOpeningEditor(false)
     let isMounted = true
     getWriterWorkDetailsServerFn({ data: { workId } })
       .then((freshWork) => {
@@ -535,6 +548,7 @@ function WorkManagementPage() {
   }, [chapters, chapterFilter, chapterSort, searchQuery])
 
   const handleStartNewChapter = (chosenActId?: string) => {
+    setIsOpeningEditor(true)
     setAddDropdownOpen(false)
     setOpenActMenuId(null)
     setNewChapterModalOpen(false)
@@ -542,6 +556,7 @@ function WorkManagementPage() {
       to: '/write/editor/$workId/$chapterId',
       params: { workId: work.id, chapterId: 'new' },
       search: chosenActId ? { actId: chosenActId } : undefined,
+      resetScroll: false,
     })
   }
 
@@ -829,7 +844,11 @@ function WorkManagementPage() {
             <div className="relative" ref={addDropdownRef}>
               <button
                 type="button"
-                onClick={() => setAddDropdownOpen((prev) => !prev)}
+                onMouseEnter={preloadEditor}
+                onClick={() => {
+                  preloadEditor()
+                  setAddDropdownOpen((prev) => !prev)
+                }}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-canvas)] hover:bg-[var(--bg-subtle)] px-3.5 py-2 text-xs font-semibold text-[var(--ink-primary)] shadow-2xs transition-colors cursor-pointer"
                 title="Add Chapter or Act"
                 aria-expanded={addDropdownOpen}
@@ -843,6 +862,7 @@ function WorkManagementPage() {
                 <div className="absolute right-0 top-full mt-1.5 w-44 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-1.5 shadow-xl z-30 animate-in fade-in zoom-in-95 duration-100">
                   <button
                     type="button"
+                    onMouseEnter={preloadEditor}
                     onClick={() => handleStartNewChapter()}
                     className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors text-left cursor-pointer"
                   >
@@ -1001,7 +1021,11 @@ function WorkManagementPage() {
                       <div className="relative act-menu-container">
                         <button
                           type="button"
-                          onClick={() => setOpenActMenuId((prev) => (prev === act.id ? null : act.id))}
+                          onMouseEnter={preloadEditor}
+                          onClick={() => {
+                            preloadEditor()
+                            setOpenActMenuId((prev) => (prev === act.id ? null : act.id))
+                          }}
                           className="p-1.5 rounded-lg text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
                           title="Act options"
                           aria-label="Act options"
@@ -1026,6 +1050,7 @@ function WorkManagementPage() {
 
                             <button
                               type="button"
+                              onMouseEnter={preloadEditor}
                               onClick={() => handleStartNewChapter(act.id)}
                               className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors text-left cursor-pointer"
                             >
@@ -1062,6 +1087,7 @@ function WorkManagementPage() {
                       <p>No chapters filed under {act.title} yet.</p>
                       <button
                         type="button"
+                        onMouseEnter={preloadEditor}
                         onClick={() => handleStartNewChapter(act.id)}
                         className="inline-flex items-center gap-1 text-xs font-mono font-medium text-[var(--ink-primary)] hover:underline cursor-pointer"
                       >
@@ -1331,6 +1357,7 @@ function WorkManagementPage() {
                 ) : (
                   <button
                     type="button"
+                    onMouseEnter={preloadEditor}
                     onClick={() => handleStartNewChapter()}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--ink-primary)] text-[var(--accent-contrast)] px-4 py-2 text-xs font-semibold shadow-xs cursor-pointer"
                   >
@@ -2009,6 +2036,16 @@ function WorkManagementPage() {
                 {isDeletingAct ? 'Deleting...' : 'Delete Act'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Immediate Opening Editor Transition Feedback Overlay */}
+      {isOpeningEditor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--bg-canvas)]/75 backdrop-blur-xs animate-in fade-in duration-100">
+          <div className="flex items-center gap-3 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] px-5 py-4 shadow-2xl font-mono text-xs text-[var(--ink-primary)]">
+            <span className="h-4 w-4 rounded-full border-2 border-[var(--ink-primary)] border-t-transparent animate-spin shrink-0" />
+            <span className="font-semibold">Opening Chapter Editor...</span>
           </div>
         </div>
       )}

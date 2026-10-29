@@ -52,6 +52,32 @@ test('Chapter Editor UX: Direct Editor Navigation & Deferred Chapter DB Creation
     editorFile.includes('key={currentChapter.id}'),
     'StoryRichEditor must remount with key={currentChapter.id} to ensure last chapter and all chapters display content correctly'
   )
+
+  // 7. Verify navigation disables resetScroll so page does not jump or scroll up on click
+  assert.ok(
+    manageFile.includes('resetScroll: false'),
+    'write.manage must pass resetScroll: false to prevent unexpected scroll up on chapter creation click'
+  )
+
+  // 8. Verify immediate visual feedback and preloading on intent
+  assert.ok(
+    manageFile.includes('isOpeningEditor'),
+    'write.manage must track isOpeningEditor state for instant 0ms user feedback'
+  )
+  assert.ok(
+    manageFile.includes('preloadEditor'),
+    'write.manage must preload editor route on hover/intent to optimize transition speed'
+  )
+
+  // 9. Verify write.editor defines pendingMs: 0 and pendingComponent to eliminate 1-second freeze
+  assert.ok(
+    editorFile.includes('pendingMs: 0'),
+    'write.editor must set pendingMs: 0 to eliminate 1-second router pending freeze'
+  )
+  assert.ok(
+    editorFile.includes('pendingComponent'),
+    'write.editor must provide pendingComponent for immediate route transition display'
+  )
 })
 
 test('Chapter Editor UX: Dramatic Act Dropdown in Editor', async (t) => {

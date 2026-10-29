@@ -26,8 +26,17 @@ export const Route = createFileRoute('/write/editor/$workId/$chapterId')({
   validateSearch: (search: Record<string, unknown>): { actId?: string } => ({
     actId: typeof search.actId === 'string' ? search.actId : undefined,
   }),
-  staleTime: 0,
-  shouldReload: true,
+  staleTime: 15_000,
+  pendingMs: 0,
+  pendingMinMs: 0,
+  pendingComponent: () => (
+    <div className="min-h-screen bg-[var(--bg-canvas)] flex items-center justify-center p-6">
+      <div className="flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-5 py-3.5 shadow-xl font-mono text-xs text-[var(--ink-primary)]">
+        <span className="h-4 w-4 rounded-full border-2 border-[var(--ink-primary)] border-t-transparent animate-spin shrink-0" />
+        <span className="font-semibold">Opening Chapter Editor...</span>
+      </div>
+    </div>
+  ),
   loader: async ({ params }) => {
     try {
       const dbWork = await getWriterWorkDetailsServerFn({ data: { workId: params.workId } })
