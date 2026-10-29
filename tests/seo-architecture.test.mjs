@@ -1148,6 +1148,29 @@ test('SEO Route Audit: Works and Reader routes configure BreadcrumbList', () => 
   assert.ok(readerCode.includes('name: chapter.title'), 'reader route breadcrumb must include chapter title')
 })
 
+test('SEO Architecture: Root layout emits valid Sitelinks SearchBox Schema with EntryPoint', () => {
+  const rootCode = fs.readFileSync(path.join(rootDir, 'src/routes/__root.tsx'), 'utf-8')
+  assert.ok(rootCode.includes("'@type': 'SearchAction'"), 'Root must define SearchAction')
+  assert.ok(rootCode.includes("'@type': 'EntryPoint'"), 'Root must define EntryPoint')
+  assert.ok(rootCode.includes('urlTemplate:'), 'Root must define urlTemplate')
+  assert.ok(rootCode.includes('https://hatchpen.com/search?q={search_term_string}'), 'urlTemplate must point to search route')
+})
+
+test('SEO Structured Data: Works route emits wordCount and timeRequired in Book schema', () => {
+  const worksCode = fs.readFileSync(path.join(rootDir, 'src/routes/works.$workId.tsx'), 'utf-8')
+  assert.ok(worksCode.includes('wordCount: totalWords'), 'Works route must declare wordCount')
+  assert.ok(worksCode.includes('timeRequired: `PT${totalReadingTime}M`'), 'Works route must declare timeRequired')
+  assert.ok(worksCode.includes('interactionStatistic:'), 'Works route must declare interactionStatistic')
+})
+
+test('SEO Structured Data: Reader route emits wordCount, timeRequired, and isPartOf in Article schema', () => {
+  const readerCode = fs.readFileSync(path.join(rootDir, 'src/routes/read.$workId.$chapterId.tsx'), 'utf-8')
+  assert.ok(readerCode.includes('wordCount: chWordCount'), 'Reader route must declare wordCount')
+  assert.ok(readerCode.includes('timeRequired: `PT${chReadingTime}M`'), 'Reader route must declare timeRequired')
+  assert.ok(readerCode.includes('isPartOf: {'), 'Reader route must declare isPartOf')
+  assert.ok(readerCode.includes("'@type': 'Book'"), 'Reader route isPartOf must reference Book')
+})
+
 test('Social Marketing: ShareStoryModal and ReaderQuoteShareTooltip files exist and export components', () => {
   const shareModalFile = path.join(rootDir, 'src/components/ShareStoryModal.tsx')
   assert.ok(fs.existsSync(shareModalFile), 'ShareStoryModal.tsx must exist')

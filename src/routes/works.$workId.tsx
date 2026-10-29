@@ -86,6 +86,18 @@ export const Route = createFileRoute('/works/$workId')({
     const rawIndexable = work.is_indexable !== undefined ? work.is_indexable : (work as any).isIndexable
     const isIndexable = isPublic && isPublished && rawIndexable === true
 
+    const totalWords =
+      Number(work.word_count || (work as any).wordCount || 0) ||
+      (work.chapters || []).reduce((acc: number, c: any) => acc + Number(c.wordCount || c.word_count || 0), 0) ||
+      1200
+    const totalReadingTime =
+      Number(work.reading_time_minutes || (work as any).readingTimeMinutes || 0) ||
+      Math.max(1, Math.ceil(totalWords / 220))
+    const totalReads = Number(work.total_reads || (work as any).reads || 0)
+    const totalSaves = Number(work.total_saves || (work as any).saves || 0)
+    const datePublished = work.created_at || (work as any).createdAt || undefined
+    const dateModified = work.updated_at || (work as any).updatedAt || datePublished
+
     const ogImage = getStorySocialCardUrl(work)
 
     return generateMeta({
@@ -120,7 +132,35 @@ export const Route = createFileRoute('/works/$workId')({
         image: work.cover || 'https://hatchpen.com/default-book-cover.webp',
         inLanguage: work.language || 'English',
         numberOfPages: work.publishedChaptersCount || work.chaptersCount || 1,
+        wordCount: totalWords,
+        timeRequired: `PT${totalReadingTime}M`,
+        ...(datePublished ? { datePublished } : {}),
+        ...(dateModified ? { dateModified } : {}),
         url: `https://hatchpen.com/works/${canonicalSlug}`,
+        ...(totalReads > 0 || totalSaves > 0
+          ? {
+              interactionStatistic: [
+                ...(totalReads > 0
+                  ? [
+                      {
+                        '@type': 'InteractionCounter',
+                        interactionType: 'https://schema.org/ReadAction',
+                        userInteractionCount: totalReads,
+                      },
+                    ]
+                  : []),
+                ...(totalSaves > 0
+                  ? [
+                      {
+                        '@type': 'InteractionCounter',
+                        interactionType: 'https://schema.org/BookmarkAction',
+                        userInteractionCount: totalSaves,
+                      },
+                    ]
+                  : []),
+              ],
+            }
+          : {}),
       },
       breadcrumbs: [
         { name: 'Home', url: '/' },

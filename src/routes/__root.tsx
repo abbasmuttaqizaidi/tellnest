@@ -53,7 +53,10 @@ const GLOBAL_JSON_LD = JSON.stringify({
       },
       potentialAction: {
         '@type': 'SearchAction',
-        target: 'https://hatchpen.com/search?q={search_term_string}',
+        target: {
+          '@type': 'EntryPoint',
+          urlTemplate: 'https://hatchpen.com/search?q={search_term_string}',
+        },
         'query-input': 'required name=search_term_string',
       },
     },

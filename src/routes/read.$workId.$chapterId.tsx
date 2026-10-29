@@ -104,6 +104,18 @@ export const Route = createFileRoute('/read/$workId/$chapterId')({
 
     const ogImage = getChapterSocialCardUrl(chapter, work)
 
+    const chWordCount =
+      Number(chapter.wordCount || (chapter as any).word_count || 0) ||
+      (chapter.content ? chapter.content.trim().split(/\s+/).filter(Boolean).length : 0) ||
+      500
+    const chReadingTime =
+      Number(chapter.readTimeMinutes || (chapter as any).reading_time_minutes || 0) ||
+      Math.max(1, Math.ceil(chWordCount / 220))
+    const datePublished =
+      chapter.published_at || (chapter as any).publishedAt || chapter.created_at || (chapter as any).createdAt || work.created_at
+    const dateModified =
+      chapter.updated_at || (chapter as any).updatedAt || chapter.created_at || work.updated_at
+
     return generateMeta({
       title,
       description: excerpt,
@@ -127,10 +139,21 @@ export const Route = createFileRoute('/read/$workId/$chapterId')({
           '@type': 'Organization',
           name: 'HatchPen',
           url: 'https://hatchpen.com',
+          logo: 'https://hatchpen.com/icon-512.png',
         },
         image: work.cover,
         description: excerpt,
         mainEntityOfPage: canonicalUrl,
+        inLanguage: work.language || 'English',
+        wordCount: chWordCount,
+        timeRequired: `PT${chReadingTime}M`,
+        ...(datePublished ? { datePublished } : {}),
+        ...(dateModified ? { dateModified } : {}),
+        isPartOf: {
+          '@type': 'Book',
+          name: work.title,
+          url: `https://hatchpen.com/works/${canonicalSlug}`,
+        },
       },
       breadcrumbs: [
         { name: 'Home', url: '/' },
