@@ -84,7 +84,7 @@ export const Route = createFileRoute('/')({
     generateMeta({
       title: 'HatchPen — A Quieter Place for Bolder Stories',
       description:
-        'Discover fresh voices, unexpected worlds, and stories that stay with you on HatchPen.',
+        'Great writing deserves to be discovered, not buried by popularity. Explore original stories, discover emerging writers, and read beyond the hype on HatchPen.',
       canonicalUrl: 'https://hatchpen.com/',
       keywords: [
         'serialized fiction',
@@ -103,7 +103,7 @@ export const Route = createFileRoute('/')({
         name: 'HatchPen — A Quieter Place for Bolder Stories',
         url: 'https://hatchpen.com/',
         description:
-          'Discover fresh voices, unexpected worlds, and stories that stay with you on HatchPen.',
+          'Great writing deserves to be discovered, not buried by popularity. Explore original stories, discover emerging writers, and read beyond the hype on HatchPen.',
       },
     }),
   component: HomePage,

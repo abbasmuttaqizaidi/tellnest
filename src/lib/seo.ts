@@ -8,7 +8,7 @@ export const SITE_NAME = 'HatchPen'
 export const DEFAULT_SITE_URL = 'https://hatchpen.com'
 export const DEFAULT_TITLE = 'HatchPen — Writings. Beyond the Hype.'
 export const DEFAULT_DESCRIPTION =
-  'HatchPen is a digital literary publishing and reader platform for serialized fiction, long-form literature, essays, and poetry.'
+  'Great writing deserves to be discovered, not buried by popularity. Explore original stories, discover emerging writers, and read beyond the hype on HatchPen.'
 export const DEFAULT_OG_IMAGE = '/og-image.png'
 
 /**

@@ -30,7 +30,7 @@ const GLOBAL_JSON_LD = JSON.stringify({
       url: 'https://hatchpen.com',
       logo: 'https://hatchpen.com/icon-512.png',
       sameAs: [],
-      description: 'Digital literary publishing and reader platform for serialized fiction, long-form literature, essays, and poetry.',
+      description: 'Great writing deserves to be discovered, not buried by popularity. Explore original stories, discover emerging writers, and read beyond the hype on HatchPen.',
     },
     {
       '@type': 'WebSite',
@@ -82,7 +82,7 @@ export const Route = createRootRoute({
       {
         name: 'description',
         content:
-          'HatchPen is a digital literary publishing and reader platform for original fiction, serialized novels, essays, and poetry.',
+          'Great writing deserves to be discovered, not buried by popularity. Explore original stories, discover emerging writers, and read beyond the hype on HatchPen.',
       },
       {
         name: 'keywords',
@@ -117,7 +117,7 @@ export const Route = createRootRoute({
       {
         property: 'og:description',
         content:
-          'Digital literary publishing and reader platform for original fiction, serialized novels, essays, and poetry.',
+          'Great writing deserves to be discovered, not buried by popularity. Explore original stories, discover emerging writers, and read beyond the hype on HatchPen.',
       },
       {
         property: 'og:image',
@@ -139,7 +139,7 @@ export const Route = createRootRoute({
       {
         name: 'twitter:description',
         content:
-          'Digital literary publishing and reader platform for original fiction, serialized novels, essays, and poetry.',
+          'Great writing deserves to be discovered, not buried by popularity. Explore original stories, discover emerging writers, and read beyond the hype on HatchPen.',
       },
       {
         name: 'twitter:image',
