@@ -1314,74 +1314,42 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
                         <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">
-                          Unique Handle <span className="text-red-500">*</span>
+                          Unique Handle
                         </label>
-                        {data?.profile?.isUsernameLocked ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-md bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
-                            <Lock className="w-3 h-3 text-amber-600 dark:text-amber-400" />
-                            <span>Locked ({data.profile.usernameLockDaysRemaining ?? 32}d)</span>
-                          </span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={handleVerifyUsername}
-                            disabled={isVerifyingUsername || saving || !accountForm.username?.trim()}
-                            className="inline-flex items-center justify-center gap-1.5 px-2.5 py-0.5 text-[11px] font-medium rounded-md border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                          >
-                            {isVerifyingUsername ? (
-                              <>
-                                <Loader2 className="w-3 h-3 animate-spin text-neutral-600 dark:text-neutral-400" />
-                                <span>Verifying...</span>
-                              </>
-                            ) : (
-                              <span>Verify</span>
-                            )}
-                          </button>
-                        )}
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700">
+                          <Lock className="w-3 h-3 text-neutral-500 dark:text-neutral-400" />
+                          <span>{data?.profile?.isUsernameLocked ? `Locked (${data.profile.usernameLockDaysRemaining ?? 32}d)` : 'Locked'}</span>
+                        </span>
                       </div>
                       <div className="relative">
                         <span className="absolute left-3.5 top-3 sm:top-2 text-xs text-neutral-400 font-mono">@</span>
                         <input
                           type="text"
-                          required
-                          pattern="^[a-zA-Z0-9_]{3,30}$"
-                          autoCapitalize="none"
-                          autoCorrect="off"
-                          spellCheck={false}
-                          disabled={Boolean(data?.profile?.isUsernameLocked)}
+                          disabled
+                          readOnly
                           value={accountForm.username || ''}
-                          onChange={(e) => {
-                            if (data?.profile?.isUsernameLocked) return
-                            setUsernameVerification(null)
-                            setAccountForm((p) => ({ ...p, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') }))
-                          }}
                           placeholder="handle"
-                          className="w-full pl-8 pr-3.5 py-2.5 sm:py-2 rounded-xl sm:rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 text-base sm:text-xs font-mono focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-neutral-100 transition-all min-h-[44px] sm:min-h-0 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-neutral-100 dark:disabled:bg-neutral-800/60"
+                          className="w-full pl-8 pr-3.5 py-2.5 sm:py-2 rounded-xl sm:rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-100/80 dark:bg-neutral-800/60 text-neutral-600 dark:text-neutral-400 text-base sm:text-xs font-mono cursor-not-allowed select-none min-h-[44px] sm:min-h-0 focus:outline-none"
                         />
                       </div>
-                      {data?.profile?.isUsernameLocked ? (
+                      {data?.profile?.isUsernameLocked && data.profile.usernameLockDaysRemaining ? (
                         <div className="mt-2 p-2.5 rounded-lg border border-amber-300/80 dark:border-amber-700/60 bg-amber-50/80 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 flex items-start gap-2 text-xs">
                           <Lock className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
                           <div className="space-y-0.5">
                             <p className="font-medium text-amber-900 dark:text-amber-100">
-                              Username locked for {data.profile.usernameLockDaysRemaining ?? 32} more days
+                              Username locked for {data.profile.usernameLockDaysRemaining} more days
                             </p>
                             <p className="text-[11px] text-amber-700 dark:text-amber-300/90 leading-relaxed">
-                              To prevent impersonation and broken links, handles can only be changed once every 32 days after verification.
+                              Once verified, handles cannot be changed for 32 days to preserve author identity and story links.
                             </p>
                           </div>
                         </div>
-                      ) : usernameVerification ? (
-                        <p
-                          className={`mt-1.5 text-xs font-medium ${
-                            usernameVerification.available
-                              ? 'text-emerald-600 dark:text-emerald-400'
-                              : 'text-red-500 dark:text-red-400'
-                          }`}
-                        >
-                          {usernameVerification.message}
+                      ) : (
+                        <p className="mt-1.5 text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
+                          <Lock className="w-3 h-3 shrink-0 text-neutral-400" />
+                          <span>Your unique handle is verified and locked to protect your author identity and story permalinks.</span>
                         </p>
-                      ) : null}
+                      )}
                     </div>
                   </div>
 
