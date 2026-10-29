@@ -1081,3 +1081,70 @@ test('Brand Search Visibility: Query F (hatchpen pricing) — Transparent zero-c
   assert.equal(pricingEntry.loc, 'https://hatchpen.com/pricing')
 })
 
+// ---------------------------------------------------------------------------
+// BreadcrumbList & Social Virality Tests
+// ---------------------------------------------------------------------------
+
+test('SEO Architecture: generateMeta generates valid Schema.org BreadcrumbList JSON-LD script', () => {
+  const meta = generateMeta({
+    title: 'The Silent Sea by Author',
+    canonicalUrl: 'https://hatchpen.com/works/the-silent-sea',
+    breadcrumbs: [
+      { name: 'Home', url: '/' },
+      { name: 'Discover', url: '/discover' },
+      { name: 'Fantasy', url: '/genre/fantasy' },
+      { name: 'The Silent Sea', url: '/works/the-silent-sea' },
+    ],
+  })
+
+  const breadcrumbScript = meta.scripts.find((s) => s.children.includes('"BreadcrumbList"'))
+  assert.ok(breadcrumbScript, 'BreadcrumbList JSON-LD script must exist')
+
+  const parsed = JSON.parse(breadcrumbScript.children)
+  assert.equal(parsed['@context'], 'https://schema.org')
+  assert.equal(parsed['@type'], 'BreadcrumbList')
+  assert.equal(parsed.itemListElement.length, 4)
+  assert.deepEqual(parsed.itemListElement[0], {
+    '@type': 'ListItem',
+    position: 1,
+    name: 'Home',
+    item: 'https://hatchpen.com/',
+  })
+  assert.deepEqual(parsed.itemListElement[1], {
+    '@type': 'ListItem',
+    position: 2,
+    name: 'Discover',
+    item: 'https://hatchpen.com/discover',
+  })
+  assert.deepEqual(parsed.itemListElement[2], {
+    '@type': 'ListItem',
+    position: 3,
+    name: 'Fantasy',
+    item: 'https://hatchpen.com/genre/fantasy',
+  })
+  assert.deepEqual(parsed.itemListElement[3], {
+    '@type': 'ListItem',
+    position: 4,
+    name: 'The Silent Sea',
+    item: 'https://hatchpen.com/works/the-silent-sea',
+  })
+})
+
+test('SEO Route Audit: Works and Reader routes configure BreadcrumbList', () => {
+  const worksCode = fs.readFileSync(path.join(rootDir, 'src/routes/works.$workId.tsx'), 'utf-8')
+  assert.ok(worksCode.includes('breadcrumbs: ['), 'works route must define breadcrumbs')
+  assert.ok(worksCode.includes("name: 'Discover'"), 'works route breadcrumb must include Discover')
+
+  const readerCode = fs.readFileSync(path.join(rootDir, 'src/routes/read.$workId.$chapterId.tsx'), 'utf-8')
+  assert.ok(readerCode.includes('breadcrumbs: ['), 'reader route must define breadcrumbs')
+  assert.ok(readerCode.includes('name: chapter.title'), 'reader route breadcrumb must include chapter title')
+})
+
+test('Social Marketing: ShareStoryModal and ReaderQuoteShareTooltip files exist and export components', () => {
+  const shareModalFile = path.join(rootDir, 'src/components/ShareStoryModal.tsx')
+  assert.ok(fs.existsSync(shareModalFile), 'ShareStoryModal.tsx must exist')
+
+  const quoteTooltipFile = path.join(rootDir, 'src/components/reader/ReaderQuoteShareTooltip.tsx')
+  assert.ok(fs.existsSync(quoteTooltipFile), 'ReaderQuoteShareTooltip.tsx must exist')
+})
+

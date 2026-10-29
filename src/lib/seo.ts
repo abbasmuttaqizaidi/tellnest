@@ -39,6 +39,11 @@ export function resolveAbsoluteUrl(urlOrPath?: string | null): string {
   return `${DEFAULT_SITE_URL}${trimmed.startsWith('/') ? trimmed : `/${trimmed}`}`
 }
 
+export interface BreadcrumbItem {
+  name: string
+  url: string
+}
+
 export interface SeoOptions {
   title?: string
   description?: string
@@ -52,6 +57,7 @@ export interface SeoOptions {
   modifiedTime?: string
   noindex?: boolean
   jsonLd?: Record<string, any> | Record<string, any>[]
+  breadcrumbs?: BreadcrumbItem[]
 }
 
 export function generateMeta(options: SeoOptions = {}) {
@@ -124,6 +130,23 @@ export function generateMeta(options: SeoOptions = {}) {
     scripts.push({
       type: 'application/ld+json',
       children: JSON.stringify(options.jsonLd),
+    })
+  }
+
+  if (options.breadcrumbs && options.breadcrumbs.length > 0) {
+    const breadcrumbJsonLd = {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: options.breadcrumbs.map((crumb, idx) => ({
+        '@type': 'ListItem',
+        position: idx + 1,
+        name: crumb.name,
+        item: resolveAbsoluteUrl(crumb.url),
+      })),
+    }
+    scripts.push({
+      type: 'application/ld+json',
+      children: JSON.stringify(breadcrumbJsonLd),
     })
   }
 

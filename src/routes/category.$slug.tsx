@@ -97,6 +97,11 @@ export const Route = createFileRoute('/category/$slug')({
       keywords: [categoryName, 'literary works', 'online fiction', 'serial publication'],
       ogType: 'website',
       jsonLd,
+      breadcrumbs: [
+        { name: 'Home', url: '/' },
+        { name: 'Discover', url: '/discover' },
+        { name: categoryName, url: canonicalUrl },
+      ],
     })
   },
   component: CategoryTemplatePage,

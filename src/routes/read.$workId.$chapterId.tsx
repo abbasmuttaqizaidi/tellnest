@@ -41,6 +41,8 @@ import type { ReadingPosition } from '../lib/readingProgress/types'
 import { getOptimizedImageUrl } from '../lib/cloudinary'
 import { ViewsBreakdownModal } from '../components/ViewsBreakdownModal'
 import { formatViewCount } from '../lib/utils'
+import { ReaderQuoteShareTooltip } from '../components/reader/ReaderQuoteShareTooltip'
+import { ShareStoryModal } from '../components/ShareStoryModal'
 
 export const Route = createFileRoute('/read/$workId/$chapterId')({
   loader: async ({ params }) => {
@@ -126,6 +128,12 @@ export const Route = createFileRoute('/read/$workId/$chapterId')({
         description: excerpt,
         mainEntityOfPage: canonicalUrl,
       },
+      breadcrumbs: [
+        { name: 'Home', url: '/' },
+        { name: 'Discover', url: '/discover' },
+        { name: work.title, url: `/works/${work.id}` },
+        { name: chapter.title, url: canonicalUrl },
+      ],
     })
   },
   component: ReaderPage,
@@ -293,6 +301,7 @@ function ReaderPage() {
   const [viewsModalOpen, setViewsModalOpen] = useState(false)
   const [authorModalOpen, setAuthorModalOpen] = useState(false)
   const [isAudioOpen, setIsAudioOpen] = useState(false)
+  const [shareModalOpen, setShareModalOpen] = useState(false)
   const [adminToken, setAdminToken] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
       return (
@@ -838,6 +847,15 @@ function ReaderPage() {
             )}
 
             <button
+              onClick={() => setShareModalOpen(true)}
+              className="flex h-9 w-9 sm:h-7 sm:w-7 items-center justify-center rounded text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0"
+              title="Share Chapter"
+              aria-label="Share this chapter"
+            >
+              <Share2 className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+            </button>
+
+            <button
               onClick={() => setSettingsOpen(true)}
               className="flex h-9 w-9 sm:h-7 sm:w-7 items-center justify-center rounded text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0"
               title="Typography & Display Settings"
@@ -1293,6 +1311,18 @@ function ReaderPage() {
         />
       )}
 
+      {/* Share Chapter Modal */}
+      {work && chapter && (
+        <ShareStoryModal
+          isOpen={shareModalOpen}
+          onClose={() => setShareModalOpen(false)}
+          title={`${work.title} — ${chapter.title}`}
+          authorName={work.author?.name || 'HatchPen Author'}
+          url={typeof window !== 'undefined' ? window.location.href : `https://hatchpen.com/read/${work.id}/${chapter.id}`}
+          cover={work.cover}
+        />
+      )}
+
       {/* Floating Table of Contents (Quick Drawer) FAB Button */}
       {floatingTocEnabled && (
         <div className="fixed bottom-6 right-6 z-40">
@@ -1311,6 +1341,18 @@ function ReaderPage() {
           </button>
         </div>
       )}
+      {/* Reader Quote Highlighter Tooltip */}
+      {work && chapter && (
+        <ReaderQuoteShareTooltip
+          containerRef={articleRef}
+          storyTitle={work.title}
+          authorName={work.author?.name || 'HatchPen Author'}
+          chapterTitle={chapter.title}
+          workId={work.id}
+          chapterId={chapter.id}
+        />
+      )}
+
       {/* Floating Audio Reader Dock */}
       {isAudioOpen && audio.isSupported && (
         <ChapterAudioPlayer

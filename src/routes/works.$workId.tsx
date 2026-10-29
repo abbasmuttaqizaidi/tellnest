@@ -28,6 +28,7 @@ import { getWorkHeartStatusServerFn, toggleWorkHeartServerFn } from '../server/h
 import { HeartsBreakdownModal } from '../components/HeartsBreakdownModal'
 import { SavesAdjustmentModal } from '../components/SavesAdjustmentModal'
 import { AuthorProfileModal } from '../components/AuthorProfileModal'
+import { ShareStoryModal } from '../components/ShareStoryModal'
 import { formatViewCount, formatHeartCount } from '../lib/utils'
 import CommentsSection from '../components/CommentsSection'
 import defaultBookCover from '../assets/default-book-cover.webp'
@@ -118,6 +119,19 @@ export const Route = createFileRoute('/works/$workId')({
         numberOfPages: work.publishedChaptersCount || work.chaptersCount || 1,
         url: `https://hatchpen.com/works/${canonicalSlug}`,
       },
+      breadcrumbs: [
+        { name: 'Home', url: '/' },
+        { name: 'Discover', url: '/discover' },
+        ...(work.genre
+          ? [
+              {
+                name: work.genre,
+                url: `/genre/${work.genreSlug || work.genre.toLowerCase().replace(/\s+/g, '-')}`,
+              },
+            ]
+          : []),
+        { name: work.title, url: `/works/${canonicalSlug}` },
+      ],
     })
   },
   component: WorkDetailPage,
@@ -267,6 +281,7 @@ function WorkDetailPage() {
   const [isHeartBouncing, setIsHeartBouncing] = useState<boolean>(false)
   const [showHeartBurst, setShowHeartBurst] = useState<boolean>(false)
   const [authorModalOpen, setAuthorModalOpen] = useState<boolean>(false)
+  const [isShareModalOpen, setIsShareModalOpen] = useState<boolean>(false)
 
   // Sync heart and save counts if work changes
   useEffect(() => {
@@ -385,10 +400,7 @@ function WorkDetailPage() {
   }, [work, canonicalSlug, workId, navigate])
 
   const handleShare = () => {
-    if (typeof window !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(window.location.href)
-      showToast('Link copied to clipboard')
-    }
+    setIsShareModalOpen(true)
   }
 
   if (!work && isWorksLoading) {
@@ -943,6 +955,18 @@ function WorkDetailPage() {
           isOpen={authorModalOpen}
           onClose={() => setAuthorModalOpen(false)}
           author={work.author}
+        />
+      )}
+
+      {/* SHARE STORY MODAL */}
+      {work && (
+        <ShareStoryModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          title={work.title}
+          authorName={authorDisplayName}
+          url={typeof window !== 'undefined' ? window.location.href : `https://hatchpen.com/works/${canonicalSlug}`}
+          cover={work.cover}
         />
       )}
 

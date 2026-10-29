@@ -97,6 +97,11 @@ export const Route = createFileRoute('/genre/$slug')({
       keywords: [genreName, `${genreName} fiction`, 'read novels', 'indie books', 'Hatchpen genre'],
       ogType: 'website',
       jsonLd,
+      breadcrumbs: [
+        { name: 'Home', url: '/' },
+        { name: 'Discover', url: '/discover' },
+        { name: genreName, url: canonicalUrl },
+      ],
     })
   },
   component: GenreTemplatePage,
