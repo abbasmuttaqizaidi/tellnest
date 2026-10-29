@@ -835,59 +835,9 @@ export async function executeSaveWriterChapter(data: SaveWriterChapterPayload, a
         throw new Error(chErr.message)
       }
     } else {
-      // If chapter was created optimistically with non-UUID, insert into DB
-      const { data: existingChs } = await admin
-        .from('chapters')
-        .select('chapter_number')
-        .eq('work_id', workUuid)
-        .order('chapter_number', { ascending: false })
-        .limit(1)
-
-      const nextNum = (existingChs?.[0]?.chapter_number || 0) + 1
-      const uniqueSuffix = Math.random().toString(36).substring(2, 6)
-      const chSlug = `ch-${nextNum}-${uniqueSuffix}`
-
-      let isIndexable = false
-      if (status === 'published') {
-        const { data: parentWork } = await admin
-          .from('works')
-          .select('visibility, publication_status, is_indexable')
-          .eq('id', workUuid)
-          .maybeSingle()
-
-        isIndexable = Boolean(
-          parentWork &&
-          (parentWork.visibility || '').toLowerCase() === 'public' &&
-          (parentWork.publication_status || '').toLowerCase() === 'published' &&
-          parentWork.is_indexable === true
-        )
-      }
-
-      const { data: newCh, error: insertErr } = await admin
-        .from('chapters')
-        .insert({
-          work_id: workUuid,
-          act_id: data.actId || null,
-          chapter_number: nextNum,
-          title: data.title?.trim() || 'Untitled Chapter',
-          subtitle: data.subtitle?.trim() || null,
-          slug: chSlug,
-          content: cleanContent || '',
-          word_count: wordCount || 0,
-          reading_time_minutes: readingTime || 1,
-          status: status || 'draft',
-          is_indexable: isIndexable,
-          published_at: status === 'published' ? nowIso : null,
-          created_at: nowIso,
-          updated_at: nowIso,
-        })
-        .select('id')
-        .single()
-
-      if (insertErr) {
-        console.error('[saveWriterChapterServerFn] Error inserting chapter into DB:', insertErr.message)
-        throw new Error(insertErr.message)
-      }
+      throw new Error(
+        `[saveWriterChapterServerFn] Invalid chapter ID "${data.chapterId}". Chapters must be created via createWriterChapterServerFn before updating.`
+      )
     }
 
     // 3. Recalculate and update aggregate word count, chapter count, and last activity on works table

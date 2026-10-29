@@ -304,15 +304,23 @@ test('Chapter Editor Lifecycle: Prevent premature unassigned insertion & rogue i
     'write.editor must guard save operations using isSavingRef lock'
   )
 
-  // 3. handlePublish must reject execution if chapter is still unpersisted 'new'
+  // 3. handlePublish and handleManualSave must guard against unpersisted drafts and use persistedChapterIdRef
+  assert.ok(
+    editorFile.includes('persistedChapterIdRef'),
+    'write.editor must track persistedChapterIdRef synchronously to avoid race condition upon immediate publish'
+  )
   assert.ok(
     editorFile.includes("if (currentChapter.id === 'new')"),
-    'handlePublish must guard against unpersisted drafts'
+    'write.editor must defer database creation until manual save on new chapter'
   )
 
-  // 4. executeSaveWriterChapter fallback insert must preserve act_id
+  // 4. executeSaveWriterChapter must strictly update and preserve act_id, never silently inserting rogue duplicate chapters
   assert.ok(
-    writerServerFile.includes('act_id: data.actId || null'),
-    'executeSaveWriterChapter must include act_id in fallback insert so act is never stripped'
+    writerServerFile.includes('updateData.act_id = data.actId || null'),
+    'executeSaveWriterChapter must preserve act_id when updating chapter'
+  )
+  assert.ok(
+    writerServerFile.includes('Chapters must be created via createWriterChapterServerFn before updating'),
+    'executeSaveWriterChapter must reject non-UUID chapters to eliminate duplicate chapter generation'
   )
 })

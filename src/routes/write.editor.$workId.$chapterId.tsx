@@ -70,6 +70,7 @@ function ChapterEditorPage() {
   const work = loaderData?.work || getWorkById(workId)
   const targetActIdFromSearch = search?.actId
   const [persistedChapterId, setPersistedChapterId] = useState<string | null>(null)
+  const persistedChapterIdRef = useRef<string | null>(null)
 
   // Resilient Chapter Resolution:
   // 0. Handle 'new' unpersisted draft chapter (only when not yet persisted)
@@ -148,7 +149,15 @@ function ChapterEditorPage() {
   const [bannerImage, setBannerImage] = useState<string | null>(
     currentChapter?.bannerImage || currentChapter?.banner_image_path || null
   )
-  const [actId, setActId] = useState<string>(currentChapter?.actId || '')
+  const [actId, setActId] = useState<string>(() => targetActIdFromSearch || currentChapter?.actId || '')
+
+  useEffect(() => {
+    if (chapterId === 'new' && targetActIdFromSearch) {
+      setActId(targetActIdFromSearch)
+      latestStateRef.current.actId = targetActIdFromSearch
+    }
+  }, [chapterId, targetActIdFromSearch])
+
   const [autosaveStatus, setAutosaveStatus] = useState<'saved' | 'saving' | 'dirty'>(() =>
     chapterId === 'new' ? 'dirty' : 'saved'
   )
@@ -424,7 +433,7 @@ function ChapterEditorPage() {
     const currentContent = content
     const currentSubtitle = subtitle
     const currentBanner = bannerImage
-    const currentActId = actId || null
+    const currentActId = actId || targetActIdFromSearch || null
 
     try {
       // If chapter is unpersisted draft ('new'), create it in the database for the first time now
@@ -447,6 +456,7 @@ function ChapterEditorPage() {
           }
 
           const newId = createRes.chapter.id
+          persistedChapterIdRef.current = newId
           const newNumber = createRes.chapter.number || currentChapter.number || 1
 
           // Mutate current chapter reference with exact content and title
@@ -629,7 +639,10 @@ function ChapterEditorPage() {
     if (isSavingRef.current) return
     if (!work || !currentChapter) return
 
-    if (currentChapter.id === 'new') {
+    const activeChapterId = persistedChapterIdRef.current || currentChapter.id
+    const isChapterUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(activeChapterId)
+
+    if (!isChapterUuid || activeChapterId === 'new') {
       showToast('Please save your chapter changes before publishing.')
       return
     }
@@ -639,15 +652,17 @@ function ChapterEditorPage() {
     const curTitle = latestStateRef.current.title
     const curContent = latestStateRef.current.content
     const curSubtitle = latestStateRef.current.subtitle
+    const curActId = actId || targetActIdFromSearch || null
     latestStateRef.current.status = 'published'
 
-    updateChapterContent(work.id, currentChapter.id, curTitle, curContent, 'published', bannerImage)
+    updateChapterContent(work.id, activeChapterId, curTitle, curContent, 'published', bannerImage)
     if (Array.isArray(work.chapters)) {
-      const found = work.chapters.find((c: any) => c.id === currentChapter.id)
+      const found = work.chapters.find((c: any) => c.id === activeChapterId)
       if (found) {
         found.status = 'published'
         found.title = curTitle
         found.subtitle = curSubtitle
+        found.actId = curActId
         found.bannerImage = bannerImage || undefined
         found.banner_image_path = bannerImage || undefined
       }
@@ -657,12 +672,12 @@ function ChapterEditorPage() {
       await saveWriterChapterServerFn({
         data: JSON.parse(JSON.stringify({
           workId: String(work.id),
-          chapterId: String(currentChapter.id),
+          chapterId: String(activeChapterId),
           title: String(curTitle || ''),
           subtitle: String(curSubtitle || ''),
           content: String(curContent || ''),
           status: 'published' as const,
-          actId: actId ? String(actId) : null,
+          actId: curActId ? String(curActId) : null,
           bannerImage: bannerImage ? String(bannerImage).trim() : null,
           expectedUpdatedAt: loadedUpdatedAt ? String(loadedUpdatedAt) : new Date().toISOString(),
           force: true,
