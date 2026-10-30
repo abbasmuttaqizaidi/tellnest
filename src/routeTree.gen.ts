@@ -17,11 +17,13 @@ import { Route as LibraryRouteImport } from './routes/library'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as PricingRouteImport } from './routes/pricing'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SecretAdminpanelRouteImport } from './routes/secret-adminpanel'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SsoCallbackRouteImport } from './routes/sso-callback'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AdminWorkEditorWorkIdRouteImport } from './routes/admin-work-editor.$workId'
 import { Route as AuthorAuthorIdRouteImport } from './routes/author.$authorId'
 import { Route as CategorySlugRouteImport } from './routes/category.$slug'
@@ -74,6 +76,11 @@ const PricingRoute = PricingRouteImport.update({
   path: '/pricing',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -97,6 +104,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const SsoCallbackRoute = SsoCallbackRouteImport.update({
   id: '/sso-callback',
   path: '/sso-callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminWorkEditorWorkIdRoute = AdminWorkEditorWorkIdRouteImport.update({
@@ -165,11 +177,13 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/pricing': typeof PricingRoute
+  '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/search': typeof SearchRoute
   '/secret-adminpanel': typeof SecretAdminpanelRoute
   '/settings': typeof SettingsRoute
   '/sso-callback': typeof SsoCallbackRoute
+  '/terms': typeof TermsRoute
   '/admin-work-editor/$workId': typeof AdminWorkEditorWorkIdRoute
   '/author/$authorId': typeof AuthorAuthorIdRoute
   '/category/$slug': typeof CategorySlugRoute
@@ -191,11 +205,13 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/pricing': typeof PricingRoute
+  '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/search': typeof SearchRoute
   '/secret-adminpanel': typeof SecretAdminpanelRoute
   '/settings': typeof SettingsRoute
   '/sso-callback': typeof SsoCallbackRoute
+  '/terms': typeof TermsRoute
   '/admin-work-editor/$workId': typeof AdminWorkEditorWorkIdRoute
   '/author/$authorId': typeof AuthorAuthorIdRoute
   '/category/$slug': typeof CategorySlugRoute
@@ -218,11 +234,13 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/pricing': typeof PricingRoute
+  '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/search': typeof SearchRoute
   '/secret-adminpanel': typeof SecretAdminpanelRoute
   '/settings': typeof SettingsRoute
   '/sso-callback': typeof SsoCallbackRoute
+  '/terms': typeof TermsRoute
   '/admin-work-editor/$workId': typeof AdminWorkEditorWorkIdRoute
   '/author/$authorId': typeof AuthorAuthorIdRoute
   '/category/$slug': typeof CategorySlugRoute
@@ -246,11 +264,13 @@ export interface FileRouteTypes {
     | '/login'
     | '/notifications'
     | '/pricing'
+    | '/privacy'
     | '/profile'
     | '/search'
     | '/secret-adminpanel'
     | '/settings'
     | '/sso-callback'
+    | '/terms'
     | '/admin-work-editor/$workId'
     | '/author/$authorId'
     | '/category/$slug'
@@ -272,11 +292,13 @@ export interface FileRouteTypes {
     | '/login'
     | '/notifications'
     | '/pricing'
+    | '/privacy'
     | '/profile'
     | '/search'
     | '/secret-adminpanel'
     | '/settings'
     | '/sso-callback'
+    | '/terms'
     | '/admin-work-editor/$workId'
     | '/author/$authorId'
     | '/category/$slug'
@@ -298,11 +320,13 @@ export interface FileRouteTypes {
     | '/login'
     | '/notifications'
     | '/pricing'
+    | '/privacy'
     | '/profile'
     | '/search'
     | '/secret-adminpanel'
     | '/settings'
     | '/sso-callback'
+    | '/terms'
     | '/admin-work-editor/$workId'
     | '/author/$authorId'
     | '/category/$slug'
@@ -325,11 +349,13 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   NotificationsRoute: typeof NotificationsRoute
   PricingRoute: typeof PricingRoute
+  PrivacyRoute: typeof PrivacyRoute
   ProfileRoute: typeof ProfileRoute
   SearchRoute: typeof SearchRoute
   SecretAdminpanelRoute: typeof SecretAdminpanelRoute
   SettingsRoute: typeof SettingsRoute
   SsoCallbackRoute: typeof SsoCallbackRoute
+  TermsRoute: typeof TermsRoute
   AdminWorkEditorWorkIdRoute: typeof AdminWorkEditorWorkIdRoute
   AuthorAuthorIdRoute: typeof AuthorAuthorIdRoute
   CategorySlugRoute: typeof CategorySlugRoute
@@ -401,6 +427,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PricingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/profile': {
       id: '/profile'
       path: '/profile'
@@ -434,6 +467,13 @@ declare module '@tanstack/react-router' {
       path: '/sso-callback'
       fullPath: '/sso-callback'
       preLoaderRoute: typeof SsoCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin-work-editor/$workId': {
@@ -525,11 +565,13 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   NotificationsRoute: NotificationsRoute,
   PricingRoute: PricingRoute,
+  PrivacyRoute: PrivacyRoute,
   ProfileRoute: ProfileRoute,
   SearchRoute: SearchRoute,
   SecretAdminpanelRoute: SecretAdminpanelRoute,
   SettingsRoute: SettingsRoute,
   SsoCallbackRoute: SsoCallbackRoute,
+  TermsRoute: TermsRoute,
   AdminWorkEditorWorkIdRoute: AdminWorkEditorWorkIdRoute,
   AuthorAuthorIdRoute: AuthorAuthorIdRoute,
   CategorySlugRoute: CategorySlugRoute,
