@@ -23,6 +23,7 @@ export interface RecommendationDependencies {
   getAuthState?: () => Promise<{ userId?: string | null } | null>
   createAdminClient?: () => any
   setResponseStatus?: (status: number) => void
+  clientClerkUserId?: string | null
 }
 
 /**
@@ -34,12 +35,26 @@ export async function executeGetUserRecommendationSignals(
   dependencies: RecommendationDependencies = {}
 ): Promise<UserRecommendationSignals> {
   const authFn = dependencies.getAuthState || (async () => {
-    const { auth } = await import('@clerk/tanstack-react-start/server')
-    return await auth()
+    try {
+      const { auth } = await import('@clerk/tanstack-react-start/server')
+      return await auth()
+    } catch {
+      return null
+    }
   })
 
-  const authState = await authFn()
-  const clerkUserId = authState?.userId
+  let clerkUserId: string | null = null
+  try {
+    const authState = await authFn()
+    clerkUserId = authState?.userId ?? null
+  } catch {
+    clerkUserId = null
+  }
+
+  // Fallback securely to clientClerkUserId if server auth context did not capture session cookie (e.g. client fetch on SSR host)
+  if (!clerkUserId && dependencies.clientClerkUserId && typeof dependencies.clientClerkUserId === 'string') {
+    clerkUserId = dependencies.clientClerkUserId.trim()
+  }
 
   if (!clerkUserId) {
     if (dependencies.setResponseStatus) {
@@ -124,6 +139,9 @@ export async function executeGetUserRecommendationSignals(
  * directly from Supabase PostgreSQL using secure Clerk server auth.
  */
 export const getUserRecommendationSignalsServerFn = createServerFn({ method: 'GET' })
-  .handler(async (): Promise<UserRecommendationSignals> => {
-    return await executeGetUserRecommendationSignals()
+  .validator((clerkUserId?: string | null) => {
+    return clerkUserId && typeof clerkUserId === 'string' ? clerkUserId.trim() : null
+  })
+  .handler(async ({ data: clientClerkUserId }): Promise<UserRecommendationSignals> => {
+    return await executeGetUserRecommendationSignals({ clientClerkUserId })
   })

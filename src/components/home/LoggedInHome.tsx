@@ -287,7 +287,17 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
   const [recommendationSignals, setRecommendationSignals] = useState<UserRecommendationSignals | null>(() => {
     if (loaderData?.initialRecSignals) {
       if (!effectiveUserId || loaderData.initialRecSignals.clerkUserId === effectiveUserId) {
-        return loaderData.initialRecSignals
+        const isOnboardingDone = effectiveUserId
+          ? typeof window !== 'undefined' && localStorage.getItem(`hatchpen_onboarding_completed_${effectiveUserId}`) === 'true'
+          : false
+        const hasPrefs = Boolean(
+          loaderData.initialRecSignals.preferences?.genres?.length ||
+          loaderData.initialRecSignals.preferences?.categories?.length ||
+          loaderData.initialRecSignals.preferences?.interests?.length
+        )
+        if (!isOnboardingDone || hasPrefs) {
+          return loaderData.initialRecSignals
+        }
       }
     }
     if (typeof window !== 'undefined' && effectiveUserId) {
@@ -301,6 +311,17 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
           const isExpired = cachedAt > 0 && Date.now() - cachedAt > REC_SIGNALS_TTL_MS
           // Strictly accept cached signals only when valid, unexpired, and cached.clerkUserId === effectiveUserId
           if (!isExpired && cached && cached.clerkUserId === effectiveUserId) {
+            const isOnboardingDone = localStorage.getItem(`hatchpen_onboarding_completed_${effectiveUserId}`) === 'true'
+            const hasCachedPrefs = Boolean(
+              cached.preferences?.genres?.length ||
+              cached.preferences?.categories?.length ||
+              cached.preferences?.interests?.length
+            )
+            if (isOnboardingDone && !hasCachedPrefs) {
+              sessionStorage.removeItem(`hatchpen_cached_rec_signals_${effectiveUserId}`)
+              sessionStorage.removeItem('hatchpen_cached_rec_signals')
+              return null
+            }
             return cached
           }
         }
@@ -328,6 +349,15 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
           const cachedAt = Number(cached?._cachedAt || 0)
           const isExpired = cachedAt > 0 && Date.now() - cachedAt > REC_SIGNALS_TTL_MS
           if (!isExpired && cached && cached.clerkUserId === effectiveUserId) {
+            const isOnboardingDone = localStorage.getItem(`hatchpen_onboarding_completed_${effectiveUserId}`) === 'true'
+            const hasCachedPrefs = Boolean(
+              cached.preferences?.genres?.length ||
+              cached.preferences?.categories?.length ||
+              cached.preferences?.interests?.length
+            )
+            if (isOnboardingDone && !hasCachedPrefs) {
+              return true
+            }
             return false
           }
         }
@@ -360,9 +390,19 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
       loaderData?.initialRecSignals &&
       (!currentUserId || loaderData.initialRecSignals.clerkUserId === currentUserId)
     ) {
-      setRecommendationSignals(loaderData.initialRecSignals)
-      setIsLoadingSignals(false)
-      return
+      const isOnboardingDone = currentUserId
+        ? typeof window !== 'undefined' && localStorage.getItem(`hatchpen_onboarding_completed_${currentUserId}`) === 'true'
+        : false
+      const hasPrefs = Boolean(
+        loaderData.initialRecSignals.preferences?.genres?.length ||
+        loaderData.initialRecSignals.preferences?.categories?.length ||
+        loaderData.initialRecSignals.preferences?.interests?.length
+      )
+      if (!isOnboardingDone || hasPrefs) {
+        setRecommendationSignals(loaderData.initialRecSignals)
+        setIsLoadingSignals(false)
+        return
+      }
     }
 
     if (!currentUserId) {
@@ -381,7 +421,15 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
         if (cachedRaw) {
           const cached = JSON.parse(cachedRaw)
           if (cached && cached.clerkUserId === currentUserId) {
-            initialSignalsForUser = cached
+            const isOnboardingDone = localStorage.getItem(`hatchpen_onboarding_completed_${currentUserId}`) === 'true'
+            const hasCachedPrefs = Boolean(
+              cached.preferences?.genres?.length ||
+              cached.preferences?.categories?.length ||
+              cached.preferences?.interests?.length
+            )
+            if (!isOnboardingDone || hasCachedPrefs) {
+              initialSignalsForUser = cached
+            }
           }
         }
       } catch {}
@@ -392,7 +440,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
 
     let isMounted = true
 
-    getUserRecommendationSignalsServerFn()
+    getUserRecommendationSignalsServerFn({ data: currentUserId })
       .then((signals) => {
         // Discard stale responses if a newer request sequence started, component unmounted, or user switched
         if (!isMounted || requestId !== recRequestIdRef.current) return
@@ -432,7 +480,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
     setIsLoadingSignals(true)
     setSignalsError(false)
 
-    getUserRecommendationSignalsServerFn()
+    getUserRecommendationSignalsServerFn({ data: currentUserId })
       .then((signals) => {
         if (requestId !== recRequestIdRef.current) return
         setRecommendationSignals(signals)
@@ -472,7 +520,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
       const requestId = ++recRequestIdRef.current
       setIsLoadingSignals(true)
 
-      getUserRecommendationSignalsServerFn()
+      getUserRecommendationSignalsServerFn({ data: currentUserId })
         .then((signals) => {
           if (!isMounted || requestId !== recRequestIdRef.current) return
           setRecommendationSignals(signals)

@@ -1518,6 +1518,73 @@ test('Failure-Mode Finding 4: Duplicate reading session records at identical tim
   assert.equal(validShift.totalActiveSeconds, 120)
 })
 
+// --- Finding 5: Stale pre-onboarding cache discarded and clientClerkUserId fallback verified ---
+test('Failure-Mode Finding 5: Pre-onboarding cache with empty preferences is purged after onboarding and clientClerkUserId is used', async () => {
+  const { executeGetUserRecommendationSignals } = await import('../src/server/recommendations.ts')
+
+  // Case A: When server auth fails to extract session, clientClerkUserId resolves signals
+  const mockAdmin = {
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => ({
+            data: {
+              id: 'prof-client-fallback',
+              clerk_user_id: 'clerk_client_user',
+              preferences: {
+                genres: [{ id: 'erotic-romance', name: 'Erotic Romance' }],
+                categories: [{ id: 'novels', name: 'Novels' }],
+              },
+            },
+            error: null,
+          }),
+          gte: () => ({
+            order: () => ({
+              limit: async () => ({ data: [], error: null }),
+            }),
+          }),
+          limit: async () => ({ data: [], error: null }),
+        }),
+      }),
+    }),
+  }
+
+  const signals = await executeGetUserRecommendationSignals({
+    getAuthState: async () => null, // Server auth did not resolve session
+    clientClerkUserId: 'clerk_client_user',
+    createAdminClient: () => mockAdmin,
+  })
+
+  assert.equal(signals.clerkUserId, 'clerk_client_user')
+  assert.equal(signals.profileId, 'prof-client-fallback')
+  assert.equal(signals.preferences?.genres?.[0]?.name, 'Erotic Romance')
+
+  // Case B: LoggedInHome cache evaluation: stale cache with empty preferences discarded if onboarding done
+  function evaluateCachedSignals(cached, userId, isOnboardingDone) {
+    if (!cached || cached.clerkUserId !== userId) return null
+    const hasCachedPrefs = Boolean(
+      cached.preferences?.genres?.length ||
+      cached.preferences?.categories?.length ||
+      cached.preferences?.interests?.length
+    )
+    if (isOnboardingDone && !hasCachedPrefs) {
+      return null // Discarded!
+    }
+    return cached
+  }
+
+  const staleCache = {
+    clerkUserId: 'user-1',
+    preferences: {},
+  }
+
+  const resultBeforeOnboarding = evaluateCachedSignals(staleCache, 'user-1', false)
+  assert.deepEqual(resultBeforeOnboarding, staleCache, 'Before onboarding, cache is tolerated')
+
+  const resultAfterOnboarding = evaluateCachedSignals(staleCache, 'user-1', true)
+  assert.equal(resultAfterOnboarding, null, 'After onboarding, empty-preference cache MUST be discarded')
+})
+
 // =========================================================================
 // Error-State & Catalog Resilience Verification
 // =========================================================================

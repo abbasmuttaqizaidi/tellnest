@@ -46,7 +46,7 @@ export const Route = createFileRoute('/')({
             })
           : null,
         isAuth
-          ? getUserRecommendationSignalsServerFn().catch((err) => {
+          ? getUserRecommendationSignalsServerFn({ data: authUser!.userId! }).catch((err) => {
               console.warn('[Route Loader] Pre-fetch rec signals failed:', err?.message || err)
               return null
             })
