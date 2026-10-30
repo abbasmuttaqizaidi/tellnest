@@ -1813,6 +1813,7 @@ export interface AdminUpdateWorkPayload {
     tags?: string[]
     status: 'Ongoing' | 'Completed' | 'Hiatus' | 'Cancelled'
     visibility: 'Public' | 'Unlisted' | 'Draft'
+    authorId?: string
     authorName?: string
     authorHandle?: string
   }
@@ -1908,6 +1909,25 @@ export const adminUpdateWorkServerFn = createServerFn({ method: 'POST' })
       if (workData.visibility.toLowerCase() === 'unlisted') mappedVisibility = 'unlisted'
       else if (workData.visibility.toLowerCase() === 'draft') mappedVisibility = 'draft'
 
+      // Check if author reassignment is requested
+      let targetAuthorProfile: { id: string; username: string } | null = null
+      if (workData.authorId?.trim() && workData.authorId.trim() !== dbWork.author_id) {
+        const cleanAuthorId = workData.authorId.trim()
+        const isAuthUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanAuthorId)
+        let authorQuery = admin.from('profiles').select('id, username').limit(1)
+        if (isAuthUuid) {
+          authorQuery = authorQuery.or(`id.eq.${cleanAuthorId},username.eq.${cleanAuthorId.toLowerCase()}`)
+        } else {
+          authorQuery = authorQuery.eq('username', cleanAuthorId.toLowerCase())
+        }
+        const { data: pData } = await authorQuery.maybeSingle()
+        if (pData?.id) {
+          targetAuthorProfile = pData
+        }
+      }
+
+      const isReassigned = Boolean(targetAuthorProfile && targetAuthorProfile.id !== dbWork.author_id)
+
       const { error: updateErr } = await admin
         .from('works')
         .update({
@@ -1918,12 +1938,21 @@ export const adminUpdateWorkServerFn = createServerFn({ method: 'POST' })
           category_id: categoryId,
           status: mappedStatus,
           visibility: mappedVisibility,
+          ...(isReassigned && targetAuthorProfile ? { author_id: targetAuthorProfile.id } : {}),
           last_activity_at: nowIso,
           last_activity_type: 'work_metadata_updated',
           last_activity_detail: {
             updatedAt: nowIso,
             title: workData.title.trim(),
-            summaryText: 'Manuscript details updated by administrator',
+            summaryText: isReassigned
+              ? `Manuscript reassigned to @${targetAuthorProfile?.username} by administrator`
+              : 'Manuscript details updated by administrator',
+            ...(isReassigned && targetAuthorProfile ? {
+              action: 'work_reassigned',
+              previousAuthorId: dbWork.author_id,
+              newAuthorId: targetAuthorProfile.id,
+              newAuthorUsername: targetAuthorProfile.username,
+            } : {}),
           },
           updated_at: nowIso,
         })
@@ -1932,6 +1961,16 @@ export const adminUpdateWorkServerFn = createServerFn({ method: 'POST' })
       if (updateErr) {
         console.error('[adminUpdateWorkServerFn] Supabase update error:', updateErr.message)
         throw new Error(`Failed to update manuscript: ${updateErr.message}`)
+      }
+
+      // Safeguard: Clear reading progress & bookmarks if reassigned
+      if (isReassigned && targetAuthorProfile) {
+        try {
+          await admin.from('reading_progress').delete().eq('work_id', dbWork.id).eq('user_id', targetAuthorProfile.id)
+          await admin.from('bookmarks').delete().eq('work_id', dbWork.id).eq('user_id', targetAuthorProfile.id)
+        } catch (cleanErr: any) {
+          console.warn('[adminUpdateWorkServerFn] Invariant cleanup warning:', cleanErr?.message)
+        }
       }
 
       // Update genre mapping in work_genres
@@ -2716,6 +2755,177 @@ export const adminSendEmailServerFn = createServerFn({ method: 'POST' })
       simulated: result.simulated,
     }
   })
+
+// ==========================================
+// 19. ADMIN REASSIGN WORK OWNERSHIP
+// ==========================================
+
+export interface AdminReassignWorkPayload {
+  adminToken: string
+  workId: string
+  targetProfileId: string
+  reason?: string
+}
+
+export async function executeAdminReassignWork(
+  data: AdminReassignWorkPayload,
+  adminClient?: any
+) {
+  if (!isValidAdminToken(data.adminToken)) {
+    throw new Error('Unauthorized: Invalid or expired administration key')
+  }
+  if (!data.workId?.trim()) throw new Error('Work ID is required')
+  if (!data.targetProfileId?.trim()) throw new Error('Target author Profile ID is required')
+
+  const admin = adminClient || createAdminClient()
+  const nowIso = new Date().toISOString()
+  const cleanWorkId = data.workId.trim()
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanWorkId)
+
+  // 1. Fetch work record
+  let workQuery = admin
+    .from('works')
+    .select('id, title, slug, author_id')
+
+  if (isUuid) {
+    workQuery = workQuery.or(`id.eq.${cleanWorkId},slug.eq.${cleanWorkId.toLowerCase()}`)
+  } else {
+    workQuery = workQuery.eq('slug', cleanWorkId.toLowerCase())
+  }
+
+  const { data: dbWork, error: workErr } = await workQuery.maybeSingle()
+  if (workErr) {
+    console.error('[executeAdminReassignWork] Error querying work:', workErr.message)
+    throw new Error(`Database error looking up work: ${workErr.message}`)
+  }
+  if (!dbWork) {
+    throw new Error(`Manuscript not found for identifier: ${cleanWorkId}`)
+  }
+
+  // 2. Fetch target profile
+  const cleanTargetId = data.targetProfileId.trim()
+  const targetIsUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanTargetId)
+
+  let profileQuery = admin
+    .from('profiles')
+    .select('id, username, display_name, avatar_path, is_mock')
+
+  if (targetIsUuid) {
+    profileQuery = profileQuery.or(`id.eq.${cleanTargetId},username.eq.${cleanTargetId.toLowerCase()}`)
+  } else {
+    profileQuery = profileQuery.eq('username', cleanTargetId.toLowerCase())
+  }
+
+  const { data: targetProfile, error: profileErr } = await profileQuery.maybeSingle()
+  if (profileErr) {
+    console.error('[executeAdminReassignWork] Error querying target profile:', profileErr.message)
+    throw new Error(`Database error looking up target profile: ${profileErr.message}`)
+  }
+  if (!targetProfile) {
+    throw new Error(`Target author profile not found for identifier: ${cleanTargetId}`)
+  }
+
+  // 3. Fetch previous author for audit detail & confirmation payload
+  const { data: prevAuthor } = await admin
+    .from('profiles')
+    .select('id, username, display_name, avatar_path, is_mock')
+    .eq('id', dbWork.author_id)
+    .maybeSingle()
+
+  // 4. Idempotency check: Work already owned by target author
+  if (dbWork.author_id === targetProfile.id) {
+    return {
+      success: true,
+      alreadyAssigned: true,
+      message: `Manuscript "${dbWork.title}" is already owned by ${targetProfile.display_name || targetProfile.username}.`,
+      workId: dbWork.id,
+      workTitle: dbWork.title,
+      author: {
+        id: targetProfile.id,
+        name: targetProfile.display_name || targetProfile.username,
+        handle: targetProfile.username,
+        avatar: targetProfile.avatar_path || null,
+        isMock: Boolean(targetProfile.is_mock),
+      },
+      reassignedAt: nowIso,
+    }
+  }
+
+  // 5. Update works.author_id atomically (All acts and chapters inherit ownership via foreign keys)
+  const { error: updateErr } = await admin
+    .from('works')
+    .update({
+      author_id: targetProfile.id,
+      last_activity_at: nowIso,
+      last_activity_type: 'work_metadata_updated',
+      last_activity_detail: {
+        action: 'work_reassigned',
+        previousAuthorId: dbWork.author_id,
+        previousAuthorUsername: prevAuthor?.username || null,
+        newAuthorId: targetProfile.id,
+        newAuthorUsername: targetProfile.username,
+        reassignedAt: nowIso,
+        reason: data.reason?.trim() || 'Ownership reassigned by administrator',
+      },
+      updated_at: nowIso,
+    })
+    .eq('id', dbWork.id)
+
+  if (updateErr) {
+    console.error('[executeAdminReassignWork] Error updating author_id:', updateErr.message)
+    throw new Error(`Failed to reassign manuscript: ${updateErr.message}`)
+  }
+
+  // 6. Invariant safeguard: Clear target author's old reader progress & bookmarks on their newly owned work
+  try {
+    await admin
+      .from('reading_progress')
+      .delete()
+      .eq('work_id', dbWork.id)
+      .eq('user_id', targetProfile.id)
+
+    await admin
+      .from('bookmarks')
+      .delete()
+      .eq('work_id', dbWork.id)
+      .eq('user_id', targetProfile.id)
+  } catch (cleanErr: any) {
+    console.warn('[executeAdminReassignWork] Non-fatal cleanup warning:', cleanErr?.message)
+  }
+
+  return {
+    success: true,
+    alreadyAssigned: false,
+    message: `Manuscript "${dbWork.title}" and all its chapters/acts were successfully transferred from ${prevAuthor?.display_name || prevAuthor?.username || 'previous author'} to ${targetProfile.display_name || targetProfile.username}.`,
+    workId: dbWork.id,
+    workTitle: dbWork.title,
+    previousAuthor: {
+      id: dbWork.author_id,
+      name: prevAuthor?.display_name || prevAuthor?.username || 'Unknown',
+      handle: prevAuthor?.username || 'unknown',
+    },
+    newAuthor: {
+      id: targetProfile.id,
+      name: targetProfile.display_name || targetProfile.username,
+      handle: targetProfile.username,
+      avatar: targetProfile.avatar_path || null,
+      isMock: Boolean(targetProfile.is_mock),
+    },
+    reassignedAt: nowIso,
+  }
+}
+
+export const adminReassignWorkServerFn = createServerFn({ method: 'POST' })
+  .validator((params: AdminReassignWorkPayload) => {
+    if (!params.adminToken) throw new Error('Admin authorization token is required')
+    if (!params.workId?.trim()) throw new Error('Work ID is required')
+    if (!params.targetProfileId?.trim()) throw new Error('Target author Profile ID is required')
+    return params
+  })
+  .handler(async ({ data }) => {
+    return executeAdminReassignWork(data)
+  })
+
 
 
 

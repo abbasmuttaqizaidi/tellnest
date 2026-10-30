@@ -9,7 +9,9 @@ import {
   adminPostChapterServerFn,
   adminUpdateChapterServerFn,
   getAdminWorkActsAnalyticsServerFn,
+  getAdminUsersServerFn,
   type WorkActAnalytics,
+  type AdminUser,
 } from '../server/admin'
 import { Badge, Button } from '../design-system'
 import { UnisexAvatar } from '../components/UnisexAvatar'
@@ -35,6 +37,7 @@ import {
   Tag,
   PenTool,
   Bookmark,
+  UserCheck,
 } from 'lucide-react'
 import { generateMeta } from '../lib/seo'
 import { getWorkSlug, type Work, type Act, type Chapter } from '../data/mockData'
@@ -151,6 +154,8 @@ function AdminWorkEditorPage() {
   )
   const [authorName, setAuthorName] = useState(work?.author.name || '')
   const [authorHandle, setAuthorHandle] = useState(work?.author.handle || '')
+  const [selectedAuthorId, setSelectedAuthorId] = useState<string>(work?.author.id || '')
+  const [availableAuthors, setAvailableAuthors] = useState<AdminUser[]>([])
 
   // Tab Navigation: 'details' | 'acts' | 'chapters'
   const [activeTab, setActiveTab] = useState<'details' | 'acts' | 'chapters'>('details')
@@ -210,6 +215,7 @@ function AdminWorkEditorPage() {
       setVisibility((work.visibility as any) || 'Public')
       setAuthorName(work.author.name || '')
       setAuthorHandle(work.author.handle || '')
+      setSelectedAuthorId(work.author.id || '')
     }
   }, [work, initialHydratedRef])
 
@@ -226,6 +232,12 @@ function AdminWorkEditorPage() {
         if (res.valid) {
           setIsAuthenticated(true)
           loadActsFromDb(adminToken)
+          // Also fetch platform authors to support ownership reassignment
+          getAdminUsersServerFn({ data: { adminToken } })
+            .then((uRes) => {
+              if (uRes?.users) setAvailableAuthors(uRes.users)
+            })
+            .catch(() => {})
         } else {
           setIsAuthenticated(false)
         }
@@ -341,6 +353,7 @@ function AdminWorkEditorPage() {
             tags: parsedTags,
             status,
             visibility,
+            authorId: selectedAuthorId || undefined,
             authorName: authorName.trim() || undefined,
             authorHandle: authorHandle.trim() || undefined,
           },
@@ -968,30 +981,70 @@ function AdminWorkEditorPage() {
                 />
               </div>
 
-              {/* Author Display Name */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-mono font-medium text-[var(--ink-secondary)]">
-                  Author Display Name
-                </label>
-                <input
-                  type="text"
-                  value={authorName}
-                  onChange={(e) => setAuthorName(e.target.value)}
-                  className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2 text-xs text-[var(--ink-primary)] focus:outline-none focus:border-[var(--ink-primary)]"
-                />
-              </div>
+              {/* Author Ownership & Reassignment */}
+              <div className="space-y-2 p-3.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)]">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-mono font-medium text-[var(--ink-secondary)]">
+                    Manuscript Ownership & Author
+                  </label>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-mono text-purple-400">
+                    <UserCheck className="h-3 w-3" />
+                    <span>Reassign Folio</span>
+                  </span>
+                </div>
 
-              {/* Author Handle */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-mono font-medium text-[var(--ink-secondary)]">
-                  Author Handle (@handle)
-                </label>
-                <input
-                  type="text"
-                  value={authorHandle}
-                  onChange={(e) => setAuthorHandle(e.target.value)}
-                  className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2 text-xs text-[var(--ink-primary)] focus:outline-none focus:border-[var(--ink-primary)]"
-                />
+                {availableAuthors.length > 0 && (
+                  <div>
+                    <label className="block text-[11px] font-mono text-[var(--ink-muted)] mb-1">
+                      Select Author Profile
+                    </label>
+                    <select
+                      value={selectedAuthorId}
+                      onChange={(e) => {
+                        const newId = e.target.value
+                        setSelectedAuthorId(newId)
+                        const matched = availableAuthors.find((u) => u.profileId === newId || u.username === newId)
+                        if (matched) {
+                          setAuthorName(matched.displayName)
+                          setAuthorHandle(matched.username)
+                        }
+                      }}
+                      className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2 text-xs font-mono text-[var(--ink-primary)] focus:outline-none focus:border-purple-500"
+                    >
+                      <option value="">-- Keep Current Author / Custom --</option>
+                      {availableAuthors.map((u) => (
+                        <option key={u.profileId || u.username} value={u.profileId}>
+                          {u.displayName} (@{u.username}) {u.isMock ? '[Mock Persona]' : '[Real Member]'} • {u.works?.length || 0} stories
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                  <div>
+                    <label className="block text-[11px] font-mono text-[var(--ink-muted)] mb-1">
+                      Display Name
+                    </label>
+                    <input
+                      type="text"
+                      value={authorName}
+                      onChange={(e) => setAuthorName(e.target.value)}
+                      className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-1.5 text-xs text-[var(--ink-primary)] focus:outline-none focus:border-[var(--ink-primary)]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-mono text-[var(--ink-muted)] mb-1">
+                      Handle (@handle)
+                    </label>
+                    <input
+                      type="text"
+                      value={authorHandle}
+                      onChange={(e) => setAuthorHandle(e.target.value)}
+                      className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-1.5 text-xs text-[var(--ink-primary)] focus:outline-none focus:border-[var(--ink-primary)]"
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* Category */}

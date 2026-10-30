@@ -16,11 +16,13 @@ import {
   adminSendEmailServerFn,
   adminUpdateWorkCoverServerFn,
   adminToggleWorkTrendingServerFn,
+  adminReassignWorkServerFn,
   type AdminUser,
   type AdminDashboardData,
   type AdminWorkRow,
   type WorkActAnalytics,
   type AdminSendEmailInput,
+  type AdminReassignWorkPayload,
 } from '../server/admin'
 import {
   adminGetInspectletSettingsServerFn,
@@ -75,6 +77,8 @@ import {
   AlertCircle,
   Video,
   VideoOff,
+  UserCheck,
+  ArrowRight,
 } from 'lucide-react'
 
 import { generateMeta } from '../lib/seo'
@@ -187,6 +191,14 @@ function SecretAdminPanelPage() {
   const [newCoverUrl, setNewCoverUrl] = useState<string>('')
   const [isCoverUploading, setIsCoverUploading] = useState<boolean>(false)
   const [isSavingCover, setIsSavingCover] = useState<boolean>(false)
+
+  // Reassign Work Ownership Modal State
+  const [reassignTargetWork, setReassignTargetWork] = useState<AdminWorkRow | null>(null)
+  const [selectedAuthorProfileId, setSelectedAuthorProfileId] = useState<string>('')
+  const [reassignAuthorSearch, setReassignAuthorSearch] = useState<string>('')
+  const [reassignAuthorFilter, setReassignAuthorFilter] = useState<'all' | 'real' | 'mock'>('all')
+  const [isReassigningWork, setIsReassigningWork] = useState<boolean>(false)
+  const [reassignWorkError, setReassignWorkError] = useState<string | null>(null)
 
   // Purge Modal State
   const [purgeTarget, setPurgeTarget] = useState<AdminUser | null>(null)
@@ -448,6 +460,111 @@ function SecretAdminPanelPage() {
       showToast(err?.message || 'Failed to update story cover image')
     } finally {
       setIsSavingCover(false)
+    }
+  }
+
+  // Open Reassign Manuscript Ownership Modal
+  const openReassignModal = (work: AdminWorkRow) => {
+    setReassignTargetWork(work)
+    setSelectedAuthorProfileId('')
+    setReassignAuthorSearch('')
+    setReassignAuthorFilter('all')
+    setReassignWorkError(null)
+  }
+
+  // Handle Confirm Reassignment Action
+  const handleConfirmReassignment = async () => {
+    if (!reassignTargetWork || !selectedAuthorProfileId || !adminToken) return
+    if (selectedAuthorProfileId === reassignTargetWork.author.id) {
+      setReassignWorkError('Please select a different author to transfer this manuscript to.')
+      return
+    }
+
+    setIsReassigningWork(true)
+    setReassignWorkError(null)
+
+    try {
+      const res = await adminReassignWorkServerFn({
+        data: {
+          adminToken,
+          workId: reassignTargetWork.id,
+          targetProfileId: selectedAuthorProfileId,
+        },
+      })
+
+      if (!res.success) {
+        throw new Error(res.message || 'Failed to reassign manuscript')
+      }
+
+      // 1. Update local adminWorks state with new author details
+      setAdminWorks((prev) =>
+        prev.map((w) => {
+          if (w.id !== reassignTargetWork.id) return w
+          return {
+            ...w,
+            author: {
+              id: res.newAuthor.id,
+              name: res.newAuthor.name,
+              handle: res.newAuthor.handle,
+              avatar: res.newAuthor.avatar || null,
+              isMock: res.newAuthor.isMock,
+            },
+          }
+        })
+      )
+
+      // 2. Update global AppContext so platform views reflect the new author immediately
+      updateWork(reassignTargetWork.id, {
+        author: {
+          id: res.newAuthor.id,
+          name: res.newAuthor.name,
+          handle: res.newAuthor.handle,
+          avatar: res.newAuthor.avatar || undefined,
+          bio: '',
+        },
+      })
+
+      // 3. Update dashboardData.users works arrays
+      if (dashboardData) {
+        const oldAuthId = res.previousAuthor.id
+        const newAuthId = res.newAuthor.id
+        let movedWorkItem: any = null
+
+        const updatedUsers = dashboardData.users.map((u) => {
+          const matchOld = u.profileId === oldAuthId || u.username.toLowerCase() === res.previousAuthor.handle.toLowerCase()
+          if (matchOld) {
+            movedWorkItem = u.works.find((w) => w.id === reassignTargetWork.id) || null
+            return {
+              ...u,
+              works: u.works.filter((w) => w.id !== reassignTargetWork.id),
+            }
+          }
+          return u
+        }).map((u) => {
+          const matchNew = u.profileId === newAuthId || u.username.toLowerCase() === res.newAuthor.handle.toLowerCase()
+          if (matchNew && movedWorkItem) {
+            return {
+              ...u,
+              works: [movedWorkItem, ...u.works.filter((w) => w.id !== movedWorkItem.id)],
+            }
+          }
+          return u
+        })
+
+        setDashboardData({
+          ...dashboardData,
+          users: updatedUsers,
+        })
+      }
+
+      showToast(res.message || `Manuscript transferred to @${res.newAuthor.handle}!`)
+      setReassignTargetWork(null)
+      reloadWorksFromDb()
+    } catch (err: any) {
+      console.error('[handleConfirmReassignment] Error:', err)
+      setReassignWorkError(err?.message || 'Failed to reassign manuscript')
+    } finally {
+      setIsReassigningWork(false)
     }
   }
 
@@ -819,6 +936,36 @@ function SecretAdminPanelPage() {
       return true
     })
   }, [combinedAdminWorks, worksSearchQuery, worksFilter])
+
+  // Candidate Authors for Manuscript Reassignment
+  const candidateAuthors = useMemo(() => {
+    if (!dashboardData?.users) return []
+    return dashboardData.users.filter((u) => {
+      // Tab filter
+      if (reassignAuthorFilter === 'real' && u.isMock) return false
+      if (reassignAuthorFilter === 'mock' && !u.isMock) return false
+
+      // Search query
+      if (!reassignAuthorSearch.trim()) return true
+      const q = reassignAuthorSearch.trim().toLowerCase()
+      return (
+        u.displayName?.toLowerCase().includes(q) ||
+        u.username?.toLowerCase().includes(q)
+      )
+    })
+  }, [dashboardData?.users, reassignAuthorFilter, reassignAuthorSearch])
+
+  // Selected Target Author for Reassignment Preview Card
+  const selectedTargetAuthor = useMemo(() => {
+    if (!selectedAuthorProfileId || !dashboardData?.users) return null
+    return (
+      dashboardData.users.find(
+        (u) =>
+          u.profileId === selectedAuthorProfileId ||
+          u.username.toLowerCase() === selectedAuthorProfileId.toLowerCase()
+      ) || null
+    )
+  }, [selectedAuthorProfileId, dashboardData?.users])
 
   // Copy ID to clipboard
   const handleCopyId = (id: string) => {
@@ -2165,6 +2312,16 @@ function SecretAdminPanelPage() {
                             <span>Cover</span>
                           </button>
 
+                          <button
+                            type="button"
+                            onClick={() => openReassignModal(work)}
+                            className="inline-flex items-center gap-1 rounded border border-purple-500/30 bg-purple-500/10 px-2 py-1 text-[11px] font-mono font-medium text-purple-400 hover:bg-purple-500/20 hover:border-purple-500/50 cursor-pointer"
+                            title={`Reassign ownership of "${work.title}" to another author`}
+                          >
+                            <UserCheck className="h-3 w-3" />
+                            <span>Reassign</span>
+                          </button>
+
                           <Link
                             to="/admin-work-editor/$workId"
                             params={{ workId: work.id }}
@@ -2776,6 +2933,36 @@ function SecretAdminPanelPage() {
                                   >
                                     <Camera className="h-2.5 w-2.5 text-[var(--ink-muted)]" />
                                     <span>Cover</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const matched = adminWorks.find((w) => w.id === work.id) || {
+                                        id: work.id,
+                                        title: work.title,
+                                        cover: (work as any).coverImage || (work as any).cover || null,
+                                        author: {
+                                          id: user.profileId || user.id,
+                                          name: user.displayName,
+                                          handle: user.username,
+                                          avatar: user.avatarUrl || null,
+                                          isMock: Boolean(user.isMock),
+                                        },
+                                        postedAt: (work as any).publishedAt || new Date().toISOString(),
+                                        viewCount: (work as any).views || 0,
+                                        likeCount: (work as any).likeCount || 0,
+                                        saveCount: (work as any).saveCount || 0,
+                                        status: work.status || 'Ongoing',
+                                        trendingMarkedByAdmin: false,
+                                      }
+                                      openReassignModal(matched as AdminWorkRow)
+                                    }}
+                                    className="inline-flex items-center gap-1 rounded border border-purple-500/30 bg-purple-500/10 px-2 py-1 text-[10px] font-mono font-medium text-purple-400 hover:bg-purple-500/20 hover:border-purple-500/50 cursor-pointer"
+                                    title={`Reassign "${work.title}" to another author`}
+                                  >
+                                    <UserCheck className="h-2.5 w-2.5" />
+                                    <span>Reassign</span>
                                   </button>
 
                                   <Link
@@ -5294,6 +5481,298 @@ function SecretAdminPanelPage() {
                 disabled={!newCoverUrl.trim() || isCoverUploading}
               >
                 Save Cover Image
+              </Button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* REASSIGN WORK OWNERSHIP MODAL */}
+      {reassignTargetWork && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-2xl max-h-[92vh] overflow-hidden flex flex-col rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-2xl">
+
+            {/* Modal Header */}
+            <div className="flex items-start justify-between gap-4 p-5 pb-4 border-b border-[var(--border-subtle)] shrink-0">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/30">
+                  <UserCheck className="h-5 w-5 stroke-[1.75]" />
+                </div>
+                <div>
+                  <h3 className="font-serif text-lg font-bold text-[var(--ink-primary)]">
+                    Reassign Manuscript Ownership
+                  </h3>
+                  <p className="text-xs text-[var(--ink-muted)]">
+                    Transfer manuscript, all acts, chapters, and reader metrics to a new author profile.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReassignTargetWork(null)}
+                className="p-1.5 rounded-lg hover:bg-[var(--bg-subtle)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Modal Scrollable Body */}
+            <div className="p-5 space-y-5 overflow-y-auto max-h-[calc(92vh-140px)]">
+
+              {/* Manuscript Summary Banner */}
+              <div className="flex items-center gap-3.5 p-3 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-subtle)]">
+                <div className="relative h-14 w-10 shrink-0 rounded overflow-hidden border border-[var(--border-strong)] bg-[var(--bg-canvas)]">
+                  {reassignTargetWork.cover ? (
+                    <img src={reassignTargetWork.cover} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center text-[var(--ink-muted)]">
+                      <BookOpen className="h-4 w-4" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-serif text-sm font-bold text-[var(--ink-primary)] truncate">
+                      {reassignTargetWork.title}
+                    </span>
+                    <Badge variant="outline" size="sm" className="font-mono text-[9px] uppercase">
+                      {reassignTargetWork.status}
+                    </Badge>
+                  </div>
+                  <div className="text-[11px] font-mono text-[var(--ink-muted)] truncate">
+                    ID: {reassignTargetWork.id.slice(0, 18)}... • Slug: /{reassignTargetWork.slug || 'slug'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Ownership Transfer Flow Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center relative">
+                {/* Left Card: Current Owner */}
+                <div className="p-3.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-canvas)] space-y-2">
+                  <span className="text-[10px] font-mono font-medium text-[var(--ink-muted)] uppercase tracking-wider block">
+                    Current Author (Releasing)
+                  </span>
+                  <div className="flex items-center gap-2.5">
+                    <UnisexAvatar
+                      avatarUrl={reassignTargetWork.author.avatar || undefined}
+                      name={reassignTargetWork.author.name}
+                      size="sm"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-semibold text-[var(--ink-primary)] truncate">
+                        {reassignTargetWork.author.name}
+                      </div>
+                      <div className="text-[11px] font-mono text-[var(--ink-muted)] truncate">
+                        @{reassignTargetWork.author.handle}
+                      </div>
+                    </div>
+                    {reassignTargetWork.author.isMock ? (
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/30 shrink-0">
+                        Mock
+                      </span>
+                    ) : (
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/30 shrink-0">
+                        Real
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right Card: Target Selected Author */}
+                <div className={`p-3.5 rounded-xl border transition-colors space-y-2 ${
+                  selectedAuthorProfileId
+                    ? 'border-purple-500/40 bg-purple-500/5'
+                    : 'border-dashed border-[var(--border-subtle)] bg-[var(--bg-canvas)]'
+                }`}>
+                  <span className="text-[10px] font-mono font-medium text-purple-400 uppercase tracking-wider block">
+                    New Author (Recipient)
+                  </span>
+                  {selectedTargetAuthor ? (
+                    <div className="flex items-center gap-2.5">
+                      <UnisexAvatar
+                        avatarUrl={selectedTargetAuthor.avatarUrl || undefined}
+                        name={selectedTargetAuthor.displayName}
+                        size="sm"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-semibold text-[var(--ink-primary)] truncate">
+                          {selectedTargetAuthor.displayName}
+                        </div>
+                        <div className="text-[11px] font-mono text-[var(--ink-muted)] truncate">
+                          @{selectedTargetAuthor.username}
+                        </div>
+                      </div>
+                      {selectedTargetAuthor.isMock ? (
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/30 shrink-0">
+                          Mock
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/30 shrink-0">
+                          Real
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-[var(--ink-muted)] italic py-1">
+                      Choose an author from the list below...
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Author Search & Filter Controls */}
+              <div className="space-y-2.5 pt-1">
+                <div className="flex items-center justify-between gap-2">
+                  <label className="text-xs font-mono font-medium text-[var(--ink-secondary)]">
+                    Select Target Author
+                  </label>
+                  {/* Filter Pills */}
+                  <div className="flex items-center gap-1">
+                    {(['all', 'real', 'mock'] as const).map((filter) => (
+                      <button
+                        key={filter}
+                        type="button"
+                        onClick={() => setReassignAuthorFilter(filter)}
+                        className={`px-2 py-0.5 text-[10px] font-mono rounded cursor-pointer transition-colors ${
+                          reassignAuthorFilter === filter
+                            ? 'bg-purple-500/20 text-purple-400 border border-purple-500/40 font-semibold'
+                            : 'bg-[var(--bg-canvas)] text-[var(--ink-muted)] border border-[var(--border-subtle)] hover:text-[var(--ink-primary)]'
+                        }`}
+                      >
+                        {filter === 'all' ? 'All' : filter === 'real' ? 'Real Users' : 'Mock Personas'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-[var(--ink-muted)]" />
+                  <input
+                    type="text"
+                    value={reassignAuthorSearch}
+                    onChange={(e) => setReassignAuthorSearch(e.target.value)}
+                    placeholder="Search by author display name or @username..."
+                    className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] pl-8 pr-3 py-1.5 text-xs text-[var(--ink-primary)] focus:outline-none focus:border-purple-500"
+                  />
+                </div>
+
+                {/* Author Selection List */}
+                <div className="max-h-56 overflow-y-auto rounded-lg border border-[var(--border-subtle)] divide-y divide-[var(--border-subtle)] bg-[var(--bg-canvas)]">
+                  {candidateAuthors.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-[var(--ink-muted)]">
+                      No authors found matching your criteria.
+                    </div>
+                  ) : (
+                    candidateAuthors.map((author) => {
+                      const isCurrentOwner =
+                        author.profileId === reassignTargetWork.author.id ||
+                        author.username.toLowerCase() === reassignTargetWork.author.handle.toLowerCase()
+                      const isSelected = selectedAuthorProfileId === author.profileId
+
+                      return (
+                        <div
+                          key={author.profileId || author.username}
+                          onClick={() => {
+                            if (!isCurrentOwner) {
+                              setSelectedAuthorProfileId(author.profileId)
+                              setReassignWorkError(null)
+                            }
+                          }}
+                          className={`flex items-center justify-between p-2.5 transition-colors ${
+                            isCurrentOwner
+                              ? 'opacity-40 cursor-not-allowed bg-[var(--bg-subtle)]'
+                              : isSelected
+                              ? 'bg-purple-500/10 border-l-2 border-l-purple-500 cursor-pointer'
+                              : 'hover:bg-[var(--bg-subtle)] cursor-pointer'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <UnisexAvatar
+                              avatarUrl={author.avatarUrl || undefined}
+                              name={author.displayName}
+                              size="sm"
+                            />
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-medium text-[var(--ink-primary)] truncate">
+                                  {author.displayName}
+                                </span>
+                                {author.isMock ? (
+                                  <span className="text-[8px] font-mono px-1 py-0.2 rounded bg-amber-500/10 text-amber-500 border border-amber-500/30">
+                                    Mock
+                                  </span>
+                                ) : (
+                                  <span className="text-[8px] font-mono px-1 py-0.2 rounded bg-blue-500/10 text-blue-400 border border-blue-500/30">
+                                    Real
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[10px] font-mono text-[var(--ink-muted)] truncate">
+                                @{author.username} • {author.works?.length || 0} stories
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            {isCurrentOwner ? (
+                              <span className="text-[9px] font-mono text-[var(--ink-muted)] px-1.5 py-0.5 rounded bg-[var(--bg-canvas)] border border-[var(--border-subtle)]">
+                                Current Owner
+                              </span>
+                            ) : (
+                              <div className={`h-4 w-4 rounded-full border flex items-center justify-center transition-colors ${
+                                isSelected
+                                  ? 'border-purple-500 bg-purple-500 text-white'
+                                  : 'border-[var(--border-strong)] bg-[var(--bg-surface)]'
+                              }`}>
+                                {isSelected && <Check className="h-2.5 w-2.5 stroke-[3]" />}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Informational Invariant Notice */}
+              <div className="p-3 rounded-lg border border-purple-500/20 bg-purple-500/5 flex items-start gap-2.5 text-xs text-[var(--ink-muted)]">
+                <ShieldCheck className="h-4 w-4 text-purple-400 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Atomic Hierarchy Transfer:</strong> Updating manuscript ownership automatically transfers all Acts, Chapters, paragraphs, and discovery metrics. HatchPen also clears any preexisting reading bookmarks for the recipient on this story.
+                </span>
+              </div>
+
+              {/* Error Alert */}
+              {reassignWorkError && (
+                <div className="p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-xs text-red-400 flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>{reassignWorkError}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 p-4 border-t border-[var(--border-subtle)] shrink-0 bg-[var(--bg-canvas)]">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setReassignTargetWork(null)}
+                disabled={isReassigningWork}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                isLoading={isReassigningWork}
+                leftIcon={<Check className="h-3.5 w-3.5" />}
+                onClick={handleConfirmReassignment}
+                disabled={!selectedAuthorProfileId || selectedAuthorProfileId === reassignTargetWork.author.id}
+                className="bg-purple-600 hover:bg-purple-700 text-white border-none"
+              >
+                Transfer Manuscript
               </Button>
             </div>
 

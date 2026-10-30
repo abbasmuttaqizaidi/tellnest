@@ -13,10 +13,14 @@ import { getAuthUserServerFn } from '../server/auth'
 
 import appCss from '../styles.css?url'
 
+const isProduction =
+  (typeof import.meta !== 'undefined' && Boolean(import.meta.env?.PROD)) ||
+  (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production')
+
 const CLERK_PUBLISHABLE_KEY =
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_CLERK_PUBLISHABLE_KEY) ||
-  (typeof process !== 'undefined' && process.env?.VITE_CLERK_PUBLISHABLE_KEY) ||
-  'pk_test_aW52aXRpbmctYm9hLTg5NDIuY2xlcmsuYWNjb3VudHMuZGV2JA'
+  (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_CLERK_PUBLISHABLE_KEY || import.meta.env?.CLERK_PUBLISHABLE_KEY)) ||
+  (typeof process !== 'undefined' && (process.env?.VITE_CLERK_PUBLISHABLE_KEY || process.env?.CLERK_PUBLISHABLE_KEY)) ||
+  (isProduction ? '' : 'pk_test_aW52aXRpbmctYm9hLTg5NDIuY2xlcmsuYWNjb3VudHMuZGV2JA')
 
 const GOOGLE_SITE_VERIFICATION =
   (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_SITE_VERIFICATION) ||

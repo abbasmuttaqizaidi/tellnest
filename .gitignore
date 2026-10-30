@@ -24,3 +24,6 @@ GSD-STYLE.md
 PROJECT_RULES.md
 VERSION
 model_capabilities.yaml
+.env*
+!.env.example
+env_test
