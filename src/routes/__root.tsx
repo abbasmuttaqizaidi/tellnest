@@ -70,7 +70,7 @@ const GLOBAL_JSON_LD = JSON.stringify({
 export const Route = createRootRoute({
   staleTime: 60_000,
   gcTime: 300_000,
-  loader: async () => {
+  beforeLoad: async () => {
     try {
       const authUser = await getAuthUserServerFn()
       return {
@@ -82,6 +82,12 @@ export const Route = createRootRoute({
         authUser: null,
         isAuthenticated: false,
       }
+    }
+  },
+  loader: ({ context }) => {
+    return {
+      authUser: context?.authUser ?? null,
+      isAuthenticated: Boolean(context?.isAuthenticated),
     }
   },
   head: () => ({

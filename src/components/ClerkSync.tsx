@@ -1,21 +1,19 @@
 import { useEffect, useRef } from 'react'
-import { useUser, useAuth } from '@clerk/react'
+import { useUser } from '@clerk/react'
 import { useRouter } from '@tanstack/react-router'
 import { syncClerkUserServerFn, recordUserPresenceServerFn } from '../server/authors'
-import { createClerkSupabaseClient } from '../lib/supabase/client'
 import { useApp } from '../context/AppContext'
 
 /**
  * ClerkSync Component
- * Automatically synchronizes authenticated Clerk users with the Supabase `profiles` table
- * and attaches the Clerk JWT session token for Supabase Row Level Security (RLS).
+ * Automatically synchronizes authenticated Clerk users with the Supabase `profiles` table.
  */
 export function ClerkSync() {
   const { user, isLoaded: isUserLoaded, isSignedIn } = useUser()
-  const { getToken } = useAuth()
   const router = useRouter()
   const { setUserDisplayName, setUserProfileUsername } = useApp()
   const lastSyncedIdRef = useRef<string | null>(null)
+  const isSyncingRef = useRef<string | null>(null)
   const prevSignedInRef = useRef<boolean | null>(null)
 
   useEffect(() => {
@@ -33,7 +31,13 @@ export function ClerkSync() {
       }
 
       if (prevSignedInRef.current !== null && prevSignedInRef.current !== isSignedIn) {
-        router.invalidate()
+        // Do not trigger router invalidation while currently on /sso-callback
+        // The callback route will handle navigating to destination cleanly.
+        const isCallbackRoute =
+          typeof window !== 'undefined' && window.location.pathname === '/sso-callback'
+        if (!isCallbackRoute) {
+          router.invalidate()
+        }
       }
       prevSignedInRef.current = isSignedIn
     }
@@ -42,8 +46,9 @@ export function ClerkSync() {
   useEffect(() => {
     if (!isUserLoaded || !isSignedIn || !user) return
 
-    // Avoid redundant syncs within the same session
-    if (lastSyncedIdRef.current === user.id) return
+    // Avoid redundant or in-flight syncs within the same session
+    if (lastSyncedIdRef.current === user.id || isSyncingRef.current === user.id) return
+    isSyncingRef.current = user.id
 
     async function sync() {
       try {
@@ -58,7 +63,7 @@ export function ClerkSync() {
           user.username ||
           'HatchPen Author'
 
-        // 1. Sync User into Supabase `profiles` table via server function (Service Role Key runs strictly on server)
+        // Sync User into Supabase `profiles` table via server function (Service Role Key runs strictly on server)
         const synced = await syncClerkUserServerFn({
           data: {
             clerkUserId: user.id,
@@ -79,23 +84,17 @@ export function ClerkSync() {
         }
 
         lastSyncedIdRef.current = user.id
-
-        // 2. Obtain Clerk JWT for Supabase RLS (if Supabase JWT template is configured)
-        try {
-          const supabaseToken = await getToken({ template: 'supabase' })
-          if (supabaseToken) {
-            createClerkSupabaseClient(supabaseToken)
-          }
-        } catch (jwtErr) {
-          // JWT template may be pending configuration in Clerk dashboard
-        }
       } catch (err) {
         console.error('[ClerkSync] Failed to sync user profile with Supabase:', err)
+      } finally {
+        if (isSyncingRef.current === user.id) {
+          isSyncingRef.current = null
+        }
       }
     }
 
     sync()
-  }, [user, isUserLoaded, isSignedIn, getToken])
+  }, [user, isUserLoaded, isSignedIn])
 
   // Active Presence Heartbeat (Every 2.5 minutes while tab is visible)
   useEffect(() => {

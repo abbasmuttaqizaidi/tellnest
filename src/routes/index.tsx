@@ -11,7 +11,7 @@ import {
   getUserRecommendationSignalsServerFn,
   type UserRecommendationSignals,
 } from '../server/recommendations'
-import { getPlatformWorksServerFn, getTopShelfServerFn } from '../server/works'
+import { getPlatformWorksServerFn } from '../server/works'
 import {
   LoggedInHomeSkeleton,
   PublicHomeSkeleton,
@@ -31,14 +31,15 @@ export const Route = createFileRoute('/')({
   validateSearch: (search: Record<string, unknown>) => ({
     view: (search.view as string) || undefined,
   }),
-  loader: async (): Promise<HomeLoaderData> => {
+  loader: async ({ context }: { context?: { authUser?: any } }): Promise<HomeLoaderData> => {
     try {
-      const authUser = await getAuthUserServerFn()
+      // Re-use authUser from root route context to eliminate redundant server calls
+      const authUser = context?.authUser ?? (await getAuthUserServerFn())
       const isAuth = Boolean(authUser?.isAuthenticated && authUser?.userId)
 
-      // Parallel server pre-fetch of user bootstrap, recommendation signals, platform works, and top shelf
-      // Eliminates the client waterfall and ensures real DB works are ready on frame 1
-      const [bootstrap, recSignals, platformWorks, topShelfWorks] = await Promise.all([
+      // Parallel server pre-fetch of user bootstrap, recommendation signals, and platform works.
+      // Eliminates client waterfall while avoiding blocking the navigation on expensive non-essential queries.
+      const [bootstrap, recSignals, platformWorks] = await Promise.all([
         isAuth
           ? getUserSessionBootstrapServerFn({ data: authUser!.userId! }).catch((err) => {
               console.warn('[Route Loader] Pre-fetch bootstrap failed:', err?.message || err)
@@ -55,10 +56,6 @@ export const Route = createFileRoute('/')({
           console.warn('[Route Loader] Pre-fetch platform works failed:', err?.message || err)
           return null
         }),
-        getTopShelfServerFn({ data: { limit: 10 } }).catch((err) => {
-          console.warn('[Route Loader] Pre-fetch top shelf failed:', err?.message || err)
-          return null
-        }),
       ])
 
       return {
@@ -66,7 +63,7 @@ export const Route = createFileRoute('/')({
         initialBootstrap: bootstrap,
         initialRecSignals: recSignals,
         initialWorks: platformWorks,
-        initialTopShelf: topShelfWorks,
+        initialTopShelf: null,
         catalogError: platformWorks === null,
       }
     } catch {
