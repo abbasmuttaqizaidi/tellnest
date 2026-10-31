@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate, notFound } from '@tanstack/react-router'
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import ReaderSettingsModal from '../components/ReaderSettingsModal'
@@ -47,18 +47,30 @@ import { ShareStoryModal } from '../components/ShareStoryModal'
 
 export const Route = createFileRoute('/read/$workId/$chapterId')({
   loader: async ({ params }) => {
-    const rawParam = (params.workId || '').trim().toLowerCase()
-
     // 1. Fetch full work from Supabase
     try {
       const dbWork = await getPublicWorkServerFn({ data: params.workId })
-      if (dbWork && dbWork.chapters?.length) return { work: dbWork }
+      if (dbWork && dbWork.chapters?.length) {
+        const chapter = findReaderChapter(dbWork.chapters, params.chapterId)
+        if (chapter) return { work: dbWork }
+      }
     } catch (e) {
       console.warn('[Route /read/$workId/$chapterId] Loader DB lookup error:', e)
     }
 
-    return { work: null }
+    throw notFound()
   },
+  notFoundComponent: () => (
+    <div className="py-20 px-4 max-w-xl mx-auto">
+      <EmptyState
+        type="no-works"
+        customTitle="Chapter Not Found"
+        customDescription="The chapter you are looking for does not exist or has been removed."
+        actionLabel="Return to Catalog"
+        actionHref="/discover"
+      />
+    </div>
+  ),
   head: ({ params, loaderData }) => {
     const rawParam = params.workId.trim().toLowerCase()
     let work = loaderData?.work
@@ -156,6 +168,14 @@ export const Route = createFileRoute('/read/$workId/$chapterId')({
       breadcrumbs: [
         { name: 'Home', url: '/' },
         { name: 'Discover', url: '/discover' },
+        ...(work.category
+          ? [
+              {
+                name: work.category,
+                url: `/category/${(work.categorySlug || work.category.toLowerCase().replace(/[^a-z0-9]+/g, '-')).replace(/^-|-$/g, '')}`,
+              },
+            ]
+          : []),
         { name: work.title, url: `/works/${canonicalSlug}` },
         { name: chapter.title, url: canonicalUrl },
       ],

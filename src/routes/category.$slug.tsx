@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, notFound } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { GLOBAL_CATEGORIES } from '../lib/taxonomy'
@@ -27,8 +27,24 @@ export const Route = createFileRoute('/category/$slug')({
     if (found) {
       return { category: found, works: [], isNotFound: false }
     }
-    return { category: null, works: [], isNotFound: true }
+    throw notFound()
   },
+  notFoundComponent: () => (
+    <div className="min-h-screen py-16 px-4 max-w-3xl mx-auto text-center space-y-4">
+      <h1 className="font-serif text-3xl sm:text-4xl font-semibold text-[var(--ink-primary)]">
+        Category Not Found
+      </h1>
+      <p className="text-sm leading-relaxed text-[var(--ink-muted)]">
+        The requested literary category does not exist or is not available.
+      </p>
+      <Link
+        to="/discover"
+        className="inline-block rounded-md border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-4 py-2 text-xs font-medium text-[var(--accent-contrast)] hover:opacity-90 transition-opacity no-underline"
+      >
+        Explore Catalog
+      </Link>
+    </div>
+  ),
   head: ({ params, loaderData }) => {
     if (loaderData?.isNotFound || !loaderData?.category) {
       return generateMeta({

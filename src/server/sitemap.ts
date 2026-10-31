@@ -158,6 +158,16 @@ export async function buildSitemapEntries(options?: BuildSitemapOptions): Promis
     changefreq: 'monthly',
     priority: 0.7,
   })
+  addEntry({
+    loc: `${CANONICAL_BASE_URL}/privacy`,
+    changefreq: 'monthly',
+    priority: 0.5,
+  })
+  addEntry({
+    loc: `${CANONICAL_BASE_URL}/terms`,
+    changefreq: 'monthly',
+    priority: 0.5,
+  })
 
   // 2. All 16 Canonical Categories
   for (const cat of GLOBAL_CATEGORIES) {

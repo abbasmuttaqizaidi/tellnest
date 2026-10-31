@@ -417,6 +417,10 @@ test('Dynamic Sitemap Server Handler: responds with 200, XML content-type, edge 
     )
   }
 
+  // Legal & Discovery Pages
+  assert.ok(sitemapXml.includes('<loc>https://hatchpen.com/privacy</loc>'), 'Privacy Policy must be in sitemap')
+  assert.ok(sitemapXml.includes('<loc>https://hatchpen.com/terms</loc>'), 'Terms of Service must be in sitemap')
+
   // Check URL uniqueness
   const locMatches = [...sitemapXml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1])
   assert.ok(locMatches.length > 50, 'Sitemap must contain > 50 URLs')
@@ -1425,6 +1429,71 @@ test('Image SEO: WorkCards provide rich descriptive alt tags with title, author,
   assert.ok(cardCode.includes('${work.title} by ${authorDisplayName} — ${work.genre || \'Original\'} story cover'), 'WorkCard must have rich alt text for covers')
   assert.ok(cardCode.includes('${authorDisplayName} profile avatar'), 'WorkCard must have descriptive alt for avatar')
 })
+
+test('P1 Audit: Finding 2.1 — Global Footer and PublicHome distribute internal link equity to literary genre hubs', () => {
+  const footerCode = fs.readFileSync(path.join(rootDir, 'src/components/Footer.tsx'), 'utf-8')
+  assert.ok(footerCode.includes('Literary Genres'), 'Footer must feature Literary Genres hub')
+  assert.ok(footerCode.includes('to="/genre/$slug"'), 'Footer must link to canonical genre routes')
+  assert.ok(footerCode.includes('literary-fiction'), 'Footer must include literary-fiction')
+  assert.ok(footerCode.includes('thriller'), 'Footer must include thriller')
+  assert.ok(footerCode.includes('fantasy'), 'Footer must include fantasy')
+  assert.ok(footerCode.includes('romance'), 'Footer must include romance')
+  assert.ok(footerCode.includes('All 33 Genres'), 'Footer must link to full discovery catalog')
+
+  const publicHomeCode = fs.readFileSync(path.join(rootDir, 'src/components/home/PublicHome.tsx'), 'utf-8')
+  assert.ok(publicHomeCode.includes("link: '/genre/literary-fiction'"), 'PublicHome mood cards must link to canonical genre routes')
+  assert.ok(publicHomeCode.includes("link: '/genre/thriller'"), 'PublicHome mood cards must link to thriller')
+  assert.ok(publicHomeCode.includes("link: '/genre/fantasy'"), 'PublicHome mood cards must link to fantasy')
+  assert.ok(publicHomeCode.includes("link: '/genre/romance'"), 'PublicHome mood cards must link to romance')
+})
+
+test('P1 Audit: Finding 2.2 — Google Fonts stack is streamlined and non-blocking for mobile Core Web Vitals', () => {
+  const rootCode = fs.readFileSync(path.join(rootDir, 'src/routes/__root.tsx'), 'utf-8')
+  assert.ok(rootCode.includes('crossOrigin: \'anonymous\''), 'fonts.gstatic.com preconnect must use anonymous CORS')
+  assert.ok(rootCode.includes('display=swap'), 'Google Fonts must include display=swap to eliminate render blocking')
+  // Confirm unneeded heavy fonts were removed
+  assert.ok(!rootCode.includes('Plus+Jakarta+Sans'), 'Plus Jakarta Sans should not be requested')
+  assert.ok(!rootCode.includes('Instrument+Serif'), 'Instrument Serif should not be requested')
+  assert.ok(!rootCode.includes('Archivo+Narrow'), 'Archivo Narrow should not be requested')
+  // Confirm core fonts are loaded
+  assert.ok(rootCode.includes('Inter'), 'Inter must be included')
+  assert.ok(rootCode.includes('Outfit'), 'Outfit must be included')
+  assert.ok(rootCode.includes('Newsreader'), 'Newsreader must be included')
+  assert.ok(rootCode.includes('Source+Serif+4'), 'Source Serif 4 must be included')
+  assert.ok(rootCode.includes('JetBrains+Mono'), 'JetBrains Mono must be included')
+  assert.ok(rootCode.includes('Caveat'), 'Caveat must be included')
+})
+
+test('P1 Audit: Finding 2.3 — Trailing slash URL normalization is configured for 308 permanent redirect', () => {
+  const vercelConfig = JSON.parse(fs.readFileSync(path.join(rootDir, 'vercel.json'), 'utf-8'))
+  assert.equal(vercelConfig.trailingSlash, false, 'vercel.json must set trailingSlash: false for 308 permanent redirect')
+
+  const routerCode = fs.readFileSync(path.join(rootDir, 'src/router.tsx'), 'utf-8')
+  assert.ok(routerCode.includes("trailingSlash: 'never'"), 'TanStack router must configure trailingSlash: never')
+})
+
+test('P2 Audit: Finding 3.1 — Manuscript and Reader pages output hierarchical Category and Genre in BreadcrumbList', () => {
+  const worksCode = fs.readFileSync(path.join(rootDir, 'src/routes/works.$workId.tsx'), 'utf-8')
+  assert.ok(worksCode.includes('work.category'), 'Works route must include work.category in breadcrumbs')
+  assert.ok(worksCode.includes('to="/category/$slug"') || worksCode.includes('/category/${catSlug}'), 'Works route must link category in breadcrumbs')
+  assert.ok(worksCode.includes('/genre/${genreSlug}'), 'Works route must link genre in breadcrumbs')
+
+  const readerCode = fs.readFileSync(path.join(rootDir, 'src/routes/read.$workId.$chapterId.tsx'), 'utf-8')
+  assert.ok(readerCode.includes('work.category'), 'Reader route must include work.category in breadcrumbs')
+})
+
+test('P2 Audit: Finding 3.2 — Author Profile Person JSON-LD generates sameAs authority signals for AI and Google Knowledge Graph', () => {
+  const authorRouteCode = fs.readFileSync(path.join(rootDir, 'src/routes/author.$authorId.tsx'), 'utf-8')
+  assert.ok(authorRouteCode.includes('personEntity.sameAs = sameAsLinks'), 'Author route must output sameAs on personEntity')
+  assert.ok(authorRouteCode.includes('author.website'), 'Author route must inspect author website for sameAs')
+  assert.ok(authorRouteCode.includes('Globe'), 'Author profile UI must display Globe icon for verified website')
+
+  const worksServerCode = fs.readFileSync(path.join(rootDir, 'src/server/works.ts'), 'utf-8')
+  assert.ok(worksServerCode.includes('website_url'), 'getPublicAuthorServerFn must query and return website_url')
+  assert.ok(worksServerCode.includes('website: data.website_url'), 'getPublicAuthorServerFn must map website in return object')
+})
+
+
 
 
 

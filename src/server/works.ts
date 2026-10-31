@@ -352,7 +352,7 @@ export const getPublicAuthorServerFn = createServerFn({ method: 'GET' })
 
     let query = supabase
       .from('profiles')
-      .select('id, username, display_name, avatar_path, bio, location, is_verified, is_public, preferences')
+      .select('id, username, display_name, avatar_path, bio, location, website_url, is_verified, is_public, preferences')
 
     if (isUuid) {
       query = query.or(`id.eq.${clean},username.eq.${clean}`)
@@ -392,6 +392,8 @@ export const getPublicAuthorServerFn = createServerFn({ method: 'GET' })
         'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
       bio: data.bio || '',
       location: data.location || '',
+      website: data.website_url || null,
+      websiteUrl: data.website_url || null,
       worksCount: worksCount ?? 0,
       followersCount: followersCount ?? 0,
       totalReads: String(totalReadsNum),

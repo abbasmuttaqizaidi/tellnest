@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, notFound } from '@tanstack/react-router'
 import { useState, useMemo, useEffect } from 'react'
 import { useUser } from '@clerk/react'
 import { useApp } from '../context/AppContext'
@@ -17,6 +17,7 @@ import {
   Edit3,
   Lock,
   Shield,
+  Globe,
 } from 'lucide-react'
 import { generateMeta } from '../lib/seo'
 import { getAuthorSocialCardUrl } from '../lib/og'
@@ -29,13 +30,24 @@ export const Route = createFileRoute('/author/$authorId')({
   loader: async ({ params }) => {
     try {
       const dbAuthor = await getPublicAuthorServerFn({ data: params.authorId })
-      if (dbAuthor) return { author: dbAuthor }
+      if (dbAuthor && dbAuthor.isPublic !== false) return { author: dbAuthor }
     } catch (e) {
       console.warn('[Route /author/$authorId] Loader lookup error:', e)
     }
 
-    return { author: null }
+    throw notFound()
   },
+  notFoundComponent: () => (
+    <div className="py-20 px-4 max-w-xl mx-auto">
+      <EmptyState
+        type="no-following"
+        customTitle="Author Not Located"
+        customDescription="This writer's profile does not exist in the HatchPen catalog."
+        actionLabel="Return to Catalog"
+        actionHref="/discover"
+      />
+    </div>
+  ),
   head: ({ params, loaderData }) => {
     let author = loaderData?.author
     if (!author && typeof window !== 'undefined') {
@@ -89,6 +101,42 @@ export const Route = createFileRoute('/author/$authorId')({
       description: author.bio || `Read serialized fiction and literary works by ${metaAuthorName} on HatchPen.`,
       image: author.showAvatar !== false ? author.avatar : undefined,
       url: authorCanonicalUrl,
+    }
+
+    // Extract external authority signals (sameAs) for AI search engines & Google Knowledge Graph
+    const sameAsLinks: string[] = []
+    const rawWebsite = author.website || author.websiteUrl || author.website_url
+    if (rawWebsite && typeof rawWebsite === 'string' && rawWebsite.trim()) {
+      const trimmed = rawWebsite.trim()
+      const url = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+      try {
+        new URL(url)
+        sameAsLinks.push(url)
+      } catch (e) {}
+    }
+
+    const pJson = (author.preferences && typeof author.preferences === 'object') ? author.preferences : {}
+    const candidateLinks = [
+      ...(Array.isArray(author.sameAs) ? author.sameAs : typeof author.sameAs === 'string' ? [author.sameAs] : []),
+      ...(Array.isArray(pJson.sameAs) ? pJson.sameAs : []),
+      ...(Array.isArray(pJson.socialLinks) ? pJson.socialLinks : []),
+      pJson.twitter ? (pJson.twitter.startsWith('http') ? pJson.twitter : `https://x.com/${pJson.twitter.replace(/^@/, '')}`) : null,
+      pJson.instagram ? (pJson.instagram.startsWith('http') ? pJson.instagram : `https://instagram.com/${pJson.instagram.replace(/^@/, '')}`) : null,
+    ].filter(Boolean)
+
+    for (const link of candidateLinks) {
+      if (typeof link === 'string' && link.trim()) {
+        const trimmed = link.trim()
+        const url = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+        try {
+          new URL(url)
+          if (!sameAsLinks.includes(url)) sameAsLinks.push(url)
+        } catch (e) {}
+      }
+    }
+
+    if (sameAsLinks.length > 0) {
+      personEntity.sameAs = sameAsLinks
     }
 
     const isWorksCatalogHidden = author.worksVisibility === 'hidden'
@@ -352,6 +400,17 @@ function AuthorProfilePage() {
                     <MapPin className="h-3 w-3" />
                     <span>{author.location}</span>
                   </span>
+                )}
+                {(author.website || author.websiteUrl) && (
+                  <a
+                    href={String(author.website || author.websiteUrl).startsWith('http') ? String(author.website || author.websiteUrl) : `https://${author.website || author.websiteUrl}`}
+                    target="_blank"
+                    rel="noopener noreferrer nofollow"
+                    className="flex items-center gap-1 text-[var(--accent)] hover:underline no-underline"
+                  >
+                    <Globe className="h-3 w-3" />
+                    <span>{String(author.website || author.websiteUrl).replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}</span>
+                  </a>
                 )}
               </div>
             </div>

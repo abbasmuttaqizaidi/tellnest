@@ -82,7 +82,7 @@ const MOOD_DATA = [
     description: 'Quiet prose for unhurried minds.',
     tags: ['Comforting', 'Slice of life', 'Healing'],
     image: calmMoodImg,
-    link: '/discover?genre=slice-of-life',
+    link: '/genre/slice-of-life',
   },
   {
     id: 'thoughtful',
@@ -90,7 +90,7 @@ const MOOD_DATA = [
     description: 'Deep, philosophical reflections.',
     tags: ['Literary', 'Philosophical', 'Character-driven'],
     image: thoughtfulMoodImg,
-    link: '/discover?category=essays',
+    link: '/category/essays',
   },
   {
     id: 'intense',
@@ -98,7 +98,7 @@ const MOOD_DATA = [
     description: 'High stakes and psychological grit.',
     tags: ['Psychological', 'Dark fiction', 'High tension'],
     image: intenseMoodImg,
-    link: '/discover?genre=thriller',
+    link: '/genre/thriller',
   },
   {
     id: 'romantic',
@@ -106,7 +106,7 @@ const MOOD_DATA = [
     description: 'Tender, bittersweet connections.',
     tags: ['Emotional', 'Slow burn', 'Heartfelt'],
     image: romanticMoodImg,
-    link: '/discover?genre=romance',
+    link: '/genre/romance',
   },
   {
     id: 'adventurous',
@@ -114,7 +114,7 @@ const MOOD_DATA = [
     description: 'Expansive journeys and uncharted worlds.',
     tags: ['Discovery', 'Wild frontiers', 'New worlds'],
     image: adventurousMoodImg,
-    link: '/discover?genre=fantasy',
+    link: '/genre/fantasy',
   },
   {
     id: 'mysterious',
@@ -122,7 +122,7 @@ const MOOD_DATA = [
     description: 'Nocturnal tension, secrets, and urban shadows.',
     tags: ['Noir', 'Suspense', 'Secrets'],
     image: mysteriousMoodImg,
-    link: '/discover?genre=crime',
+    link: '/genre/crime',
   },
   {
     id: 'nostalgic',
@@ -130,7 +130,7 @@ const MOOD_DATA = [
     description: 'Poetic longing, quiet rain, and bittersweet memories.',
     tags: ['Bittersweet', 'Nostalgia', 'Quiet grief'],
     image: melancholicMoodImg,
-    link: '/discover?genre=literary-fiction',
+    link: '/genre/literary-fiction',
   },
   {
     id: 'uplifting',
@@ -138,7 +138,7 @@ const MOOD_DATA = [
     description: 'Luminous tales of quiet resilience and hope.',
     tags: ['Uplifting', 'New beginnings', 'Comfort'],
     image: upliftingMoodImg,
-    link: '/discover?genre=contemporary',
+    link: '/genre/contemporary-fiction',
   },
   {
     id: 'whimsical',
@@ -146,7 +146,7 @@ const MOOD_DATA = [
     description: 'Surreal edges, playful wonder, and magical realism.',
     tags: ['Surreal', 'Magical realism', 'Wonder'],
     image: whimsicalMoodImg,
-    link: '/discover?genre=magical-realism',
+    link: '/genre/magical-realism',
   },
   {
     id: 'eerie',
@@ -154,7 +154,7 @@ const MOOD_DATA = [
     description: 'Chilling atmosphere and creeping secrets.',
     tags: ['Suspense', 'Paranoid', 'Unsettling'],
     image: eerieMoodImg,
-    link: '/discover?genre=mystery',
+    link: '/genre/mystery',
   },
   {
     id: 'witty',

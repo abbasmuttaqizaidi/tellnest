@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate, notFound } from '@tanstack/react-router'
 import React, { useState, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useUser, useClerk } from '@clerk/react'
@@ -41,8 +41,6 @@ export const Route = createFileRoute('/works/$workId')({
   staleTime: 60_000,
   gcTime: 1000 * 60 * 5,
   loader: async ({ params }) => {
-    const rawParam = (params.workId || '').trim().toLowerCase()
-
     // 1. Fetch full work from Supabase
     try {
       const dbWork = await getPublicWorkServerFn({ data: params.workId })
@@ -51,8 +49,19 @@ export const Route = createFileRoute('/works/$workId')({
       console.warn('[Route /works/$workId] Loader DB lookup error:', e)
     }
 
-    return { work: null }
+    throw notFound()
   },
+  notFoundComponent: () => (
+    <div className="py-20 px-4 max-w-2xl mx-auto">
+      <EmptyState
+        type="no-works"
+        customTitle="Manuscript Not Found"
+        customDescription="The requested literary work could not be located in the HatchPen catalog."
+        actionLabel="Return to Catalog"
+        actionHref="/discover"
+      />
+    </div>
+  ),
   head: ({ params, loaderData }) => {
     const rawParam = (params.workId || '').trim().toLowerCase()
     let work = loaderData?.work
@@ -101,6 +110,10 @@ export const Route = createFileRoute('/works/$workId')({
     const dateModified = work.updated_at || (work as any).updatedAt || datePublished
 
     const ogImage = getStorySocialCardUrl(work)
+    const catName = work.category || 'Novels'
+    const catSlug = work.categorySlug || catName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'novels'
+    const genreName = work.genre || 'Literary Fiction'
+    const genreSlug = work.genreSlug || genreName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'literary-fiction'
 
     return generateMeta({
       title: `${work.title} by ${authorName}`,
@@ -167,11 +180,19 @@ export const Route = createFileRoute('/works/$workId')({
       breadcrumbs: [
         { name: 'Home', url: '/' },
         { name: 'Discover', url: '/discover' },
+        ...(work.category
+          ? [
+              {
+                name: work.category,
+                url: `/category/${catSlug}`,
+              },
+            ]
+          : []),
         ...(work.genre
           ? [
               {
                 name: work.genre,
-                url: `/genre/${work.genreSlug || work.genre.toLowerCase().replace(/\s+/g, '-')}`,
+                url: `/genre/${genreSlug}`,
               },
             ]
           : []),
