@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import React, { Suspense, lazy } from 'react'
+import React from 'react'
 import { useUser } from '@clerk/react'
 import { generateMeta } from '../lib/seo'
 import { getAuthUserServerFn } from '../server/auth'
@@ -12,16 +12,8 @@ import {
   type UserRecommendationSignals,
 } from '../server/recommendations'
 import { getPlatformWorksServerFn } from '../server/works'
-import {
-  LoggedInHomeSkeleton,
-  PublicHomeSkeleton,
-} from '../components/home/HomeSkeletons'
-import type { HomeLoaderData } from '../components/home/LoggedInHome'
-
-// Optimization 3: Lazy code-split Public and Logged-In components
-// Visitors only download PublicHome; Authenticated readers only download LoggedInHome
-const PublicHome = lazy(() => import('../components/home/PublicHome'))
-const LoggedInHome = lazy(() => import('../components/home/LoggedInHome'))
+import PublicHome from '../components/home/PublicHome'
+import LoggedInHome, { type HomeLoaderData } from '../components/home/LoggedInHome'
 
 export const Route = createFileRoute('/')({
   // In-Memory SWR (Desktop & Mobile): Keeps data fresh in RAM for 30s; instant 0ms navigation
@@ -113,28 +105,16 @@ function HomePage() {
 
   // Explicit query param override for testing / previewing
   if (search?.view === 'signed-in') {
-    return (
-      <Suspense fallback={<LoggedInHomeSkeleton />}>
-        <LoggedInHome forcedView="signed-in" loaderData={loaderData} />
-      </Suspense>
-    )
+    return <LoggedInHome forcedView="signed-in" loaderData={loaderData} />
   }
   if (search?.view === 'public') {
-    return (
-      <Suspense fallback={<PublicHomeSkeleton />}>
-        <PublicHome loaderData={loaderData} />
-      </Suspense>
-    )
+    return <PublicHome loaderData={loaderData} />
   }
 
   // 1. Definite auth state from Clerk (Single Source of Truth)
   if (isLoaded) {
     if (isSignedIn) {
-      return (
-        <Suspense fallback={<LoggedInHomeSkeleton />}>
-          <LoggedInHome loaderData={loaderData} />
-        </Suspense>
-      )
+      return <LoggedInHome loaderData={loaderData} />
     } else {
       // Definitively unauthenticated: clean up session indicators
       if (typeof window !== 'undefined') {
@@ -144,11 +124,7 @@ function HomePage() {
           document.cookie = 'hatchpen_has_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
         } catch {}
       }
-      return (
-        <Suspense fallback={<PublicHomeSkeleton />}>
-          <PublicHome loaderData={loaderData} />
-        </Suspense>
-      )
+      return <PublicHome loaderData={loaderData} />
     }
   }
 
@@ -165,17 +141,9 @@ function HomePage() {
       document.cookie.includes('__session'))
 
   if (!isExplicitlyLoggedOut && (isServerAuthenticated || hasClientSession)) {
-    return (
-      <Suspense fallback={<LoggedInHomeSkeleton />}>
-        <LoggedInHome loaderData={loaderData} />
-      </Suspense>
-    )
+    return <LoggedInHome loaderData={loaderData} />
   }
 
   // 3. Default for unauthenticated visitors
-  return (
-    <Suspense fallback={<PublicHomeSkeleton />}>
-      <PublicHome loaderData={loaderData} />
-    </Suspense>
-  )
+  return <PublicHome loaderData={loaderData} />
 }
