@@ -131,3 +131,67 @@ test('Index Route: Reuses authUser from context to eliminate duplicate server ca
     'Index loader must preserve getPlatformWorksServerFn'
   )
 })
+
+test('AuthSession: hasActiveClientSession detects active Clerk UAT and HatchPen session markers', () => {
+  const filePath = path.resolve('src/lib/authSession.ts')
+  assert.ok(fs.existsSync(filePath), 'src/lib/authSession.ts must exist')
+  const content = fs.readFileSync(filePath, 'utf8')
+
+  assert.ok(
+    content.includes('__client_uat'),
+    'Must check __client_uat cookie to recognize active Clerk session'
+  )
+  assert.ok(
+    content.includes('hatchpen_has_session'),
+    'Must check hatchpen_has_session to bridge SSR and hydration'
+  )
+  assert.ok(
+    content.includes('markClientSessionActive'),
+    'Must export markClientSessionActive'
+  )
+  assert.ok(
+    content.includes('clearClientSession'),
+    'Must export clearClientSession'
+  )
+})
+
+test('Homepage: Prevents 2-second PublicHome flash by checking clerk.loaded and active client sessions', () => {
+  const filePath = path.resolve('src/routes/index.tsx')
+  const content = fs.readFileSync(filePath, 'utf8')
+
+  assert.ok(
+    content.includes('hasActiveClientSession'),
+    'Homepage must import and use hasActiveClientSession'
+  )
+  assert.ok(
+    content.includes('clerk?.loaded'),
+    'Homepage must verify true client ClerkJS initialization via clerk.loaded'
+  )
+  assert.ok(
+    content.includes('isClerkClientReady && isUserLoaded && !isSignedIn'),
+    'Homepage must ONLY clear session markers when client Clerk has definitively reported signed out'
+  )
+})
+
+test('Logout Invariant: Explicit logout immediately clears session and renders PublicHome', () => {
+  const authSessionPath = path.resolve('src/lib/authSession.ts')
+  const authSessionContent = fs.readFileSync(authSessionPath, 'utf8')
+  assert.ok(
+    authSessionContent.includes("sessionStorage.getItem('hatchpen_just_logged_out') === 'true'"),
+    'hasActiveClientSession must return false immediately if user just logged out'
+  )
+
+  const headerPath = path.resolve('src/components/Header.tsx')
+  const headerContent = fs.readFileSync(headerPath, 'utf8')
+  assert.ok(
+    headerContent.includes('notifyClientLoggedOut()'),
+    'Header logout must trigger notifyClientLoggedOut'
+  )
+
+  const indexPath = path.resolve('src/routes/index.tsx')
+  const indexContent = fs.readFileSync(indexPath, 'utf8')
+  assert.ok(
+    indexContent.includes('hatchpen:logged-out'),
+    'Homepage must listen to hatchpen:logged-out to immediately switch to PublicHome without skeleton'
+  )
+})

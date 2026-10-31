@@ -8,6 +8,7 @@ import {
   adminUpsertActServerFn,
   adminPostChapterServerFn,
   adminUpdateChapterServerFn,
+  adminDeleteChapterServerFn,
   getAdminWorkActsAnalyticsServerFn,
   getAdminUsersServerFn,
   type WorkActAnalytics,
@@ -38,6 +39,7 @@ import {
   PenTool,
   Bookmark,
   UserCheck,
+  Trash2,
 } from 'lucide-react'
 import { generateMeta } from '../lib/seo'
 import { getWorkSlug, type Work, type Act, type Chapter } from '../data/mockData'
@@ -198,6 +200,10 @@ function AdminWorkEditorPage() {
   const [showViewsModal, setShowViewsModal] = useState(false)
   const [showHeartsModal, setShowHeartsModal] = useState(false)
   const [showSavesModal, setShowSavesModal] = useState(false)
+
+  // 7. Delete Chapter Modal State
+  const [chapterToDelete, setChapterToDelete] = useState<{ id: string; title: string; number?: number } | null>(null)
+  const [isDeletingChapter, setIsDeletingChapter] = useState(false)
 
   // Sync state ONLY on initial load of this manuscript or when work ID changes, NOT on every background re-fetch while editing
   useEffect(() => {
@@ -661,6 +667,66 @@ function AdminWorkEditorPage() {
       showToast(err?.message || 'Failed to save chapter')
     } finally {
       setIsSubmittingChapter(false)
+    }
+  }
+
+  const handleConfirmDeleteChapter = async () => {
+    if (!chapterToDelete || !work) return
+    setIsDeletingChapter(true)
+    try {
+      const res = await adminDeleteChapterServerFn({
+        data: {
+          adminToken,
+          workId: work.id,
+          chapterId: chapterToDelete.id,
+        },
+      })
+
+      // 1. Optimistically update localWorkOverride
+      setLocalWorkOverride((prev) => {
+        const base = prev || work
+        if (!base) return null
+        const updatedChapters = (base.chapters || []).filter((ch) => ch.id !== chapterToDelete.id)
+        const updatedActs = (base.acts || []).map((act) => ({
+          ...act,
+          chapters: (act.chapters || []).filter((ch) => ch.id !== chapterToDelete.id),
+        }))
+        return {
+          ...base,
+          chapterCount: res.publishedCount,
+          publicationStatus: res.workRevertedToDraft ? 'draft' : base.publicationStatus,
+          visibility: res.workRevertedToDraft ? 'draft' : base.visibility,
+          chapters: updatedChapters,
+          acts: updatedActs,
+        }
+      })
+
+      // If edit modal was open for this chapter, close it
+      if (editingChapterId === chapterToDelete.id) {
+        setShowChapterModal(false)
+        setEditingChapterId(null)
+      }
+
+      const deletedTitle = chapterToDelete.title
+      setChapterToDelete(null)
+
+      // 2. Background sync
+      loadActsFromDb(adminToken)
+      reloadWorksFromDb()
+      await router.invalidate()
+
+      if (res.workRevertedToDraft) {
+        showToast(
+          `Chapter "${deletedTitle}" deleted. Manuscript reverted to Draft as no published chapters remain.`
+        )
+      } else {
+        showToast(`Chapter "${deletedTitle}" successfully deleted.`)
+      }
+    } catch (err: any) {
+      console.error('[AdminWorkEditorPage] Delete chapter error:', err)
+      showToast(err?.message || 'Failed to delete chapter')
+    } finally {
+      setIsDeletingChapter(false)
     }
   }
 
@@ -1358,6 +1424,15 @@ function AdminWorkEditorPage() {
                             >
                               Studio
                             </Link>
+
+                            <button
+                              type="button"
+                              onClick={() => setChapterToDelete({ id: ch.id, title: ch.title, number: ch.number })}
+                              className="p-1 rounded text-[var(--ink-muted)] hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                              title="Delete Chapter"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
                           </div>
                         </div>
                       ))}
@@ -1451,6 +1526,14 @@ function AdminWorkEditorPage() {
                         >
                           <ExternalLink className="h-3.5 w-3.5" />
                         </Link>
+                        <button
+                          type="button"
+                          onClick={() => setChapterToDelete({ id: ch.id, title: ch.title, number: ch.number })}
+                          className="p-1 text-[var(--ink-muted)] hover:text-rose-500 hover:bg-rose-500/10 rounded transition-colors cursor-pointer"
+                          title="Delete Chapter"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -1661,24 +1744,46 @@ function AdminWorkEditorPage() {
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border-subtle)]">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  type="button"
-                  onClick={() => setShowChapterModal(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  type="submit"
-                  isLoading={isSubmittingChapter}
-                  leftIcon={chapterModalMode === 'edit' ? <Save className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
-                >
-                  {chapterModalMode === 'edit' ? 'Save Chapter Changes' : `Publish Chapter ${chNumberInput}`}
-                </Button>
+              <div className="flex items-center justify-between pt-3 border-t border-[var(--border-subtle)]">
+                {chapterModalMode === 'edit' && editingChapterId ? (
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    type="button"
+                    onClick={() => {
+                      setChapterToDelete({
+                        id: editingChapterId,
+                        title: chTitleInput || `Chapter ${chNumberInput}`,
+                        number: chNumberInput,
+                      })
+                    }}
+                    leftIcon={<Trash2 className="h-3.5 w-3.5" />}
+                  >
+                    Delete Chapter
+                  </Button>
+                ) : (
+                  <div />
+                )}
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    type="button"
+                    onClick={() => setShowChapterModal(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    type="submit"
+                    isLoading={isSubmittingChapter}
+                    leftIcon={chapterModalMode === 'edit' ? <Save className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+                  >
+                    {chapterModalMode === 'edit' ? 'Save Chapter Changes' : `Publish Chapter ${chNumberInput}`}
+                  </Button>
+                </div>
               </div>
             </form>
           </div>
@@ -1746,6 +1851,58 @@ function AdminWorkEditorPage() {
           showToast(`Story library saves updated to ${newTotalSaves.toLocaleString()}!`)
         }}
       />
+
+      {/* MODAL: CONFIRM DELETE CHAPTER */}
+      {chapterToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-rose-500">
+              <div className="p-2 rounded-full bg-rose-500/10">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-serif text-lg font-semibold text-[var(--ink-primary)]">
+                  Delete Chapter
+                </h3>
+                <p className="text-xs text-[var(--ink-muted)]">
+                  This action permanently removes the chapter from the manuscript.
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-[var(--ink-secondary)] leading-relaxed">
+              Are you sure you want to delete{' '}
+              <span className="font-semibold text-[var(--ink-primary)]">
+                {chapterToDelete.number ? `Chapter ${chapterToDelete.number}: ` : ''}
+                "{chapterToDelete.title}"
+              </span>
+              ? Manuscript total word count and reading time will be recalculated automatically.
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border-subtle)]">
+              <Button
+                variant="ghost"
+                size="sm"
+                type="button"
+                disabled={isDeletingChapter}
+                onClick={() => setChapterToDelete(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                type="button"
+                isLoading={isDeletingChapter}
+                onClick={handleConfirmDeleteChapter}
+                leftIcon={<Trash2 className="h-3.5 w-3.5" />}
+              >
+                Delete Permanently
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )

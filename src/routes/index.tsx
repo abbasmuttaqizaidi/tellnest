@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import React from 'react'
-import { useUser } from '@clerk/react'
+import { useUser, useClerk } from '@clerk/react'
 import { generateMeta } from '../lib/seo'
 import { getAuthUserServerFn } from '../server/auth'
 import {
@@ -14,6 +14,11 @@ import {
 import { getPlatformWorksServerFn } from '../server/works'
 import PublicHome from '../components/home/PublicHome'
 import LoggedInHome, { type HomeLoaderData } from '../components/home/LoggedInHome'
+import {
+  hasActiveClientSession,
+  markClientSessionActive,
+  clearClientSession,
+} from '../lib/authSession'
 
 export const Route = createFileRoute('/')({
   // In-Memory SWR (Desktop & Mobile): Keeps data fresh in RAM for 30s; instant 0ms navigation
@@ -101,7 +106,8 @@ export const Route = createFileRoute('/')({
 function HomePage() {
   const loaderData = Route.useLoaderData()
   const search = Route.useSearch()
-  const { isSignedIn, isLoaded } = useUser()
+  const clerk = useClerk()
+  const { isSignedIn, isLoaded: isUserLoaded } = useUser()
 
   // Explicit query param override for testing / previewing
   if (search?.view === 'signed-in') {
@@ -111,39 +117,55 @@ function HomePage() {
     return <PublicHome loaderData={loaderData} />
   }
 
-  // 1. Definite auth state from Clerk (Single Source of Truth)
-  if (isLoaded) {
-    if (isSignedIn) {
-      return <LoggedInHome loaderData={loaderData} />
-    } else {
-      // Definitively unauthenticated: clean up session indicators
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.removeItem('hatchpen_has_session')
-          localStorage.removeItem('hatchpen_cached_bookmarks')
-          document.cookie = 'hatchpen_has_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
-        } catch {}
-      }
-      return <PublicHome loaderData={loaderData} />
-    }
+  // Immediate optimistic logout tracker so HomePage instantly switches to PublicHome without skeleton
+  const [isLoggedOut, setIsLoggedOut] = React.useState(() => {
+    if (typeof window === 'undefined') return false
+    return sessionStorage.getItem('hatchpen_just_logged_out') === 'true'
+  })
+
+  React.useEffect(() => {
+    const handleLogout = () => setIsLoggedOut(true)
+    window.addEventListener('hatchpen:logged-out', handleLogout)
+    return () => window.removeEventListener('hatchpen:logged-out', handleLogout)
+  }, [])
+
+  // If user just initiated sign out or is explicitly logged out, render PublicHome immediately (0ms, zero skeleton)
+  if (isLoggedOut || (typeof window !== 'undefined' && sessionStorage.getItem('hatchpen_just_logged_out') === 'true')) {
+    return <PublicHome loaderData={loaderData} />
   }
 
-  // 2. While Clerk is hydrating on client (isLoaded === false):
-  // Check server-rendered auth OR client-side session indicators
+  // Check if server resolved authentication
   const isServerAuthenticated = Boolean(loaderData?.authUser?.isAuthenticated)
-  const isExplicitlyLoggedOut =
-    typeof window !== 'undefined' && sessionStorage.getItem('hatchpen_just_logged_out') === 'true'
-  const hasClientSession =
-    !isExplicitlyLoggedOut &&
-    typeof window !== 'undefined' &&
-    (window.localStorage.getItem('hatchpen_has_session') === 'true' ||
-      document.cookie.includes('hatchpen_has_session=true') ||
-      document.cookie.includes('__session'))
 
-  if (!isExplicitlyLoggedOut && (isServerAuthenticated || hasClientSession)) {
+  // Check if client has active session markers (Clerk UAT, localStorage, etc.)
+  const hasClientSession = hasActiveClientSession()
+
+  // Real client-side Clerk JS load state
+  // Notice: isUserLoaded can be true prematurely during SSR hydration when SSR emits user: null.
+  // clerk.loaded is the true indicator that client-side ClerkJS has finished evaluation.
+  const isClerkClientReady = Boolean(clerk?.loaded)
+
+  // 1. If Clerk has definitively verified that the user is SIGNED IN:
+  if (isUserLoaded && isSignedIn) {
+    markClientSessionActive()
     return <LoggedInHome loaderData={loaderData} />
   }
 
-  // 3. Default for unauthenticated visitors
+  // 2. While Clerk is hydrating on the client (or before clerk.loaded is ready):
+  // If server was authenticated OR client has a session indicator, show LoggedInHome immediately.
+  // NEVER flash PublicHome while a session indicator is active.
+  if (isServerAuthenticated || hasClientSession) {
+    // If clerk.loaded is true AND isSignedIn is definitely false, then and ONLY then
+    // has Clerk confirmed the session was invalid/expired.
+    if (isClerkClientReady && isUserLoaded && !isSignedIn) {
+      clearClientSession()
+      return <PublicHome loaderData={loaderData} />
+    }
+
+    // Still hydrating or session is active: show LoggedInHome
+    return <LoggedInHome loaderData={loaderData} />
+  }
+
+  // 3. True unauthenticated public visitor (no server session, no client indicators)
   return <PublicHome loaderData={loaderData} />
 }

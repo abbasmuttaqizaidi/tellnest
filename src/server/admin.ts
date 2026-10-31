@@ -1512,6 +1512,130 @@ export const adminUpdateChapterServerFn = createServerFn({ method: 'POST' })
     }
   })
 
+/**
+ * Server Function: Delete chapter permanently by Admin.
+ * Verifies admin credentials, deletes the chapter, recalculates aggregates,
+ * and automatically reverts published manuscripts to draft if no published chapters remain.
+ */
+export interface AdminDeleteChapterPayload {
+  adminToken: string
+  workId: string
+  chapterId: string
+}
+
+export async function executeAdminDeleteChapter(
+  data: AdminDeleteChapterPayload,
+  adminClient?: any
+) {
+  if (!isValidAdminToken(data.adminToken)) {
+    throw new Error('Unauthorized: Invalid administration key')
+  }
+  if (!data.workId?.trim()) throw new Error('Work ID is required')
+  if (!data.chapterId?.trim()) throw new Error('Chapter ID is required')
+
+  const admin = adminClient || createAdminClient()
+  const nowIso = new Date().toISOString()
+
+  // 1. Resolve work UUID
+  let workUuid = data.workId.trim()
+  const isWorkUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(workUuid)
+  if (!isWorkUuid) {
+    const { data: wRow } = await admin.from('works').select('id').eq('slug', workUuid.toLowerCase()).maybeSingle()
+    if (wRow?.id) workUuid = wRow.id
+  }
+
+  // 2. Fetch chapter to verify existence and get title/number
+  const { data: targetCh } = await admin
+    .from('chapters')
+    .select('id, title, chapter_number')
+    .eq('id', data.chapterId)
+    .eq('work_id', workUuid)
+    .maybeSingle()
+
+  if (!targetCh) {
+    throw new Error('Chapter not found or does not belong to this manuscript')
+  }
+
+  // 3. Delete the chapter
+  const { error: delErr } = await admin
+    .from('chapters')
+    .delete()
+    .eq('id', data.chapterId)
+    .eq('work_id', workUuid)
+
+  if (delErr) {
+    console.error('[executeAdminDeleteChapter] Error deleting chapter:', delErr.message)
+    throw new Error(`Failed to delete chapter: ${delErr.message}`)
+  }
+
+  // 4. Recalculate remaining chapter counts and word counts
+  const { data: remainingChs } = await admin
+    .from('chapters')
+    .select('id, status, word_count, reading_time_minutes')
+    .eq('work_id', workUuid)
+
+  const remainingCount = remainingChs?.length || 0
+  const publishedCount = (remainingChs || []).filter((c: any) => c.status === 'published').length
+  const totalWords = (remainingChs || []).reduce((sum: number, c: any) => sum + (c.word_count || 0), 0)
+  const totalMinutes = (remainingChs || []).reduce((sum: number, c: any) => sum + (c.reading_time_minutes || 0), 0)
+
+  // Fetch current work publication status to verify if revert to draft is required
+  const { data: currentWork } = await admin
+    .from('works')
+    .select('publication_status, visibility')
+    .eq('id', workUuid)
+    .maybeSingle()
+
+  let workRevertedToDraft = false
+  const workUpdatePayload: Record<string, any> = {
+    chapter_count: publishedCount,
+    word_count: totalWords,
+    reading_time_minutes: totalMinutes,
+    last_activity_at: nowIso,
+    last_activity_type: 'work_metadata_updated',
+    last_activity_detail: {
+      chapterId: targetCh.id,
+      chapterTitle: targetCh.title,
+      updatedAt: nowIso,
+      summaryText: `Chapter "${targetCh.title}" removed by admin`,
+    },
+    updated_at: nowIso,
+  }
+
+  // If work was published but now has zero published chapters remaining, automatically revert to draft
+  if (currentWork?.publication_status === 'published' && publishedCount === 0) {
+    workUpdatePayload.publication_status = 'draft'
+    workUpdatePayload.visibility = 'draft'
+    workUpdatePayload.is_indexable = false
+    workRevertedToDraft = true
+  }
+
+  await admin
+    .from('works')
+    .update(workUpdatePayload)
+    .eq('id', workUuid)
+
+  return {
+    success: true,
+    remainingCount,
+    publishedCount,
+    workRevertedToDraft,
+    deletedChapterId: targetCh.id,
+    deletedChapterTitle: targetCh.title,
+  }
+}
+
+export const adminDeleteChapterServerFn = createServerFn({ method: 'POST' })
+  .validator((params: AdminDeleteChapterPayload) => {
+    if (!params.adminToken) throw new Error('Admin authorization token is required')
+    if (!params.workId?.trim()) throw new Error('Work ID is required')
+    if (!params.chapterId?.trim()) throw new Error('Chapter ID is required')
+    return params
+  })
+  .handler(async ({ data }: { data: AdminDeleteChapterPayload }) => {
+    return executeAdminDeleteChapter(data)
+  })
+
 // ==========================================
 // 8. GET ADMIN WORKS (Lightweight 50 per page: title, author, posted, views)
 // ==========================================

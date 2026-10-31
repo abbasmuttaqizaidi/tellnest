@@ -3,6 +3,7 @@ import { useSignIn, useSignUp, useUser, useClerk, SignIn } from '@clerk/react'
 import { X, Loader2 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { HatchpenLogo } from './HatchpenLogo'
+import { markClientSessionActive } from '../lib/authSession'
 
 export function AuthModal() {
   const {
@@ -30,12 +31,7 @@ export function AuthModal() {
   // Automatically close modal when user successfully signs in
   useEffect(() => {
     if (isSignedIn && isAuthModalOpen) {
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem('hatchpen_has_session', 'true')
-          document.cookie = 'hatchpen_has_session=true; path=/; max-age=31536000; SameSite=Lax'
-        } catch {}
-      }
+      markClientSessionActive()
       closeAuthModal(true)
     }
   }, [isSignedIn, isAuthModalOpen, closeAuthModal])
@@ -96,6 +92,7 @@ export function AuthModal() {
     try {
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('hatchpen_just_signed_up_google', 'true')
+        markClientSessionActive()
       }
 
       // 1. Ensure Clerk is fully loaded before invoking OAuth

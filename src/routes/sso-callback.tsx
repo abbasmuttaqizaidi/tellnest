@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
 import { AuthenticateWithRedirectCallback, useUser } from '@clerk/react'
 import { HatchpenLogo } from '../components/HatchpenLogo'
 import { generateMeta } from '../lib/seo'
+import { markClientSessionActive } from '../lib/authSession'
 
 export const Route = createFileRoute('/sso-callback')({
   head: () =>
@@ -14,71 +15,68 @@ export const Route = createFileRoute('/sso-callback')({
 })
 
 export default function SSOCallbackPage() {
+  const router = useRouter()
   const navigate = useNavigate()
   const { isLoaded, isSignedIn } = useUser()
-  const [progress, setProgress] = useState(18)
+  const [progress, setProgress] = useState(25)
   const [statusText, setStatusText] = useState('Connecting to HatchPen...')
 
-  // 1. Progressive stage feedback so the loader never looks static or hung
+  // 1. Eagerly preload homepage and mark session indicator if OAuth parameters are present
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const hasOAuthParams = window.location.search.length > 1 || window.location.hash.length > 1
+      if (hasOAuthParams) {
+        markClientSessionActive()
+      }
+    }
+    router.preloadRoute({ to: '/' }).catch(() => {})
+  }, [router])
+
+  // 2. Snappy progressive feedback (fast, responsive milestones)
   useEffect(() => {
     const t1 = setTimeout(() => {
-      setProgress(45)
-      setStatusText('Validating credentials...')
-    }, 350)
+      setProgress(60)
+      setStatusText('Setting up your reading desk...')
+    }, 120)
 
     const t2 = setTimeout(() => {
-      setProgress(72)
-      setStatusText('Setting up your reading desk...')
-    }, 850)
-
-    const t3 = setTimeout(() => {
       setProgress(88)
-      setStatusText('Gathering your stories and reading progress...')
-    }, 1600)
+      setStatusText('Opening your stories...')
+    }, 280)
 
     return () => {
       clearTimeout(t1)
       clearTimeout(t2)
-      clearTimeout(t3)
     }
   }, [])
 
-  // 2. Direct visit safety: If someone visits /sso-callback without OAuth parameters
+  // 3. Direct visit safety: If someone visits /sso-callback directly without OAuth parameters, redirect immediately
   useEffect(() => {
     if (isLoaded) {
       if (typeof window !== 'undefined') {
         const hasOAuthParams = window.location.search.length > 1 || window.location.hash.length > 1
-        if (!hasOAuthParams && !isSignedIn) {
-          const timeout = setTimeout(() => {
-            navigate({ to: '/', replace: true })
-          }, 2500)
-          return () => clearTimeout(timeout)
+        if (!hasOAuthParams) {
+          navigate({ to: '/', replace: true })
         }
       }
     }
-  }, [isLoaded, isSignedIn, navigate])
+  }, [isLoaded, navigate])
 
-  // 3. Complete progress and trigger immediate transition as soon as Clerk confirms session
+  // 4. Complete progress and trigger immediate transition as soon as Clerk confirms session
   useEffect(() => {
     if (isLoaded && isSignedIn) {
       setProgress(100)
       setStatusText('Ready. Opening your reading desk...')
 
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem('hatchpen_has_session', 'true')
-          document.cookie = 'hatchpen_has_session=true; path=/; max-age=31536000; SameSite=Lax'
-        } catch {}
-      }
+      markClientSessionActive()
 
-      // Fast immediate transition without waiting for redundant idle delay
-      const timer = setTimeout(() => {
-        navigate({ to: '/', replace: true })
-      }, 180)
+      // Invalidate router so authenticated user context loads immediately on destination
+      router.invalidate()
 
-      return () => clearTimeout(timer)
+      // Fast immediate transition
+      navigate({ to: '/', replace: true })
     }
-  }, [isLoaded, isSignedIn, navigate])
+  }, [isLoaded, isSignedIn, navigate, router])
 
   return (
     <div className="fixed inset-0 z-50 bg-[var(--bg-canvas)] flex flex-col items-center justify-center px-6 selection:bg-transparent">

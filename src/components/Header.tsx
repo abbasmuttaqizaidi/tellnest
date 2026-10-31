@@ -28,6 +28,7 @@ import { SPRINGS } from '../design-system/tokens'
 import { motion, AnimatePresence } from 'motion/react'
 import { UnisexAvatar, UnisexAvatarIcon } from './UnisexAvatar'
 import { HatchpenLogo } from './HatchpenLogo'
+import { hasActiveClientSession, clearClientSession, notifyClientLoggedOut } from '../lib/authSession'
 
 export interface HeaderProps {
   serverAuthenticated?: boolean
@@ -35,8 +36,9 @@ export interface HeaderProps {
 
 export default function Header({ serverAuthenticated }: HeaderProps = {}) {
   const navigate = useNavigate()
+  const clerk = useClerk()
+  const { signOut } = clerk
   const { user, isSignedIn: rawIsSignedIn, isLoaded } = useUser()
-  const { signOut } = useClerk()
 
   // Immediate optimistic logout tracker so buttons never disappear during async signOut network wait
   const [optimisticLoggedOut, setOptimisticLoggedOut] = useState(() => {
@@ -46,33 +48,23 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
     return false
   })
 
-  // When Clerk finishes hydrating and confirms unauthenticated, clean up the temporary flag
+  // When Clerk finishes signing out and confirms unauthenticated, clean up the temporary flag
   useEffect(() => {
-    if (isLoaded) {
-      if (!rawIsSignedIn) {
-        if (typeof window !== 'undefined') {
-          sessionStorage.removeItem('hatchpen_just_logged_out')
-        }
-        setOptimisticLoggedOut(false)
-      } else {
-        setOptimisticLoggedOut(false)
-        if (typeof window !== 'undefined') {
-          sessionStorage.removeItem('hatchpen_just_logged_out')
-        }
+    if (isLoaded && !rawIsSignedIn) {
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('hatchpen_just_logged_out')
       }
+      setOptimisticLoggedOut(false)
     }
   }, [isLoaded, rawIsSignedIn])
 
+  const isClientClerkLoaded = Boolean(clerk?.loaded)
   const hasSessionIndicator =
     !optimisticLoggedOut &&
-    (Boolean(serverAuthenticated) ||
-      (typeof window !== 'undefined' &&
-        (localStorage.getItem('hatchpen_has_session') === 'true' ||
-          document.cookie.includes('hatchpen_has_session=true') ||
-          document.cookie.includes('__session'))))
+    (Boolean(serverAuthenticated) || hasActiveClientSession())
 
-  const isAuthResolving = !isLoaded && hasSessionIndicator
-  const isSignedIn = !optimisticLoggedOut && isLoaded && Boolean(rawIsSignedIn)
+  const isAuthResolving = !isClientClerkLoaded && hasSessionIndicator
+  const isSignedIn = !optimisticLoggedOut && ((isClientClerkLoaded && Boolean(rawIsSignedIn)) || hasSessionIndicator)
 
   const handleSignOut = async () => {
     setOptimisticLoggedOut(true)
@@ -80,9 +72,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
     setMobileDrawerOpen(false)
     if (typeof window !== 'undefined') {
       try {
-        sessionStorage.setItem('hatchpen_just_logged_out', 'true')
         localStorage.removeItem('relay_auth_hint')
-        localStorage.removeItem('hatchpen_has_session')
         localStorage.removeItem('hatchpen_cached_bookmarks')
         localStorage.removeItem('hatchpen_custom_avatar')
         localStorage.removeItem('tellnest_custom_avatar')
@@ -90,7 +80,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
         if (user?.id) {
           sessionStorage.removeItem(`hatchpen_cached_rec_signals_${user.id}`)
         }
-        document.cookie = 'hatchpen_has_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
+        notifyClientLoggedOut()
       } catch {}
     }
     try {

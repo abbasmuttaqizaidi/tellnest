@@ -1,14 +1,16 @@
 import { useEffect, useRef } from 'react'
-import { useUser } from '@clerk/react'
+import { useUser, useClerk } from '@clerk/react'
 import { useRouter } from '@tanstack/react-router'
 import { syncClerkUserServerFn, recordUserPresenceServerFn } from '../server/authors'
 import { useApp } from '../context/AppContext'
+import { markClientSessionActive, clearClientSession } from '../lib/authSession'
 
 /**
  * ClerkSync Component
  * Automatically synchronizes authenticated Clerk users with the Supabase `profiles` table.
  */
 export function ClerkSync() {
+  const clerk = useClerk()
   const { user, isLoaded: isUserLoaded, isSignedIn } = useUser()
   const router = useRouter()
   const { setUserDisplayName, setUserProfileUsername } = useApp()
@@ -16,18 +18,14 @@ export function ClerkSync() {
   const isSyncingRef = useRef<string | null>(null)
   const prevSignedInRef = useRef<boolean | null>(null)
 
+  const isClientClerkLoaded = Boolean(clerk?.loaded)
+
   useEffect(() => {
     if (isUserLoaded) {
       if (isSignedIn) {
-        try {
-          localStorage.setItem('hatchpen_has_session', 'true')
-          document.cookie = 'hatchpen_has_session=true; path=/; max-age=31536000; SameSite=Lax'
-        } catch {}
-      } else {
-        try {
-          localStorage.removeItem('hatchpen_has_session')
-          document.cookie = 'hatchpen_has_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
-        } catch {}
+        markClientSessionActive()
+      } else if (isClientClerkLoaded) {
+        clearClientSession()
       }
 
       if (prevSignedInRef.current !== null && prevSignedInRef.current !== isSignedIn) {
@@ -41,7 +39,7 @@ export function ClerkSync() {
       }
       prevSignedInRef.current = isSignedIn
     }
-  }, [isUserLoaded, isSignedIn, router])
+  }, [isUserLoaded, isSignedIn, isClientClerkLoaded, router])
 
   useEffect(() => {
     if (!isUserLoaded || !isSignedIn || !user) return

@@ -33,6 +33,7 @@ import {
 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { UnisexAvatar } from '../components/UnisexAvatar'
+import { notifyClientLoggedOut } from '../lib/authSession'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { RouteHeader } from '../components/RouteHeader'
 import { HatchpenLoader } from '../components/TellnestLoader'
@@ -293,15 +294,12 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
   const handleSignOut = useCallback(async () => {
     if (typeof window !== 'undefined') {
       try {
-        sessionStorage.setItem('hatchpen_just_logged_out', 'true')
         localStorage.removeItem('relay_auth_hint')
-        localStorage.removeItem('hatchpen_has_session')
-        localStorage.removeItem('hatchpen_cached_bookmarks')
         sessionStorage.removeItem('hatchpen_cached_rec_signals')
         if (user?.id) {
           sessionStorage.removeItem(`hatchpen_cached_rec_signals_${user.id}`)
         }
-        document.cookie = 'hatchpen_has_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
+        notifyClientLoggedOut()
       } catch {}
     }
     try {
