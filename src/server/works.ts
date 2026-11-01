@@ -11,6 +11,8 @@ import type { WorkStatus } from '../lib/supabase/types.ts'
 import { getUtcWeekBoundaries, filterAndSortWorks } from '../lib/discover/filters.ts'
 import { GLOBAL_CATEGORIES, GLOBAL_GENRES, SUGGESTED_TAGS, slugify } from '../lib/taxonomy.ts'
 import { isWorkIndexable } from './sitemap.ts'
+import { isWorkBingeable } from '../lib/recommendations/bingeable.ts'
+import { filterAndOrderNewVoicesStories } from '../lib/recommendations/newVoices.ts'
 
 /**
  * Server Function: Get a full public work (with acts and chapters) by id or slug.
@@ -1392,6 +1394,131 @@ export const getTagPageDataServerFn = createServerFn({ method: 'GET' })
   .validator((slug: string) => String(slug || ''))
   .handler(async ({ data }) => {
     return await executeGetTagPageData(data)
+  })
+
+export interface BrowseCollectionInfo {
+  slug: string
+  name: string
+  headline: string
+  description: string
+  keywords: string[]
+  accentLetter: string
+}
+
+export interface BrowseCollectionPageData {
+  collection: BrowseCollectionInfo | null
+  works: any[]
+  isNotFound: boolean
+}
+
+export const BROWSE_COLLECTIONS: Record<string, BrowseCollectionInfo> = {
+  'bingeable-reads': {
+    slug: 'bingeable-reads',
+    name: 'Bingeable Reads',
+    headline: 'Short & Bite-Sized Serialized Fiction',
+    description: 'Bite-sized indie fiction and short web stories with 1 to 2 published chapters. Ideal for quick binge reading with zero commitments.',
+    keywords: ['bingeable reads', 'short serialized stories', 'quick web fiction', 'bite-sized stories', 'read online free', 'HatchPen'],
+    accentLetter: 'B',
+  },
+  'new-voices': {
+    slug: 'new-voices',
+    name: 'New Voices Showcase',
+    headline: 'Fresh Emerging Indie Authors',
+    description: 'Discover rising independent writers in their inaugural months of publication. Fresh serialized novels and bold storytelling.',
+    keywords: ['new voices', 'emerging indie authors', 'rising fiction writers', 'debut web novels', 'HatchPen new authors'],
+    accentLetter: 'V',
+  },
+  'completed-stories': {
+    slug: 'completed-stories',
+    name: 'Completed Stories',
+    headline: 'Finished Web Novels with Complete Arcs',
+    description: 'Explore completed serialized novels and finished web fiction. Read entire continuous narrative arcs from beginning to end with zero paywalls.',
+    keywords: ['completed web novels', 'finished serialized stories', 'completed fiction online', 'full indie books', 'HatchPen'],
+    accentLetter: 'C',
+  },
+  'free-web-novels': {
+    slug: 'free-web-novels',
+    name: 'Free Web Novels',
+    headline: 'Original Serialized Literature with Zero Paywalls',
+    description: 'Read original serialized web novels, indie manuscripts, and fiction online. Free chapter-by-chapter reading with zero paywalls or coins.',
+    keywords: ['free web novels', 'free serialized fiction', 'read web novels online', 'indie serialized books', 'HatchPen free stories'],
+    accentLetter: 'F',
+  },
+}
+
+/**
+ * Core business logic: Fetch curated editorial and search-intent collections.
+ * Strictly enforces:
+ *  - Only recognized collections in BROWSE_COLLECTIONS
+ *  - Only public, published, indexable works
+ */
+export async function executeGetBrowseCollectionData(
+  slug: string,
+  dependencies: PlatformWorksDependencies = {}
+): Promise<BrowseCollectionPageData> {
+  if (!slug || typeof slug !== 'string' || !slug.trim()) {
+    return { collection: null, works: [], isNotFound: true }
+  }
+
+  const normalized = slug.trim().toLowerCase()
+  const collection = BROWSE_COLLECTIONS[normalized] || null
+  if (!collection) {
+    return { collection: null, works: [], isNotFound: true }
+  }
+
+  const allWorks = await executeGetPlatformWorks(dependencies)
+  const indexableWorks = allWorks.filter((w: any) => isWorkIndexable(w))
+
+  let filteredWorks: any[] = []
+
+  switch (normalized) {
+    case 'bingeable-reads': {
+      filteredWorks = indexableWorks.filter((w: any) => isWorkBingeable(w))
+      break
+    }
+    case 'new-voices': {
+      filteredWorks = filterAndOrderNewVoicesStories(indexableWorks, null, new Date(), {
+        excludeBingeable: true,
+      })
+      if (filteredWorks.length === 0) {
+        filteredWorks = indexableWorks
+          .filter((w: any) => !isWorkBingeable(w))
+          .slice(0, 15)
+      }
+      break
+    }
+    case 'completed-stories': {
+      filteredWorks = indexableWorks.filter((w: any) => {
+        const s = String(w.status || '').toLowerCase()
+        return s === 'completed'
+      })
+      break
+    }
+    case 'free-web-novels':
+    default: {
+      filteredWorks = [...indexableWorks].sort((a: any, b: any) => {
+        const readsA = Number(a.viewCount || a.view_count || a.totalReads || 0)
+        const readsB = Number(b.viewCount || b.view_count || b.totalReads || 0)
+        return readsB - readsA
+      })
+      break
+    }
+  }
+
+  return {
+    collection,
+    works: filteredWorks,
+    isNotFound: false,
+  }
+}
+
+/**
+ * Server Function: Get editorial search intent collection data.
+ */
+export const getBrowseCollectionServerFn = createServerFn({ method: 'GET' })
+  .validator((slug: string) => String(slug || ''))
+  .handler(async ({ data }) => {
+    return await executeGetBrowseCollectionData(data)
   })
 
 export interface NewVoicesDependencies {

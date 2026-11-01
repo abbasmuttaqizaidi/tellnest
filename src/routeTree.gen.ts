@@ -26,6 +26,7 @@ import { Route as SsoCallbackRouteImport } from './routes/sso-callback'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AdminWorkEditorWorkIdRouteImport } from './routes/admin-work-editor.$workId'
 import { Route as AuthorAuthorIdRouteImport } from './routes/author.$authorId'
+import { Route as BrowseCollectionRouteImport } from './routes/browse.$collection'
 import { Route as CategorySlugRouteImport } from './routes/category.$slug'
 import { Route as GenreSlugRouteImport } from './routes/genre.$slug'
 import { Route as TagSlugRouteImport } from './routes/tag.$slug'
@@ -122,6 +123,11 @@ const AuthorAuthorIdRoute = AuthorAuthorIdRouteImport.update({
   path: '/author/$authorId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BrowseCollectionRoute = BrowseCollectionRouteImport.update({
+  id: '/browse/$collection',
+  path: '/browse/$collection',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CategorySlugRoute = CategorySlugRouteImport.update({
   id: '/category/$slug',
   path: '/category/$slug',
@@ -192,6 +198,7 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/admin-work-editor/$workId': typeof AdminWorkEditorWorkIdRoute
   '/author/$authorId': typeof AuthorAuthorIdRoute
+  '/browse/$collection': typeof BrowseCollectionRoute
   '/category/$slug': typeof CategorySlugRoute
   '/genre/$slug': typeof GenreSlugRoute
   '/tag/$slug': typeof TagSlugRoute
@@ -221,6 +228,7 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/admin-work-editor/$workId': typeof AdminWorkEditorWorkIdRoute
   '/author/$authorId': typeof AuthorAuthorIdRoute
+  '/browse/$collection': typeof BrowseCollectionRoute
   '/category/$slug': typeof CategorySlugRoute
   '/genre/$slug': typeof GenreSlugRoute
   '/tag/$slug': typeof TagSlugRoute
@@ -251,6 +259,7 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/admin-work-editor/$workId': typeof AdminWorkEditorWorkIdRoute
   '/author/$authorId': typeof AuthorAuthorIdRoute
+  '/browse/$collection': typeof BrowseCollectionRoute
   '/category/$slug': typeof CategorySlugRoute
   '/genre/$slug': typeof GenreSlugRoute
   '/tag/$slug': typeof TagSlugRoute
@@ -282,6 +291,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/admin-work-editor/$workId'
     | '/author/$authorId'
+    | '/browse/$collection'
     | '/category/$slug'
     | '/genre/$slug'
     | '/tag/$slug'
@@ -311,6 +321,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/admin-work-editor/$workId'
     | '/author/$authorId'
+    | '/browse/$collection'
     | '/category/$slug'
     | '/genre/$slug'
     | '/tag/$slug'
@@ -340,6 +351,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/admin-work-editor/$workId'
     | '/author/$authorId'
+    | '/browse/$collection'
     | '/category/$slug'
     | '/genre/$slug'
     | '/tag/$slug'
@@ -370,6 +382,7 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   AdminWorkEditorWorkIdRoute: typeof AdminWorkEditorWorkIdRoute
   AuthorAuthorIdRoute: typeof AuthorAuthorIdRoute
+  BrowseCollectionRoute: typeof BrowseCollectionRoute
   CategorySlugRoute: typeof CategorySlugRoute
   GenreSlugRoute: typeof GenreSlugRoute
   TagSlugRoute: typeof TagSlugRoute
@@ -503,6 +516,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthorAuthorIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/browse/$collection': {
+      id: '/browse/$collection'
+      path: '/browse/$collection'
+      fullPath: '/browse/$collection'
+      preLoaderRoute: typeof BrowseCollectionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/category/$slug': {
       id: '/category/$slug'
       path: '/category/$slug'
@@ -594,6 +614,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   AdminWorkEditorWorkIdRoute: AdminWorkEditorWorkIdRoute,
   AuthorAuthorIdRoute: AuthorAuthorIdRoute,
+  BrowseCollectionRoute: BrowseCollectionRoute,
   CategorySlugRoute: CategorySlugRoute,
   GenreSlugRoute: GenreSlugRoute,
   TagSlugRoute: TagSlugRoute,

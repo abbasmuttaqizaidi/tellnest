@@ -203,6 +203,21 @@ export async function buildSitemapEntries(options?: BuildSitemapOptions): Promis
     }
   }
 
+  // 5. Curated Editorial & Search Intent Collections (/browse/$collection)
+  const BROWSE_COLLECTION_SLUGS = [
+    'bingeable-reads',
+    'new-voices',
+    'completed-stories',
+    'free-web-novels',
+  ]
+  for (const colSlug of BROWSE_COLLECTION_SLUGS) {
+    addEntry({
+      loc: `${CANONICAL_BASE_URL}/browse/${colSlug}`,
+      changefreq: 'daily',
+      priority: 0.85,
+    })
+  }
+
   // 4. Live Published Works, Authors, and Chapters from Database
   const client = options?.supabaseClient || defaultSupabase
   try {

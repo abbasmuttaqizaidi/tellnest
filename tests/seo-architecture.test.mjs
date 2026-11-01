@@ -26,6 +26,7 @@ import {
   executeGetCategoryPageData,
   executeGetGenrePageData,
   executeGetTagPageData,
+  executeGetBrowseCollectionData,
 } from '../src/server/works.ts'
 import sitemapHandler from '../src/server/sitemap-handler.ts'
 import {
@@ -1724,6 +1725,104 @@ test('Category SEO Growth: Step 1 — High-intent titles, FAQPage Schema, Litera
   assert.equal(memoirResult.works.length, 1)
   assert.equal(memoirResult.works[0].id, 'w-memoir-1')
 })
+
+test('Curated Reading & Intent Hubs: Step 4 — /browse/$collection SSR, Schema.org, Sitemap, and Footer link equity', async () => {
+  // 1. Server business logic for editorial collections
+  const mockWorks = [
+    {
+      id: 'w-binge-1',
+      title: 'Bite Sized Tale',
+      slug: 'bite-sized-tale',
+      status: 'Ongoing',
+      visibility: 'public',
+      publication_status: 'published',
+      is_indexable: true,
+      author_id: 'a1',
+      author_name: 'Author One',
+      view_count: 5000,
+      chapters: [
+        { id: 'c1', number: 1, title: 'Chapter 1', status: 'published' },
+        { id: 'c2', number: 2, title: 'Chapter 2', status: 'published' },
+      ],
+    },
+    {
+      id: 'w-long-saga',
+      title: 'Epic 50-Chapter Saga',
+      slug: 'epic-50-chapter-saga',
+      status: 'completed',
+      visibility: 'public',
+      publication_status: 'published',
+      is_indexable: true,
+      author_id: 'a2',
+      author_name: 'Author Two',
+      view_count: 50000,
+      chapters: [
+        { id: 'c1', number: 1, title: 'Chapter 1', status: 'published' },
+        { id: 'c2', number: 2, title: 'Chapter 2', status: 'published' },
+        { id: 'c3', number: 3, title: 'Chapter 3', status: 'published' },
+        { id: 'c4', number: 4, title: 'Chapter 4', status: 'published' },
+      ],
+    },
+  ]
+
+  const mockDeps = {
+    queryRows: async () => mockWorks.map((w) => ({
+      id: w.id,
+      title: w.title,
+      slug: w.slug,
+      status: w.status,
+      visibility: w.visibility,
+      publication_status: w.publication_status,
+      is_indexable: w.is_indexable,
+      author_id: w.author_id,
+      author_name: w.author_name,
+      view_count: w.view_count,
+      genres: [],
+      chapters: w.chapters,
+    })),
+  }
+
+  // Bingeable reads: only stories with <= 2 chapters
+  const bingeResult = await executeGetBrowseCollectionData('bingeable-reads', mockDeps)
+  assert.equal(bingeResult.isNotFound, false)
+  assert.ok(bingeResult.collection)
+  assert.equal(bingeResult.collection.slug, 'bingeable-reads')
+  assert.equal(bingeResult.works.length, 1)
+  assert.equal(bingeResult.works[0].id, 'w-binge-1')
+
+  // Completed stories: only completed works
+  const completedResult = await executeGetBrowseCollectionData('completed-stories', mockDeps)
+  assert.equal(completedResult.isNotFound, false)
+  assert.equal(completedResult.collection.slug, 'completed-stories')
+  assert.equal(completedResult.works.length, 1)
+  assert.equal(completedResult.works[0].id, 'w-long-saga')
+
+  // Invalid collection returns isNotFound: true
+  const invalidResult = await executeGetBrowseCollectionData('non-existent-collection-xyz', mockDeps)
+  assert.equal(invalidResult.isNotFound, true)
+
+  // 2. Route code invariants
+  const browseRouteCode = fs.readFileSync(path.join(rootDir, 'src/routes/browse.$collection.tsx'), 'utf-8')
+  assert.ok(browseRouteCode.includes("createFileRoute('/browse/$collection')"), 'Browse route must define /browse/$collection')
+  assert.ok(browseRouteCode.includes('getBrowseCollectionServerFn'), 'Browse route must use getBrowseCollectionServerFn')
+  assert.ok(browseRouteCode.includes("'@type': 'CollectionPage'"), 'Browse route must output Schema.org CollectionPage')
+  assert.ok(browseRouteCode.includes("'@type': 'FAQPage'"), 'Browse route must output Schema.org FAQPage')
+  assert.ok(browseRouteCode.includes("'@type': 'BreadcrumbList'"), 'Browse route must output Schema.org BreadcrumbList')
+  assert.ok(browseRouteCode.includes('Frequently Asked Questions About'), 'Browse route must render semantic FAQ heading')
+  assert.ok(browseRouteCode.includes('Explore Other Curated Shelves'), 'Browse route must cross-link other collections')
+
+  // 3. Sitemap inclusion of /browse/
+  const sitemapCode = fs.readFileSync(path.join(rootDir, 'src/server/sitemap.ts'), 'utf-8')
+  assert.ok(sitemapCode.includes('/browse/${colSlug}'), 'sitemap.ts must generate entries for /browse/$collection')
+  assert.ok(sitemapCode.includes('bingeable-reads'), 'sitemap.ts must list bingeable-reads')
+  assert.ok(sitemapCode.includes('new-voices'), 'sitemap.ts must list new-voices')
+
+  // 4. Footer link equity
+  const footerCode = fs.readFileSync(path.join(rootDir, 'src/components/Footer.tsx'), 'utf-8')
+  assert.ok(footerCode.includes('Curated Shelves'), 'Footer must feature Curated Shelves section')
+  assert.ok(footerCode.includes('to="/browse/$collection"'), 'Footer must link to /browse/$collection')
+})
+
 
 
 

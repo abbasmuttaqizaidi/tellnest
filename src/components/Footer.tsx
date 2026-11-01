@@ -158,6 +158,45 @@ export default function Footer() {
           </div>
         </div>
 
+        {/* Curated Reading Hubs (Editorial & Intent Discovery) */}
+        <div className="py-3 sm:py-4 border-b border-[var(--border-subtle)]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2 mb-2">
+            <h4 className="font-mono text-[10px] uppercase tracking-wider text-[var(--ink-primary)] font-semibold m-0">
+              Curated Shelves
+            </h4>
+          </div>
+          <div className="flex flex-wrap gap-x-3.5 sm:gap-x-4 gap-y-1.5 text-[11px] sm:text-xs">
+            <Link
+              to="/browse/$collection"
+              params={{ collection: 'bingeable-reads' }}
+              className="text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors no-underline py-0.5"
+            >
+              Bingeable Reads
+            </Link>
+            <Link
+              to="/browse/$collection"
+              params={{ collection: 'new-voices' }}
+              className="text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors no-underline py-0.5"
+            >
+              New Voices Showcase
+            </Link>
+            <Link
+              to="/browse/$collection"
+              params={{ collection: 'completed-stories' }}
+              className="text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors no-underline py-0.5"
+            >
+              Completed Stories
+            </Link>
+            <Link
+              to="/browse/$collection"
+              params={{ collection: 'free-web-novels' }}
+              className="text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors no-underline py-0.5"
+            >
+              Free Web Novels
+            </Link>
+          </div>
+        </div>
+
         {/* Curated Literary Genre Hub (Distributes internal PageRank & eliminates genre orphan URLs) */}
         <div className="py-4 sm:py-5 border-b border-[var(--border-subtle)]">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2 mb-2.5">
