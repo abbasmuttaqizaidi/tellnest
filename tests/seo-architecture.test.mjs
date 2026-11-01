@@ -1609,6 +1609,40 @@ test('Genre SEO Growth: Step 3 — Dedicated Trope & Tag Hubs (/tag/$slug) and S
   assert.ok(sitemapCode.includes('/tag/${tagSlug}'), 'sitemap.ts must generate entries for /tag/$slug')
 })
 
+test('Story SERP Rich Results Optimization: Step 2 — hasPart chapters, about entity graph, ReadAction offer, and search intent meta', () => {
+  const worksCode = fs.readFileSync(path.join(rootDir, 'src/routes/works.$workId.tsx'), 'utf-8')
+
+  // 1. High-intent title & value-proposition description
+  assert.ok(
+    worksCode.includes('title: `${work.title} by ${authorName} — Read Free Serialized Story Online`'),
+    'Works route must format title with high-intent read free keywords'
+  )
+  assert.ok(
+    worksCode.includes('Read free serialized chapters online on HatchPen with zero paywalls'),
+    'Works route description must emphasize zero-paywall serialized reading'
+  )
+
+  // 2. Google Sitelinks via hasPart Chapter Schema
+  assert.ok(worksCode.includes('chapterParts = publishedChapters'), 'Works route must compute chapterParts')
+  assert.ok(worksCode.includes("'@type': 'Chapter'"), 'chapterParts must declare @type: Chapter')
+  assert.ok(worksCode.includes("hasPart: chapterParts"), 'Works Book schema must include hasPart for Google Sitelinks')
+
+  // 3. Knowledge Graph Entity Linking via about array
+  assert.ok(worksCode.includes('aboutEntities = ['), 'Works route must compute aboutEntities')
+  assert.ok(worksCode.includes("about: aboutEntities"), 'Works Book schema must declare about entities')
+  assert.ok(worksCode.includes("url: `https://hatchpen.com/tag/${slugify(t)}`"), 'aboutEntities must link to trope landing hubs')
+
+  // 4. Free Reading intent via potentialAction ReadAction + Offer
+  assert.ok(worksCode.includes("'@type': 'ReadAction'"), 'Works schema must include ReadAction')
+  assert.ok(worksCode.includes("'@type': 'Offer'"), 'Works schema must include Offer for free reading badge')
+  assert.ok(worksCode.includes("price: '0'"), 'Offer must declare price 0')
+
+  // 5. Publisher Organization and Author Entity ID
+  assert.ok(worksCode.includes("'@type': 'Organization'"), 'Works schema must declare Publisher Organization')
+  assert.ok(worksCode.includes("'@id': `https://hatchpen.com/author/${authorSlug}#person`"), 'Author must declare stable @id entity reference')
+})
+
+
 
 
 

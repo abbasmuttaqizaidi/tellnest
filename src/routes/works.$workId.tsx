@@ -117,9 +117,41 @@ export const Route = createFileRoute('/works/$workId')({
     const genreName = work.genre || 'Literary Fiction'
     const genreSlug = work.genreSlug || genreName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'literary-fiction'
 
+    const publishedChapters = (work.chapters || []).filter(
+      (c: any) => (c.status || '').toLowerCase() === 'published'
+    )
+    const firstChapter = publishedChapters[0]
+    const firstChapterId = firstChapter?.id || 'first'
+
+    // Chapter deep-links for Google Sitelinks / Rich Results
+    const chapterParts = publishedChapters.slice(0, 30).map((ch: any, idx: number) => ({
+      '@type': 'Chapter',
+      position: ch.number || idx + 1,
+      name: ch.title || `Chapter ${ch.number || idx + 1}`,
+      url: `https://hatchpen.com/read/${canonicalSlug}/${ch.id}`,
+      ...(ch.wordCount ? { wordCount: ch.wordCount } : {}),
+      ...(ch.readTimeMinutes ? { timeRequired: `PT${ch.readTimeMinutes}M` } : {}),
+    }))
+
+    // Knowledge Graph entity connections for tropes, genres, and themes
+    const aboutEntities = [
+      ...(work.genre ? [{ '@type': 'Thing', name: work.genre, url: `https://hatchpen.com/genre/${genreSlug}` }] : []),
+      ...(work.category ? [{ '@type': 'Thing', name: work.category, url: `https://hatchpen.com/category/${catSlug}` }] : []),
+      ...((work.tags || []).map((t: string) => ({
+        '@type': 'Thing',
+        name: t,
+        url: `https://hatchpen.com/tag/${slugify(t)}`,
+      }))),
+    ]
+
+    const rawDescription = work.synopsis || (work.fullDescription ? work.fullDescription.slice(0, 160) : '')
+    const pageDescription = rawDescription
+      ? `${rawDescription.slice(0, 140)}. Read free serialized chapters online on HatchPen with zero paywalls.`
+      : `Read ${work.title} by ${authorName} online on HatchPen. Original serialized fiction and indie literature with zero paywalls.`
+
     return generateMeta({
-      title: `${work.title} by ${authorName}`,
-      description: work.synopsis || (work.fullDescription ? work.fullDescription.slice(0, 160) : ''),
+      title: `${work.title} by ${authorName} — Read Free Serialized Story Online`,
+      description: pageDescription,
       canonicalUrl: `https://hatchpen.com/works/${canonicalSlug}`,
       ogType: 'book',
       ogImage,
@@ -132,6 +164,8 @@ export const Route = createFileRoute('/works/$workId')({
         work.category || 'Novels',
         ...(work.tags || []),
         'read online',
+        'read serialized story',
+        'free web novel',
         'serialized manuscript',
         'serialized fiction',
       ],
@@ -141,19 +175,49 @@ export const Route = createFileRoute('/works/$workId')({
         name: work.title,
         author: {
           '@type': 'Person',
+          '@id': `https://hatchpen.com/author/${authorSlug}#person`,
           name: authorName,
           url: `https://hatchpen.com/author/${authorSlug}`,
         },
+        publisher: {
+          '@type': 'Organization',
+          name: 'HatchPen',
+          url: 'https://hatchpen.com',
+          logo: {
+            '@type': 'ImageObject',
+            url: 'https://hatchpen.com/favicon.svg',
+          },
+        },
         genre: work.genre || 'Fiction',
-        description: work.synopsis || '',
+        description: pageDescription,
         image: work.cover || 'https://hatchpen.com/default-book-cover.webp',
         inLanguage: work.language || 'English',
-        numberOfPages: work.publishedChaptersCount || work.chaptersCount || 1,
+        numberOfPages: work.publishedChaptersCount || publishedChapters.length || work.chaptersCount || 1,
         wordCount: totalWords,
         timeRequired: `PT${totalReadingTime}M`,
         ...(datePublished ? { datePublished } : {}),
         ...(dateModified ? { dateModified } : {}),
         url: `https://hatchpen.com/works/${canonicalSlug}`,
+        ...(aboutEntities.length > 0 ? { about: aboutEntities } : {}),
+        ...(chapterParts.length > 0 ? { hasPart: chapterParts } : {}),
+        potentialAction: {
+          '@type': 'ReadAction',
+          target: {
+            '@type': 'EntryPoint',
+            urlTemplate: `https://hatchpen.com/read/${canonicalSlug}/${firstChapterId}`,
+            actionPlatform: [
+              'http://schema.org/DesktopWebPlatform',
+              'http://schema.org/MobileWebPlatform',
+            ],
+          },
+          expectsAcceptanceOf: {
+            '@type': 'Offer',
+            price: '0',
+            priceCurrency: 'USD',
+            availability: 'https://schema.org/InStock',
+            category: 'Free Serialized Fiction',
+          },
+        },
         ...(totalReads > 0 || totalSaves > 0
           ? {
               interactionStatistic: [
