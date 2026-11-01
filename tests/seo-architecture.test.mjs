@@ -1493,6 +1493,26 @@ test('P2 Audit: Finding 3.2 — Author Profile Person JSON-LD generates sameAs a
   assert.ok(worksServerCode.includes('website: data.website_url'), 'getPublicAuthorServerFn must map website in return object')
 })
 
+test('Genre SEO Growth: Step 1 — High-intent titles, FAQPage Schema, Related Genres cluster, and DOM FAQ section', () => {
+  const genreRouteCode = fs.readFileSync(path.join(rootDir, 'src/routes/genre.$slug.tsx'), 'utf-8')
+
+  // Search intent title & description
+  assert.ok(genreRouteCode.includes('title: `Read ${genreName} Stories & Serialized Novels Online`'), 'Genre route must emit search-intent title')
+  assert.ok(genreRouteCode.includes('zero paywalls or subscriptions'), 'Genre route must emit value-proposition in description')
+  assert.ok(genreRouteCode.includes('read ${genreName.toLowerCase()} online'), 'Genre route must target read online keyword')
+
+  // FAQPage Schema & Semantic DOM
+  assert.ok(genreRouteCode.includes("'@type': 'FAQPage'"), 'Genre route must output Schema.org FAQPage')
+  assert.ok(genreRouteCode.includes('Frequently Asked Questions About'), 'Genre route must render semantic FAQ heading')
+  assert.ok(genreRouteCode.includes('Can I read {genreInfo.name} stories on HatchPen for free?'), 'Genre route must address reader free access FAQ')
+
+  // Related Genres Topic Cluster
+  assert.ok(genreRouteCode.includes('relatedGenres = useMemo'), 'Genre route must compute related genres')
+  assert.ok(genreRouteCode.includes('Explore Related Genres'), 'Genre route must render related genres bar')
+  assert.ok(genreRouteCode.includes('All 34 Genres'), 'Genre route must link to all 34 genres')
+})
+
+
 
 
 

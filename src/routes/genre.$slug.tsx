@@ -5,7 +5,7 @@ import { GLOBAL_GENRES } from '../lib/taxonomy'
 import WorkCard from '../components/WorkCard'
 import EmptyState from '../components/EmptyState'
 import { FilterDisclosure, AnimatedSearch } from '../design-system'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, HelpCircle, Sparkles, BookOpen, Compass } from 'lucide-react'
 import { generateMeta } from '../lib/seo'
 import { parseTotalReads } from '../lib/utils'
 import { getGenrePageDataServerFn, type GenrePageData } from '../server/works'
@@ -57,10 +57,47 @@ export const Route = createFileRoute('/genre/$slug')({
     const genre = loaderData.genre
     const genreName = genre.name
     const canonicalUrl = `https://hatchpen.com/genre/${genre.slug}`
-    const description =
-      genre.description ||
-      `Curated literary manuscripts, serial fiction, and independent works in the ${genreName} genre on HatchPen.`
+    const description = `Read original ${genreName} stories, serialized novels, and indie manuscripts on HatchPen. Enjoy chapter-by-chapter reading with zero paywalls or subscriptions.`
     const works = loaderData.works || []
+
+    const faqJsonLd = {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: `What is ${genreName} fiction on HatchPen?`,
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: `${genreName} on HatchPen features original serialized novels and independent manuscripts characterized by ${genre.description.toLowerCase().replace(/\.$/, '')}. Stories are written by indie authors and published chapter by chapter.`,
+          },
+        },
+        {
+          '@type': 'Question',
+          name: `Can I read ${genreName} stories on HatchPen for free?`,
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: `Yes. All ${genreName} stories on HatchPen are 100% free to read online directly in your browser with zero paywalls, coins, or download requirements.`,
+          },
+        },
+        {
+          '@type': 'Question',
+          name: `How often are new ${genreName} chapters released?`,
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: `HatchPen authors release new chapters on ongoing serialized schedules. You can add any story to your personal Library to receive updates when new chapters publish.`,
+          },
+        },
+        {
+          '@type': 'Question',
+          name: `Can independent authors publish ${genreName} stories on HatchPen?`,
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: `Yes. Writers can use HatchPen Creator Studio to draft, format, and serialize their own ${genreName} fiction directly to readers worldwide.`,
+          },
+        },
+      ],
+    }
 
     const jsonLd = [
       {
@@ -90,7 +127,7 @@ export const Route = createFileRoute('/genre/$slug')({
       {
         '@context': 'https://schema.org',
         '@type': 'CollectionPage',
-        name: `${genreName} Stories & Serialized Literature`,
+        name: `Read ${genreName} Stories & Serialized Literature`,
         description,
         url: canonicalUrl,
         mainEntity: {
@@ -104,13 +141,23 @@ export const Route = createFileRoute('/genre/$slug')({
           })),
         },
       },
+      faqJsonLd,
     ]
 
     return generateMeta({
-      title: `${genreName} Stories & Serialized Literature`,
+      title: `Read ${genreName} Stories & Serialized Novels Online`,
       description,
       canonicalUrl,
-      keywords: [genreName, `${genreName} fiction`, 'read novels', 'indie books', 'Hatchpen genre'],
+      keywords: [
+        genreName,
+        `read ${genreName.toLowerCase()} online`,
+        `${genreName.toLowerCase()} stories`,
+        `${genreName.toLowerCase()} serialized fiction`,
+        `${genreName.toLowerCase()} novels`,
+        'free web novels',
+        'indie serialized literature',
+        'HatchPen',
+      ],
       ogType: 'website',
       jsonLd,
       breadcrumbs: [
@@ -155,6 +202,19 @@ function GenreTemplatePage() {
 
   const genreInfo = loaderData.genre
 
+  const relatedGenres = useMemo(() => {
+    if (!genreInfo) return []
+    const sameGroup = GLOBAL_GENRES.filter(
+      (g) => g.group === genreInfo.group && g.slug !== genreInfo.slug
+    )
+    if (sameGroup.length >= 4) return sameGroup.slice(0, 6)
+
+    const others = GLOBAL_GENRES.filter(
+      (g) => g.group !== genreInfo.group && g.slug !== genreInfo.slug
+    )
+    return [...sameGroup, ...others].slice(0, 6)
+  }, [genreInfo])
+
   // Use client allWorks when available; otherwise use SSR preloaded loaderData.works
   const baselineWorks = allWorks && allWorks.length > 0 ? allWorks : loaderData.works || []
 
@@ -198,30 +258,82 @@ function GenreTemplatePage() {
       </div>
 
       {/* Genre Header Hero */}
-      <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-8 sm:p-12 mb-10">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+      <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 sm:p-10 mb-6 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6">
           <div className="space-y-3 max-w-2xl">
-            <span className="font-mono text-xs uppercase tracking-wider text-[var(--ink-muted)]">
-              Genre Archive
-            </span>
-            <h1 className="font-serif text-3xl sm:text-4xl font-semibold text-[var(--ink-primary)]">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--ink-primary)] font-semibold px-2 py-0.5 rounded bg-[var(--bg-subtle)] border border-[var(--border-subtle)]">
+                {genreInfo.group || 'Literary Genre'}
+              </span>
+              <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--ink-muted)]">
+                • Serialized Literature
+              </span>
+            </div>
+
+            <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-[var(--ink-primary)] tracking-tight">
               {genreInfo.name}
             </h1>
-            <p className="text-sm leading-relaxed text-[var(--ink-muted)] font-sans">
+
+            <p className="text-sm sm:text-base leading-relaxed text-[var(--ink-secondary)] font-sans">
               {genreInfo.description}
             </p>
+
+            {/* Reading Experience Highlights */}
+            <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] font-mono text-[var(--ink-muted)]">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--bg-subtle)] border border-[var(--border-subtle)]">
+                <BookOpen className="h-3 w-3 text-[var(--accent)]" />
+                <span>Chapter-by-Chapter</span>
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--bg-subtle)] border border-[var(--border-subtle)]">
+                <Sparkles className="h-3 w-3 text-[var(--accent)]" />
+                <span>100% Free Online</span>
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--bg-subtle)] border border-[var(--border-subtle)]">
+                <Compass className="h-3 w-3 text-[var(--accent)]" />
+                <span>Original Indie Authors</span>
+              </span>
+            </div>
           </div>
 
-          <div className="sm:text-right border-t sm:border-t-0 sm:border-l border-[var(--border-subtle)] pt-4 sm:pt-0 sm:pl-8 flex flex-col justify-center">
-            <span className="font-mono text-2xl font-semibold text-[var(--ink-primary)]">
+          <div className="sm:text-right border-t sm:border-t-0 sm:border-l border-[var(--border-subtle)] pt-4 sm:pt-0 sm:pl-8 flex flex-col sm:items-end justify-center shrink-0">
+            <span className="font-mono text-3xl font-bold text-[var(--ink-primary)]">
               {genreWorks.length}
             </span>
-            <span className="font-mono text-xs text-[var(--ink-muted)] uppercase tracking-wider">
-              Works Cataloged
+            <span className="font-mono text-xs text-[var(--ink-muted)] uppercase tracking-wider mt-0.5">
+              Published Works
             </span>
           </div>
         </div>
       </div>
+
+      {/* Related Genres Topic Cluster (Internal Link Equity) */}
+      {relatedGenres.length > 0 && (
+        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 sm:p-5 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 mb-3">
+            <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--ink-primary)] font-semibold">
+              Explore Related Genres &amp; Tropes
+            </span>
+            <Link
+              to="/discover"
+              className="text-[11px] font-mono text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors no-underline inline-flex items-center gap-1"
+            >
+              All 34 Genres <span aria-hidden="true">&rarr;</span>
+            </Link>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {relatedGenres.map((rel) => (
+              <Link
+                key={rel.slug}
+                to="/genre/$slug"
+                params={{ slug: rel.slug }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-subtle)] hover:bg-[var(--bg-muted)] hover:border-[var(--border-strong)] text-xs text-[var(--ink-primary)] transition-all no-underline font-medium"
+              >
+                <span>{rel.name}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Genre Filter Controls */}
       <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-[var(--border-subtle)] mb-8 text-xs">
@@ -273,6 +385,52 @@ function GenreTemplatePage() {
           ))}
         </div>
       )}
+
+      {/* Genre FAQ Section (Matches Schema.org FAQPage for Google Rich Snippets) */}
+      <section className="mt-12 sm:mt-16 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 sm:p-10 space-y-6">
+        <div className="flex items-center gap-2.5 text-[var(--ink-primary)] font-serif text-xl sm:text-2xl font-bold">
+          <HelpCircle className="w-5 h-5 text-[var(--accent)] shrink-0" />
+          <h2>Frequently Asked Questions About {genreInfo.name} Stories</h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 pt-2">
+          <div className="space-y-1.5">
+            <h3 className="text-sm font-semibold text-[var(--ink-primary)]">
+              What is {genreInfo.name} fiction on HatchPen?
+            </h3>
+            <p className="text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans">
+              {genreInfo.name} on HatchPen features original serialized novels, novellas, and standalone literary manuscripts characterized by {genreInfo.description.toLowerCase().replace(/\.$/, '')}. Stories are written by independent authors and published chapter by chapter.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <h3 className="text-sm font-semibold text-[var(--ink-primary)]">
+              Can I read {genreInfo.name} stories on HatchPen for free?
+            </h3>
+            <p className="text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans">
+              Yes. All {genreInfo.name} stories on HatchPen are 100% free for readers. There are no paywalls, coin systems, or subscriptions required. You can read comfortably in any web browser without downloading an app.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <h3 className="text-sm font-semibold text-[var(--ink-primary)]">
+              How often are new {genreInfo.name} chapters published?
+            </h3>
+            <p className="text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans">
+              HatchPen authors release new chapters on ongoing serialized schedules. You can save any story to your personal Library to receive instant notifications whenever a new chapter is released.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <h3 className="text-sm font-semibold text-[var(--ink-primary)]">
+              Can independent authors publish {genreInfo.name} stories?
+            </h3>
+            <p className="text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans">
+              Yes. Writers can use HatchPen's distraction-free Creator Studio to draft, organize acts, and publish serialized {genreInfo.name} fiction directly to readers worldwide.
+            </p>
+          </div>
+        </div>
+      </section>
     </div>
   )
 }
