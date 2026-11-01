@@ -1188,7 +1188,9 @@ export async function executeGetCategoryPageData(
   const categoryWorks = allWorks.filter((w: any) => {
     const matchCategory =
       (w.categorySlug && w.categorySlug.toLowerCase() === normalizedSlug) ||
-      (w.category && w.category.toLowerCase().replace(/\s+/g, '-') === normalizedSlug)
+      (w.category && slugify(w.category) === normalizedSlug) ||
+      (w.category && w.category.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') === normalizedSlug) ||
+      (w.category && w.category.toLowerCase() === category.name.toLowerCase())
     return matchCategory && isWorkIndexable(w)
   })
 

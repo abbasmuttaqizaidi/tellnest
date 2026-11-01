@@ -1642,6 +1642,90 @@ test('Story SERP Rich Results Optimization: Step 2 — hasPart chapters, about e
   assert.ok(worksCode.includes("'@id': `https://hatchpen.com/author/${authorSlug}#person`"), 'Author must declare stable @id entity reference')
 })
 
+test('Category SEO Growth: Step 1 — High-intent titles, FAQPage Schema, Literary Genre Cluster, and Resilient Category Matching', async () => {
+  const catRouteCode = fs.readFileSync(path.join(rootDir, 'src/routes/category.$slug.tsx'), 'utf-8')
+
+  // 1. High-intent title & value-proposition description
+  assert.ok(
+    catRouteCode.includes('title: `Read Best ${categoryName} Stories & Web Novels Online`'),
+    'Category route must emit search-intent title'
+  )
+  assert.ok(
+    catRouteCode.includes('zero paywalls or subscriptions'),
+    'Category route must emit value-proposition in description'
+  )
+  assert.ok(
+    catRouteCode.includes('read ${categoryName.toLowerCase()} online'),
+    'Category route must target read online keyword'
+  )
+
+  // 2. FAQPage Schema & Semantic DOM
+  assert.ok(catRouteCode.includes("'@type': 'FAQPage'"), 'Category route must output Schema.org FAQPage')
+  assert.ok(catRouteCode.includes('Frequently Asked Questions About'), 'Category route must render semantic FAQ heading')
+  assert.ok(catRouteCode.includes('Can I read {categoryInfo.name} stories on HatchPen for free?'), 'Category route must address free reading FAQ')
+
+  // 3. Topic Clusters (Genres & Formats Internal Link Equity)
+  assert.ok(catRouteCode.includes('Explore Genres in this Category'), 'Category route must render genre exploration cluster')
+  assert.ok(catRouteCode.includes('Explore Other Literary Formats'), 'Category route must render sibling format cluster')
+  assert.ok(catRouteCode.includes('All 34 Genres'), 'Category route must link to all 34 genres')
+
+  // 4. Resilient Category Matching in executeGetCategoryPageData
+  const mockWorks = [
+    {
+      id: 'w-ya-1',
+      title: 'High School Secrets',
+      slug: 'high-school-secrets',
+      category: 'Young Adult (YA)',
+      categorySlug: 'young-adult-ya',
+      visibility: 'Public',
+      publicationStatus: 'published',
+      isIndexable: true,
+      author: { id: 'a1', name: 'Author One' },
+    },
+    {
+      id: 'w-memoir-1',
+      title: 'Echoes of the Past',
+      slug: 'echoes-of-the-past',
+      category: 'Memoir / Autobiography',
+      categorySlug: 'memoir-autobiography',
+      visibility: 'Public',
+      publicationStatus: 'published',
+      isIndexable: true,
+      author: { id: 'a2', name: 'Author Two' },
+    },
+  ]
+
+  const mockDeps = {
+    queryRows: async () => mockWorks.map((w) => ({
+      id: w.id,
+      title: w.title,
+      slug: w.slug,
+      category_name: w.category,
+      category_slug: w.categorySlug,
+      visibility: 'public',
+      publication_status: 'published',
+      is_indexable: true,
+      author_id: w.author.id,
+      author_name: w.author.name,
+      genres: [],
+      chapters: [],
+    })),
+  }
+
+  const yaResult = await executeGetCategoryPageData('young-adult-ya', mockDeps)
+  assert.equal(yaResult.isNotFound, false)
+  assert.equal(yaResult.category.name, 'Young Adult (YA)')
+  assert.equal(yaResult.works.length, 1)
+  assert.equal(yaResult.works[0].id, 'w-ya-1')
+
+  const memoirResult = await executeGetCategoryPageData('memoir-autobiography', mockDeps)
+  assert.equal(memoirResult.isNotFound, false)
+  assert.equal(memoirResult.category.name, 'Memoir / Autobiography')
+  assert.equal(memoirResult.works.length, 1)
+  assert.equal(memoirResult.works[0].id, 'w-memoir-1')
+})
+
+
 
 
 
