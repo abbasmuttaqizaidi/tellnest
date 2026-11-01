@@ -28,6 +28,7 @@ import { Route as AdminWorkEditorWorkIdRouteImport } from './routes/admin-work-e
 import { Route as AuthorAuthorIdRouteImport } from './routes/author.$authorId'
 import { Route as CategorySlugRouteImport } from './routes/category.$slug'
 import { Route as GenreSlugRouteImport } from './routes/genre.$slug'
+import { Route as TagSlugRouteImport } from './routes/tag.$slug'
 import { Route as WorksWorkIdRouteImport } from './routes/works.$workId'
 import { Route as WriteIndexRouteImport } from './routes/write.index'
 import { Route as WriteNewRouteImport } from './routes/write.new'
@@ -131,6 +132,11 @@ const GenreSlugRoute = GenreSlugRouteImport.update({
   path: '/genre/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TagSlugRoute = TagSlugRouteImport.update({
+  id: '/tag/$slug',
+  path: '/tag/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WorksWorkIdRoute = WorksWorkIdRouteImport.update({
   id: '/works/$workId',
   path: '/works/$workId',
@@ -188,6 +194,7 @@ export interface FileRoutesByFullPath {
   '/author/$authorId': typeof AuthorAuthorIdRoute
   '/category/$slug': typeof CategorySlugRoute
   '/genre/$slug': typeof GenreSlugRoute
+  '/tag/$slug': typeof TagSlugRoute
   '/works/$workId': typeof WorksWorkIdRoute
   '/write/new': typeof WriteNewRoute
   '/write/': typeof WriteIndexRoute
@@ -216,6 +223,7 @@ export interface FileRoutesByTo {
   '/author/$authorId': typeof AuthorAuthorIdRoute
   '/category/$slug': typeof CategorySlugRoute
   '/genre/$slug': typeof GenreSlugRoute
+  '/tag/$slug': typeof TagSlugRoute
   '/works/$workId': typeof WorksWorkIdRoute
   '/write/new': typeof WriteNewRoute
   '/write': typeof WriteIndexRoute
@@ -245,6 +253,7 @@ export interface FileRoutesById {
   '/author/$authorId': typeof AuthorAuthorIdRoute
   '/category/$slug': typeof CategorySlugRoute
   '/genre/$slug': typeof GenreSlugRoute
+  '/tag/$slug': typeof TagSlugRoute
   '/works/$workId': typeof WorksWorkIdRoute
   '/write/new': typeof WriteNewRoute
   '/write/': typeof WriteIndexRoute
@@ -275,6 +284,7 @@ export interface FileRouteTypes {
     | '/author/$authorId'
     | '/category/$slug'
     | '/genre/$slug'
+    | '/tag/$slug'
     | '/works/$workId'
     | '/write/new'
     | '/write/'
@@ -303,6 +313,7 @@ export interface FileRouteTypes {
     | '/author/$authorId'
     | '/category/$slug'
     | '/genre/$slug'
+    | '/tag/$slug'
     | '/works/$workId'
     | '/write/new'
     | '/write'
@@ -331,6 +342,7 @@ export interface FileRouteTypes {
     | '/author/$authorId'
     | '/category/$slug'
     | '/genre/$slug'
+    | '/tag/$slug'
     | '/works/$workId'
     | '/write/new'
     | '/write/'
@@ -360,6 +372,7 @@ export interface RootRouteChildren {
   AuthorAuthorIdRoute: typeof AuthorAuthorIdRoute
   CategorySlugRoute: typeof CategorySlugRoute
   GenreSlugRoute: typeof GenreSlugRoute
+  TagSlugRoute: typeof TagSlugRoute
   WorksWorkIdRoute: typeof WorksWorkIdRoute
   WriteNewRoute: typeof WriteNewRoute
   WriteIndexRoute: typeof WriteIndexRoute
@@ -504,6 +517,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GenreSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/tag/$slug': {
+      id: '/tag/$slug'
+      path: '/tag/$slug'
+      fullPath: '/tag/$slug'
+      preLoaderRoute: typeof TagSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/works/$workId': {
       id: '/works/$workId'
       path: '/works/$workId'
@@ -576,6 +596,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthorAuthorIdRoute: AuthorAuthorIdRoute,
   CategorySlugRoute: CategorySlugRoute,
   GenreSlugRoute: GenreSlugRoute,
+  TagSlugRoute: TagSlugRoute,
   WorksWorkIdRoute: WorksWorkIdRoute,
   WriteNewRoute: WriteNewRoute,
   WriteIndexRoute: WriteIndexRoute,

@@ -25,6 +25,7 @@ import {
 import {
   executeGetCategoryPageData,
   executeGetGenrePageData,
+  executeGetTagPageData,
 } from '../src/server/works.ts'
 import sitemapHandler from '../src/server/sitemap-handler.ts'
 import {
@@ -1515,11 +1516,10 @@ test('Genre SEO Growth: Step 1 — High-intent titles, FAQPage Schema, Related G
 test('Genre SEO Growth: Step 2 — Tropes System Activation & Discovery across works and genre hubs', () => {
   const worksRouteCode = fs.readFileSync(path.join(rootDir, 'src/routes/works.$workId.tsx'), 'utf-8')
 
-  // 1. Clickable tags on works detail
-  assert.ok(worksRouteCode.includes('to="/discover"'), 'Work detail route must link tags to discover page')
-  assert.ok(worksRouteCode.includes('search={{ q: tag }}'), 'Work detail route must pass tag as search query')
+  // 1. Clickable tags on works detail linking to dedicated tag route
+  assert.ok(worksRouteCode.includes('to="/tag/$slug"'), 'Work detail route must link tags to dedicated tag hub')
+  assert.ok(worksRouteCode.includes('params={{ slug: slugify(tag) }}'), 'Work detail route must pass slugified tag as param')
   assert.ok(worksRouteCode.includes('#{tag}'), 'Work detail route must render tag label')
-  assert.ok(worksRouteCode.includes('title={`Explore stories tagged #${tag}`}'), 'Work detail route must provide accessible title tooltip on tags')
 
   const genreRouteCode = fs.readFileSync(path.join(rootDir, 'src/routes/genre.$slug.tsx'), 'utf-8')
 
@@ -1538,6 +1538,75 @@ test('Genre SEO Growth: Step 2 — Tropes System Activation & Discovery across w
   assert.ok(genreRouteCode.includes('selectedTrope'), 'Genre route must track selectedTrope state')
   assert.ok(genreRouteCode.includes('Clear Trope Filter'), 'Genre route must render clear filter button')
   assert.ok(genreRouteCode.includes('stories found tagged #${selectedTrope}'), 'Genre route empty state must inform about active trope')
+})
+
+test('Genre SEO Growth: Step 3 — Dedicated Trope & Tag Hubs (/tag/$slug) and Sitemap Coverage', async () => {
+  // 1. Server execution test for executeGetTagPageData
+  const mockWorks = [
+    {
+      id: 'w-slowburn-1',
+      title: 'Midnight Embers',
+      slug: 'midnight-embers',
+      visibility: 'public',
+      publication_status: 'published',
+      is_indexable: true,
+      tags: ['Slow-Burn', 'Enemies to Lovers', 'Morally Grey'],
+      author: { id: 'a1', name: 'Author One' },
+    },
+    {
+      id: 'w-slowburn-unlisted',
+      title: 'Secret Draft',
+      slug: 'secret-draft',
+      visibility: 'unlisted',
+      publication_status: 'published',
+      is_indexable: true,
+      tags: ['Slow-Burn'],
+    },
+  ]
+
+  const mockDeps = {
+    queryRows: async () =>
+      mockWorks.map((w) => ({
+        id: w.id,
+        title: w.title,
+        slug: w.slug,
+        category_name: 'Novels',
+        category_slug: 'novels',
+        visibility: w.visibility,
+        publication_status: w.publication_status,
+        is_indexable: w.is_indexable,
+        tags: w.tags,
+        genres: [],
+        chapters: [],
+      })),
+  }
+
+  const result = await executeGetTagPageData('slow-burn', mockDeps)
+  assert.equal(result.isNotFound, false)
+  assert.ok(result.tag)
+  assert.equal(result.tag.name, 'Slow‑Burn') // Canonical suggested tag
+  assert.equal(result.tag.slug, 'slow-burn')
+  assert.equal(result.works.length, 1)
+  assert.equal(result.works[0].id, 'w-slowburn-1')
+  assert.ok(result.relatedTags.length > 0)
+
+  // Non-existent invalid tag returns isNotFound: true
+  const invalidResult = await executeGetTagPageData('non-existent-trope-12345-xyz', mockDeps)
+  assert.equal(invalidResult.isNotFound, true)
+  assert.equal(invalidResult.works.length, 0)
+
+  // 2. Tag route code verification
+  const tagRouteCode = fs.readFileSync(path.join(rootDir, 'src/routes/tag.$slug.tsx'), 'utf-8')
+  assert.ok(tagRouteCode.includes("createFileRoute('/tag/$slug')"), 'Tag route must define /tag/$slug')
+  assert.ok(tagRouteCode.includes('getTagPageDataServerFn'), 'Tag route must use getTagPageDataServerFn')
+  assert.ok(tagRouteCode.includes('FAQPage'), 'Tag route must emit Schema.org FAQPage')
+  assert.ok(tagRouteCode.includes('CollectionPage'), 'Tag route must emit Schema.org CollectionPage')
+  assert.ok(tagRouteCode.includes('BreadcrumbList'), 'Tag route must emit Schema.org BreadcrumbList')
+  assert.ok(tagRouteCode.includes('Explore Related Tropes'), 'Tag route must render related tropes cluster')
+
+  // 3. Sitemap inclusion of /tag/
+  const sitemapCode = fs.readFileSync(path.join(rootDir, 'src/server/sitemap.ts'), 'utf-8')
+  assert.ok(sitemapCode.includes('/tag/${tagSlug}'), 'sitemap.ts must generate entries for /tag/$slug')
 })
 
 

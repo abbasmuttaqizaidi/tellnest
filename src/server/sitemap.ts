@@ -10,7 +10,7 @@
  * 5. Strict URL uniqueness and XML character escaping
  */
 
-import { GLOBAL_CATEGORIES, GLOBAL_GENRES } from '../lib/taxonomy.ts'
+import { GLOBAL_CATEGORIES, GLOBAL_GENRES, ALL_SUGGESTED_TAGS, slugify } from '../lib/taxonomy.ts'
 import { supabase as defaultSupabase } from '../lib/supabase/client.ts'
 
 export const CANONICAL_BASE_URL = 'https://hatchpen.com'
@@ -187,6 +187,18 @@ export async function buildSitemapEntries(options?: BuildSitemapOptions): Promis
         loc: `${CANONICAL_BASE_URL}/genre/${genre.slug}`,
         changefreq: 'weekly',
         priority: 0.8,
+      })
+    }
+  }
+
+  // 4. Canonical Narrative Tropes & Tags (/tag/$slug)
+  for (const tag of ALL_SUGGESTED_TAGS) {
+    const tagSlug = slugify(tag)
+    if (tagSlug) {
+      addEntry({
+        loc: `${CANONICAL_BASE_URL}/tag/${tagSlug}`,
+        changefreq: 'weekly',
+        priority: 0.7,
       })
     }
   }

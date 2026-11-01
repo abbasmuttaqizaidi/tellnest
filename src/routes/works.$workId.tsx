@@ -32,6 +32,7 @@ import { SavesAdjustmentModal } from '../components/SavesAdjustmentModal'
 import { AuthorProfileModal } from '../components/AuthorProfileModal'
 import { ShareStoryModal } from '../components/ShareStoryModal'
 import { formatViewCount, formatHeartCount } from '../lib/utils'
+import { slugify } from '../lib/taxonomy'
 import CommentsSection from '../components/CommentsSection'
 import WorkCard from '../components/WorkCard'
 import defaultBookCover from '../assets/default-book-cover.webp'
@@ -841,10 +842,10 @@ function WorkDetailPage() {
               {workTags.map((tag) => (
                 <Link
                   key={tag}
-                  to="/discover"
-                  search={{ q: tag }}
+                  to="/tag/$slug"
+                  params={{ slug: slugify(tag) }}
                   className="rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-1 text-xs font-mono text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)] transition-all no-underline inline-flex items-center gap-1 cursor-pointer"
-                  title={`Explore stories tagged #${tag}`}
+                  title={`Explore #${tag} stories & novels`}
                 >
                   <Tag className="w-2.5 h-2.5 opacity-50" />
                   <span>#{tag}</span>

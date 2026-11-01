@@ -9,7 +9,7 @@ import {
 } from '../lib/supabase/queries/works.ts'
 import type { WorkStatus } from '../lib/supabase/types.ts'
 import { getUtcWeekBoundaries, filterAndSortWorks } from '../lib/discover/filters.ts'
-import { GLOBAL_CATEGORIES, GLOBAL_GENRES } from '../lib/taxonomy.ts'
+import { GLOBAL_CATEGORIES, GLOBAL_GENRES, SUGGESTED_TAGS, slugify } from '../lib/taxonomy.ts'
 import { isWorkIndexable } from './sitemap.ts'
 
 /**
@@ -824,6 +824,7 @@ export async function executeGetPlatformWorks(
               profiles:author_id (id, username, display_name, avatar_path, bio, created_at),
               categories:category_id (id, name, slug),
               work_genres (genres (id, name, slug)),
+              work_tags (tags (id, name, slug)),
               acts (id, act_number, title, slug, description, status),
               chapters (id, chapter_number, title, slug, word_count, reading_time_minutes, status, published_at, act_id)
             `)
@@ -872,6 +873,7 @@ export async function executeGetPlatformWorks(
               category_name: w.categories?.name || 'Novels',
               category_slug: w.categories?.slug || 'novels',
               genres: (w.work_genres || []).map((wg: any) => wg.genres).filter(Boolean),
+              tags: (w.work_tags || []).map((wt: any) => wt.tags?.name).filter(Boolean),
               acts: w.acts || [],
               chapters: w.chapters || [],
             }))
@@ -1039,7 +1041,12 @@ export async function executeGetPlatformWorks(
           genre: primaryGenre.name,
           genreSlug: primaryGenre.slug,
           genres: mappedGenres,
-          tags: ['Serialized', 'Archival'],
+          tags:
+            Array.isArray(row.tags) && row.tags.length > 0
+              ? row.tags
+              : Array.isArray(row.work_tags) && row.work_tags.length > 0
+                ? row.work_tags.map((wt: any) => (typeof wt === 'string' ? wt : wt.tags?.name || wt.tag || wt.name)).filter(Boolean)
+                : ['Serialized', 'Archival'],
           language: row.language || 'English',
           status: mappedStatus,
           visibility: (row.visibility === 'public' ? 'Public' : 'Unlisted') as any,
@@ -1258,6 +1265,133 @@ export const getGenrePageDataServerFn = createServerFn({ method: 'GET' })
     return await executeGetGenrePageData(data)
   })
 
+export interface TagPageData {
+  tag: {
+    name: string
+    slug: string
+    group?: string
+    description?: string
+  } | null
+  works: any[]
+  relatedTags: { name: string; slug: string }[]
+  isNotFound: boolean
+}
+
+/**
+ * Resolves canonical tag metadata from slug using SUGGESTED_TAGS and published manuscripts.
+ */
+export function resolveCanonicalTagInfo(
+  normalizedSlug: string,
+  allWorks: any[] = []
+): { name: string; slug: string; group?: string; description?: string } | null {
+  if (!normalizedSlug) return null
+
+  // 1. Search in SUGGESTED_TAGS
+  for (const [groupKey, tags] of Object.entries(SUGGESTED_TAGS)) {
+    const matched = (tags as readonly string[]).find((t) => slugify(t) === normalizedSlug)
+    if (matched) {
+      return {
+        name: matched,
+        slug: normalizedSlug,
+        group: groupKey,
+        description: `Explore original serialized fiction, web novels, and indie manuscripts featuring the ${matched} trope and narrative themes.`,
+      }
+    }
+  }
+
+  // 2. Search in published works
+  for (const work of allWorks) {
+    if (Array.isArray(work.tags)) {
+      const matched = work.tags.find((t: string) => slugify(t || '') === normalizedSlug)
+      if (matched) {
+        return {
+          name: matched,
+          slug: normalizedSlug,
+          group: 'Popular Trope',
+          description: `Original stories and serialized fiction tagged with ${matched} on HatchPen.`,
+        }
+      }
+    }
+  }
+
+  return null
+}
+
+/**
+ * Core business logic: Fetch tag metadata, matching eligible published works, and related tags.
+ * Strictly enforces:
+ *  - Only recognized or active tags
+ *  - Only public, published, indexable works (visibility === 'public', publication_status === 'published', isIndexable !== false)
+ */
+export async function executeGetTagPageData(
+  slug: string,
+  dependencies: PlatformWorksDependencies = {}
+): Promise<TagPageData> {
+  if (!slug || typeof slug !== 'string' || !slug.trim()) {
+    return { tag: null, works: [], relatedTags: [], isNotFound: true }
+  }
+
+  const normalizedSlug = slugify(slug.trim())
+  const allWorks = await executeGetPlatformWorks(dependencies)
+
+  const tagInfo = resolveCanonicalTagInfo(normalizedSlug, allWorks)
+  if (!tagInfo) {
+    return { tag: null, works: [], relatedTags: [], isNotFound: true }
+  }
+
+  const tagWorks = allWorks.filter((w: any) => {
+    if (!isWorkIndexable(w)) return false
+    const tags = Array.isArray(w.tags) ? w.tags : []
+    return tags.some((t: string) => slugify(t || '') === normalizedSlug)
+  })
+
+  // Compute related tags (co-occurring tags from matching works + sibling tags from same category)
+  const coOccurring = new Map<string, number>()
+  tagWorks.forEach((w: any) => {
+    if (Array.isArray(w.tags)) {
+      w.tags.forEach((t: string) => {
+        const cleanSlug = slugify(t || '')
+        if (cleanSlug && cleanSlug !== normalizedSlug) {
+          coOccurring.set(t, (coOccurring.get(t) || 0) + 1)
+        }
+      })
+    }
+  })
+
+  const relatedList: { name: string; slug: string }[] = Array.from(coOccurring.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([name]) => ({ name, slug: slugify(name) }))
+
+  // If few co-occurring tags, supplement with sibling tags from the same suggested group
+  if (relatedList.length < 6 && tagInfo.group && tagInfo.group in SUGGESTED_TAGS) {
+    const siblingTags = (SUGGESTED_TAGS as any)[tagInfo.group] as readonly string[]
+    for (const sib of siblingTags) {
+      const sibSlug = slugify(sib)
+      if (sibSlug !== normalizedSlug && !relatedList.some((r) => r.slug === sibSlug)) {
+        relatedList.push({ name: sib, slug: sibSlug })
+        if (relatedList.length >= 6) break
+      }
+    }
+  }
+
+  return {
+    tag: tagInfo,
+    works: tagWorks,
+    relatedTags: relatedList,
+    isNotFound: false,
+  }
+}
+
+/**
+ * Server Function: Get tag page data with preloaded SEO-eligible works.
+ */
+export const getTagPageDataServerFn = createServerFn({ method: 'GET' })
+  .validator((slug: string) => String(slug || ''))
+  .handler(async ({ data }) => {
+    return await executeGetTagPageData(data)
+  })
+
 export interface NewVoicesDependencies {
   getAuthState?: () => Promise<{ userId?: string | null } | null>
   getPlatformWorks?: () => Promise<any[]>
@@ -1465,7 +1599,12 @@ export async function executeGetTopShelf(
           genre: primaryGenre.name,
           genreSlug: primaryGenre.slug,
           genres: mappedGenres,
-          tags: ['Serialized', 'Archival'],
+          tags:
+            Array.isArray(rawRow.tags) && rawRow.tags.length > 0
+              ? rawRow.tags
+              : Array.isArray(rawRow.work_tags) && rawRow.work_tags.length > 0
+                ? rawRow.work_tags.map((wt: any) => (typeof wt === 'string' ? wt : wt.tags?.name || wt.tag || wt.name)).filter(Boolean)
+                : ['Serialized', 'Archival'],
           language: rawRow.language || 'English',
           status: (rawRow.status === 'completed' ? 'Completed' : rawRow.status === 'on_hiatus' ? 'On Hiatus' : 'Ongoing') as any,
           visibility: (rawRow.visibility === 'public' ? 'Public' : 'Unlisted') as any,

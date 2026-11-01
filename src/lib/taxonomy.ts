@@ -634,6 +634,7 @@ export const ALL_SUGGESTED_TAGS: string[] = [
 export function slugify(text: string): string {
   return text
     .toLowerCase()
+    .replace(/[\u2010-\u2015\u2212]/g, '-')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9\s-]/g, '')
