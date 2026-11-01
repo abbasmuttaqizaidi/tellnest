@@ -53,6 +53,10 @@ const config = defineConfig({
           route: '/api/og',
           handler: './src/server/og-handler.ts',
         },
+        {
+          route: '/api/indexing/ping',
+          handler: './src/server/indexing-handler.ts',
+        },
       ],
       errorHandler: './src/error.ts',
       vercel: {

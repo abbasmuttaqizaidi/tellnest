@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '../lib/supabase/server.ts'
 import type { Database } from '../lib/supabase/types.ts'
 import type { Chapter } from '../data/mockData'
+import { notifySearchEngines } from './indexing.ts'
 
 /**
  * Helper to resolve or auto-provision a profile row for the authenticated Clerk user.
@@ -965,6 +966,24 @@ export async function executeSaveWriterChapter(data: SaveWriterChapterPayload, a
         .from('works')
         .update(workUpdatePayload)
         .eq('id', workUuid)
+
+      // Automated Search Engine Indexing & Ping Automation for newly published chapters
+      if (status === 'published' && updateData.is_indexable) {
+        const { data: parentWorkRow } = await admin
+          .from('works')
+          .select('slug')
+          .eq('id', workUuid)
+          .maybeSingle()
+
+        const workSlug = parentWorkRow?.slug || workUuid
+        const chapterSlug = data.slug || `chapter-${data.chapterNumber || 1}`
+        const chapterUrl = `https://hatchpen.com/read/${workSlug}/${chapterSlug}`
+        const workUrl = `https://hatchpen.com/works/${workSlug}`
+
+        void notifySearchEngines([chapterUrl, workUrl]).catch((pingErr: any) => {
+          console.warn('[executeSaveWriterChapter] Non-blocking indexing ping notice:', pingErr?.message)
+        })
+      }
     }
 
   return JSON.parse(JSON.stringify({
@@ -1571,6 +1590,14 @@ export async function executeWriterWorkPublication(
   if (chapterSyncError) {
     console.error('[executeWriterWorkPublication] Error synchronizing chapter indexability:', chapterSyncError.message)
     throw new Error(`Failed to synchronize chapter indexability: ${chapterSyncError.message}`)
+  }
+
+  // Automated Search Engine Indexing & Ping Automation for newly published manuscripts
+  if (isWorkPublicAndPublished) {
+    const workUrl = `https://hatchpen.com/works/${updatedWork.slug || updatedWork.id}`
+    void notifySearchEngines([workUrl]).catch((pingErr: any) => {
+      console.warn('[executeWriterWorkPublication] Non-blocking indexing ping notice:', pingErr?.message)
+    })
   }
 
   return {
