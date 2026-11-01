@@ -1512,6 +1512,34 @@ test('Genre SEO Growth: Step 1 — High-intent titles, FAQPage Schema, Related G
   assert.ok(genreRouteCode.includes('All 34 Genres'), 'Genre route must link to all 34 genres')
 })
 
+test('Genre SEO Growth: Step 2 — Tropes System Activation & Discovery across works and genre hubs', () => {
+  const worksRouteCode = fs.readFileSync(path.join(rootDir, 'src/routes/works.$workId.tsx'), 'utf-8')
+
+  // 1. Clickable tags on works detail
+  assert.ok(worksRouteCode.includes('to="/discover"'), 'Work detail route must link tags to discover page')
+  assert.ok(worksRouteCode.includes('search={{ q: tag }}'), 'Work detail route must pass tag as search query')
+  assert.ok(worksRouteCode.includes('#{tag}'), 'Work detail route must render tag label')
+  assert.ok(worksRouteCode.includes('title={`Explore stories tagged #${tag}`}'), 'Work detail route must provide accessible title tooltip on tags')
+
+  const genreRouteCode = fs.readFileSync(path.join(rootDir, 'src/routes/genre.$slug.tsx'), 'utf-8')
+
+  // 2. Trope route search validation
+  assert.ok(genreRouteCode.includes('GenreRouteSearch'), 'Genre route must define GenreRouteSearch interface')
+  assert.ok(genreRouteCode.includes('validateSearch'), 'Genre route must validate search params')
+  assert.ok(genreRouteCode.includes('trope'), 'Genre route search params must include trope')
+
+  // 3. Available tropes computation & discovery bar
+  assert.ok(genreRouteCode.includes('availableTropes = useMemo'), 'Genre route must compute availableTropes')
+  assert.ok(genreRouteCode.includes('Filter by Popular Tropes'), 'Genre route must render trope filter heading')
+  assert.ok(genreRouteCode.includes('All Tropes'), 'Genre route must render All Tropes reset button')
+  assert.ok(genreRouteCode.includes('#{trope}'), 'Genre route must render trope pill tags')
+
+  // 4. Filtering and empty state
+  assert.ok(genreRouteCode.includes('selectedTrope'), 'Genre route must track selectedTrope state')
+  assert.ok(genreRouteCode.includes('Clear Trope Filter'), 'Genre route must render clear filter button')
+  assert.ok(genreRouteCode.includes('stories found tagged #${selectedTrope}'), 'Genre route empty state must inform about active trope')
+})
+
 
 
 

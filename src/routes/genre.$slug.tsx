@@ -1,18 +1,28 @@
 import { createFileRoute, Link, notFound } from '@tanstack/react-router'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
 import { GLOBAL_GENRES } from '../lib/taxonomy'
 import WorkCard from '../components/WorkCard'
 import EmptyState from '../components/EmptyState'
 import { FilterDisclosure, AnimatedSearch } from '../design-system'
-import { ArrowLeft, HelpCircle, Sparkles, BookOpen, Compass } from 'lucide-react'
+import { ArrowLeft, HelpCircle, Sparkles, BookOpen, Compass, Tag } from 'lucide-react'
 import { generateMeta } from '../lib/seo'
 import { parseTotalReads } from '../lib/utils'
 import { getGenrePageDataServerFn, type GenrePageData } from '../server/works'
 
+export interface GenreRouteSearch {
+  trope?: string
+}
+
 export const Route = createFileRoute('/genre/$slug')({
   staleTime: 60_000,
   gcTime: 5 * 60 * 1000,
+  validateSearch: (search: Record<string, unknown>): GenreRouteSearch => {
+    const rawTrope = typeof search.trope === 'string' ? search.trope.trim() : ''
+    return {
+      trope: rawTrope || undefined,
+    }
+  },
   loader: async ({ params }): Promise<GenrePageData> => {
     try {
       const data = await getGenrePageDataServerFn({ data: params.slug })
@@ -152,6 +162,7 @@ export const Route = createFileRoute('/genre/$slug')({
         genreName,
         `read ${genreName.toLowerCase()} online`,
         `${genreName.toLowerCase()} stories`,
+        `${genreName.toLowerCase()} tropes`,
         `${genreName.toLowerCase()} serialized fiction`,
         `${genreName.toLowerCase()} novels`,
         'free web novels',
@@ -173,10 +184,29 @@ export const Route = createFileRoute('/genre/$slug')({
 function GenreTemplatePage() {
   const { slug } = Route.useParams()
   const loaderData = Route.useLoaderData()
+  const routeSearch = Route.useSearch()
+  const navigate = Route.useNavigate()
   const { allWorks } = useApp()
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
   const [sortBy, setSortBy] = useState<'popularity' | 'updated'>('popularity')
   const [searchQuery, setSearchQuery] = useState<string>('')
+  const [selectedTrope, setSelectedTrope] = useState<string>(routeSearch?.trope || 'all')
+
+  useEffect(() => {
+    setSelectedTrope(routeSearch?.trope || 'all')
+  }, [routeSearch?.trope])
+
+  const handleSelectTrope = (trope: string) => {
+    const nextTrope = selectedTrope.toLowerCase() === trope.toLowerCase() ? 'all' : trope
+    setSelectedTrope(nextTrope)
+    navigate({
+      search: (old: any) => ({
+        ...old,
+        trope: nextTrope === 'all' ? undefined : nextTrope,
+      }),
+      replace: true,
+    })
+  }
 
   if (loaderData?.isNotFound || !loaderData?.genre) {
     return (
@@ -218,6 +248,53 @@ function GenreTemplatePage() {
   // Use client allWorks when available; otherwise use SSR preloaded loaderData.works
   const baselineWorks = allWorks && allWorks.length > 0 ? allWorks : loaderData.works || []
 
+  // Extract unique tropes from works in this genre, complemented by curated group tropes
+  const availableTropes = useMemo(() => {
+    const counts = new Map<string, number>()
+    baselineWorks.forEach((w: any) => {
+      const matchGenre =
+        w.genreSlug === slug ||
+        w.genre?.toLowerCase().replace(/\s+/g, '-') === slug ||
+        (Array.isArray(w.genres) && w.genres.some((g: any) => g.slug === slug))
+      if (!matchGenre) return
+      if (Array.isArray(w.tags)) {
+        w.tags.forEach((tag: string) => {
+          const clean = (tag || '').trim()
+          if (clean) counts.set(clean, (counts.get(clean) || 0) + 1)
+        })
+      }
+    })
+
+    const workTropes = Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([tag]) => tag)
+
+    const group = genreInfo?.group || ''
+    let groupSuggested: string[] = []
+    if (group === 'Romance') {
+      groupSuggested = ['Slow-Burn', 'Forbidden Love', 'Obsession', 'Anti-Hero', 'Small Town', 'Trauma', 'Healing']
+    } else if (group === 'Mystery & Thriller') {
+      groupSuggested = ['Twist Ending', 'Unreliable Narrator', 'Betrayal', 'Revenge', 'Paranoid Atmosphere', 'Detective / Investigator']
+    } else if (group === 'SciFi') {
+      groupSuggested = ['Futuristic City', 'Space / Space Station', 'Virtual World / Metaverse', 'Survival', 'Anti-Hero', 'Mystery Box']
+    } else if (group === 'Speculative & Horror') {
+      groupSuggested = ['Dark', 'Survival', 'Horror-Tinged', 'Isolation', 'Family Secrets', 'Multiple Timelines']
+    } else if (group === 'Historical & Literary') {
+      groupSuggested = ['Historical Setting', 'Coming-of-Age', 'Family Secrets', 'Social Justice', 'Memory', 'Class Divide']
+    } else {
+      groupSuggested = ['Identity', 'Ambition', 'Redemption', 'Friendship', 'Standalone', 'Fast-Paced']
+    }
+
+    const combined = [...workTropes]
+    for (const s of groupSuggested) {
+      if (!combined.some((t) => t.toLowerCase() === s.toLowerCase())) {
+        combined.push(s)
+      }
+    }
+
+    return combined.slice(0, 8)
+  }, [baselineWorks, slug, genreInfo])
+
   const genreWorks = useMemo(() => {
     return baselineWorks
       .filter((w: any) => {
@@ -227,6 +304,18 @@ function GenreTemplatePage() {
           (Array.isArray(w.genres) && w.genres.some((g: any) => g.slug === slug))
         if (!matchGenre) return false
         if (selectedStatus !== 'all' && w.status !== selectedStatus) return false
+
+        // Trope / Tag filter
+        if (selectedTrope && selectedTrope !== 'all') {
+          const normTrope = selectedTrope.toLowerCase().trim()
+          const tags = Array.isArray(w.tags) ? w.tags : []
+          const matchesTag = tags.some((t: string) => (t || '').toLowerCase().trim() === normTrope)
+          const matchesTitleOrSynopsis =
+            (w.title || '').toLowerCase().includes(normTrope) ||
+            (w.synopsis || w.description || '').toLowerCase().includes(normTrope)
+          if (!matchesTag && !matchesTitleOrSynopsis) return false
+        }
+
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase()
           const matchesTitle = (w.title || '').toLowerCase().includes(q)
@@ -240,7 +329,7 @@ function GenreTemplatePage() {
         if (sortBy === 'updated') return String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''))
         return parseTotalReads(b.totalReads) - parseTotalReads(a.totalReads)
       })
-  }, [baselineWorks, slug, selectedStatus, sortBy, searchQuery])
+  }, [baselineWorks, slug, selectedStatus, selectedTrope, sortBy, searchQuery])
 
   return (
     <div className="min-h-screen py-3 sm:py-7 px-3 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-3 sm:space-y-5">
@@ -335,6 +424,59 @@ function GenreTemplatePage() {
         </div>
       )}
 
+      {/* Popular Tropes & Themes Discovery Bar */}
+      {availableTropes.length > 0 && (
+        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 sm:p-5 mb-6 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--ink-primary)] font-semibold flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-[var(--accent)]" />
+              <span>Filter by Popular Tropes &amp; Themes</span>
+            </span>
+            {selectedTrope !== 'all' && (
+              <button
+                type="button"
+                onClick={() => handleSelectTrope('all')}
+                className="text-[11px] font-mono text-[var(--ink-muted)] hover:text-[var(--ink-primary)] underline transition-colors cursor-pointer"
+              >
+                Clear Trope Filter
+              </button>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-1.5 sm:gap-2 items-center">
+            <button
+              type="button"
+              onClick={() => handleSelectTrope('all')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer ${
+                selectedTrope === 'all'
+                  ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-medium shadow-sm'
+                  : 'bg-[var(--bg-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] border border-[var(--border-subtle)] hover:border-[var(--border-strong)]'
+              }`}
+            >
+              All Tropes
+            </button>
+            {availableTropes.map((trope) => {
+              const isSelected = selectedTrope.toLowerCase() === trope.toLowerCase()
+              return (
+                <button
+                  key={trope}
+                  type="button"
+                  onClick={() => handleSelectTrope(trope)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-all inline-flex items-center gap-1 cursor-pointer ${
+                    isSelected
+                      ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] font-medium shadow-sm ring-1 ring-[var(--ink-primary)]'
+                      : 'bg-[var(--bg-subtle)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)] border border-[var(--border-subtle)] hover:border-[var(--border-strong)]'
+                  }`}
+                >
+                  <Tag className="w-3 h-3 opacity-60" />
+                  <span>#{trope}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Genre Filter Controls */}
       <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-[var(--border-subtle)] mb-8 text-xs">
         <div className="flex flex-wrap items-center gap-2">
@@ -373,10 +515,19 @@ function GenreTemplatePage() {
       {genreWorks.length === 0 ? (
         <EmptyState
           type="no-works"
-          customTitle={`No manuscripts yet in ${genreInfo.name}`}
-          customDescription={`Publish a new manuscript in the ${genreInfo.name} genre.`}
-          actionLabel="Publish a Work in this Genre"
-          actionHref="/write/new"
+          customTitle={
+            selectedTrope !== 'all'
+              ? `No ${genreInfo.name} stories found tagged #${selectedTrope}`
+              : `No manuscripts yet in ${genreInfo.name}`
+          }
+          customDescription={
+            selectedTrope !== 'all'
+              ? `Try selecting a different trope or view all stories in ${genreInfo.name}.`
+              : `Publish a new manuscript in the ${genreInfo.name} genre.`
+          }
+          actionLabel={selectedTrope !== 'all' ? `Show All ${genreInfo.name} Stories` : 'Publish a Work in this Genre'}
+          actionHref={selectedTrope !== 'all' ? undefined : '/write/new'}
+          onAction={selectedTrope !== 'all' ? () => handleSelectTrope('all') : undefined}
         />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

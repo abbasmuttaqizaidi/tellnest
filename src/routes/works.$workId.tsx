@@ -20,6 +20,7 @@ import {
   UserPlus,
   UserCheck,
   MessageCircle,
+  Tag,
 } from 'lucide-react'
 import { getWorkSlug } from '../data/mockData'
 import { generateMeta } from '../lib/seo'
@@ -834,17 +835,23 @@ function WorkDetailPage() {
             </div>
           </div>
 
-          {/* Tags */}
-          <div className="flex flex-wrap gap-1.5 pt-1">
-            {workTags.map((tag) => (
-              <span
-                key={tag}
-                className="rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-1 text-xs font-mono text-[var(--ink-muted)]"
-              >
-                #{tag}
-              </span>
-            ))}
-          </div>
+          {/* Tags / Tropes Discovery */}
+          {workTags.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              {workTags.map((tag) => (
+                <Link
+                  key={tag}
+                  to="/discover"
+                  search={{ q: tag }}
+                  className="rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-1 text-xs font-mono text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)] transition-all no-underline inline-flex items-center gap-1 cursor-pointer"
+                  title={`Explore stories tagged #${tag}`}
+                >
+                  <Tag className="w-2.5 h-2.5 opacity-50" />
+                  <span>#{tag}</span>
+                </Link>
+              ))}
+            </div>
+          )}
 
           {/* Reading Statistics Row */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-4 border-t border-[var(--border-subtle)] font-mono text-center">
