@@ -1976,6 +1976,28 @@ test('SEO Architecture: Chapter Reader Deep SERP, Sequential rel links, Chapter 
   )
 })
 
+test('SEO Architecture: Step 9 Author E-E-A-T, Social Knowledge Graph & rel="me" verification', () => {
+  const authorRouteCode = fs.readFileSync(
+    path.join(rootDir, 'src/routes/author.$authorId.tsx'),
+    'utf-8'
+  )
+
+  // 1. Social Profile authority parsing
+  assert.ok(authorRouteCode.includes('pJson.goodreads'), 'Author route must parse Goodreads authority')
+  assert.ok(authorRouteCode.includes('pJson.substack'), 'Author route must parse Substack authority')
+  assert.ok(authorRouteCode.includes('pJson.tiktok'), 'Author route must parse TikTok authority')
+  assert.ok(authorRouteCode.includes('pJson.linkedin'), 'Author route must parse LinkedIn authority')
+  assert.ok(authorRouteCode.includes('pJson.youtube'), 'Author route must parse YouTube authority')
+
+  // 2. Wikidata entity linking in knowsAbout
+  assert.ok(authorRouteCode.includes('getEntitySameAs(gSlug)'), 'Author knowsAbout must resolve Wikidata sameAs for genres')
+  assert.ok(authorRouteCode.includes("url: `https://hatchpen.com/genre/${gSlug}`"), 'Author knowsAbout must link to genre hub')
+
+  // 3. W3C rel="me" identity verification for search engines
+  assert.ok(authorRouteCode.includes('rel="me noopener noreferrer"'), 'Author external links must declare rel="me" for E-E-A-T verification')
+})
+
+
 
 
 

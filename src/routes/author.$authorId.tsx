@@ -26,6 +26,7 @@ import { getAuthorSocialCardUrl } from '../lib/og'
 import { getPublicAuthorServerFn } from '../server/works'
 import { formatViewCount, parseTotalReads } from '../lib/utils'
 import { slugify } from '../lib/taxonomy'
+import { getEntitySameAs } from '../lib/knowledgeGraph'
 
 export const Route = createFileRoute('/author/$authorId')({
   staleTime: 0,
@@ -123,8 +124,14 @@ export const Route = createFileRoute('/author/$authorId')({
       ...(Array.isArray(author.sameAs) ? author.sameAs : typeof author.sameAs === 'string' ? [author.sameAs] : []),
       ...(Array.isArray(pJson.sameAs) ? pJson.sameAs : []),
       ...(Array.isArray(pJson.socialLinks) ? pJson.socialLinks : []),
+      ...(Array.isArray(author.socialLinks) ? author.socialLinks : []),
       pJson.twitter ? (pJson.twitter.startsWith('http') ? pJson.twitter : `https://x.com/${pJson.twitter.replace(/^@/, '')}`) : null,
       pJson.instagram ? (pJson.instagram.startsWith('http') ? pJson.instagram : `https://instagram.com/${pJson.instagram.replace(/^@/, '')}`) : null,
+      pJson.goodreads ? (pJson.goodreads.startsWith('http') ? pJson.goodreads : `https://www.goodreads.com/author/show/${pJson.goodreads.replace(/^@/, '')}`) : null,
+      pJson.substack ? (pJson.substack.startsWith('http') ? pJson.substack : `https://${pJson.substack.replace(/^@/, '').replace(/\.substack\.com$/, '')}.substack.com`) : null,
+      pJson.tiktok ? (pJson.tiktok.startsWith('http') ? pJson.tiktok : `https://tiktok.com/@${pJson.tiktok.replace(/^@/, '')}`) : null,
+      pJson.linkedin ? (pJson.linkedin.startsWith('http') ? pJson.linkedin : `https://linkedin.com/in/${pJson.linkedin.replace(/^@/, '')}`) : null,
+      pJson.youtube ? (pJson.youtube.startsWith('http') ? pJson.youtube : `https://youtube.com/@${pJson.youtube.replace(/^@/, '')}`) : null,
     ].filter(Boolean)
 
     for (const link of candidateLinks) {
@@ -151,7 +158,7 @@ export const Route = createFileRoute('/author/$authorId')({
         url: `https://hatchpen.com/works/${w.slug || w.id}`,
       }))
 
-      // Entity signal: literary genres author writes in
+      // Entity signal: literary genres author writes in with Wikidata sameAs
       const authorGenres = Array.from(
         new Set(
           publishedWorks
@@ -160,7 +167,16 @@ export const Route = createFileRoute('/author/$authorId')({
         )
       )
       if (authorGenres.length > 0) {
-        personEntity.knowsAbout = authorGenres
+        personEntity.knowsAbout = authorGenres.map((genreName: any) => {
+          const gSlug = slugify(String(genreName))
+          const wikidataSameAs = getEntitySameAs(gSlug)
+          return {
+            '@type': 'Thing',
+            name: genreName,
+            url: `https://hatchpen.com/genre/${gSlug}`,
+            ...(wikidataSameAs.length > 0 ? { sameAs: wikidataSameAs } : {}),
+          }
+        })
       }
     }
 
@@ -469,7 +485,7 @@ function AuthorProfilePage() {
                   <a
                     href={String(author.website || author.websiteUrl).startsWith('http') ? String(author.website || author.websiteUrl) : `https://${author.website || author.websiteUrl}`}
                     target="_blank"
-                    rel="noopener noreferrer nofollow"
+                    rel="me noopener noreferrer"
                     className="flex items-center gap-1 text-[var(--accent)] hover:underline no-underline"
                   >
                     <Globe className="h-3 w-3" />

@@ -98,21 +98,23 @@ All 4 high-priority technical & content SEO architecture steps from this roadmap
 
 ---
 
-### 📌 Step 8: BookTok & Trope Hubs SERP Domination (`/tag/$slug`) — [IN QUEUE]
-- **Kyun Zaroori Hai:** BookTok aur modern readers genre se zyada specific narrative tropes search karte hain (e.g. *"Best enemies to lovers web novels"*, *"Slow burn free serialized fiction"*, *"Fake dating books online"*).
-- **Target Implementation:**
-  1. **High-Intent SEO Titles & Meta:** `Read Best {Trope} Stories & Web Novels Online — HatchPen`.
-  2. **Schema.org FAQPage:** Inject FAQs explaining the trope and discovery options for rich Google SERP snippet accordions.
-  3. **Related Tropes Cross-Linking Cluster:** Semantic internal linking grid (e.g. *Slow Burn* $\rightarrow$ *Enemies to Lovers*, *Fake Dating*, *Forbidden Love*) passing PageRank across all trope landing pages.
-  4. **Semantic DOM FAQ Accordion Section:** Crawlable DOM FAQ matching schema.
+### ✅ Step 8: BookTok & Trope Hubs SERP Domination (`/tag/$slug`) — [COMPLETED & LIVE]
+- **Target URL Example:** `https://hatchpen.com/tag/memory`
+- **What Was Done:**
+  1. **High-Intent Search Titles & Value Meta:** Dedicated trope landing pages emit `Read Best {Trope} Stories & Novels Online — HatchPen` with descriptive reading proposition meta.
+  2. **Multi-Entity Schema.org Data:** Full `CollectionPage`, `BreadcrumbList`, `FAQPage`, and Wikidata Knowledge Graph entity linking (`sameAs`).
+  3. **Related Tropes & Themes Internal Link Equity:** Dynamic cross-linking pill grid (e.g. *#memory*, *#isolation*, *#identity*) circulating PageRank across the entire trope taxonomy.
+  4. **Semantic DOM FAQ Section:** Crawlable question & answer cards for Google Rich Snippets answering trope reading, free browser access, and publishing schedules.
+  5. **Sitemap Coverage:** All active story tropes and tags dynamically included in `https://hatchpen.com/sitemap.xml`.
 
 ---
 
-### 📌 Step 9: Author E-E-A-T & Social Knowledge Graph (`sameAs` on Author Profiles) — [IN QUEUE]
-- **Kyun Zaroori Hai:** Google ka Helpful Content System aur E-E-A-T author authenticity aur social proof verify karta hai.
-- **Target Implementation:**
-  1. **Social Profile Integration:** Map authors' external links (Twitter/X, Instagram, Substack, Goodreads, Personal Website) into Schema.org `Person.sameAs`.
-  2. **Author Authority Badge & Bibliographic Schema:** Link author entity back to all published works and Wikidata literary references.
+### ✅ Step 9: Author E-E-A-T & Social Knowledge Graph (`sameAs` & `rel="me"`) — [COMPLETED & LIVE]
+- **Target URL Example:** `https://hatchpen.com/author/theblessedsoul`
+- **What Was Done:**
+  1. **Multi-Platform Social Authority Parsing:** Injected support for author social profiles across Goodreads, Substack, TikTok, LinkedIn, YouTube, Twitter/X, Instagram, and personal website into Schema.org `Person.sameAs`.
+  2. **Wikidata Entity Linking in `knowsAbout`:** Upgraded author genre expertise signals into rich `Thing` entities connecting author profiles directly to Wikidata literary concepts.
+  3. **W3C `rel="me"` Identity Verification:** Replaced `nofollow` on author website links with `rel="me noopener noreferrer"`, establishing cryptographic and entity-level author ownership recognized by Google Knowledge Graph and Helpful Content algorithms.
 
 
 
