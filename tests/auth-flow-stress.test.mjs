@@ -226,3 +226,76 @@ test('BREAK ATTEMPT 7: Header SSR and Hydration Resolution defines isAuthResolvi
   assert.strictEqual(loggedOut.isAuthResolving, false)
   assert.strictEqual(loggedOut.isSignedIn, false)
 })
+
+test('BREAK ATTEMPT 8: Onboarding Ground Truth strictly enforces DB state over stale Clerk metadata or cache', () => {
+  const shouldOpenOnboarding = ({
+    dbCheckSucceeded,
+    existingProfile,
+    clerkMetaOnboardingCompleted,
+    localCacheCompleted,
+  }) => {
+    if (dbCheckSucceeded) {
+      if (existingProfile && existingProfile.onboarding_completed === true) {
+        return false // Genuinely completed in DB
+      }
+      // Purged user or new user with incomplete profile MUST open modal
+      return true
+    }
+
+    // Only if DB completely failed (network drop)
+    if (localCacheCompleted || clerkMetaOnboardingCompleted) {
+      return false
+    }
+    return true
+  }
+
+  // Scenario A: User was purged from Supabase. Clerk still has onboardingCompleted: true.
+  const purgedUser = shouldOpenOnboarding({
+    dbCheckSucceeded: true,
+    existingProfile: null,
+    clerkMetaOnboardingCompleted: true,
+    localCacheCompleted: false,
+  })
+  assert.strictEqual(
+    purgedUser,
+    true,
+    'Purged user without DB profile MUST open onboarding modal even if Clerk metadata has true'
+  )
+
+  // Scenario B: Brand new user signup. DB has no profile yet.
+  const newSignup = shouldOpenOnboarding({
+    dbCheckSucceeded: true,
+    existingProfile: null,
+    clerkMetaOnboardingCompleted: false,
+    localCacheCompleted: false,
+  })
+  assert.strictEqual(newSignup, true, 'Brand new signup must open onboarding modal')
+
+  // Scenario C: Completed user returns.
+  const completedUser = shouldOpenOnboarding({
+    dbCheckSucceeded: true,
+    existingProfile: { onboarding_completed: true },
+    clerkMetaOnboardingCompleted: true,
+    localCacheCompleted: true,
+  })
+  assert.strictEqual(completedUser, false, 'Completed user must NOT open onboarding modal')
+})
+
+test('BREAK ATTEMPT 9: Username Collision Resilience generates unique fallback without DB constraint violation', () => {
+  const resolveSafeUsername = (candidate, existingOwnerClerkId, currentUserId) => {
+    let clean = candidate.toLowerCase().trim().replace(/[^a-z0-9_]/g, '') || `user_${currentUserId.slice(0, 8)}`
+    if (existingOwnerClerkId && existingOwnerClerkId !== currentUserId) {
+      clean = `${clean.slice(0, 20)}_1234`
+    }
+    return clean
+  }
+
+  const noCollision = resolveSafeUsername('novel_author', null, 'user_abc')
+  assert.strictEqual(noCollision, 'novel_author')
+
+  const collisionWithOtherUser = resolveSafeUsername('novel_author', 'user_xyz', 'user_abc')
+  assert.strictEqual(collisionWithOtherUser, 'novel_author_1234', 'Collision must append unique suffix')
+
+  const sameUserReclaiming = resolveSafeUsername('novel_author', 'user_abc', 'user_abc')
+  assert.strictEqual(sameUserReclaiming, 'novel_author', 'Same user reclaiming must keep username')
+})

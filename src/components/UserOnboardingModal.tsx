@@ -132,30 +132,35 @@ export function UserOnboardingModal() {
 
       // Check database directly as authoritative source of truth
       let existingProfile: any = null
+      let dbCheckSucceeded = false
       try {
         existingProfile = await getUserProfileServerFn({ data: user.id })
-        if (existingProfile && existingProfile.onboarding_completed) {
+        dbCheckSucceeded = true
+
+        if (existingProfile && existingProfile.onboarding_completed === true) {
           localStorage.setItem(key, 'true')
           setIsOpen(false)
           return
         }
-        // If DB exists and onboarding is incomplete, clean stale local bypass
+
+        // DB exists and onboarding is incomplete, or user was purged (existingProfile === null)
         localStorage.removeItem(key)
       } catch (dbErr) {
         console.warn('[UserOnboardingModal] Non-blocking warning checking Supabase onboarding status:', dbErr)
-        // Fallback: only if offline or network error, check local storage flag
-        const localCompleted = localStorage.getItem(key)
-        if (localCompleted === 'true') {
-          return
-        }
       }
 
-      // Check Clerk user public metadata (if DB call failed or not yet initialized)
-      const clerkMeta = (user.publicMetadata as any) || {}
-      if (clerkMeta.onboardingCompleted && (!existingProfile || existingProfile.onboarding_completed)) {
-        localStorage.setItem(key, 'true')
-        setIsOpen(false)
-        return
+      // If DB check succeeded and user has no profile or onboarding is incomplete,
+      // we MUST show the onboarding modal. Never allow stale Clerk metadata to bypass onboarding!
+      if (dbCheckSucceeded && (!existingProfile || !existingProfile.onboarding_completed)) {
+        localStorage.removeItem(key)
+        // Proceed directly below to open onboarding modal
+      } else if (!dbCheckSucceeded) {
+        // Only if DB call strictly threw a network/offline error, fallback to local storage
+        const localCompleted = localStorage.getItem(key)
+        if (localCompleted === 'true') {
+          setIsOpen(false)
+          return
+        }
       }
 
       // Prepopulate username from Clerk or email prefix

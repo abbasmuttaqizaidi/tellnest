@@ -118,24 +118,63 @@ export async function syncClerkUserToProfile(params: {
   }
 
   // 2. Initial insert for new user
+  let candidateUsername =
+    params.username
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9_]/g, '') || `user_${params.clerkUserId.slice(0, 8)}`
+
+  // Pre-check if this username is already claimed by a different user
+  const { data: usernameOwner } = await admin
+    .from('profiles')
+    .select('id, clerk_user_id')
+    .eq('username', candidateUsername)
+    .maybeSingle()
+
+  if (usernameOwner && usernameOwner.clerk_user_id !== params.clerkUserId) {
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000)
+    candidateUsername = `${candidateUsername.slice(0, 20)}_${randomSuffix}`
+  }
+
   const payload: Record<string, any> = {
     clerk_user_id: params.clerkUserId,
-    username: params.username.toLowerCase().trim(),
+    username: candidateUsername,
     display_name: params.displayName,
     avatar_path: params.avatarUrl || null,
     is_public: true,
     account_status: 'active',
+    onboarding_completed: false,
   }
 
   if (params.bio !== undefined) {
     payload.bio = params.bio
   }
 
-  const { data, error } = await admin
+  let { data, error } = await admin
     .from('profiles')
     .upsert(payload, { onConflict: 'clerk_user_id' })
     .select('id, clerk_user_id, username, display_name, avatar_path, bio, is_public, account_status')
     .single()
+
+  // Concurrency safety: If a race condition caused a unique constraint violation on username
+  if (
+    error &&
+    (error.code === '23505' ||
+      error.message?.includes('duplicate key') ||
+      error.message?.includes('profiles_username_key') ||
+      error.message?.includes('unique'))
+  ) {
+    console.warn(`[syncClerkUserToProfile] Username collision on "${payload.username}", retrying with unique suffix...`)
+    payload.username = `user_${params.clerkUserId.slice(-6)}_${Math.floor(100 + Math.random() * 900)}`
+    const retry = await admin
+      .from('profiles')
+      .upsert(payload, { onConflict: 'clerk_user_id' })
+      .select('id, clerk_user_id, username, display_name, avatar_path, bio, is_public, account_status')
+      .single()
+
+    data = retry.data
+    error = retry.error
+  }
 
   if (error) {
     console.error('[syncClerkUserToProfile] Error syncing Clerk user:', error.message)
