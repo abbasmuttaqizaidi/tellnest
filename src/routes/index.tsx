@@ -34,17 +34,18 @@ export const Route = createFileRoute('/')({
       // Re-use authUser from root route context to eliminate redundant server calls
       const authUser = context?.authUser ?? (await getAuthUserServerFn())
       const isAuth = Boolean(authUser?.isAuthenticated && authUser?.userId)
+      const isOnboarded = Boolean(authUser?.onboardingCompleted)
 
       // Parallel server pre-fetch of user bootstrap, recommendation signals, and platform works.
-      // Eliminates client waterfall while avoiding blocking the navigation on expensive non-essential queries.
+      // Defers expensive user bootstrap & recommendation queries until onboarding is completed!
       const [bootstrap, recSignals, platformWorks] = await Promise.all([
-        isAuth
+        isAuth && isOnboarded
           ? getUserSessionBootstrapServerFn({ data: authUser!.userId! }).catch((err) => {
               console.warn('[Route Loader] Pre-fetch bootstrap failed:', err?.message || err)
               return null
             })
           : null,
-        isAuth
+        isAuth && isOnboarded
           ? getUserRecommendationSignalsServerFn({ data: authUser!.userId! }).catch((err) => {
               console.warn('[Route Loader] Pre-fetch rec signals failed:', err?.message || err)
               return null

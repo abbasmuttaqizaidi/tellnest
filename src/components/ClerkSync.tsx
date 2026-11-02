@@ -26,8 +26,17 @@ export function ClerkSync() {
       isSyncingRef.current = null
       prevSignedInRef.current = false
     }
+    const handleOnboardingCompleted = () => {
+      // Allow post-onboarding profile sync with ground-truth chosen pen name
+      lastSyncedIdRef.current = null
+      isSyncingRef.current = null
+    }
     window.addEventListener('hatchpen:logged-out', handleLogout)
-    return () => window.removeEventListener('hatchpen:logged-out', handleLogout)
+    window.addEventListener('hatchpen:onboarding-completed', handleOnboardingCompleted)
+    return () => {
+      window.removeEventListener('hatchpen:logged-out', handleLogout)
+      window.removeEventListener('hatchpen:onboarding-completed', handleOnboardingCompleted)
+    }
   }, [])
 
   useEffect(() => {
@@ -60,6 +69,17 @@ export function ClerkSync() {
 
     // Avoid redundant or in-flight syncs within the same session
     if (lastSyncedIdRef.current === user.id || isSyncingRef.current === user.id) return
+
+    // If user has not completed onboarding, do NOT prematurely auto-sync a default username!
+    // The UserOnboardingModal will handle initial profile creation with the author's chosen pen name.
+    if (typeof window !== 'undefined') {
+      const isCompleted = localStorage.getItem(`hatchpen_onboarding_completed_${user.id}`) === 'true'
+      const isActive = sessionStorage.getItem('hatchpen_onboarding_active') === 'true'
+      if (!isCompleted && isActive) {
+        return
+      }
+    }
+
     isSyncingRef.current = user.id
 
     async function sync() {

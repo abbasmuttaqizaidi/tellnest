@@ -531,6 +531,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     let isMounted = true
     async function loadUserData() {
+      // Do NOT load user session bootstrap if user is actively onboarding
+      if (typeof window !== 'undefined' && user?.id) {
+        const isCompleted = localStorage.getItem(`hatchpen_onboarding_completed_${user.id}`) === 'true'
+        const isActive = sessionStorage.getItem('hatchpen_onboarding_active') === 'true'
+        if (!isCompleted && isActive) {
+          setIsReadingProgressLoading(false)
+          return
+        }
+      }
+
       setIsReadingProgressLoading(true)
       try {
         const bootstrap = await getUserSessionBootstrapServerFn({ data: user!.id })
@@ -686,8 +696,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     loadUserData()
+
+    const handleOnboardingCompleted = () => {
+      if (isMounted && user?.id) {
+        loadUserData()
+      }
+    }
+    window.addEventListener('hatchpen:onboarding-completed', handleOnboardingCompleted)
+
     return () => {
       isMounted = false
+      window.removeEventListener('hatchpen:onboarding-completed', handleOnboardingCompleted)
     }
   }, [user?.id, isSignedIn, isUserLoaded, allWorks, isOwnWork])
 
