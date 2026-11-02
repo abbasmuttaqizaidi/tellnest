@@ -66,12 +66,18 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
 
   const isClientClerkLoaded = Boolean(clerk?.loaded) && isLoaded
 
+  const hasSessionIndicator =
+    !isExplicitlyLoggedOut &&
+    (Boolean(serverAuthenticated) || hasActiveClientSession())
+
+  const isAuthResolving = !isClientClerkLoaded && hasSessionIndicator
+
   // Ground truth:
   // 1. If user explicitly logged out -> ALWAYS false (0ms instant switch)
   // 2. If Clerk client is loaded -> rawIsSignedIn is 100% authoritative
   // 3. Only during initial SSR hydration before Clerk loads -> fallback to serverAuthenticated / active session indicator
   const isSignedIn = !isExplicitlyLoggedOut && (
-    isClientClerkLoaded ? Boolean(rawIsSignedIn) : (Boolean(serverAuthenticated) || hasActiveClientSession())
+    isClientClerkLoaded ? Boolean(rawIsSignedIn) : hasSessionIndicator
   )
 
   const handleSignOut = async () => {

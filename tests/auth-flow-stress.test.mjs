@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
 
 /**
  * Adversarial Stress Test Suite: Authentication Hydration & Transition Flow
@@ -159,4 +160,69 @@ test('BREAK ATTEMPT 6: Header Auth Isolation after Logout prevents ghost avatar 
     false,
     'Header must strictly evaluate to signed-out when Clerk says rawIsSignedIn is false, ignoring stale serverAuthenticated'
   )
+})
+
+test('BREAK ATTEMPT 7: Header SSR and Hydration Resolution defines isAuthResolving and hasSessionIndicator', () => {
+  const headerContent = fs.readFileSync('src/components/Header.tsx', 'utf8')
+  assert.match(
+    headerContent,
+    /const\s+isAuthResolving\s*=/,
+    'Header.tsx must declare isAuthResolving to avoid SSR ReferenceError'
+  )
+  assert.match(
+    headerContent,
+    /const\s+hasSessionIndicator\s*=/,
+    'Header.tsx must declare hasSessionIndicator'
+  )
+
+  const resolveHeaderState = ({
+    isExplicitlyLoggedOut,
+    isClientClerkLoaded,
+    rawIsSignedIn,
+    serverAuthenticated,
+    hasClientSession,
+  }) => {
+    const hasSessionIndicator =
+      !isExplicitlyLoggedOut &&
+      (Boolean(serverAuthenticated) || hasClientSession)
+    const isAuthResolving = !isClientClerkLoaded && hasSessionIndicator
+    const isSignedIn =
+      !isExplicitlyLoggedOut &&
+      (isClientClerkLoaded ? Boolean(rawIsSignedIn) : hasSessionIndicator)
+
+    return { isAuthResolving, isSignedIn }
+  }
+
+  // 1. SSR / pre-client hydration with active session
+  const ssrResolving = resolveHeaderState({
+    isExplicitlyLoggedOut: false,
+    isClientClerkLoaded: false,
+    rawIsSignedIn: false,
+    serverAuthenticated: true,
+    hasClientSession: true,
+  })
+  assert.strictEqual(ssrResolving.isAuthResolving, true, 'isAuthResolving must be true during SSR with session')
+  assert.strictEqual(ssrResolving.isSignedIn, true, 'isSignedIn evaluates to true during initial SSR with session')
+
+  // 2. Client Clerk loaded with user logged in
+  const clientLoadedLoggedIn = resolveHeaderState({
+    isExplicitlyLoggedOut: false,
+    isClientClerkLoaded: true,
+    rawIsSignedIn: true,
+    serverAuthenticated: true,
+    hasClientSession: true,
+  })
+  assert.strictEqual(clientLoadedLoggedIn.isAuthResolving, false, 'isAuthResolving must be false once Clerk loads')
+  assert.strictEqual(clientLoadedLoggedIn.isSignedIn, true)
+
+  // 3. User logged out
+  const loggedOut = resolveHeaderState({
+    isExplicitlyLoggedOut: true,
+    isClientClerkLoaded: true,
+    rawIsSignedIn: false,
+    serverAuthenticated: false,
+    hasClientSession: false,
+  })
+  assert.strictEqual(loggedOut.isAuthResolving, false)
+  assert.strictEqual(loggedOut.isSignedIn, false)
 })
