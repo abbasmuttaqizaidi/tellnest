@@ -109,56 +109,30 @@ function HomePage() {
   const clerk = useClerk()
   const { isSignedIn, isLoaded: isUserLoaded } = useUser()
 
-  // Explicit query param override for testing / previewing
-  if (search?.view === 'signed-in') {
-    return <LoggedInHome forcedView="signed-in" loaderData={loaderData} />
-  }
-  if (search?.view === 'public') {
-    return <PublicHome loaderData={loaderData} />
-  }
-
-  // Immediate optimistic logout tracker so HomePage instantly switches to PublicHome without skeleton
+  // Hook 1: Immediate optimistic logout tracker so HomePage instantly switches to PublicHome without skeleton
   const [isLoggedOut, setIsLoggedOut] = React.useState(() => {
-    if (typeof window === 'undefined') return false
-    return sessionStorage.getItem('hatchpen_just_logged_out') === 'true'
+    return typeof window !== 'undefined' && sessionStorage.getItem('hatchpen_just_logged_out') === 'true'
   })
 
+  // Hook 2: Logout event listener
   React.useEffect(() => {
     const handleLogout = () => setIsLoggedOut(true)
     window.addEventListener('hatchpen:logged-out', handleLogout)
     return () => window.removeEventListener('hatchpen:logged-out', handleLogout)
   }, [])
 
-  // If user just initiated sign out or is explicitly logged out, render PublicHome immediately (0ms, zero skeleton)
-  if (isLoggedOut || (typeof window !== 'undefined' && sessionStorage.getItem('hatchpen_just_logged_out') === 'true')) {
-    return <PublicHome loaderData={loaderData} />
-  }
-
-  // Check if server resolved authentication
-  const isServerAuthenticated = Boolean(loaderData?.authUser?.isAuthenticated)
-
-  // Check if client has active session markers (Clerk UAT, localStorage, etc.)
-  const hasClientSession = hasActiveClientSession()
-
-  // Real client-side Clerk JS load state
-  // Notice: isUserLoaded can be true prematurely during SSR hydration when SSR emits user: null.
-  // clerk.loaded is the true indicator that client-side ClerkJS has finished evaluation.
-  const isClerkClientReady = Boolean(clerk?.loaded)
-
-  // 1. If Clerk has definitively verified that the user is SIGNED IN:
-  if (isUserLoaded && isSignedIn) {
-    markClientSessionActive()
-    return <LoggedInHome loaderData={loaderData} />
-  }
-
-  // 2. Grace period for client session verification:
-  // If the server authenticated the user OR client has an active session indicator,
-  // NEVER flash PublicHome while Clerk is still handshaking in the background.
-  // Instead, render LoggedInHome immediately.
+  // Hook 3: Session grace period expiration state
   const [sessionGraceExpired, setSessionGraceExpired] = React.useState(false)
 
+  // Derived state & markers (strictly synchronous computations, NO hooks)
+  const isExplicitlyLoggedOut =
+    isLoggedOut || (typeof window !== 'undefined' && sessionStorage.getItem('hatchpen_just_logged_out') === 'true')
+  const isServerAuthenticated = Boolean(loaderData?.authUser?.isAuthenticated)
+  const hasClientSession = hasActiveClientSession()
+
+  // Hook 4: Active session verification grace timer
   React.useEffect(() => {
-    if (hasClientSession && !isServerAuthenticated && !isSignedIn) {
+    if (hasClientSession && !isServerAuthenticated && !isSignedIn && !isExplicitlyLoggedOut) {
       // If an explicit OAuth return is in flight, allow up to 10s for slow mobile networks.
       // For general background verification, allow 5s.
       const isOAuthInFlight =
@@ -175,12 +149,42 @@ function HomePage() {
       }, timeoutMs)
       return () => clearTimeout(timer)
     }
-  }, [hasClientSession, isServerAuthenticated, isSignedIn])
+  }, [hasClientSession, isServerAuthenticated, isSignedIn, isExplicitlyLoggedOut])
 
+  // Hook 5: Ensure client session is marked active when user is signed in
+  React.useEffect(() => {
+    if (isUserLoaded && isSignedIn) {
+      markClientSessionActive()
+    }
+  }, [isUserLoaded, isSignedIn])
+
+  // =========================================================================
+  // ALL HOOKS HAVE BEEN EXECUTED. NOW EVALUATE VIEW BRANCHES SAFELY:
+  // =========================================================================
+
+  // 1. Explicit query param overrides (testing / previewing)
+  if (search?.view === 'signed-in') {
+    return <LoggedInHome forcedView="signed-in" loaderData={loaderData} />
+  }
+  if (search?.view === 'public') {
+    return <PublicHome loaderData={loaderData} />
+  }
+
+  // 2. Explicit user logout (0ms instant switch, zero skeleton)
+  if (isExplicitlyLoggedOut) {
+    return <PublicHome loaderData={loaderData} />
+  }
+
+  // 3. Definitively signed in by Clerk
+  if (isUserLoaded && isSignedIn) {
+    return <LoggedInHome loaderData={loaderData} />
+  }
+
+  // 4. Server authenticated or client session indicator active within grace window
   if ((isServerAuthenticated || hasClientSession) && !sessionGraceExpired) {
     return <LoggedInHome loaderData={loaderData} />
   }
 
-  // 3. True unauthenticated public visitor (no server session, no client indicators, or grace period expired)
+  // 5. True unauthenticated public visitor
   return <PublicHome loaderData={loaderData} />
 }

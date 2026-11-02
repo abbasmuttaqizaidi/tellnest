@@ -195,3 +195,35 @@ test('Logout Invariant: Explicit logout immediately clears session and renders P
     'Homepage must listen to hatchpen:logged-out to immediately switch to PublicHome without skeleton'
   )
 })
+
+test('React Rule of Hooks Invariant: Homepage must execute ALL hooks unconditionally before any early return', () => {
+  const indexPath = path.resolve('src/routes/index.tsx')
+  const indexContent = fs.readFileSync(indexPath, 'utf8')
+
+  // Find the HomePage function body
+  const fnMatch = indexContent.match(/function HomePage\(\) \{([\s\S]*?)\n\}/)
+  assert.ok(fnMatch, 'HomePage function must exist')
+  const body = fnMatch[1]
+
+  // Find the boundary where hooks end and conditional view rendering starts
+  const evalMarker = body.indexOf('// ALL HOOKS HAVE BEEN EXECUTED')
+  assert.ok(evalMarker !== -1, 'Must have clear separation marker between hooks and view evaluation')
+
+  // Collect all hook calls in the function and ensure they all appear before evalMarker
+  const hookRegex = /(useState|useEffect|useUser|useClerk|useLoaderData|useSearch)\(/g
+  let match
+  while ((match = hookRegex.exec(body)) !== null) {
+    const hookIdx = match.index
+    assert.ok(
+      hookIdx < evalMarker,
+      `Hook "${match[1]}" at index ${hookIdx} is called AFTER the hooks declaration section at index ${evalMarker}. This violates React Rule of Hooks!`
+    )
+  }
+
+  // Ensure no early component returns (return <...) exist before evalMarker
+  const codeBeforeMarker = body.slice(0, evalMarker)
+  assert.ok(
+    !codeBeforeMarker.includes('return <'),
+    'Must NOT contain any early component JSX returns before all hooks have been declared'
+  )
+})
