@@ -20,6 +20,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useUser } from '@clerk/react'
 import { useNavigate, useRouter } from '@tanstack/react-router'
 import { motion } from 'motion/react'
+import { useApp } from '../context/AppContext'
 import {
   Modal,
   Button,
@@ -66,6 +67,7 @@ export const STANDARD_CATEGORIES: Array<{ id: string; name: string }> = GLOBAL_C
 
 export function UserOnboardingModal() {
   const { user, isLoaded, isSignedIn } = useUser()
+  const { setIsOnboardingActive } = useApp()
   const navigate = useNavigate()
   const router = useRouter()
 
@@ -140,6 +142,11 @@ export function UserOnboardingModal() {
         if (existingProfile && existingProfile.onboarding_completed === true) {
           localStorage.setItem(key, 'true')
           setIsOpen(false)
+          setIsOnboardingActive(false)
+          if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('hatchpen_onboarding_active')
+            window.dispatchEvent(new CustomEvent('hatchpen:onboarding-active', { detail: { active: false } }))
+          }
           return
         }
 
@@ -159,6 +166,11 @@ export function UserOnboardingModal() {
         const localCompleted = localStorage.getItem(key)
         if (localCompleted === 'true') {
           setIsOpen(false)
+          setIsOnboardingActive(false)
+          if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('hatchpen_onboarding_active')
+            window.dispatchEvent(new CustomEvent('hatchpen:onboarding-active', { detail: { active: false } }))
+          }
           return
         }
       }
@@ -209,6 +221,11 @@ export function UserOnboardingModal() {
 
       // Open onboarding modal for new / incomplete user
       setIsOpen(true)
+      setIsOnboardingActive(true)
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('hatchpen_onboarding_active', 'true')
+        window.dispatchEvent(new CustomEvent('hatchpen:onboarding-active', { detail: { active: true } }))
+      }
     }
 
     checkOnboardingStatus()
@@ -363,14 +380,17 @@ export function UserOnboardingModal() {
       // Dismiss the standalone New Voices modal permanently so it never pops up again!
       localStorage.setItem(`hatchpen_new_voices_popup_dismissed_${user.id}`, 'true')
 
+      setIsOnboardingActive(false)
       if (typeof window !== 'undefined') {
         sessionStorage.removeItem('hatchpen_just_signed_up_google')
+        sessionStorage.removeItem('hatchpen_onboarding_active')
         try {
           sessionStorage.removeItem('hatchpen_cached_rec_signals')
           if (user?.id) {
             sessionStorage.removeItem(`hatchpen_cached_rec_signals_${user.id}`)
           }
         } catch {}
+        window.dispatchEvent(new CustomEvent('hatchpen:onboarding-active', { detail: { active: false } }))
         window.dispatchEvent(new CustomEvent('hatchpen:onboarding-completed'))
       }
 

@@ -13,7 +13,8 @@ import {
 } from '../server/recommendations'
 import { getPlatformWorksServerFn } from '../server/works'
 import PublicHome from '../components/home/PublicHome'
-import LoggedInHome, { type HomeLoaderData } from '../components/home/LoggedInHome'
+import LoggedInHome, { type HomeLoaderData, LoggedInHomeSkeleton } from '../components/home/LoggedInHome'
+import { useApp } from '../context/AppContext'
 import {
   hasActiveClientSession,
   markClientSessionActive,
@@ -107,7 +108,8 @@ function HomePage() {
   const loaderData = Route.useLoaderData()
   const search = Route.useSearch()
   const clerk = useClerk()
-  const { isSignedIn, isLoaded: isUserLoaded } = useUser()
+  const { isSignedIn, isLoaded: isUserLoaded, user } = useUser()
+  const { isOnboardingActive } = useApp()
 
   // Hook 1: Immediate optimistic logout tracker so HomePage instantly switches to PublicHome without skeleton
   const [isLoggedOut, setIsLoggedOut] = React.useState(() => {
@@ -158,6 +160,16 @@ function HomePage() {
     }
   }, [isUserLoaded, isSignedIn])
 
+  // Check if onboarding is currently in progress or required for this user
+  const isPendingOnboarding =
+    isOnboardingActive ||
+    (isUserLoaded &&
+      isSignedIn &&
+      typeof window !== 'undefined' &&
+      user?.id &&
+      localStorage.getItem(`hatchpen_onboarding_completed_${user.id}`) !== 'true' &&
+      sessionStorage.getItem('hatchpen_onboarding_active') === 'true')
+
   // =========================================================================
   // ALL HOOKS HAVE BEEN EXECUTED. NOW EVALUATE VIEW BRANCHES SAFELY:
   // =========================================================================
@@ -175,16 +187,22 @@ function HomePage() {
     return <PublicHome loaderData={loaderData} />
   }
 
-  // 3. Definitively signed in by Clerk
+  // 3. User is actively completing onboarding modal:
+  // Render lightweight skeleton backdrop with ZERO background recommendation API calls!
+  if (isUserLoaded && isSignedIn && isPendingOnboarding) {
+    return <LoggedInHomeSkeleton />
+  }
+
+  // 4. Definitively signed in by Clerk
   if (isUserLoaded && isSignedIn) {
     return <LoggedInHome loaderData={loaderData} />
   }
 
-  // 4. Server authenticated or client session indicator active within grace window
+  // 5. Server authenticated or client session indicator active within grace window
   if ((isServerAuthenticated || hasClientSession) && !sessionGraceExpired) {
     return <LoggedInHome loaderData={loaderData} />
   }
 
-  // 5. True unauthenticated public visitor
+  // 6. True unauthenticated public visitor
   return <PublicHome loaderData={loaderData} />
 }

@@ -440,6 +440,12 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
 
     let isMounted = true
 
+    if (!isOnboardingDone) {
+      // While onboarding is pending, do not trigger personalized recommendation signal API
+      setIsLoadingSignals(false)
+      return
+    }
+
     getUserRecommendationSignalsServerFn({ data: currentUserId })
       .then((signals) => {
         // Discard stale responses if a newer request sequence started, component unmounted, or user switched

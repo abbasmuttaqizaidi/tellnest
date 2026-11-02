@@ -150,6 +150,10 @@ interface AppContextType {
   openPublicWriteModal: () => void
   closePublicWriteModal: () => void
 
+  // User Onboarding State
+  isOnboardingActive: boolean
+  setIsOnboardingActive: (active: boolean) => void
+
   // Mobile Navigation Drawer
   mobileDrawerOpen: boolean
   setMobileDrawerOpen: (open: boolean) => void
@@ -928,6 +932,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isPublicWriteModalOpen, setIsPublicWriteModalOpen] = useState(false)
   const openPublicWriteModal = () => setIsPublicWriteModalOpen(true)
   const closePublicWriteModal = () => setIsPublicWriteModalOpen(false)
+
+  // User Onboarding Active State
+  const [isOnboardingActive, setIsOnboardingActive] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('hatchpen_onboarding_active') === 'true'
+    }
+    return false
+  })
+
+  useEffect(() => {
+    const handleOnboardingCompleted = () => {
+      setIsOnboardingActive(false)
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('hatchpen_onboarding_active')
+      }
+    }
+    const handleOnboardingActive = (e: any) => {
+      const active = Boolean(e?.detail?.active)
+      setIsOnboardingActive(active)
+      if (typeof window !== 'undefined') {
+        if (active) {
+          sessionStorage.setItem('hatchpen_onboarding_active', 'true')
+        } else {
+          sessionStorage.removeItem('hatchpen_onboarding_active')
+        }
+      }
+    }
+    window.addEventListener('hatchpen:onboarding-completed', handleOnboardingCompleted)
+    window.addEventListener('hatchpen:onboarding-active', handleOnboardingActive)
+    return () => {
+      window.removeEventListener('hatchpen:onboarding-completed', handleOnboardingCompleted)
+      window.removeEventListener('hatchpen:onboarding-active', handleOnboardingActive)
+    }
+  }, [])
 
   // Mobile Navigation Drawer
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
@@ -1796,6 +1834,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         isPublicWriteModalOpen,
         openPublicWriteModal,
         closePublicWriteModal,
+        isOnboardingActive,
+        setIsOnboardingActive,
         mobileDrawerOpen,
         setMobileDrawerOpen,
         isHeaderScrolled,

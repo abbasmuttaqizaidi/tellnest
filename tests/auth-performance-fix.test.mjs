@@ -210,7 +210,7 @@ test('React Rule of Hooks Invariant: Homepage must execute ALL hooks uncondition
   assert.ok(evalMarker !== -1, 'Must have clear separation marker between hooks and view evaluation')
 
   // Collect all hook calls in the function and ensure they all appear before evalMarker
-  const hookRegex = /(useState|useEffect|useUser|useClerk|useLoaderData|useSearch)\(/g
+  const hookRegex = /(useState|useEffect|useUser|useClerk|useLoaderData|useSearch|useApp)\(/g
   let match
   while ((match = hookRegex.exec(body)) !== null) {
     const hookIdx = match.index

@@ -299,3 +299,51 @@ test('BREAK ATTEMPT 9: Username Collision Resilience generates unique fallback w
   const sameUserReclaiming = resolveSafeUsername('novel_author', 'user_abc', 'user_abc')
   assert.strictEqual(sameUserReclaiming, 'novel_author', 'Same user reclaiming must keep username')
 })
+
+test('BREAK ATTEMPT 10: Onboarding Resource Protection defers heavy feed and recommendation queries while user is onboarding', () => {
+  const resolveView = ({
+    isUserLoaded,
+    isSignedIn,
+    isExplicitlyLoggedOut,
+    isPendingOnboarding,
+  }) => {
+    if (isExplicitlyLoggedOut) return 'PublicHome'
+    if (isUserLoaded && isSignedIn && isPendingOnboarding) return 'LoggedInHomeSkeleton'
+    if (isUserLoaded && isSignedIn) return 'LoggedInHome'
+    return 'PublicHome'
+  }
+
+  // 1. User is signed in and currently filling out onboarding modal:
+  const onboardingUserView = resolveView({
+    isUserLoaded: true,
+    isSignedIn: true,
+    isExplicitlyLoggedOut: false,
+    isPendingOnboarding: true,
+  })
+  assert.strictEqual(
+    onboardingUserView,
+    'LoggedInHomeSkeleton',
+    'Homepage must render lightweight skeleton backdrop without triggering heavy feed APIs while user is in onboarding modal'
+  )
+
+  // 2. User finished onboarding modal:
+  const onboardedUserView = resolveView({
+    isUserLoaded: true,
+    isSignedIn: true,
+    isExplicitlyLoggedOut: false,
+    isPendingOnboarding: false,
+  })
+  assert.strictEqual(
+    onboardedUserView,
+    'LoggedInHome',
+    'Homepage must immediately mount LoggedInHome once onboarding completes'
+  )
+
+  // 3. Verify LoggedInHome code strictly skips recommendation signal API call if onboarding is not done
+  const loggedInHomeContent = fs.readFileSync('src/components/home/LoggedInHome.tsx', 'utf8')
+  assert.match(
+    loggedInHomeContent,
+    /if\s*\(!isOnboardingDone\)\s*\{\s*\/\/[^\n]*\s*setIsLoadingSignals\(false\)\s*return\s*\}/,
+    'LoggedInHome must guard getUserRecommendationSignalsServerFn behind isOnboardingDone'
+  )
+})
