@@ -1823,6 +1823,33 @@ test('Curated Reading & Intent Hubs: Step 4 — /browse/$collection SSR, Schema.
   assert.ok(footerCode.includes('to="/browse/$collection"'), 'Footer must link to /browse/$collection')
 })
 
+test('SEO Architecture: Step 3 Author / Creator Profiles SEO & Person Schema upgrade', () => {
+  const authorRouteCode = fs.readFileSync(path.join(rootDir, 'src/routes/author.$authorId.tsx'), 'utf-8')
+
+  // 1. Route declaration
+  assert.ok(authorRouteCode.includes("createFileRoute('/author/$authorId')"), 'Author route must define /author/$authorId')
+
+  // 2. Schema.org ProfilePage & Person entity with knowsAbout literary genres
+  assert.ok(authorRouteCode.includes("'@type': 'ProfilePage'"), 'Author route must output Schema.org ProfilePage')
+  assert.ok(authorRouteCode.includes("personEntity.knowsAbout = authorGenres"), 'Person entity must declare knowsAbout literary genres')
+
+  // 3. Schema.org FAQPage for rich SERP presence
+  assert.ok(authorRouteCode.includes("'@type': 'FAQPage'"), 'Author route must output Schema.org FAQPage')
+  assert.ok(authorRouteCode.includes("Where can I read stories by"), 'FAQ must answer reading location')
+  assert.ok(authorRouteCode.includes("Can I read books by"), 'FAQ must address free reading access')
+  assert.ok(authorRouteCode.includes("How can I follow"), 'FAQ must address follower notifications')
+
+  // 4. High-intent meta description dynamic bibliography
+  assert.ok(authorRouteCode.includes('topTitles'), 'Meta description must inject top book titles into description')
+  assert.ok(authorRouteCode.includes('Explore stories including'), 'Meta description must highlight published titles for SEO CTR')
+
+  // 5. Semantic DOM enhancements
+  assert.ok(authorRouteCode.includes('Literary Genres &amp; Themes by') || authorRouteCode.includes('Literary Genres & Themes by'), 'DOM must feature author literary genres cluster')
+  assert.ok(authorRouteCode.includes('Frequently Asked Questions About'), 'DOM must render visible FAQ section matching schema')
+  assert.ok(authorRouteCode.includes('to="/genre/$slug"'), 'Author page must pass link equity to genre hubs')
+})
+
+
 
 
 

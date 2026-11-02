@@ -18,11 +18,14 @@ import {
   Lock,
   Shield,
   Globe,
+  HelpCircle,
+  Sparkles,
 } from 'lucide-react'
 import { generateMeta } from '../lib/seo'
 import { getAuthorSocialCardUrl } from '../lib/og'
 import { getPublicAuthorServerFn } from '../server/works'
 import { formatViewCount, parseTotalReads } from '../lib/utils'
+import { slugify } from '../lib/taxonomy'
 
 export const Route = createFileRoute('/author/$authorId')({
   staleTime: 0,
@@ -147,11 +150,59 @@ export const Route = createFileRoute('/author/$authorId')({
         name: w.title,
         url: `https://hatchpen.com/works/${w.slug || w.id}`,
       }))
+
+      // Entity signal: literary genres author writes in
+      const authorGenres = Array.from(
+        new Set(
+          publishedWorks
+            .map((w: any) => w.genre)
+            .filter(Boolean)
+        )
+      )
+      if (authorGenres.length > 0) {
+        personEntity.knowsAbout = authorGenres
+      }
+    }
+
+    const topTitles = publishedWorks.slice(0, 3).map((w: any) => `"${w.title}"`).join(', ')
+    const authorDescription = author.bio
+      ? `${author.bio.slice(0, 130)}${topTitles ? `. Explore stories including ${topTitles} on HatchPen.` : '. Read online free on HatchPen.'}`
+      : `Discover original fiction and serialized novels by ${metaAuthorName} on HatchPen${topTitles ? `, including ${topTitles}` : ''}. Read online with zero paywalls.`
+
+    const faqJsonLd = {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: `Where can I read stories by ${metaAuthorName}?`,
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: `You can read original serialized fiction, novels, and manuscripts by ${metaAuthorName} directly on HatchPen with zero paywalls or subscriptions.`,
+          },
+        },
+        {
+          '@type': 'Question',
+          name: `Can I read books by ${metaAuthorName} for free?`,
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: `Yes. All published chapters by ${metaAuthorName} on HatchPen are 100% free to read online in your web browser with no download requirements.`,
+          },
+        },
+        {
+          '@type': 'Question',
+          name: `How can I follow ${metaAuthorName} for new chapter releases?`,
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: `Readers can follow ${metaAuthorName} by creating a free HatchPen account or adding their stories to their personal Library to receive automatic notifications when new chapters publish.`,
+          },
+        },
+      ],
     }
 
     return generateMeta({
       title: `${metaAuthorName}${showMetaUsername && showMetaName ? ` (@${author.handle})` : ''} — Author & Books on HatchPen`,
-      description: author.bio || `Read serialized manuscripts, novels, and original fiction by ${metaAuthorName} on HatchPen.`,
+      description: authorDescription,
       canonicalUrl: authorCanonicalUrl,
       ogType: 'profile',
       ogImage,
@@ -172,11 +223,14 @@ export const Route = createFileRoute('/author/$authorId')({
         { name: 'Authors', url: '/discover' },
         { name: metaAuthorName, url: authorCanonicalUrl },
       ],
-      jsonLd: {
-        '@context': 'https://schema.org',
-        '@type': 'ProfilePage',
-        mainEntity: personEntity,
-      },
+      jsonLd: [
+        {
+          '@context': 'https://schema.org',
+          '@type': 'ProfilePage',
+          mainEntity: personEntity,
+        },
+        faqJsonLd,
+      ],
     })
   },
   component: AuthorProfilePage,
@@ -258,6 +312,16 @@ function AuthorProfilePage() {
       return parseTotalReads(b.totalReads) - parseTotalReads(a.totalReads)
     })
   }, [authorWorks, activeTab, sortBy, searchQuery])
+
+  const authorGenres = useMemo(() => {
+    return Array.from(
+      new Set(
+        authorWorks
+          .map((w: any) => w.genre)
+          .filter(Boolean)
+      )
+    ) as string[]
+  }, [authorWorks])
 
   if (!author) {
     return (
@@ -577,6 +641,79 @@ function AuthorProfilePage() {
           )}
         </section>
       )}
+
+      {/* Author Literary Genres & Themes (Internal Link Equity) */}
+      {authorGenres.length > 0 && !isWorksCatalogHidden && (
+        <div className="mt-8 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 sm:p-5">
+          <div className="flex items-center justify-between gap-1.5 mb-2.5">
+            <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--ink-primary)] font-semibold flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-[var(--accent)]" />
+              <span>Literary Genres &amp; Themes by {displayName}</span>
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {authorGenres.map((genreName: string) => {
+              const genreSlug = slugify(genreName)
+              return (
+                <Link
+                  key={genreSlug}
+                  to="/genre/$slug"
+                  params={{ slug: genreSlug }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-subtle)] hover:bg-[var(--bg-muted)] hover:border-[var(--border-strong)] text-xs text-[var(--ink-primary)] transition-all no-underline font-medium"
+                >
+                  <span>{genreName}</span>
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Author FAQ Section (Matches Schema.org FAQPage for Google Rich Snippets) */}
+      <section className="mt-10 sm:mt-14 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 sm:p-8 space-y-5">
+        <div className="flex items-center gap-2.5 text-[var(--ink-primary)] font-serif text-lg sm:text-xl font-bold">
+          <HelpCircle className="w-5 h-5 text-[var(--accent)] shrink-0" />
+          <h2>Frequently Asked Questions About {displayName}</h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6 pt-1">
+          <div className="space-y-1">
+            <h3 className="text-xs sm:text-sm font-semibold text-[var(--ink-primary)]">
+              Where can I read stories by {displayName}?
+            </h3>
+            <p className="text-xs text-[var(--ink-muted)] leading-relaxed font-sans">
+              You can read original serialized fiction, novels, and manuscripts by {displayName} directly on HatchPen with zero paywalls or subscriptions.
+            </p>
+          </div>
+
+          <div className="space-y-1">
+            <h3 className="text-xs sm:text-sm font-semibold text-[var(--ink-primary)]">
+              Can I read books by {displayName} for free?
+            </h3>
+            <p className="text-xs text-[var(--ink-muted)] leading-relaxed font-sans">
+              Yes. All published chapters by {displayName} on HatchPen are 100% free to read online directly in your browser with zero paywalls, coins, or mandatory subscriptions.
+            </p>
+          </div>
+
+          <div className="space-y-1">
+            <h3 className="text-xs sm:text-sm font-semibold text-[var(--ink-primary)]">
+              How can I follow {displayName} for new chapter releases?
+            </h3>
+            <p className="text-xs text-[var(--ink-muted)] leading-relaxed font-sans">
+              Readers can follow {displayName} by creating a free HatchPen account or adding their stories to their personal Library to receive instant notifications when new chapters publish.
+            </p>
+          </div>
+
+          <div className="space-y-1">
+            <h3 className="text-xs sm:text-sm font-semibold text-[var(--ink-primary)]">
+              How many stories has {displayName} published?
+            </h3>
+            <p className="text-xs text-[var(--ink-muted)] leading-relaxed font-sans">
+              {displayName} has cataloged {authorWorks.length} {authorWorks.length === 1 ? 'manuscript' : 'manuscripts'} on HatchPen.
+            </p>
+          </div>
+        </div>
+      </section>
     </div>
   )
 }
