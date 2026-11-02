@@ -63,3 +63,17 @@ All 4 high-priority technical & content SEO architecture steps from this roadmap
   - Admin control center in `/secret-adminpanel` enabling 1-click bulk submission of the entire catalog (all 297 canonical URLs) to IndexNow and single-URL targeted pings.
   - All 297 live URLs successfully dispatched and accepted with `HTTP 200 OK` by `api.indexnow.org`.
 
+---
+
+### ✅ Step 6: Knowledge Graph & Wikidata Entity Linking (`sameAs`) — [COMPLETED & LIVE]
+- **Target Routes:**
+  - Parent Category Hubs: `/category/$slug` (e.g. `/category/novels` -> `sameAs: ["https://www.wikidata.org/wiki/Q8261", "https://en.wikipedia.org/wiki/Novel"]`)
+  - Literary Genre Hubs: `/genre/$slug` (e.g. `/genre/science-fiction` -> `sameAs: ["https://www.wikidata.org/wiki/Q24925", "https://en.wikipedia.org/wiki/Science_fiction"]`)
+  - Trope & Tag Hubs: `/tag/$slug` (e.g. `/tag/slow-burn`, `/tag/enemies-to-lovers`)
+  - Story & Manuscript Pages: `/works/$slug` (e.g. `/works/pleasure-after-dark` -> genre, category, and trope entities in `about`)
+- **What Was Done:**
+  - Built `src/lib/knowledgeGraph.ts` mapping all 17 canonical categories, 34 canonical genres, and popular narrative tropes to authoritative Wikidata and Wikipedia URIs.
+  - Injected `about: buildKnowledgeEntity(name, url)` with `sameAs` arrays into `CollectionPage` and `Book` Schema.org JSON-LD across the entire platform.
+  - Eliminates ambiguity for Google Knowledge Graph and AI search engines (Perplexity, ChatGPT Search, Copilot) by connecting HatchPen directly to the global literary entity graph.
+
+
