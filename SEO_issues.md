@@ -76,4 +76,35 @@ All 4 high-priority technical & content SEO architecture steps from this roadmap
   - Injected `about: buildKnowledgeEntity(name, url)` with `sameAs` arrays into `CollectionPage` and `Book` Schema.org JSON-LD across the entire platform.
   - Eliminates ambiguity for Google Knowledge Graph and AI search engines (Perplexity, ChatGPT Search, Copilot) by connecting HatchPen directly to the global literary entity graph.
 
+---
+
+## 🎯 Next Strategic Execution Steps (Phase 2 Roadmap)
+
+### 📌 Step 7: Chapter Reader Deep SERP & Sequential Interlinking (`/read/$workSlug/$chapterId`) — [IN QUEUE]
+- **Kyun Zaroori Hai:** Platform ke 297 indexed URLs mein se 250+ URLs chapters hain (85% content volume). Serialized fiction readers Google par directly specific chapters search karte hain (e.g. *"Read Pleasure After Dark Chapter 2 Free"*).
+- **Target Implementation:**
+  1. **High-Intent Search Titles:** Convert generic chapter titles to search intent format: `Read {Story Title} Chapter {Number} Online Free — HatchPen`.
+  2. **Sequential Crawler Links:** Inject `<link rel="prev">` and `<link rel="next">` tags in `<head>` so Googlebot indexes ordered chapters as a continuous reading chain.
+  3. **Structured Chapter Schema:** Connect `position: chapterNumber`, `previousItem`, `nextItem`, and `isPartOf: Book` in Schema.org `Article` / `Chapter`.
+  4. **Chapter FAQPage Schema & DOM FAQ:** Rich accordion SERP snippets answering common reader queries (*"Where can I read the next chapter?", "Can I read this chapter for free without paywalls?"*).
+
+---
+
+### 📌 Step 8: BookTok & Trope Hubs SERP Domination (`/tag/$slug`) — [IN QUEUE]
+- **Kyun Zaroori Hai:** BookTok aur modern readers genre se zyada specific narrative tropes search karte hain (e.g. *"Best enemies to lovers web novels"*, *"Slow burn free serialized fiction"*, *"Fake dating books online"*).
+- **Target Implementation:**
+  1. **High-Intent SEO Titles & Meta:** `Read Best {Trope} Stories & Web Novels Online — HatchPen`.
+  2. **Schema.org FAQPage:** Inject FAQs explaining the trope and discovery options for rich Google SERP snippet accordions.
+  3. **Related Tropes Cross-Linking Cluster:** Semantic internal linking grid (e.g. *Slow Burn* $\rightarrow$ *Enemies to Lovers*, *Fake Dating*, *Forbidden Love*) passing PageRank across all trope landing pages.
+  4. **Semantic DOM FAQ Accordion Section:** Crawlable DOM FAQ matching schema.
+
+---
+
+### 📌 Step 9: Author E-E-A-T & Social Knowledge Graph (`sameAs` on Author Profiles) — [IN QUEUE]
+- **Kyun Zaroori Hai:** Google ka Helpful Content System aur E-E-A-T author authenticity aur social proof verify karta hai.
+- **Target Implementation:**
+  1. **Social Profile Integration:** Map authors' external links (Twitter/X, Instagram, Substack, Goodreads, Personal Website) into Schema.org `Person.sameAs`.
+  2. **Author Authority Badge & Bibliographic Schema:** Link author entity back to all published works and Wikidata literary references.
+
+
 
