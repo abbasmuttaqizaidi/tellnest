@@ -9,6 +9,7 @@ import { ArrowLeft, HelpCircle, Compass, Layers, BookOpen, Sparkles } from 'luci
 import { generateMeta } from '../lib/seo'
 import { parseTotalReads } from '../lib/utils'
 import { getCategoryPageDataServerFn, type CategoryPageData } from '../server/works'
+import { buildKnowledgeEntity } from '../lib/knowledgeGraph'
 
 export const Route = createFileRoute('/category/$slug')({
   staleTime: 60_000,
@@ -130,6 +131,7 @@ export const Route = createFileRoute('/category/$slug')({
         name: `Read Best ${categoryName} Stories & Web Novels Online`,
         description,
         url: canonicalUrl,
+        about: buildKnowledgeEntity(categoryName, canonicalUrl),
         mainEntity: {
           '@type': 'ItemList',
           numberOfItems: works.length,

@@ -9,6 +9,7 @@ import { ArrowLeft, HelpCircle, Sparkles, BookOpen, Compass, Tag } from 'lucide-
 import { generateMeta } from '../lib/seo'
 import { parseTotalReads } from '../lib/utils'
 import { getGenrePageDataServerFn, type GenrePageData } from '../server/works'
+import { buildKnowledgeEntity } from '../lib/knowledgeGraph'
 
 export interface GenreRouteSearch {
   trope?: string
@@ -140,6 +141,7 @@ export const Route = createFileRoute('/genre/$slug')({
         name: `Read ${genreName} Stories & Serialized Literature`,
         description,
         url: canonicalUrl,
+        about: buildKnowledgeEntity(genreName, canonicalUrl),
         mainEntity: {
           '@type': 'ItemList',
           numberOfItems: works.length,

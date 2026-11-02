@@ -33,6 +33,7 @@ import { AuthorProfileModal } from '../components/AuthorProfileModal'
 import { ShareStoryModal } from '../components/ShareStoryModal'
 import { formatViewCount, formatHeartCount } from '../lib/utils'
 import { slugify } from '../lib/taxonomy'
+import { getEntitySameAs } from '../lib/knowledgeGraph'
 import CommentsSection from '../components/CommentsSection'
 import WorkCard from '../components/WorkCard'
 import defaultBookCover from '../assets/default-book-cover.webp'
@@ -133,15 +134,40 @@ export const Route = createFileRoute('/works/$workId')({
       ...(ch.readTimeMinutes ? { timeRequired: `PT${ch.readTimeMinutes}M` } : {}),
     }))
 
-    // Knowledge Graph entity connections for tropes, genres, and themes
+    // Knowledge Graph entity connections for tropes, genres, and themes with Wikidata sameAs
+    const genreSameAs = getEntitySameAs(genreSlug)
+    const catSameAs = getEntitySameAs(catSlug)
     const aboutEntities = [
-      ...(work.genre ? [{ '@type': 'Thing', name: work.genre, url: `https://hatchpen.com/genre/${genreSlug}` }] : []),
-      ...(work.category ? [{ '@type': 'Thing', name: work.category, url: `https://hatchpen.com/category/${catSlug}` }] : []),
-      ...((work.tags || []).map((t: string) => ({
-        '@type': 'Thing',
-        name: t,
-        url: `https://hatchpen.com/tag/${slugify(t)}`,
-      }))),
+      ...(work.genre
+        ? [
+            {
+              '@type': 'Thing',
+              name: work.genre,
+              url: `https://hatchpen.com/genre/${genreSlug}`,
+              ...(genreSameAs.length > 0 ? { sameAs: genreSameAs } : {}),
+            },
+          ]
+        : []),
+      ...(work.category
+        ? [
+            {
+              '@type': 'Thing',
+              name: work.category,
+              url: `https://hatchpen.com/category/${catSlug}`,
+              ...(catSameAs.length > 0 ? { sameAs: catSameAs } : {}),
+            },
+          ]
+        : []),
+      ...((work.tags || []).map((t: string) => {
+        const tagSlug = slugify(t)
+        const tagSameAs = getEntitySameAs(tagSlug)
+        return {
+          '@type': 'Thing',
+          name: t,
+          url: `https://hatchpen.com/tag/${tagSlug}`,
+          ...(tagSameAs.length > 0 ? { sameAs: tagSameAs } : {}),
+        }
+      })),
     ]
 
     const rawDescription = work.synopsis || (work.fullDescription ? work.fullDescription.slice(0, 160) : '')

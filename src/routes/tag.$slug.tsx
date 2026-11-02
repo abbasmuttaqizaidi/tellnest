@@ -9,6 +9,7 @@ import { ArrowLeft, HelpCircle, Sparkles, BookOpen, Compass, Tag as TagIcon } fr
 import { generateMeta } from '../lib/seo'
 import { parseTotalReads } from '../lib/utils'
 import { getTagPageDataServerFn, type TagPageData } from '../server/works'
+import { buildKnowledgeEntity } from '../lib/knowledgeGraph'
 
 export const Route = createFileRoute('/tag/$slug')({
   staleTime: 60_000,
@@ -140,6 +141,7 @@ export const Route = createFileRoute('/tag/$slug')({
         name: `Read Best ${tagName} Stories & Novels Online`,
         description,
         url: canonicalUrl,
+        about: buildKnowledgeEntity(tagName, canonicalUrl),
         mainEntity: {
           '@type': 'ItemList',
           numberOfItems: works.length,

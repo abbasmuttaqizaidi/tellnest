@@ -1631,7 +1631,7 @@ test('Story SERP Rich Results Optimization: Step 2 — hasPart chapters, about e
   // 3. Knowledge Graph Entity Linking via about array
   assert.ok(worksCode.includes('aboutEntities = ['), 'Works route must compute aboutEntities')
   assert.ok(worksCode.includes("about: aboutEntities"), 'Works Book schema must declare about entities')
-  assert.ok(worksCode.includes("url: `https://hatchpen.com/tag/${slugify(t)}`"), 'aboutEntities must link to trope landing hubs')
+  assert.ok(worksCode.includes("url: `https://hatchpen.com/tag/${slugify(t)}`") || worksCode.includes("url: `https://hatchpen.com/tag/${tagSlug}`"), 'aboutEntities must link to trope landing hubs')
 
   // 4. Free Reading intent via potentialAction ReadAction + Offer
   assert.ok(worksCode.includes("'@type': 'ReadAction'"), 'Works schema must include ReadAction')
@@ -1848,6 +1848,47 @@ test('SEO Architecture: Step 3 Author / Creator Profiles SEO & Person Schema upg
   assert.ok(authorRouteCode.includes('Frequently Asked Questions About'), 'DOM must render visible FAQ section matching schema')
   assert.ok(authorRouteCode.includes('to="/genre/$slug"'), 'Author page must pass link equity to genre hubs')
 })
+
+test('SEO Architecture: Knowledge Graph & Wikidata Entity Linking (sameAs) for Categories, Genres, and Stories', async () => {
+  const { getEntitySameAs, buildKnowledgeEntity, CATEGORY_KNOWLEDGE_GRAPH, GENRE_KNOWLEDGE_GRAPH, TROPE_KNOWLEDGE_GRAPH } = await import('../src/lib/knowledgeGraph.ts')
+
+  // 1. Taxonomy Entity resolution verification
+  const scifiSameAs = getEntitySameAs('science-fiction')
+  assert.ok(scifiSameAs.length >= 2, 'Science Fiction must have both Wikidata and Wikipedia links')
+  assert.ok(scifiSameAs.some((u) => u.includes('wikidata.org/wiki/Q24925')), 'Must link to Wikidata Q24925')
+  assert.ok(scifiSameAs.some((u) => u.includes('wikipedia.org/wiki/Science_fiction')), 'Must link to Wikipedia')
+
+  const novelSameAs = getEntitySameAs('novels')
+  assert.ok(novelSameAs.some((u) => u.includes('wikidata.org/wiki/Q8261')), 'Novels must link to Wikidata Q8261')
+
+  const darkRomanceSameAs = getEntitySameAs('dark-romance')
+  assert.ok(darkRomanceSameAs.some((u) => u.includes('wikipedia.org/wiki/Dark_romance')), 'Dark Romance must link to Wikipedia')
+
+  const slowBurnSameAs = getEntitySameAs('slow-burn')
+  assert.ok(slowBurnSameAs.some((u) => u.includes('wikipedia.org/wiki/Slow_burn_(trope)')), 'Slow burn must link to Wikipedia trope entity')
+
+  // 2. buildKnowledgeEntity helper
+  const entity = buildKnowledgeEntity('Science Fiction', 'https://hatchpen.com/genre/science-fiction')
+  assert.equal(entity['@type'], 'Thing')
+  assert.equal(entity.name, 'Science Fiction')
+  assert.equal(entity.url, 'https://hatchpen.com/genre/science-fiction')
+  assert.ok(Array.isArray(entity.sameAs) && entity.sameAs.length >= 2)
+
+  // 3. Route code integration verification
+  const categoryRouteCode = fs.readFileSync(path.join(rootDir, 'src/routes/category.$slug.tsx'), 'utf-8')
+  assert.ok(categoryRouteCode.includes('buildKnowledgeEntity(categoryName, canonicalUrl)'), 'Category route must attach Knowledge Graph entity to CollectionPage')
+
+  const genreRouteCode = fs.readFileSync(path.join(rootDir, 'src/routes/genre.$slug.tsx'), 'utf-8')
+  assert.ok(genreRouteCode.includes('buildKnowledgeEntity(genreName, canonicalUrl)'), 'Genre route must attach Knowledge Graph entity to CollectionPage')
+
+  const tagRouteCode = fs.readFileSync(path.join(rootDir, 'src/routes/tag.$slug.tsx'), 'utf-8')
+  assert.ok(tagRouteCode.includes('buildKnowledgeEntity(tagName, canonicalUrl)'), 'Tag route must attach Knowledge Graph entity to CollectionPage')
+
+  const worksRouteCode = fs.readFileSync(path.join(rootDir, 'src/routes/works.$workId.tsx'), 'utf-8')
+  assert.ok(worksRouteCode.includes('genreSameAs = getEntitySameAs(genreSlug)'), 'Works route must resolve Wikidata sameAs for literary genre')
+  assert.ok(worksRouteCode.includes('catSameAs = getEntitySameAs(catSlug)'), 'Works route must resolve Wikidata sameAs for category')
+})
+
 
 
 
