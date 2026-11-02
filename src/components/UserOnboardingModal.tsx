@@ -332,7 +332,7 @@ export function UserOnboardingModal() {
 
   // Submission handler for Step 2
   const handleCompleteOnboarding = async () => {
-    if (!user) return
+    if (!user || isSubmitting) return
     if (selectedGenres.length > 5) {
       setErrorMessage('You may select a maximum of 5 genres.')
       return
@@ -416,8 +416,14 @@ export function UserOnboardingModal() {
       }
     } catch (err: any) {
       console.error('[UserOnboardingModal] Failed to save onboarding:', err)
-      setErrorMessage(err?.message || 'Failed to save onboarding details. Please try again.')
+      const msg = err?.message || 'Failed to save onboarding details. Please try again.'
+      setErrorMessage(msg)
       setIsPersonalizing(false)
+
+      if (msg.includes('claimed') || msg.includes('taken') || msg.includes('choose another')) {
+        setStep(1)
+        setUsernameVerification(null)
+      }
     } finally {
       setIsSubmitting(false)
     }

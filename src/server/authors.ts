@@ -210,6 +210,13 @@ export const saveUserOnboardingServerFn = createServerFn({ method: 'POST' })
       .single()
 
     if (error) {
+      if (
+        error.code === '23505' ||
+        error.message?.includes('profiles_username_key') ||
+        error.message?.includes('duplicate key')
+      ) {
+        throw new Error(`The username @${data.username} was just claimed by another reader. Please choose another username.`)
+      }
       console.error('[saveUserOnboardingServerFn] Error persisting onboarding profile:', error.message)
       throw new Error(error.message)
     }
