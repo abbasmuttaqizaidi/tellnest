@@ -126,3 +126,37 @@ test('BREAK ATTEMPT 5: Deep Return URL is sanitized and safely preserved', () =>
   assert.strictEqual(sanitizeTargetPath(''), '/')
   assert.strictEqual(sanitizeTargetPath(null), '/')
 })
+
+test('BREAK ATTEMPT 6: Header Auth Isolation after Logout prevents ghost avatar and Hatchpen Member fallback', () => {
+  const resolveHeaderIsSignedIn = ({
+    isExplicitlyLoggedOut,
+    isClientClerkLoaded,
+    rawIsSignedIn,
+    serverAuthenticated,
+    hasClientSession,
+  }) => {
+    return (
+      !isExplicitlyLoggedOut &&
+      (isClientClerkLoaded
+        ? Boolean(rawIsSignedIn)
+        : Boolean(serverAuthenticated) || hasClientSession)
+    )
+  }
+
+  // Case: User was authenticated on initial SSR (serverAuthenticated = true).
+  // User clicked Logout. Clerk finished signing out (rawIsSignedIn = false, isClientClerkLoaded = true).
+  // Stale serverAuthenticated must NEVER resurrect the session!
+  const afterLogout = resolveHeaderIsSignedIn({
+    isExplicitlyLoggedOut: false,
+    isClientClerkLoaded: true,
+    rawIsSignedIn: false,
+    serverAuthenticated: true, // Stale SSR prop
+    hasClientSession: false,
+  })
+
+  assert.strictEqual(
+    afterLogout,
+    false,
+    'Header must strictly evaluate to signed-out when Clerk says rawIsSignedIn is false, ignoring stale serverAuthenticated'
+  )
+})

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Link, useRouterState, useNavigate } from '@tanstack/react-router'
+import { Link, useRouterState, useNavigate, useRouter } from '@tanstack/react-router'
 import {
   PenTool,
   PenLine,
@@ -35,12 +35,13 @@ export interface HeaderProps {
 }
 
 export default function Header({ serverAuthenticated }: HeaderProps = {}) {
+  const router = useRouter()
   const navigate = useNavigate()
   const clerk = useClerk()
   const { signOut } = clerk
   const { user, isSignedIn: rawIsSignedIn, isLoaded } = useUser()
 
-  // Immediate optimistic logout tracker so buttons never disappear during async signOut network wait
+  // Immediate optimistic logout tracker so buttons instantly switch to public without skeleton
   const [optimisticLoggedOut, setOptimisticLoggedOut] = useState(() => {
     if (typeof window !== 'undefined') {
       return sessionStorage.getItem('hatchpen_just_logged_out') === 'true'
@@ -48,23 +49,30 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
     return false
   })
 
-  // When Clerk finishes signing out and confirms unauthenticated, clean up the temporary flag
+  // Listen to cross-app logout event so Header instantly drops all auth UI in 0ms
   useEffect(() => {
-    if (isLoaded && !rawIsSignedIn) {
-      if (typeof window !== 'undefined') {
-        sessionStorage.removeItem('hatchpen_just_logged_out')
-      }
-      setOptimisticLoggedOut(false)
+    const handleLogout = () => {
+      setOptimisticLoggedOut(true)
+      setUserMenuOpen(false)
+      setMobileDrawerOpen(false)
     }
-  }, [isLoaded, rawIsSignedIn])
+    window.addEventListener('hatchpen:logged-out', handleLogout)
+    return () => window.removeEventListener('hatchpen:logged-out', handleLogout)
+  }, [])
 
-  const isClientClerkLoaded = Boolean(clerk?.loaded)
-  const hasSessionIndicator =
-    !optimisticLoggedOut &&
-    (Boolean(serverAuthenticated) || hasActiveClientSession())
+  const isExplicitlyLoggedOut =
+    optimisticLoggedOut ||
+    (typeof window !== 'undefined' && sessionStorage.getItem('hatchpen_just_logged_out') === 'true')
 
-  const isAuthResolving = !isClientClerkLoaded && hasSessionIndicator
-  const isSignedIn = !optimisticLoggedOut && ((isClientClerkLoaded && Boolean(rawIsSignedIn)) || hasSessionIndicator)
+  const isClientClerkLoaded = Boolean(clerk?.loaded) && isLoaded
+
+  // Ground truth:
+  // 1. If user explicitly logged out -> ALWAYS false (0ms instant switch)
+  // 2. If Clerk client is loaded -> rawIsSignedIn is 100% authoritative
+  // 3. Only during initial SSR hydration before Clerk loads -> fallback to serverAuthenticated / active session indicator
+  const isSignedIn = !isExplicitlyLoggedOut && (
+    isClientClerkLoaded ? Boolean(rawIsSignedIn) : (Boolean(serverAuthenticated) || hasActiveClientSession())
+  )
 
   const handleSignOut = async () => {
     setOptimisticLoggedOut(true)
@@ -84,7 +92,9 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
       } catch {}
     }
     try {
-      await signOut({ redirectUrl: '/' })
+      await signOut()
+      await router.invalidate()
+      navigate({ to: '/', replace: true })
     } catch {
       if (typeof window !== 'undefined') {
         window.location.href = '/'
@@ -185,14 +195,11 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
 
   const isPublicHome = React.useMemo(() => {
     if (currentPath !== '/') return false
+    if (isExplicitlyLoggedOut) return true
     if (searchView === 'public') return true
     if (searchView === 'signed-in') return false
-    if (isLoaded ? isSignedIn : serverAuthenticated) return false
-    if (typeof window !== 'undefined' && window.localStorage.getItem('hatchpen_has_session') === 'true') {
-      return false
-    }
-    return true
-  }, [currentPath, searchView, serverAuthenticated, isSignedIn, isLoaded])
+    return !isSignedIn
+  }, [currentPath, isExplicitlyLoggedOut, searchView, isSignedIn])
 
   const [hasScrolled, setHasScrolled] = useState(false)
 
