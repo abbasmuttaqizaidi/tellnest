@@ -94,6 +94,9 @@ export function AuthModal() {
         sessionStorage.removeItem('hatchpen_just_logged_out')
         sessionStorage.setItem('hatchpen_just_signed_up_google', 'true')
         sessionStorage.setItem('hatchpen_oauth_in_flight', 'true')
+        if (targetPath && targetPath !== '/' && !targetPath.startsWith('/sso-callback')) {
+          sessionStorage.setItem('hatchpen_auth_return_url', targetPath)
+        }
         markClientSessionActive()
       }
 

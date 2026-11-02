@@ -58,6 +58,29 @@ export default function SSOCallbackPage() {
     }
   }, [])
 
+  const hasRedirectedRef = useRef(false)
+
+  const getTargetDestination = () => {
+    if (typeof window === 'undefined') return '/'
+    const saved = sessionStorage.getItem('hatchpen_auth_return_url')
+    if (saved && saved.startsWith('/') && !saved.startsWith('/sso-callback')) {
+      return saved
+    }
+    return '/'
+  }
+
+  const safeRedirect = (dest?: string) => {
+    if (typeof window === 'undefined' || hasRedirectedRef.current) return
+    hasRedirectedRef.current = true
+    const finalDest = dest || getTargetDestination()
+    try {
+      sessionStorage.removeItem('hatchpen_oauth_in_flight')
+      sessionStorage.removeItem('hatchpen_just_signed_up_google')
+      sessionStorage.removeItem('hatchpen_auth_return_url')
+    } catch {}
+    window.location.replace(finalDest)
+  }
+
   // 3. Direct visit safety: If someone visits /sso-callback directly without OAuth parameters, redirect immediately
   useEffect(() => {
     if (isLoaded && !hadOAuthParamsOnMountRef.current && !isSignedIn) {
@@ -72,21 +95,14 @@ export default function SSOCallbackPage() {
       setStatusText('Ready. Opening your reading desk...')
 
       markClientSessionActive()
-      if (typeof window !== 'undefined') {
-        sessionStorage.removeItem('hatchpen_oauth_in_flight')
-        sessionStorage.removeItem('hatchpen_just_signed_up_google')
-        // Authoritative SSR navigation: fresh document GET delivers newly minted cookies directly to server
-        window.location.replace('/')
-      }
+      safeRedirect()
     }
   }, [isLoaded, isSignedIn])
 
-  // 5. Fallback guard: in case network or Clerk callback stalls, safely transition to '/'
+  // 5. Fallback guard: in case network or Clerk callback stalls, safely transition
   useEffect(() => {
     const fallbackTimer = setTimeout(() => {
-      if (typeof window !== 'undefined') {
-        window.location.replace('/')
-      }
+      safeRedirect('/')
     }, 8000)
     return () => clearTimeout(fallbackTimer)
   }, [])

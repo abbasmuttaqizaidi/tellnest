@@ -159,13 +159,20 @@ function HomePage() {
 
   React.useEffect(() => {
     if (hasClientSession && !isServerAuthenticated && !isSignedIn) {
-      // Allow up to 3.5 seconds for Clerk's /v1/client handshake to complete
+      // If an explicit OAuth return is in flight, allow up to 10s for slow mobile networks.
+      // For general background verification, allow 5s.
+      const isOAuthInFlight =
+        typeof window !== 'undefined' &&
+        (sessionStorage.getItem('hatchpen_oauth_in_flight') === 'true' ||
+          sessionStorage.getItem('hatchpen_just_signed_up_google') === 'true')
+      const timeoutMs = isOAuthInFlight ? 10000 : 5000
+
       const timer = setTimeout(() => {
         if (!isSignedIn) {
           clearClientSession()
           setSessionGraceExpired(true)
         }
-      }, 3500)
+      }, timeoutMs)
       return () => clearTimeout(timer)
     }
   }, [hasClientSession, isServerAuthenticated, isSignedIn])
