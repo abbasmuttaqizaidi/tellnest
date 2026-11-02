@@ -806,7 +806,8 @@ export const getUserSessionBootstrapServerFn = createServerFn({ method: 'GET' })
         .from('bookmarks')
         .select('work_id, created_at')
         .eq('user_id', profileId)
-        .order('created_at', { ascending: false }),
+        .order('created_at', { ascending: false })
+        .limit(100),
 
       // Follows
       admin
@@ -855,7 +856,8 @@ export const getUserSessionBootstrapServerFn = createServerFn({ method: 'GET' })
           chapter:chapters(id, chapter_number, title)
         `)
         .eq('user_id', profileId)
-        .order('last_read_at', { ascending: false }),
+        .order('last_read_at', { ascending: false })
+        .limit(25),
     ])
 
     // Format Bookmarks

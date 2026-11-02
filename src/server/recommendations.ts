@@ -98,14 +98,14 @@ export async function executeGetUserRecommendationSignals(
     { data: bookmarks, error: bookmarkErr },
     { data: historyRows, error: historyErr },
   ] = await Promise.all([
-    admin.from('bookmarks').select('work_id').eq('user_id', profile.id).limit(500),
+    admin.from('bookmarks').select('work_id').eq('user_id', profile.id).limit(100),
     admin
       .from('reading_history')
       .select('id, work_id, chapter_id, duration_seconds, last_read_at')
       .eq('user_id', profile.id)
       .gte('last_read_at', thirtyDaysAgo)
       .order('last_read_at', { ascending: false })
-      .limit(200),
+      .limit(50),
   ])
 
   if (bookmarkErr) {

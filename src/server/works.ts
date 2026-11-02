@@ -1560,12 +1560,42 @@ export async function executeGetNewVoices(
     throw new UnauthorizedError('Unauthorized: Authentication required to access New Voices')
   }
 
+  if (!dependencies.getPlatformWorks) {
+    try {
+      const adminClientFactory = dependencies.createAdminClient || (async () => {
+        const { createAdminClient } = await import('../lib/supabase/server.ts')
+        return createAdminClient()
+      })
+      const admin = await adminClientFactory()
+      const { data: candidateRows, error } = await admin
+        .from('works')
+        .select(LEAN_WORK_CARD_COLUMNS)
+        .eq('visibility', 'public')
+        .eq('publication_status', 'published')
+        .neq('status', 'cancelled')
+        .neq('status', 'draft')
+        .gt('chapter_count', 2)
+        .order('published_at', { ascending: false })
+        .limit(30)
+
+      if (!error && Array.isArray(candidateRows) && candidateRows.length > 0) {
+        const candidateWorks = candidateRows.map((r: any) => mapLeanWorkCard(r))
+        const { filterAndOrderNewVoicesStories } = await import('../lib/recommendations/newVoices.ts')
+        const shouldExcludeBingeable = dependencies.excludeBingeable ?? false
+        const list = filterAndOrderNewVoicesStories(candidateWorks, clerkUserId, new Date(), { excludeBingeable: shouldExcludeBingeable })
+        return list.slice(0, 10)
+      }
+    } catch (err: any) {
+      console.warn('[executeGetNewVoices] Direct DB query fallback:', err?.message || err)
+    }
+  }
+
   const platformWorksFactory = dependencies.getPlatformWorks || (() => executeGetPlatformWorks())
   const works = await platformWorksFactory()
 
   const { filterAndOrderNewVoicesStories } = await import('../lib/recommendations/newVoices.ts')
   const shouldExcludeBingeable = dependencies.excludeBingeable ?? false
-  return filterAndOrderNewVoicesStories(works, clerkUserId, new Date(), { excludeBingeable: shouldExcludeBingeable })
+  return filterAndOrderNewVoicesStories(works, clerkUserId, new Date(), { excludeBingeable: shouldExcludeBingeable }).slice(0, 10)
 }
 
 /**
@@ -1814,7 +1844,7 @@ export async function executeGetTopShelf(
     const admin = await adminClientFactory()
 
     let query = admin
-      .from('works_with_collections')
+      .from('works')
       .select(LEAN_WORK_CARD_COLUMNS)
       .eq('visibility', 'public')
       .eq('publication_status', 'published')
@@ -1915,7 +1945,7 @@ export async function executeGetTrendingWorks(
     const admin = await adminClientFactory()
 
     let query = admin
-      .from('works_with_collections')
+      .from('works')
       .select(LEAN_WORK_CARD_COLUMNS)
       .eq('visibility', 'public')
       .eq('publication_status', 'published')
@@ -2013,7 +2043,7 @@ export async function executeGetBingeableWorks(
     const admin = await adminClientFactory()
 
     let query = admin
-      .from('works_with_collections')
+      .from('works')
       .select(LEAN_WORK_CARD_COLUMNS)
       .eq('visibility', 'public')
       .eq('publication_status', 'published')
