@@ -61,6 +61,8 @@ export interface SeoOptions {
   noindex?: boolean
   jsonLd?: Record<string, any> | Record<string, any>[]
   breadcrumbs?: BreadcrumbItem[]
+  prevUrl?: string
+  nextUrl?: string
 }
 
 export function generateMeta(options: SeoOptions = {}) {
@@ -139,6 +141,12 @@ export function generateMeta(options: SeoOptions = {}) {
   const links: Array<{ rel: string; href: string }> = []
   if (canonicalUrl) {
     links.push({ rel: 'canonical', href: canonicalUrl })
+  }
+  if (options.prevUrl) {
+    links.push({ rel: 'prev', href: resolveAbsoluteUrl(options.prevUrl) })
+  }
+  if (options.nextUrl) {
+    links.push({ rel: 'next', href: resolveAbsoluteUrl(options.nextUrl) })
   }
 
   const scripts: Array<{ type: string; children: string }> = []

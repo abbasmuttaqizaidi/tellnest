@@ -19,6 +19,7 @@ import {
   Eye,
   Lock,
   Headphones,
+  HelpCircle,
 } from 'lucide-react'
 import { ChapterAudioPlayer } from '../components/ChapterAudioPlayer'
 import { useChapterAudio } from '../lib/tts/useChapterAudio'
@@ -91,7 +92,8 @@ export const Route = createFileRoute('/read/$workId/$chapterId')({
       } catch (e) {}
     }
 
-    const chapter = findReaderChapter(work?.chapters, params.chapterId)
+    const chapters = Array.isArray(work?.chapters) ? work.chapters : []
+    const chapter = findReaderChapter(chapters, params.chapterId)
 
     if (!work || !chapter) {
       return generateMeta({
@@ -100,11 +102,46 @@ export const Route = createFileRoute('/read/$workId/$chapterId')({
       })
     }
 
+    const currentChapterIndex = chapters.findIndex(
+      (c: any) =>
+        c.id === chapter.id ||
+        c.id === params.chapterId ||
+        String(c.number) === params.chapterId
+    )
+    const prevChapter = currentChapterIndex > 0 ? chapters[currentChapterIndex - 1] : null
+    const nextChapter =
+      currentChapterIndex >= 0 && currentChapterIndex < chapters.length - 1
+        ? chapters[currentChapterIndex + 1]
+        : null
+
     const canonicalSlug = getWorkSlug(work)
     const canonicalUrl = `https://hatchpen.com/read/${canonicalSlug}/${chapter.id}`
-    const title = `${chapter.title} — ${work.title} by ${work.author.name}`
-    const excerpt =
-      (chapter.content || chapter.subtitle || work.synopsis).slice(0, 150).replace(/\n/g, ' ').trim() + '...'
+    const prevUrl = prevChapter ? `https://hatchpen.com/read/${canonicalSlug}/${prevChapter.id}` : undefined
+    const nextUrl = nextChapter ? `https://hatchpen.com/read/${canonicalSlug}/${nextChapter.id}` : undefined
+
+    const chapterNum =
+      chapter.number !== undefined && chapter.number !== null
+        ? Number(chapter.number)
+        : currentChapterIndex >= 0
+        ? currentChapterIndex + 1
+        : undefined
+
+    const hasChapterPrefix = /^\s*chapter\b/i.test(chapter.title || '')
+    const chapterLabel = hasChapterPrefix
+      ? chapter.title
+      : chapterNum
+      ? `Chapter ${chapterNum}: ${chapter.title}`
+      : chapter.title
+
+    const pageTitle = `Read ${work.title} ${chapterLabel} Online Free`
+    const cleanExcerpt = (chapter.content || chapter.subtitle || work.synopsis || '')
+      .slice(0, 160)
+      .replace(/\s+/g, ' ')
+      .trim()
+    const pageDescription = `Read ${work.title} ${chapterLabel} online for free on HatchPen. ${
+      cleanExcerpt ? `"${cleanExcerpt}..." ` : ''
+    }Enjoy chapter-by-chapter reading with zero paywalls or subscriptions.`
+
     const isPublicWork = (work.visibility || '').toLowerCase() === 'public'
     const isWorkPub = (work.publication_status || (work as any).publicationStatus || 'published').toLowerCase() === 'published'
     const isWorkIdx = (work.is_indexable !== undefined ? work.is_indexable : (work as any).isIndexable) === true
@@ -126,45 +163,96 @@ export const Route = createFileRoute('/read/$workId/$chapterId')({
     const dateModified =
       chapter.updated_at || (chapter as any).updatedAt || chapter.created_at || work.updated_at
 
+    const chapterJsonLd = {
+      '@context': 'https://schema.org',
+      '@type': ['Article', 'Chapter'],
+      headline: `Read ${work.title} ${chapterLabel} Online Free`,
+      name: `${chapter.title} — ${work.title}`,
+      url: canonicalUrl,
+      mainEntityOfPage: canonicalUrl,
+      ...(chapterNum !== undefined ? { position: chapterNum } : {}),
+      ...(prevUrl ? { previousItem: prevUrl } : {}),
+      ...(nextUrl ? { nextItem: nextUrl } : {}),
+      author: {
+        '@type': 'Person',
+        name: work.author.name,
+        url: `https://hatchpen.com/author/${work.author.handle || work.author.id}`,
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'HatchPen',
+        url: 'https://hatchpen.com',
+        logo: 'https://hatchpen.com/icon-512.png',
+      },
+      image: work.cover,
+      description: pageDescription,
+      inLanguage: work.language || 'English',
+      wordCount: chWordCount,
+      timeRequired: `PT${chReadingTime}M`,
+      ...(datePublished ? { datePublished } : {}),
+      ...(dateModified ? { dateModified } : {}),
+      isPartOf: {
+        '@type': 'Book',
+        name: work.title,
+        url: `https://hatchpen.com/works/${canonicalSlug}`,
+      },
+      potentialAction: {
+        '@type': 'ReadAction',
+        target: [canonicalUrl],
+        expectsAcceptanceOf: {
+          '@type': 'Offer',
+          price: '0',
+          priceCurrency: 'USD',
+          availability: 'https://schema.org/InStock',
+          category: 'Free',
+        },
+      },
+    }
+
+    const faqJsonLd = {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: `Where can I read ${work.title} ${chapterLabel} online for free?`,
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: `You can read ${work.title} ${chapterLabel} for free online on HatchPen without any paywalls or subscriptions.`,
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'Are there paywalls, coin systems, or chapter locks on HatchPen?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'No. HatchPen is 100% free with zero paywalls, wait times, or coin locks. Readers can enjoy the full serialization seamlessly.',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: `How many chapters are available in ${work.title}?`,
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: `${work.title} currently has ${chapters.length} chapter${chapters.length === 1 ? '' : 's'} available to read on HatchPen.`,
+          },
+        },
+      ],
+    }
+
     return generateMeta({
-      title,
-      description: excerpt,
+      title: pageTitle,
+      description: pageDescription,
       canonicalUrl,
+      prevUrl,
+      nextUrl,
       ogType: 'article',
       ogImage,
       ogImageAlt: `${chapter.title} — ${work.title} by ${work.author.name}`,
       author: work.author.name,
       noindex: !isChapterEligible,
-      keywords: [work.title, chapter.title, work.author.name, 'read chapter online', 'serialized fiction'],
-      jsonLd: {
-        '@context': 'https://schema.org',
-        '@type': 'Article',
-        headline: `${chapter.title} (${work.title})`,
-        author: {
-          '@type': 'Person',
-          name: work.author.name,
-          url: `https://hatchpen.com/author/${work.author.handle || work.author.id}`,
-        },
-        publisher: {
-          '@type': 'Organization',
-          name: 'HatchPen',
-          url: 'https://hatchpen.com',
-          logo: 'https://hatchpen.com/icon-512.png',
-        },
-        image: work.cover,
-        description: excerpt,
-        mainEntityOfPage: canonicalUrl,
-        inLanguage: work.language || 'English',
-        wordCount: chWordCount,
-        timeRequired: `PT${chReadingTime}M`,
-        ...(datePublished ? { datePublished } : {}),
-        ...(dateModified ? { dateModified } : {}),
-        isPartOf: {
-          '@type': 'Book',
-          name: work.title,
-          url: `https://hatchpen.com/works/${canonicalSlug}`,
-        },
-      },
+      keywords: [work.title, chapter.title, work.author.name, 'read chapter online', 'serialized fiction', 'free web novel'],
+      jsonLd: [chapterJsonLd, faqJsonLd],
       breadcrumbs: [
         { name: 'Home', url: '/' },
         { name: 'Discover', url: '/discover' },
@@ -373,6 +461,22 @@ function ReaderPage() {
   const chapter = work?.chapters[currentChapterIndex]
   const prevChapter = currentChapterIndex > 0 ? work?.chapters[currentChapterIndex - 1] : null
   const nextChapter = work && currentChapterIndex < work.chapters.length - 1 ? work.chapters[currentChapterIndex + 1] : null
+
+  const chapterNum =
+    chapter?.number !== undefined && chapter?.number !== null
+      ? Number(chapter.number)
+      : currentChapterIndex >= 0
+      ? currentChapterIndex + 1
+      : undefined
+
+  const hasChapterPrefix = /^\s*chapter\b/i.test(chapter?.title || '')
+  const chapterLabel = chapter
+    ? hasChapterPrefix
+      ? chapter.title
+      : chapterNum
+      ? `Chapter ${chapterNum}: ${chapter.title}`
+      : chapter.title
+    : ''
 
   // Public reader gatekeeper & registration wall logic
   const totalChapters = work?.chapters?.length || 0
@@ -1338,6 +1442,62 @@ function ReaderPage() {
             )}
           </div>
         ) : null}
+
+        {/* Chapter FAQ Section (Matches Schema.org FAQPage for Google Rich Snippets) */}
+        {work && chapter && (
+          <section className="mt-12 sm:mt-16 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 sm:p-8 space-y-6">
+            <div className="flex items-center gap-2.5 text-[var(--ink-primary)] font-serif text-lg sm:text-xl font-bold">
+              <HelpCircle className="w-5 h-5 text-[var(--accent)] shrink-0" />
+              <h2>Frequently Asked Questions About This Chapter</h2>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+              <div className="space-y-1.5">
+                <h3 className="text-sm font-semibold text-[var(--ink-primary)]">
+                  Where can I read {work.title} {chapterLabel} online for free?
+                </h3>
+                <p className="text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans">
+                  You can read {work.title} {chapterLabel} for free online on HatchPen without any paywalls or subscriptions.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <h3 className="text-sm font-semibold text-[var(--ink-primary)]">
+                  Are there paywalls, coin systems, or chapter locks on HatchPen?
+                </h3>
+                <p className="text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans">
+                  No. HatchPen is 100% free with zero paywalls, wait times, or coin locks. Readers can enjoy the full serialization seamlessly.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <h3 className="text-sm font-semibold text-[var(--ink-primary)]">
+                  How many chapters are available in {work.title}?
+                </h3>
+                <p className="text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans">
+                  {work.title} currently has {work.chapters?.length || 1} chapter{(work.chapters?.length || 1) === 1 ? '' : 's'} available to read on HatchPen.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <h3 className="text-sm font-semibold text-[var(--ink-primary)]">
+                  Who is the author of {work.title}?
+                </h3>
+                <p className="text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans">
+                  {work.title} is written by{' '}
+                  <Link
+                    to="/author/$authorId"
+                    params={{ authorId: work.author?.handle || work.author?.id }}
+                    className="text-[var(--accent)] hover:underline font-medium"
+                  >
+                    {work.author?.name}
+                  </Link>
+                  . Explore more chapters and creator releases on HatchPen.
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
 
       </main>
 

@@ -1889,6 +1889,94 @@ test('SEO Architecture: Knowledge Graph & Wikidata Entity Linking (sameAs) for C
   assert.ok(worksRouteCode.includes('catSameAs = getEntitySameAs(catSlug)'), 'Works route must resolve Wikidata sameAs for category')
 })
 
+test('SEO Architecture: Chapter Reader Deep SERP, Sequential rel links, Chapter & FAQ Schema (Step 7)', async () => {
+  const { generateMeta } = await import('../src/lib/seo.ts')
+
+  // 1. generateMeta generates rel="prev" and rel="next" links
+  const metaWithNav = generateMeta({
+    title: 'Test Chapter',
+    canonicalUrl: 'https://hatchpen.com/read/test-book/ch-2',
+    prevUrl: 'https://hatchpen.com/read/test-book/ch-1',
+    nextUrl: 'https://hatchpen.com/read/test-book/ch-3',
+  })
+
+  const links = metaWithNav.links || []
+  const prevLink = links.find((l) => l.rel === 'prev')
+  const nextLink = links.find((l) => l.rel === 'next')
+  const canonicalLink = links.find((l) => l.rel === 'canonical')
+
+  assert.ok(prevLink, 'generateMeta must produce a rel="prev" link when prevUrl is provided')
+  assert.equal(prevLink.href, 'https://hatchpen.com/read/test-book/ch-1')
+  assert.ok(nextLink, 'generateMeta must produce a rel="next" link when nextUrl is provided')
+  assert.equal(nextLink.href, 'https://hatchpen.com/read/test-book/ch-3')
+  assert.ok(canonicalLink, 'generateMeta must produce canonical link')
+  assert.equal(canonicalLink.href, 'https://hatchpen.com/read/test-book/ch-2')
+
+  // 2. Route code validation for Chapter Reader (/read/$workId/$chapterId)
+  const readerRouteCode = fs.readFileSync(
+    path.join(rootDir, 'src/routes/read.$workId.$chapterId.tsx'),
+    'utf-8'
+  )
+
+  // Title & description optimization
+  assert.ok(
+    readerRouteCode.includes('Read ${work.title} ${chapterLabel} Online Free'),
+    'Chapter reader must use high-intent search title formula'
+  )
+  assert.ok(
+    readerRouteCode.includes('zero paywalls or subscriptions'),
+    'Chapter description must emphasize zero paywalls'
+  )
+
+  // Sequential interlinking
+  assert.ok(
+    readerRouteCode.includes('prevUrl = prevChapter'),
+    'Reader route must compute prevUrl'
+  )
+  assert.ok(
+    readerRouteCode.includes('nextUrl = nextChapter'),
+    'Reader route must compute nextUrl'
+  )
+  assert.ok(
+    readerRouteCode.includes('previousItem: prevUrl'),
+    'Chapter JSON-LD must contain previousItem'
+  )
+  assert.ok(
+    readerRouteCode.includes('nextItem: nextUrl'),
+    'Chapter JSON-LD must contain nextItem'
+  )
+
+  // Structured schema
+  assert.ok(
+    readerRouteCode.includes("'@type': ['Article', 'Chapter']") ||
+      readerRouteCode.includes('"@type": ["Article', 'Chapter"]'),
+    'Chapter schema must specify both Article and Chapter types'
+  )
+  assert.ok(
+    readerRouteCode.includes("'ReadAction'"),
+    'Chapter schema must include ReadAction for SERP interaction'
+  )
+  assert.ok(
+    readerRouteCode.includes("price: '0'"),
+    'ReadAction offer must declare price 0'
+  )
+
+  // FAQ Page schema and DOM section
+  assert.ok(
+    readerRouteCode.includes("'FAQPage'"),
+    'Reader route must include FAQPage schema'
+  )
+  assert.ok(
+    readerRouteCode.includes('Frequently Asked Questions About This Chapter'),
+    'Reader DOM must render semantic FAQ section'
+  )
+  assert.ok(
+    readerRouteCode.includes('to="/author/$authorId"'),
+    'Chapter FAQ section must pass link equity to author profile'
+  )
+})
+
+
 
 
 
