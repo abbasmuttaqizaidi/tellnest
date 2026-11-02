@@ -158,6 +158,50 @@ test('Top Shelf Invariants: Strictly excludes 0 chapters, drafts, private and ow
   assert.equal(topShelf.length, 0)
 })
 
+test('Top Shelf Invariant: Strictly excludes stories with 0 saves', () => {
+  const worksWithZeroSaves = [
+    {
+      id: 'story-zero-saves-high-reads',
+      title: 'Popular Reads but Zero Saves',
+      visibility: 'Public',
+      status: 'Completed',
+      publishedChaptersCount: 10,
+      totalSaves: 0,
+      likeCount: 500,
+      totalReads: '100000',
+    },
+    {
+      id: 'story-with-saves',
+      title: 'Story With Community Saves',
+      visibility: 'Public',
+      status: 'Completed',
+      publishedChaptersCount: 5,
+      totalSaves: 1, // Has at least 1 save
+      likeCount: 10,
+      totalReads: '50',
+    },
+    {
+      id: 'story-negative-or-undefined-saves',
+      title: 'Undefined Saves Story',
+      visibility: 'Public',
+      status: 'Completed',
+      publishedChaptersCount: 3,
+      totalSaves: undefined,
+      save_count: 0,
+    },
+  ]
+
+  // Verify isWorkTopShelfEligible rejects zero saves
+  assert.equal(isWorkTopShelfEligible(worksWithZeroSaves[0]), false, 'Story with 0 saves must not be eligible')
+  assert.equal(isWorkTopShelfEligible(worksWithZeroSaves[1]), true, 'Story with >= 1 saves must be eligible')
+  assert.equal(isWorkTopShelfEligible(worksWithZeroSaves[2]), false, 'Story with undefined/0 saves must not be eligible')
+
+  // Verify getTopShelfWorks only returns story-with-saves
+  const topShelf = getTopShelfWorks(worksWithZeroSaves, { limit: 10 })
+  assert.equal(topShelf.length, 1)
+  assert.equal(topShelf[0].id, 'story-with-saves')
+})
+
 test('Top Shelf Cross-Section Co-existence: Stories in Recommended or Trending CAN also freely appear in Top Shelf', () => {
   const popularWork = {
     id: 'story-popular-everywhere',

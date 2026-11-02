@@ -1629,17 +1629,45 @@ export async function executeGetTopShelf(
     let query = admin
       .from('works_with_collections')
       .select(`
-        *,
+        id,
+        author_id,
+        title,
+        slug,
+        description,
+        cover_image_path,
+        language,
+        category_id,
+        status,
+        visibility,
+        publication_status,
+        is_indexable,
+        reading_time_minutes,
+        word_count,
+        chapter_count,
+        view_count,
+        impression_count,
+        like_count,
+        save_count,
+        comment_count,
+        published_at,
+        last_published_at,
+        created_at,
+        updated_at,
+        last_activity_at,
+        last_activity_type,
+        last_activity_detail,
+        collections,
+        trending_marked_by_admin,
         profiles:author_id (id, username, display_name, avatar_path, bio, created_at),
         categories:category_id (id, name, slug),
         work_genres (genres (id, name, slug)),
-        acts (id, act_number, title, slug, description, status),
-        chapters (id, chapter_number, title, slug, word_count, reading_time_minutes, status, published_at, act_id)
+        chapters (id, chapter_number, status, published_at, act_id)
       `)
       .eq('visibility', 'public')
       .eq('publication_status', 'published')
       .neq('status', 'cancelled')
       .neq('status', 'draft')
+      .gt('save_count', 0)
       .order('save_count', { ascending: false })
       .order('like_count', { ascending: false })
       .order('view_count', { ascending: false })
@@ -1803,10 +1831,14 @@ export async function executeGetTopShelf(
         }
       })
 
+      const filteredDirectWorks = mappedDirectWorks.filter(
+        (w: any) => (Number(w.totalSaves) || 0) > 0
+      )
+
       if (!dependencies.queryRows) {
-        topShelfCache.set(cacheKey, { data: mappedDirectWorks, timestamp: Date.now() })
+        topShelfCache.set(cacheKey, { data: filteredDirectWorks, timestamp: Date.now() })
       }
-      return mappedDirectWorks
+      return filteredDirectWorks
     }
   } catch (err: any) {
     console.warn('[executeGetTopShelf] Direct DB query fallback:', err?.message || err)

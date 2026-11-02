@@ -14,6 +14,7 @@ import {
 import { getPlatformWorksServerFn } from '../server/works'
 import PublicHome from '../components/home/PublicHome'
 import LoggedInHome, { type HomeLoaderData, LoggedInHomeSkeleton } from '../components/home/LoggedInHome'
+import { getTopShelfWorks } from '../lib/recommendations/topShelf'
 import { useApp } from '../context/AppContext'
 import {
   hasActiveClientSession,
@@ -57,12 +58,20 @@ export const Route = createFileRoute('/')({
         }),
       ])
 
+      const initialTopShelf =
+        Array.isArray(platformWorks) && platformWorks.length > 0
+          ? getTopShelfWorks(platformWorks, {
+              limit: 10,
+              currentUserId: authUser?.userId,
+            })
+          : null
+
       return {
         authUser: authUser || { userId: null, isAuthenticated: false },
         initialBootstrap: bootstrap,
         initialRecSignals: recSignals,
         initialWorks: platformWorks,
-        initialTopShelf: null,
+        initialTopShelf,
         catalogError: platformWorks === null,
       }
     } catch {
