@@ -72,8 +72,26 @@ export function clearClientSession(): void {
   try {
     localStorage.removeItem('hatchpen_has_session')
     localStorage.removeItem('hatchpen_cached_bookmarks')
+    localStorage.removeItem('hatchpen_username')
+    localStorage.removeItem('hatchpen_display_name')
+    localStorage.removeItem('hatchpen_custom_avatar')
+    localStorage.removeItem('tellnest_custom_avatar')
+
+    // Clean user onboarding flags from previous accounts in this browser
+    const keysToRemove: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (k && k.startsWith('hatchpen_onboarding_completed_')) {
+        keysToRemove.push(k)
+      }
+    }
+    for (const k of keysToRemove) {
+      localStorage.removeItem(k)
+    }
+
     sessionStorage.removeItem('hatchpen_just_signed_up_google')
     sessionStorage.removeItem('hatchpen_oauth_in_flight')
+    sessionStorage.removeItem('hatchpen_auth_return_url')
     document.cookie = 'hatchpen_has_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
     document.cookie = '__client_uat=0; path=/; SameSite=Lax'
   } catch {}

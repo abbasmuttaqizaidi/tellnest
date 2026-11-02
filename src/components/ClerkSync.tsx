@@ -21,6 +21,16 @@ export function ClerkSync() {
   const isClientClerkLoaded = Boolean(clerk?.loaded)
 
   useEffect(() => {
+    const handleLogout = () => {
+      lastSyncedIdRef.current = null
+      isSyncingRef.current = null
+      prevSignedInRef.current = false
+    }
+    window.addEventListener('hatchpen:logged-out', handleLogout)
+    return () => window.removeEventListener('hatchpen:logged-out', handleLogout)
+  }, [])
+
+  useEffect(() => {
     if (isUserLoaded) {
       if (isSignedIn) {
         markClientSessionActive()
@@ -28,6 +38,8 @@ export function ClerkSync() {
         // ONLY clear client session if user transitioned from signed-in to signed-out.
         // Never clear prematurely on initial mount when Clerk might still be handshaking.
         clearClientSession()
+        lastSyncedIdRef.current = null
+        isSyncingRef.current = null
       }
 
       if (prevSignedInRef.current !== null && prevSignedInRef.current !== isSignedIn) {

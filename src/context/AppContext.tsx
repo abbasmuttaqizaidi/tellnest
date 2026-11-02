@@ -475,6 +475,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Load user bookmarks and follows strictly from DB when authenticated
   useEffect(() => {
+    const handleExplicitLogout = () => {
+      setSavedWorkIds([])
+      setReadingProgress({})
+      setIsReadingProgressLoading(false)
+      setFollowedAuthorIds([])
+      setNotifications([])
+      setUserProfileId(null)
+      setCustomAvatarUrlState(null)
+      setUserDisplayNameState(null)
+      setUserProfileUsernameState(null)
+      setWriterWorks([])
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.removeItem('hatchpen_cached_bookmarks')
+          localStorage.removeItem('hatchpen_custom_avatar')
+          localStorage.removeItem('tellnest_custom_avatar')
+          localStorage.removeItem('hatchpen_display_name')
+          localStorage.removeItem('hatchpen_username')
+        } catch (e) {}
+      }
+    }
+    window.addEventListener('hatchpen:logged-out', handleExplicitLogout)
+    return () => window.removeEventListener('hatchpen:logged-out', handleExplicitLogout)
+  }, [])
+
+  useEffect(() => {
     if (!isUserLoaded) return
 
     if (!isSignedIn || !user?.id) {

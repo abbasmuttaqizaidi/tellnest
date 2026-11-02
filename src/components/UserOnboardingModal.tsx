@@ -128,30 +128,34 @@ export function UserOnboardingModal() {
     }
 
     const checkOnboardingStatus = async () => {
-      // Check local storage flag first
       const key = `hatchpen_onboarding_completed_${user.id}`
-      const localCompleted = localStorage.getItem(key)
-      if (localCompleted === 'true') {
-        return
-      }
 
-      // Check Clerk user public metadata
-      const clerkMeta = (user.publicMetadata as any) || {}
-      if (clerkMeta.onboardingCompleted) {
-        localStorage.setItem(key, 'true')
-        return
-      }
-
-      // Check database directly
+      // Check database directly as authoritative source of truth
       let existingProfile: any = null
       try {
         existingProfile = await getUserProfileServerFn({ data: user.id })
         if (existingProfile && existingProfile.onboarding_completed) {
           localStorage.setItem(key, 'true')
+          setIsOpen(false)
           return
         }
+        // If DB exists and onboarding is incomplete, clean stale local bypass
+        localStorage.removeItem(key)
       } catch (dbErr) {
         console.warn('[UserOnboardingModal] Non-blocking warning checking Supabase onboarding status:', dbErr)
+        // Fallback: only if offline or network error, check local storage flag
+        const localCompleted = localStorage.getItem(key)
+        if (localCompleted === 'true') {
+          return
+        }
+      }
+
+      // Check Clerk user public metadata (if DB call failed or not yet initialized)
+      const clerkMeta = (user.publicMetadata as any) || {}
+      if (clerkMeta.onboardingCompleted && (!existingProfile || existingProfile.onboarding_completed)) {
+        localStorage.setItem(key, 'true')
+        setIsOpen(false)
+        return
       }
 
       // Prepopulate username from Clerk or email prefix
@@ -159,7 +163,7 @@ export function UserOnboardingModal() {
         user.username ||
         user.primaryEmailAddress?.emailAddress?.split('@')[0]?.replace(/[^a-z0-9_]/gi, '')?.toLowerCase() ||
         ''
-      setUsername((prev) => prev || defaultUser)
+      setUsername(defaultUser)
 
       // Restore verified status directly from DB if previously verified (Zero browser storage reliance)
       if (
@@ -182,7 +186,7 @@ export function UserOnboardingModal() {
         user.firstName ||
         defaultUser ||
         'Reader'
-      setDisplayName((prev) => prev || initialName)
+      setDisplayName(initialName)
 
       // Calculate 5-month expiration for New Voices invite
       if (user.createdAt) {
@@ -198,7 +202,7 @@ export function UserOnboardingModal() {
         } catch {}
       }
 
-      // Open onboarding modal on Home route
+      // Open onboarding modal for new / incomplete user
       setIsOpen(true)
     }
 

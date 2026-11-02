@@ -23,11 +23,12 @@ export const getPublicAuthorServerFn = createServerFn({ method: 'GET' })
  * Server Function: Get a user's profile by their Clerk ID directly from Supabase.
  */
 export const getUserProfileServerFn = createServerFn({ method: 'GET' })
-  .validator((clerkUserId: string) => {
-    if (!clerkUserId || typeof clerkUserId !== 'string') {
+  .validator((params: string | { data?: string; clerkUserId?: string }) => {
+    const id = typeof params === 'string' ? params : (params?.data || params?.clerkUserId || '')
+    if (!id || typeof id !== 'string') {
       throw new Error('Valid Clerk User ID is required')
     }
-    return clerkUserId.trim()
+    return id.trim()
   })
   .handler(async ({ data: clerkUserId }) => {
     const { getUserProfileByClerkId } = await import('../lib/supabase/queries/authors.ts')
