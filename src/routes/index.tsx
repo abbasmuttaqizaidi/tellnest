@@ -194,15 +194,18 @@ function HomePage() {
     }
   }, [isUserLoaded, isSignedIn])
 
-  // Check if onboarding is currently in progress or required for this user
+  // Check if onboarding is currently in progress or required for this user across devices
+  const isCompletedMultiDevice =
+    (typeof window !== 'undefined' && user?.id && localStorage.getItem(`hatchpen_onboarding_completed_${user.id}`) === 'true') ||
+    Boolean((user?.publicMetadata as any)?.onboardingCompleted) ||
+    Boolean(loaderData?.authUser?.onboardingCompleted)
+
   const isPendingOnboarding =
-    isOnboardingActive ||
-    (isUserLoaded &&
-      isSignedIn &&
-      typeof window !== 'undefined' &&
-      user?.id &&
-      localStorage.getItem(`hatchpen_onboarding_completed_${user.id}`) !== 'true' &&
-      sessionStorage.getItem('hatchpen_onboarding_active') === 'true')
+    !isCompletedMultiDevice &&
+    (isOnboardingActive ||
+      (isUserLoaded &&
+        isSignedIn &&
+        sessionStorage.getItem('hatchpen_onboarding_active') === 'true'))
 
   // =========================================================================
   // ALL HOOKS HAVE BEEN EXECUTED. NOW EVALUATE VIEW BRANCHES SAFELY:

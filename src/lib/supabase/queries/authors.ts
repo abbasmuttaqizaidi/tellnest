@@ -92,17 +92,27 @@ export async function syncClerkUserToProfile(params: {
   avatarUrl?: string | null
   bio?: string | null
   email?: string | null
+  onboardingCompleted?: boolean
 }) {
   const admin = createAdminClient()
 
   // 1. Check if user profile already exists
   const { data: existing } = await admin
     .from('profiles')
-    .select('id, clerk_user_id, username, display_name, avatar_path, bio, is_public, account_status')
+    .select('id, clerk_user_id, username, display_name, avatar_path, bio, is_public, account_status, onboarding_completed')
     .eq('clerk_user_id', params.clerkUserId)
     .maybeSingle()
 
   if (existing) {
+    // Self-healing: If Clerk metadata or client knows onboarding is completed, but DB says false, heal DB record
+    if (params.onboardingCompleted && !existing.onboarding_completed) {
+      await admin
+        .from('profiles')
+        .update({ onboarding_completed: true, updated_at: new Date().toISOString() })
+        .eq('id', existing.id)
+      existing.onboarding_completed = true
+    }
+
     // If the profile already exists, NEVER overwrite a custom/removed avatar or custom pen name!
     // Only backfill avatar_path if it was null/empty and NOT explicitly removed ('none')
     if (existing.avatar_path === null && params.avatarUrl) {
@@ -110,7 +120,7 @@ export async function syncClerkUserToProfile(params: {
         .from('profiles')
         .update({ avatar_path: params.avatarUrl })
         .eq('id', existing.id)
-        .select('id, clerk_user_id, username, display_name, avatar_path, bio, is_public, account_status')
+        .select('id, clerk_user_id, username, display_name, avatar_path, bio, is_public, account_status, onboarding_completed')
         .single()
       return updated || existing
     }
@@ -143,7 +153,7 @@ export async function syncClerkUserToProfile(params: {
     avatar_path: params.avatarUrl || null,
     is_public: true,
     account_status: 'active',
-    onboarding_completed: false,
+    onboarding_completed: Boolean(params.onboardingCompleted),
   }
 
   if (params.bio !== undefined) {

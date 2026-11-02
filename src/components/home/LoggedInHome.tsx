@@ -305,7 +305,9 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
     if (loaderData?.initialRecSignals) {
       if (!effectiveUserId || loaderData.initialRecSignals.clerkUserId === effectiveUserId) {
         const isOnboardingDone = effectiveUserId
-          ? typeof window !== 'undefined' && localStorage.getItem(`hatchpen_onboarding_completed_${effectiveUserId}`) === 'true'
+          ? (typeof window !== 'undefined' && localStorage.getItem(`hatchpen_onboarding_completed_${effectiveUserId}`) === 'true') ||
+            Boolean((user?.publicMetadata as any)?.onboardingCompleted) ||
+            Boolean(loaderData?.authUser?.onboardingCompleted)
           : false
         const hasPrefs = Boolean(
           loaderData.initialRecSignals.preferences?.genres?.length ||
@@ -328,7 +330,10 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
           const isExpired = cachedAt > 0 && Date.now() - cachedAt > REC_SIGNALS_TTL_MS
           // Strictly accept cached signals only when valid, unexpired, and cached.clerkUserId === effectiveUserId
           if (!isExpired && cached && cached.clerkUserId === effectiveUserId) {
-            const isOnboardingDone = localStorage.getItem(`hatchpen_onboarding_completed_${effectiveUserId}`) === 'true'
+            const isOnboardingDone =
+              localStorage.getItem(`hatchpen_onboarding_completed_${effectiveUserId}`) === 'true' ||
+              Boolean((user?.publicMetadata as any)?.onboardingCompleted) ||
+              Boolean(loaderData?.authUser?.onboardingCompleted)
             const hasCachedPrefs = Boolean(
               cached.preferences?.genres?.length ||
               cached.preferences?.categories?.length ||
@@ -366,7 +371,10 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
           const cachedAt = Number(cached?._cachedAt || 0)
           const isExpired = cachedAt > 0 && Date.now() - cachedAt > REC_SIGNALS_TTL_MS
           if (!isExpired && cached && cached.clerkUserId === effectiveUserId) {
-            const isOnboardingDone = localStorage.getItem(`hatchpen_onboarding_completed_${effectiveUserId}`) === 'true'
+            const isOnboardingDone =
+              localStorage.getItem(`hatchpen_onboarding_completed_${effectiveUserId}`) === 'true' ||
+              Boolean((user?.publicMetadata as any)?.onboardingCompleted) ||
+              Boolean(loaderData?.authUser?.onboardingCompleted)
             const hasCachedPrefs = Boolean(
               cached.preferences?.genres?.length ||
               cached.preferences?.categories?.length ||
@@ -397,8 +405,17 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
     setSignalsError(false)
 
     const isOnboardingDone = currentUserId
-      ? typeof window !== 'undefined' && localStorage.getItem(`hatchpen_onboarding_completed_${currentUserId}`) === 'true'
+      ? (typeof window !== 'undefined' && localStorage.getItem(`hatchpen_onboarding_completed_${currentUserId}`) === 'true') ||
+        Boolean((user?.publicMetadata as any)?.onboardingCompleted) ||
+        Boolean(loaderData?.authUser?.onboardingCompleted)
       : false
+
+    // Multi-device sync: If user is verified onboarded but this browser lacked localStorage, sync immediately
+    if (isOnboardingDone && typeof window !== 'undefined' && currentUserId && localStorage.getItem(`hatchpen_onboarding_completed_${currentUserId}`) !== 'true') {
+      try {
+        localStorage.setItem(`hatchpen_onboarding_completed_${currentUserId}`, 'true')
+      } catch {}
+    }
 
     // While Clerk client auth is still hydrating and we have no server ID, keep loading
     if (!isUserLoaded && !currentUserId) {

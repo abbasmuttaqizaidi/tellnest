@@ -49,9 +49,14 @@ export function shouldShowNewVoicesModal({
       const onboardingKey = `hatchpen_onboarding_completed_${user.id}`
       const clerkMeta = (user.publicMetadata as any) || {}
       const hasCompletedOnboarding =
-        localStorage.getItem(onboardingKey) === 'true' || clerkMeta.onboardingCompleted
+        localStorage.getItem(onboardingKey) === 'true' || Boolean(clerkMeta.onboardingCompleted)
       if (!hasCompletedOnboarding) {
         return false
+      }
+      if (typeof window !== 'undefined' && localStorage.getItem(onboardingKey) !== 'true') {
+        try {
+          localStorage.setItem(onboardingKey, 'true')
+        } catch {}
       }
     }
 

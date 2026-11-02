@@ -533,7 +533,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     async function loadUserData() {
       // Do NOT load user session bootstrap if user is actively onboarding
       if (typeof window !== 'undefined' && user?.id) {
-        const isCompleted = localStorage.getItem(`hatchpen_onboarding_completed_${user.id}`) === 'true'
+        const isCompleted =
+          localStorage.getItem(`hatchpen_onboarding_completed_${user.id}`) === 'true' ||
+          Boolean((user?.publicMetadata as any)?.onboardingCompleted)
         const isActive = sessionStorage.getItem('hatchpen_onboarding_active') === 'true'
         if (!isCompleted && isActive) {
           setIsReadingProgressLoading(false)

@@ -27,7 +27,7 @@ import {
   DropdownSelect,
   type SelectOption,
 } from '../design-system'
-import { saveUserOnboardingServerFn, getUserProfileServerFn } from '../server/authors'
+import { saveUserOnboardingServerFn, getUserOnboardingStatusServerFn } from '../server/authors'
 import { verifyUsernameAvailabilityServerFn } from '../server/settings'
 import { Check, ArrowRight, ArrowLeft, ExternalLink, PenLine, Sparkles, BookOpen, Loader2 } from 'lucide-react'
 import { GLOBAL_CATEGORIES, GLOBAL_GENRES } from '../lib/taxonomy'
@@ -65,7 +65,7 @@ export const STANDARD_CATEGORIES: Array<{ id: string; name: string }> = GLOBAL_C
   name: c.name,
 })).sort((a, b) => a.name.localeCompare(b.name))
 
-export function UserOnboardingModal() {
+export function UserOnboardingModal({ authUser }: { authUser?: any } = {}) {
   const { user, isLoaded, isSignedIn } = useUser()
   const { setIsOnboardingActive } = useApp()
   const navigate = useNavigate()
@@ -131,22 +131,38 @@ export function UserOnboardingModal() {
 
     const checkOnboardingStatus = async () => {
       const key = `hatchpen_onboarding_completed_${user.id}`
+      const clerkMetaCompleted = Boolean((user?.publicMetadata as any)?.onboardingCompleted)
+      const localCompleted = typeof window !== 'undefined' && localStorage.getItem(key) === 'true'
+      const serverCompleted = Boolean(authUser?.onboardingCompleted)
 
-      // Check database directly as authoritative source of truth
+      // 1. Fast multi-device bypass:
+      // If Clerk metadata or server SSR loader confirms onboarding, synchronize local cache and keep modal closed
+      if (clerkMetaCompleted || serverCompleted) {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(key, 'true')
+          sessionStorage.removeItem('hatchpen_onboarding_active')
+          window.dispatchEvent(new CustomEvent('hatchpen:onboarding-active', { detail: { active: false } }))
+        }
+        setIsOpen(false)
+        setIsOnboardingActive(false)
+        return
+      }
+
+      // 2. Check database directly as authoritative source of truth via lightweight single-row query
       let existingProfile: any = null
       let dbCheckSucceeded = false
       try {
-        existingProfile = await getUserProfileServerFn({ data: user.id })
+        existingProfile = await getUserOnboardingStatusServerFn({ data: user.id })
         dbCheckSucceeded = true
 
         if (existingProfile && existingProfile.onboarding_completed === true) {
-          localStorage.setItem(key, 'true')
-          setIsOpen(false)
-          setIsOnboardingActive(false)
           if (typeof window !== 'undefined') {
+            localStorage.setItem(key, 'true')
             sessionStorage.removeItem('hatchpen_onboarding_active')
             window.dispatchEvent(new CustomEvent('hatchpen:onboarding-active', { detail: { active: false } }))
           }
+          setIsOpen(false)
+          setIsOnboardingActive(false)
           return
         }
 
@@ -157,14 +173,13 @@ export function UserOnboardingModal() {
       }
 
       // If DB check succeeded and user has no profile or onboarding is incomplete,
-      // we MUST show the onboarding modal. Never allow stale Clerk metadata to bypass onboarding!
+      // we MUST show the onboarding modal.
       if (dbCheckSucceeded && (!existingProfile || !existingProfile.onboarding_completed)) {
         localStorage.removeItem(key)
         // Proceed directly below to open onboarding modal
       } else if (!dbCheckSucceeded) {
-        // Only if DB call strictly threw a network/offline error, fallback to local storage
-        const localCompleted = localStorage.getItem(key)
-        if (localCompleted === 'true') {
+        // Fallback: If DB query threw a network/offline error, preserve existing session from local storage or Clerk metadata
+        if (localCompleted || clerkMetaCompleted || serverCompleted) {
           setIsOpen(false)
           setIsOnboardingActive(false)
           if (typeof window !== 'undefined') {
@@ -229,7 +244,7 @@ export function UserOnboardingModal() {
     }
 
     checkOnboardingStatus()
-  }, [isLoaded, isSignedIn, user])
+  }, [isLoaded, isSignedIn, user, authUser?.onboardingCompleted])
 
   const isUsernameVerified =
     Boolean(usernameVerification?.available) &&

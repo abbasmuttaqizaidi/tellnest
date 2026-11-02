@@ -288,7 +288,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <InspectletTracker />
       <AuthModal />
       <PublicWriteModal />
-      <UserOnboardingModal />
+      <UserOnboardingModal authUser={rootData?.authUser} />
       <Header serverAuthenticated={Boolean(rootData?.isAuthenticated)} />
       <main className="flex-1 w-full max-w-full bg-[var(--bg-canvas)]">
         {children}

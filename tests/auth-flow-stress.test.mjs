@@ -347,3 +347,114 @@ test('BREAK ATTEMPT 10: Onboarding Resource Protection defers heavy feed and rec
     'LoggedInHome must guard getUserRecommendationSignalsServerFn behind isOnboardingDone'
   )
 })
+
+test('BREAK ATTEMPT 11: Cross-Device Multi-Browser Onboarding Synchronization', () => {
+  // Logic from src/components/UserOnboardingModal.tsx
+  const evaluateOnboardingModalStatus = ({
+    user,
+    authUser,
+    localStorageGetItem,
+    localStorageSetItem,
+  }) => {
+    const key = `hatchpen_onboarding_completed_${user.id}`
+    const clerkMetaCompleted = Boolean(user?.publicMetadata?.onboardingCompleted)
+    const localCompleted = localStorageGetItem(key) === 'true'
+    const serverCompleted = Boolean(authUser?.onboardingCompleted)
+
+    if (clerkMetaCompleted || serverCompleted) {
+      localStorageSetItem(key, 'true')
+      return { shouldOpen: false, syncedLocal: true }
+    }
+
+    if (localCompleted) {
+      return { shouldOpen: false, syncedLocal: false }
+    }
+
+    return { shouldOpen: true, syncedLocal: false }
+  }
+
+  // Logic from src/routes/index.tsx
+  const evaluatePendingOnboarding = ({
+    user,
+    authUser,
+    localStorageGetItem,
+    isOnboardingActive,
+    sessionActive,
+  }) => {
+    const isCompletedMultiDevice =
+      (user?.id && localStorageGetItem(`hatchpen_onboarding_completed_${user.id}`) === 'true') ||
+      Boolean(user?.publicMetadata?.onboardingCompleted) ||
+      Boolean(authUser?.onboardingCompleted)
+
+    const isPending =
+      !isCompletedMultiDevice &&
+      (isOnboardingActive || sessionActive)
+
+    return { isCompletedMultiDevice, isPending }
+  }
+
+  // Scenario 1: Existing onboarded user logs in on Browser B (0 local storage)
+  const browserBStorage = new Map()
+  const existingUser = {
+    id: 'user_cross_device_123',
+    publicMetadata: { onboardingCompleted: true },
+  }
+  const rootAuthUser = {
+    userId: 'user_cross_device_123',
+    isAuthenticated: true,
+    onboardingCompleted: true,
+  }
+
+  const modalResult = evaluateOnboardingModalStatus({
+    user: existingUser,
+    authUser: rootAuthUser,
+    localStorageGetItem: (k) => browserBStorage.get(k),
+    localStorageSetItem: (k, v) => browserBStorage.set(k, v),
+  })
+
+  assert.strictEqual(modalResult.shouldOpen, false, 'Browser B MUST NOT open onboarding modal for already onboarded user')
+  assert.strictEqual(browserBStorage.get('hatchpen_onboarding_completed_user_cross_device_123'), 'true', 'Browser B localStorage must be auto-synchronized')
+
+  const routeResult = evaluatePendingOnboarding({
+    user: existingUser,
+    authUser: rootAuthUser,
+    localStorageGetItem: (k) => browserBStorage.get(k),
+    isOnboardingActive: false,
+    sessionActive: false,
+  })
+
+  assert.strictEqual(routeResult.isCompletedMultiDevice, true, 'isCompletedMultiDevice must be true on Browser B')
+  assert.strictEqual(routeResult.isPending, false, 'isPending must be false on Browser B')
+
+  // Scenario 2: Brand new user signup (zero onboarding anywhere)
+  const freshBrowserStorage = new Map()
+  const brandNewUser = {
+    id: 'user_brand_new_456',
+    publicMetadata: {},
+  }
+  const newAuthUser = {
+    userId: 'user_brand_new_456',
+    isAuthenticated: true,
+    onboardingCompleted: false,
+  }
+
+  const newModalResult = evaluateOnboardingModalStatus({
+    user: brandNewUser,
+    authUser: newAuthUser,
+    localStorageGetItem: (k) => freshBrowserStorage.get(k),
+    localStorageSetItem: (k, v) => freshBrowserStorage.set(k, v),
+  })
+
+  assert.strictEqual(newModalResult.shouldOpen, true, 'Brand new user MUST open onboarding modal')
+
+  const newRouteResult = evaluatePendingOnboarding({
+    user: brandNewUser,
+    authUser: newAuthUser,
+    localStorageGetItem: (k) => freshBrowserStorage.get(k),
+    isOnboardingActive: true,
+    sessionActive: true,
+  })
+
+  assert.strictEqual(newRouteResult.isCompletedMultiDevice, false, 'Brand new user is not completed')
+  assert.strictEqual(newRouteResult.isPending, true, 'Brand new user must have pending onboarding')
+})

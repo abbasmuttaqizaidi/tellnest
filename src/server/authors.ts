@@ -36,6 +36,29 @@ export const getUserProfileServerFn = createServerFn({ method: 'GET' })
   })
 
 /**
+ * Server Function: Fast lightweight check of user onboarding status directly from Supabase profiles.
+ * Single row, zero joins, sub-10ms response for multi-device synchronization.
+ */
+export const getUserOnboardingStatusServerFn = createServerFn({ method: 'GET' })
+  .validator((params: string | { data?: string; clerkUserId?: string }) => {
+    const id = typeof params === 'string' ? params : (params?.data || params?.clerkUserId || '')
+    if (!id || typeof id !== 'string') {
+      throw new Error('Valid Clerk User ID is required')
+    }
+    return id.trim()
+  })
+  .handler(async ({ data: clerkUserId }) => {
+    const { createAdminClient } = await import('../lib/supabase/server')
+    const admin = createAdminClient()
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('id, clerk_user_id, username, display_name, onboarding_completed, is_username_verified, preferences')
+      .eq('clerk_user_id', clerkUserId)
+      .maybeSingle()
+    return profile
+  })
+
+/**
  * Server Function: Get an author's published works with pagination.
  */
 export const getAuthorPublishedWorksServerFn = createServerFn({ method: 'GET' })
@@ -64,6 +87,7 @@ export const syncClerkUserServerFn = createServerFn({ method: 'POST' })
     displayName: string
     avatarUrl?: string | null
     email?: string | null
+    onboardingCompleted?: boolean
   }) => {
     if (!params.clerkUserId) throw new Error('clerkUserId is required')
     return params

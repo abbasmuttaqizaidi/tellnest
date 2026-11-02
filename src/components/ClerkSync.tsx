@@ -70,10 +70,21 @@ export function ClerkSync() {
     // Avoid redundant or in-flight syncs within the same session
     if (lastSyncedIdRef.current === user.id || isSyncingRef.current === user.id) return
 
+    const clerkMetaCompleted = Boolean((user?.publicMetadata as any)?.onboardingCompleted)
+    const isCompleted =
+      (typeof window !== 'undefined' && localStorage.getItem(`hatchpen_onboarding_completed_${user.id}`) === 'true') ||
+      clerkMetaCompleted
+
+    // If multi-device Clerk metadata confirms onboarding, synchronize localStorage on this device
+    if (clerkMetaCompleted && typeof window !== 'undefined' && localStorage.getItem(`hatchpen_onboarding_completed_${user.id}`) !== 'true') {
+      try {
+        localStorage.setItem(`hatchpen_onboarding_completed_${user.id}`, 'true')
+      } catch {}
+    }
+
     // If user has not completed onboarding, do NOT prematurely auto-sync a default username!
     // The UserOnboardingModal will handle initial profile creation with the author's chosen pen name.
     if (typeof window !== 'undefined') {
-      const isCompleted = localStorage.getItem(`hatchpen_onboarding_completed_${user.id}`) === 'true'
       const isActive = sessionStorage.getItem('hatchpen_onboarding_active') === 'true'
       if (!isCompleted && isActive) {
         return
@@ -103,6 +114,7 @@ export function ClerkSync() {
             displayName,
             avatarUrl: user.imageUrl || '/unisex-avatar.svg',
             email: user.primaryEmailAddress?.emailAddress || undefined,
+            onboardingCompleted: isCompleted,
           },
         })
 
