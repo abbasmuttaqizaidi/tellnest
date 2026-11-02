@@ -14,7 +14,8 @@
 
 import crypto from 'node:crypto'
 import { createServerFn } from '@tanstack/react-start'
-import { CANONICAL_BASE_URL } from './sitemap.ts'
+import { CANONICAL_BASE_URL, buildSitemapEntries } from './sitemap.ts'
+import { isValidAdminToken } from './admin.ts'
 
 export const DEFAULT_INDEXNOW_KEY = 'hatchpen-indexnow-key'
 export const INDEXNOW_API_ENDPOINT = 'https://api.indexnow.org/indexnow'
@@ -505,3 +506,71 @@ export const triggerIndexingPingServerFn = createServerFn({ method: 'POST' })
 
     return await notifySearchEngines(urlsToPing)
   })
+
+/**
+ * Server Function: Bulk submit entire live catalog to IndexNow (Microsoft Bing, Yandex, Seznam, Naver)
+ * Queries all current sitemap entries and dispatches them in one request.
+ */
+export const submitCatalogToIndexNowServerFn = createServerFn({ method: 'POST' })
+  .validator((params?: { adminToken?: string }) => {
+    return {
+      adminToken: typeof params?.adminToken === 'string' ? params.adminToken : '',
+    }
+  })
+  .handler(async ({ data }) => {
+    if (!isValidAdminToken(data.adminToken)) {
+      throw new Error('Unauthorized: Invalid or expired admin credentials')
+    }
+
+    const entries = await buildSitemapEntries()
+    const allUrls = entries.map((e) => e.loc).filter(Boolean)
+
+    const indexNowResult = await pingIndexNow(allUrls)
+    const sitemapResults = await pingSitemapAndFeeds()
+
+    return {
+      success: indexNowResult.status === 'success',
+      totalUrls: allUrls.length,
+      indexNow: indexNowResult,
+      sitemapPings: sitemapResults,
+    }
+  })
+
+/**
+ * Server Function: Fetch IndexNow configuration and live health for Admin Panel
+ */
+export const getIndexNowAdminStatusServerFn = createServerFn({ method: 'POST' })
+  .validator((params?: { adminToken?: string }) => {
+    return {
+      adminToken: typeof params?.adminToken === 'string' ? params.adminToken : '',
+    }
+  })
+  .handler(async ({ data }) => {
+    if (!isValidAdminToken(data.adminToken)) {
+      throw new Error('Unauthorized: Invalid or expired admin credentials')
+    }
+
+    const indexNowKey = process.env.INDEXNOW_KEY || DEFAULT_INDEXNOW_KEY
+    const verificationUrl = `${CANONICAL_BASE_URL}/${indexNowKey}.txt`
+
+    let isKeyAccessible = false
+    try {
+      const checkRes = await fetch(verificationUrl, { method: 'HEAD' })
+      isKeyAccessible = checkRes.status === 200
+    } catch {
+      isKeyAccessible = false
+    }
+
+    const entries = await buildSitemapEntries()
+    const allUrls = entries.map((e) => e.loc).filter(Boolean)
+
+    return {
+      key: indexNowKey,
+      verificationUrl,
+      isKeyAccessible,
+      participatingEngines: ['Microsoft Bing', 'Yandex', 'Seznam.cz', 'Naver'],
+      totalIndexedUrlsInSitemap: allUrls.length,
+      sampleUrls: allUrls.slice(0, 5),
+    }
+  })
+

@@ -236,12 +236,12 @@ test('Indexing Automation: Writer publication triggers non-blocking search engin
     'writer.ts must import notifySearchEngines'
   )
   assert.ok(
-    writerCode.includes('notifySearchEngines([chapterUrl, workUrl])'),
-    'writer.ts must notify search engines when chapter is published'
+    writerCode.includes('notifySearchEngines(urlsToPing)'),
+    'writer.ts must notify search engines with taxonomy URLs when chapter or work is published'
   )
   assert.ok(
-    writerCode.includes('notifySearchEngines([workUrl])'),
-    'writer.ts must notify search engines when manuscript is published'
+    writerCode.includes('/genre/${slugify('),
+    'writer.ts must include genre hub URL in indexing ping payload'
   )
 })
 
@@ -251,3 +251,12 @@ test('Indexing Automation: Static verification key exists in public directory fo
   const content = fs.readFileSync(keyPath, 'utf-8').trim()
   assert.equal(content, DEFAULT_INDEXNOW_KEY)
 })
+
+test('Indexing Automation: Server functions for IndexNow admin management exist and validate auth', () => {
+  const indexingCode = fs.readFileSync(path.join(rootDir, 'src/server/indexing.ts'), 'utf-8')
+
+  assert.ok(indexingCode.includes('submitCatalogToIndexNowServerFn'), 'Must export submitCatalogToIndexNowServerFn')
+  assert.ok(indexingCode.includes('getIndexNowAdminStatusServerFn'), 'Must export getIndexNowAdminStatusServerFn')
+  assert.ok(indexingCode.includes('isValidAdminToken(data.adminToken)'), 'Must enforce isValidAdminToken check')
+})
+

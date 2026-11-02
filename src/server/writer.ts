@@ -4,6 +4,7 @@ import { createAdminClient } from '../lib/supabase/server.ts'
 import type { Database } from '../lib/supabase/types.ts'
 import type { Chapter } from '../data/mockData'
 import { notifySearchEngines } from './indexing.ts'
+import { slugify } from '../lib/taxonomy.ts'
 
 /**
  * Helper to resolve or auto-provision a profile row for the authenticated Clerk user.
@@ -971,7 +972,7 @@ export async function executeSaveWriterChapter(data: SaveWriterChapterPayload, a
       if (status === 'published' && updateData.is_indexable) {
         const { data: parentWorkRow } = await admin
           .from('works')
-          .select('slug')
+          .select('slug, genre, author_id, profiles!works_author_id_fkey(username)')
           .eq('id', workUuid)
           .maybeSingle()
 
@@ -979,8 +980,16 @@ export async function executeSaveWriterChapter(data: SaveWriterChapterPayload, a
         const chapterSlug = data.slug || `chapter-${data.chapterNumber || 1}`
         const chapterUrl = `https://hatchpen.com/read/${workSlug}/${chapterSlug}`
         const workUrl = `https://hatchpen.com/works/${workSlug}`
+        const urlsToPing = [chapterUrl, workUrl]
 
-        void notifySearchEngines([chapterUrl, workUrl]).catch((pingErr: any) => {
+        if ((parentWorkRow as any)?.profiles?.username) {
+          urlsToPing.push(`https://hatchpen.com/author/${(parentWorkRow as any).profiles.username}`)
+        }
+        if (parentWorkRow?.genre) {
+          urlsToPing.push(`https://hatchpen.com/genre/${slugify(parentWorkRow.genre)}`)
+        }
+
+        void notifySearchEngines(urlsToPing).catch((pingErr: any) => {
           console.warn('[executeSaveWriterChapter] Non-blocking indexing ping notice:', pingErr?.message)
         })
       }
@@ -1595,7 +1604,11 @@ export async function executeWriterWorkPublication(
   // Automated Search Engine Indexing & Ping Automation for newly published manuscripts
   if (isWorkPublicAndPublished) {
     const workUrl = `https://hatchpen.com/works/${updatedWork.slug || updatedWork.id}`
-    void notifySearchEngines([workUrl]).catch((pingErr: any) => {
+    const urlsToPing = [workUrl]
+    if (updatedWork.genre) {
+      urlsToPing.push(`https://hatchpen.com/genre/${slugify(updatedWork.genre)}`)
+    }
+    void notifySearchEngines(urlsToPing).catch((pingErr: any) => {
       console.warn('[executeWriterWorkPublication] Non-blocking indexing ping notice:', pingErr?.message)
     })
   }
