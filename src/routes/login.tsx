@@ -4,6 +4,7 @@ import { useSignIn, useSignUp, useUser, useClerk } from '@clerk/react'
 import { Loader2, ArrowRight, BookOpen, PenTool, CheckCircle2, LogOut } from 'lucide-react'
 import { HatchpenLogo } from '../components/HatchpenLogo'
 import { generateMeta } from '../lib/seo'
+import { markClientSessionActive } from '../lib/authSession'
 
 interface LoginSearch {
   redirect_url?: string
@@ -74,7 +75,10 @@ export default function LoginPage() {
 
     try {
       if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('hatchpen_just_logged_out')
         sessionStorage.setItem('hatchpen_just_signed_up_google', 'true')
+        sessionStorage.setItem('hatchpen_oauth_in_flight', 'true')
+        markClientSessionActive()
       }
 
       // Ensure Clerk is loaded

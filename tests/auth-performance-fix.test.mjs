@@ -155,7 +155,7 @@ test('AuthSession: hasActiveClientSession detects active Clerk UAT and HatchPen 
   )
 })
 
-test('Homepage: Prevents 2-second PublicHome flash by checking clerk.loaded and active client sessions', () => {
+test('Homepage: Prevents 2-second PublicHome flash by protecting session during Clerk handshake', () => {
   const filePath = path.resolve('src/routes/index.tsx')
   const content = fs.readFileSync(filePath, 'utf8')
 
@@ -164,12 +164,12 @@ test('Homepage: Prevents 2-second PublicHome flash by checking clerk.loaded and 
     'Homepage must import and use hasActiveClientSession'
   )
   assert.ok(
-    content.includes('clerk?.loaded'),
-    'Homepage must verify true client ClerkJS initialization via clerk.loaded'
+    content.includes('sessionGraceExpired'),
+    'Homepage must use session grace period to allow Clerk handshake to complete without flashing PublicHome'
   )
   assert.ok(
-    content.includes('isClerkClientReady && isUserLoaded && !isSignedIn'),
-    'Homepage must ONLY clear session markers when client Clerk has definitively reported signed out'
+    !content.includes('if (isClerkClientReady && isUserLoaded && !isSignedIn) {\n      clearClientSession()'),
+    'Homepage must NEVER clear session synchronously during render body'
   )
 })
 

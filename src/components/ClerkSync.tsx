@@ -24,7 +24,9 @@ export function ClerkSync() {
     if (isUserLoaded) {
       if (isSignedIn) {
         markClientSessionActive()
-      } else if (isClientClerkLoaded) {
+      } else if (prevSignedInRef.current === true && !isSignedIn) {
+        // ONLY clear client session if user transitioned from signed-in to signed-out.
+        // Never clear prematurely on initial mount when Clerk might still be handshaking.
         clearClientSession()
       }
 

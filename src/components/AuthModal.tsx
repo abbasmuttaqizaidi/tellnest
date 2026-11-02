@@ -91,7 +91,9 @@ export function AuthModal() {
 
     try {
       if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('hatchpen_just_logged_out')
         sessionStorage.setItem('hatchpen_just_signed_up_google', 'true')
+        sessionStorage.setItem('hatchpen_oauth_in_flight', 'true')
         markClientSessionActive()
       }
 

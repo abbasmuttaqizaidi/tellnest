@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
 import { AuthenticateWithRedirectCallback, useUser } from '@clerk/react'
 import { HatchpenLogo } from '../components/HatchpenLogo'
@@ -21,16 +21,24 @@ export default function SSOCallbackPage() {
   const [progress, setProgress] = useState(25)
   const [statusText, setStatusText] = useState('Connecting to HatchPen...')
 
-  // 1. Eagerly preload homepage and mark session indicator if OAuth parameters are present
+  const hadOAuthParamsOnMountRef = useRef<boolean>(false)
+
+  // 1. Capture initial presence of OAuth params on mount and mark session active
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const hasOAuthParams = window.location.search.length > 1 || window.location.hash.length > 1
+      const hasOAuthParams =
+        window.location.search.length > 1 ||
+        window.location.hash.length > 1 ||
+        sessionStorage.getItem('hatchpen_just_signed_up_google') === 'true' ||
+        sessionStorage.getItem('hatchpen_oauth_in_flight') === 'true'
+
       if (hasOAuthParams) {
+        hadOAuthParamsOnMountRef.current = true
+        sessionStorage.setItem('hatchpen_oauth_in_flight', 'true')
         markClientSessionActive()
       }
     }
-    router.preloadRoute({ to: '/' }).catch(() => {})
-  }, [router])
+  }, [])
 
   // 2. Snappy progressive feedback (fast, responsive milestones)
   useEffect(() => {
@@ -52,15 +60,10 @@ export default function SSOCallbackPage() {
 
   // 3. Direct visit safety: If someone visits /sso-callback directly without OAuth parameters, redirect immediately
   useEffect(() => {
-    if (isLoaded) {
-      if (typeof window !== 'undefined') {
-        const hasOAuthParams = window.location.search.length > 1 || window.location.hash.length > 1
-        if (!hasOAuthParams) {
-          navigate({ to: '/', replace: true })
-        }
-      }
+    if (isLoaded && !hadOAuthParamsOnMountRef.current && !isSignedIn) {
+      navigate({ to: '/', replace: true })
     }
-  }, [isLoaded, navigate])
+  }, [isLoaded, isSignedIn, navigate])
 
   // 4. Complete progress and trigger immediate transition as soon as Clerk confirms session
   useEffect(() => {
@@ -69,14 +72,24 @@ export default function SSOCallbackPage() {
       setStatusText('Ready. Opening your reading desk...')
 
       markClientSessionActive()
-
-      // Invalidate router so authenticated user context loads immediately on destination
-      router.invalidate()
-
-      // Fast immediate transition
-      navigate({ to: '/', replace: true })
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('hatchpen_oauth_in_flight')
+        sessionStorage.removeItem('hatchpen_just_signed_up_google')
+        // Authoritative SSR navigation: fresh document GET delivers newly minted cookies directly to server
+        window.location.replace('/')
+      }
     }
-  }, [isLoaded, isSignedIn, navigate, router])
+  }, [isLoaded, isSignedIn])
+
+  // 5. Fallback guard: in case network or Clerk callback stalls, safely transition to '/'
+  useEffect(() => {
+    const fallbackTimer = setTimeout(() => {
+      if (typeof window !== 'undefined') {
+        window.location.replace('/')
+      }
+    }, 8000)
+    return () => clearTimeout(fallbackTimer)
+  }, [])
 
   return (
     <div className="fixed inset-0 z-50 bg-[var(--bg-canvas)] flex flex-col items-center justify-center px-6 selection:bg-transparent">

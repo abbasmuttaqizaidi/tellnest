@@ -45,6 +45,7 @@ export function hasActiveClientSession(): boolean {
   // 6. OAuth in-flight return signals (returning from Google/Clerk OAuth redirect)
   if (
     sessionStorage.getItem('hatchpen_just_signed_up_google') === 'true' ||
+    sessionStorage.getItem('hatchpen_oauth_in_flight') === 'true' ||
     window.location.search.includes('__clerk') ||
     window.location.hash.includes('__clerk')
   ) {
@@ -72,6 +73,7 @@ export function clearClientSession(): void {
     localStorage.removeItem('hatchpen_has_session')
     localStorage.removeItem('hatchpen_cached_bookmarks')
     sessionStorage.removeItem('hatchpen_just_signed_up_google')
+    sessionStorage.removeItem('hatchpen_oauth_in_flight')
     document.cookie = 'hatchpen_has_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
     document.cookie = '__client_uat=0; path=/; SameSite=Lax'
   } catch {}

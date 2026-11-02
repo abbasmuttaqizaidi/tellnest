@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useSignIn, useSignUp, useClerk, useUser } from '@clerk/react'
 import { X, Loader2 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
+import { markClientSessionActive } from '../lib/authSession'
 
 export function PublicWriteModal() {
   const { isPublicWriteModalOpen, closePublicWriteModal } = useApp()
@@ -41,7 +42,10 @@ export function PublicWriteModal() {
 
     try {
       if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('hatchpen_just_logged_out')
         sessionStorage.setItem('hatchpen_just_signed_up_google', 'true')
+        sessionStorage.setItem('hatchpen_oauth_in_flight', 'true')
+        markClientSessionActive()
       }
 
       const clerkObj = typeof window !== 'undefined' ? (window as any).Clerk : null

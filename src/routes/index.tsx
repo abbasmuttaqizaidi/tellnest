@@ -151,21 +151,29 @@ function HomePage() {
     return <LoggedInHome loaderData={loaderData} />
   }
 
-  // 2. While Clerk is hydrating on the client (or before clerk.loaded is ready):
-  // If server was authenticated OR client has a session indicator, show LoggedInHome immediately.
-  // NEVER flash PublicHome while a session indicator is active.
-  if (isServerAuthenticated || hasClientSession) {
-    // If clerk.loaded is true AND isSignedIn is definitely false, then and ONLY then
-    // has Clerk confirmed the session was invalid/expired.
-    if (isClerkClientReady && isUserLoaded && !isSignedIn) {
-      clearClientSession()
-      return <PublicHome loaderData={loaderData} />
-    }
+  // 2. Grace period for client session verification:
+  // If the server authenticated the user OR client has an active session indicator,
+  // NEVER flash PublicHome while Clerk is still handshaking in the background.
+  // Instead, render LoggedInHome immediately.
+  const [sessionGraceExpired, setSessionGraceExpired] = React.useState(false)
 
-    // Still hydrating or session is active: show LoggedInHome
+  React.useEffect(() => {
+    if (hasClientSession && !isServerAuthenticated && !isSignedIn) {
+      // Allow up to 3.5 seconds for Clerk's /v1/client handshake to complete
+      const timer = setTimeout(() => {
+        if (!isSignedIn) {
+          clearClientSession()
+          setSessionGraceExpired(true)
+        }
+      }, 3500)
+      return () => clearTimeout(timer)
+    }
+  }, [hasClientSession, isServerAuthenticated, isSignedIn])
+
+  if ((isServerAuthenticated || hasClientSession) && !sessionGraceExpired) {
     return <LoggedInHome loaderData={loaderData} />
   }
 
-  // 3. True unauthenticated public visitor (no server session, no client indicators)
+  // 3. True unauthenticated public visitor (no server session, no client indicators, or grace period expired)
   return <PublicHome loaderData={loaderData} />
 }
