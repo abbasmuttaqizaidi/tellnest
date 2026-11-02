@@ -11,7 +11,13 @@ import {
   getUserRecommendationSignalsServerFn,
   type UserRecommendationSignals,
 } from '../server/recommendations'
-import { getPlatformWorksServerFn } from '../server/works'
+import {
+  getPlatformWorksServerFn,
+  executeGetTopShelf,
+  executeGetTrendingWorks,
+  executeGetBingeableWorks,
+  executeGetNewVoices,
+} from '../server/works'
 import PublicHome from '../components/home/PublicHome'
 import LoggedInHome, { type HomeLoaderData, LoggedInHomeSkeleton } from '../components/home/LoggedInHome'
 import { getTopShelfWorks } from '../lib/recommendations/topShelf'
@@ -37,9 +43,16 @@ export const Route = createFileRoute('/')({
       const isAuth = Boolean(authUser?.isAuthenticated && authUser?.userId)
       const isOnboarded = Boolean(authUser?.onboardingCompleted)
 
-      // Parallel server pre-fetch of user bootstrap, recommendation signals, and platform works.
-      // Defers expensive user bootstrap & recommendation queries until onboarding is completed!
-      const [bootstrap, recSignals, platformWorks] = await Promise.all([
+      // Parallel server pre-fetch of section data (strictly capped at 10 items per section with memory cache!)
+      const [
+        bootstrap,
+        recSignals,
+        platformWorks,
+        topShelfDirect,
+        trendingDirect,
+        bingeableDirect,
+        newVoicesDirect,
+      ] = await Promise.all([
         isAuth && isOnboarded
           ? getUserSessionBootstrapServerFn({ data: authUser!.userId! }).catch((err) => {
               console.warn('[Route Loader] Pre-fetch bootstrap failed:', err?.message || err)
@@ -56,15 +69,23 @@ export const Route = createFileRoute('/')({
           console.warn('[Route Loader] Pre-fetch platform works failed:', err?.message || err)
           return null
         }),
+        executeGetTopShelf({ limit: 10, currentUserId: authUser?.userId }).catch(() => null),
+        executeGetTrendingWorks({ limit: 10 }).catch(() => null),
+        executeGetBingeableWorks({ limit: 10, currentUserId: authUser?.userId }).catch(() => null),
+        isAuth
+          ? executeGetNewVoices({ excludeBingeable: true }).catch(() => null)
+          : null,
       ])
 
       const initialTopShelf =
-        Array.isArray(platformWorks) && platformWorks.length > 0
-          ? getTopShelfWorks(platformWorks, {
-              limit: 10,
-              currentUserId: authUser?.userId,
-            })
-          : null
+        (Array.isArray(topShelfDirect) && topShelfDirect.length > 0)
+          ? topShelfDirect
+          : (Array.isArray(platformWorks) && platformWorks.length > 0
+              ? getTopShelfWorks(platformWorks, {
+                  limit: 10,
+                  currentUserId: authUser?.userId,
+                })
+              : null)
 
       return {
         authUser: authUser || { userId: null, isAuthenticated: false },
@@ -72,6 +93,9 @@ export const Route = createFileRoute('/')({
         initialRecSignals: recSignals,
         initialWorks: platformWorks,
         initialTopShelf,
+        initialTrending: Array.isArray(trendingDirect) ? trendingDirect.slice(0, 10) : null,
+        initialBingeable: Array.isArray(bingeableDirect) ? bingeableDirect.slice(0, 10) : null,
+        initialNewVoices: Array.isArray(newVoicesDirect) ? newVoicesDirect.slice(0, 10) : null,
         catalogError: platformWorks === null,
       }
     } catch {

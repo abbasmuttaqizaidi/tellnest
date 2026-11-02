@@ -36,6 +36,11 @@ import {
   type UserRecommendationSignals,
 } from '../../server/recommendations'
 import type { UserSessionBootstrap } from '../../server/authors'
+import {
+  getTrendingWorksServerFn,
+  getBingeableWorksServerFn,
+  getNewVoicesServerFn,
+} from '../../server/works'
 import { calculateForYouRecommendations } from '../../lib/recommendations/engine'
 import { filterAndOrderNewVoicesStories } from '../../lib/recommendations/newVoices'
 import { calculateBingeableReads, getWorkPublishedChapterCount } from '../../lib/recommendations/bingeable'
@@ -45,9 +50,18 @@ import { NewVoicesOpportunityModal } from '../NewVoicesOpportunityModal'
 import {
   CurrentlyReadingSkeleton,
   LoggedInHomeSkeleton,
+  SectionCarouselSkeleton,
+  NewVoicesGridSkeleton,
+  TopShelfSectionSkeleton,
 } from './HomeSkeletons'
 
-export { CurrentlyReadingSkeleton, LoggedInHomeSkeleton }
+export {
+  CurrentlyReadingSkeleton,
+  LoggedInHomeSkeleton,
+  SectionCarouselSkeleton,
+  NewVoicesGridSkeleton,
+  TopShelfSectionSkeleton,
+}
 
 export interface HomeLoaderData {
   authUser: {
@@ -58,6 +72,9 @@ export interface HomeLoaderData {
   initialRecSignals: UserRecommendationSignals | null
   initialWorks?: any[] | null
   initialTopShelf?: any[] | null
+  initialTrending?: any[] | null
+  initialBingeable?: any[] | null
+  initialNewVoices?: any[] | null
   catalogError?: boolean
 }
 
@@ -706,14 +723,42 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
     return list.slice(0, 10)
   }, [works, activeLeaderboardGenre])
 
+  // 1. Trending Serials:
+  // Direct server-provided initialTrending (limit 10) takes precedence for 0ms load, with in-memory fallback
+  const trendingWorksList = useMemo(() => {
+    if (activeLeaderboardGenre === 'all' && loaderData?.initialTrending && Array.isArray(loaderData.initialTrending) && loaderData.initialTrending.length > 0) {
+      return loaderData.initialTrending.slice(0, 10)
+    }
+    return trendingSerials.slice(0, 10)
+  }, [loaderData?.initialTrending, trendingSerials, activeLeaderboardGenre])
+
+  const isTrendingLoading = isWorksLoading && trendingWorksList.length === 0
+
+  // 2. Bingeable Reads:
+  // Direct server-provided initialBingeable (limit 10) takes precedence for 0ms load, with in-memory fallback
+  const bingeableWorksList = useMemo(() => {
+    if (loaderData?.initialBingeable && Array.isArray(loaderData.initialBingeable) && loaderData.initialBingeable.length > 0) {
+      return loaderData.initialBingeable.slice(0, 10)
+    }
+    return bingeableWorks.slice(0, 10)
+  }, [loaderData?.initialBingeable, bingeableWorks])
+
+  const isBingeableLoading = isWorksLoading && bingeableWorksList.length === 0
+
+  // 3. New Voices:
+  // Direct server-provided initialNewVoices (limit 10) takes precedence for 0ms load, with in-memory fallback
+  const newVoicesWorksList = useMemo(() => {
+    if (loaderData?.initialNewVoices && Array.isArray(loaderData.initialNewVoices) && loaderData.initialNewVoices.length > 0) {
+      return loaderData.initialNewVoices.slice(0, 10)
+    }
+    return newVoicesWorks.slice(0, 10)
+  }, [loaderData?.initialNewVoices, newVoicesWorks])
+
+  const isNewVoicesLoading = isWorksLoading && newVoicesWorksList.length === 0
+
   // Writer atelier adaptive states
   const isAuthor = writerWorks && writerWorks.length > 0
   const activeDraft = isAuthor ? writerWorks[0] : null
-
-  // Only show localized dashboard skeleton if user is still loading AND works data is completely empty
-  if (!isUserLoaded && !forcedView && (!allWorks || allWorks.length === 0)) {
-    return <LoggedInHomeSkeleton />
-  }
 
   return (
     <div className="min-h-screen pb-12">
@@ -983,14 +1028,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
             })}
           </div>
         ) : !isUserLoaded || isLoadingSignals || (isWorksLoading && works.length === 0) ? (
-          <div className="flex items-stretch gap-3 sm:gap-3.5 overflow-hidden py-1">
-            {Array.from({ length: 6 }).map((_, idx) => (
-              <div
-                key={`foryou-skeleton-${idx}`}
-                className="w-[145px] sm:w-[160px] md:w-[170px] aspect-[2/3] shrink-0 rounded-xl bg-[var(--bg-subtle)] animate-pulse border border-[var(--border-subtle)]"
-              />
-            ))}
-          </div>
+          <SectionCarouselSkeleton count={5} />
         ) : signalsError ? (
           <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-6 sm:p-8 text-center space-y-3">
             <div className="w-10 h-10 rounded-full bg-[var(--bg-subtle)] border border-[var(--border-subtle)] flex items-center justify-center mx-auto text-[var(--ink-muted)]">
@@ -1107,9 +1145,9 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
           </Link>
         </div>
 
-        {newVoicesWorks.length > 0 ? (
+        {newVoicesWorksList.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
-            {newVoicesWorks.map((work) => {
+            {newVoicesWorksList.map((work) => {
               const wSlug = getWorkSlug(work)
               const saved = isWorkSaved(work.id)
               const pubDate = work.publishedAt
@@ -1210,6 +1248,8 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
               )
             })}
           </div>
+        ) : isNewVoicesLoading ? (
+          <NewVoicesGridSkeleton count={5} />
         ) : (
           <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)]/60 p-8 text-center space-y-3">
             <div className="mx-auto w-10 h-10 rounded-full bg-[var(--bg-subtle)] text-black dark:text-white flex items-center justify-center">
@@ -1272,15 +1312,9 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
         </div>
 
         {/* Leaderboard Bento Grid: Up to 10 Rich Serials */}
-        {trendingSerials.length === 0 ? (
-          <div className="py-12 px-4 text-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]">
-            <p className="font-serif text-base text-[var(--ink-secondary)]">
-              No stories trending this week yet. Fresh rankings update every Monday.
-            </p>
-          </div>
-        ) : (
+        {trendingWorksList.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {trendingSerials.map((work, idx) => {
+            {trendingWorksList.map((work, idx) => {
               const wSlug = getWorkSlug(work)
               const saved = isWorkSaved(work.id)
               return (
@@ -1388,31 +1422,39 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
             )
           })}
         </div>
+        ) : isTrendingLoading ? (
+          <SectionCarouselSkeleton count={5} />
+        ) : (
+          <div className="py-12 px-4 text-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]">
+            <p className="font-serif text-base text-[var(--ink-secondary)]">
+              No stories trending this week yet. Fresh rankings update every Monday.
+            </p>
+          </div>
         )}
       </section>
 
       {/* =========================================================================
           SECTION: BINGEABLE READS FOR YOU (SINGLE-SITTING COMPLETE & 2-CHAPTER ARCS)
           ========================================================================= */}
-      {bingeableWorks.length > 0 && (
-        <section id="bingeable-reads" className="w-full space-y-4" style={{ contentVisibility: 'auto', containIntrinsicSize: '550px' }}>
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-3 border-b border-[var(--border-subtle)]">
-            <div className="space-y-1">
-              <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] tracking-tight">
-                Bingeable Reads for You
-              </h3>
-              <p className="font-serif text-xs sm:text-sm text-[var(--ink-secondary)]">
-                Quick, complete stories and two-chapter arcs you can finish in one sitting.
-              </p>
-            </div>
+      <section id="bingeable-reads" className="w-full space-y-4" style={{ contentVisibility: 'auto', containIntrinsicSize: '550px' }}>
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-3 border-b border-[var(--border-subtle)]">
+          <div className="space-y-1">
+            <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] tracking-tight">
+              Bingeable Reads for You
+            </h3>
+            <p className="font-serif text-xs sm:text-sm text-[var(--ink-secondary)]">
+              Quick, complete stories and two-chapter arcs you can finish in one sitting.
+            </p>
           </div>
+        </div>
 
+        {bingeableWorksList.length > 0 ? (
           <div
             ref={bingeableCarouselRef}
             className="flex items-stretch gap-3 sm:gap-3.5 overflow-x-auto scroll-smooth py-1 px-0.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
             style={{ scrollSnapType: 'x mandatory' }}
           >
-            {bingeableWorks.map((work) => {
+            {bingeableWorksList.map((work) => {
               const wSlug = getWorkSlug(work)
               const saved = isWorkSaved(work.id)
               const chCount = getWorkPublishedChapterCount(work)
@@ -1489,8 +1531,10 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
               )
             })}
           </div>
-        </section>
-      )}
+        ) : isBingeableLoading ? (
+          <SectionCarouselSkeleton count={5} />
+        ) : null}
+      </section>
 
       {/* =========================================================================
           SECTION: TOP SHELF (COMMUNITY'S TOP 10 MOST-SAVED MASTERPIECES)

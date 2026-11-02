@@ -6,6 +6,7 @@ import { getWorkSlug, type Work } from '../../data/mockData'
 import { getTopShelfWorks } from '../../lib/recommendations/topShelf'
 import { formatViewCount, formatHeartCount } from '../../lib/utils'
 import { OptimizedImage } from '../OptimizedImage'
+import { TopShelfSectionSkeleton } from './HomeSkeletons'
 
 export interface TopShelfSectionProps {
   works?: Work[]
@@ -54,7 +55,34 @@ export function TopShelfSection({
     container.scrollBy({ left: scrollAmount, behavior: 'smooth' })
   }
 
-  if (topShelfWorks.length === 0) return null
+  if (topShelfWorks.length === 0) {
+    if (isWorksLoading) {
+      return (
+        <section
+          id={id}
+          className={`w-full space-y-4 ${className}`}
+        >
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-3 border-b border-[var(--border-subtle)]">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] tracking-tight">
+                  Top Shelf
+                </h3>
+                <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-full bg-[var(--accent-subtle)] text-[var(--accent-primary)] border border-[var(--accent-primary)]/20">
+                  Top 10
+                </span>
+              </div>
+              <p className="font-serif text-xs sm:text-sm text-[var(--ink-secondary)]">
+                The community's most-saved manuscripts. Stories readers couldn't let go of.
+              </p>
+            </div>
+          </div>
+          <TopShelfSectionSkeleton />
+        </section>
+      )
+    }
+    return null
+  }
 
   return (
     <section

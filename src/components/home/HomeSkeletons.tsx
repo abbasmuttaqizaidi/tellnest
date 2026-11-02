@@ -88,6 +88,73 @@ export function CurrentlyReadingSkeleton() {
   )
 }
 
+/**
+ * Universal Section Card Carousel Skeleton:
+ * Lightweight horizontal skeleton for For You, Trending, and Bingeable carousels.
+ */
+export function SectionCarouselSkeleton({ count = 5 }: { count?: number }) {
+  return (
+    <div className="flex items-center gap-3 sm:gap-4 overflow-hidden animate-pulse py-1">
+      {Array.from({ length: count }).map((_, i) => (
+        <div
+          key={i}
+          className="w-[140px] sm:w-[160px] md:w-[180px] shrink-0 rounded-xl sm:rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-2.5 space-y-2.5 overflow-hidden"
+        >
+          <div className="aspect-[2/3] w-full bg-[var(--bg-subtle)] rounded-lg" />
+          <div className="space-y-1.5 pt-1">
+            <div className="h-3.5 w-3/4 bg-[var(--bg-subtle)] rounded" />
+            <div className="h-2.5 w-1/2 bg-[var(--bg-subtle)]/70 rounded" />
+          </div>
+          <div className="h-2.5 w-1/3 bg-[var(--bg-subtle)]/50 rounded pt-0.5" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * New Voices Grid Skeleton:
+ * Multi-column grid skeleton for the debut writers showcase.
+ */
+export function NewVoicesGridSkeleton({ count = 5 }: { count?: number }) {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 animate-pulse">
+      {Array.from({ length: count }).map((_, i) => (
+        <div
+          key={i}
+          className="rounded-xl sm:rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-2.5 space-y-2.5 overflow-hidden"
+        >
+          <div className="aspect-[2/3] w-full bg-[var(--bg-subtle)] rounded-lg" />
+          <div className="space-y-1.5 pt-1">
+            <div className="h-3.5 w-4/5 bg-[var(--bg-subtle)] rounded" />
+            <div className="h-2.5 w-3/5 bg-[var(--bg-subtle)]/70 rounded" />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * Top Shelf Section Skeleton:
+ * Podium and ranked cards skeleton for Top 10 Community Shelf.
+ */
+export function TopShelfSectionSkeleton() {
+  return (
+    <div className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 sm:p-6 space-y-4 animate-pulse">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="space-y-2">
+            <div className="aspect-[2/3] w-full bg-[var(--bg-subtle)] rounded-xl" />
+            <div className="h-3 w-3/4 bg-[var(--bg-subtle)] rounded" />
+            <div className="h-2.5 w-1/2 bg-[var(--bg-subtle)]/60 rounded" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function PublicHomeSkeleton() {
   return (
     <div className="min-h-screen bg-[#FDFBF7] dark:bg-[#121316] animate-pulse">

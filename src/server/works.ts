@@ -755,7 +755,7 @@ export async function executeGetPlatformWorks(
                           'number', ch.chapter_number,
                           'title', ch.title,
                           'slug', ch.slug,
-                          'content', ch.content,
+                          'content', '',
                           'wordCount', ch.word_count,
                           'readTimeMinutes', ch.reading_time_minutes,
                           'status', ch.status,
@@ -786,7 +786,7 @@ export async function executeGetPlatformWorks(
                   'number', ch.chapter_number,
                   'title', ch.title,
                   'slug', ch.slug,
-                  'content', ch.content,
+                  'content', '',
                   'wordCount', ch.word_count,
                   'readTimeMinutes', ch.reading_time_minutes,
                   'status', ch.status,
@@ -1577,6 +1577,193 @@ export const getNewVoicesServerFn = createServerFn({ method: 'GET' })
     return await executeGetNewVoices({ excludeBingeable: true })
   })
 
+export const LEAN_WORK_CARD_COLUMNS = `
+  id,
+  author_id,
+  title,
+  slug,
+  description,
+  cover_image_path,
+  language,
+  category_id,
+  status,
+  visibility,
+  publication_status,
+  is_indexable,
+  reading_time_minutes,
+  word_count,
+  chapter_count,
+  view_count,
+  impression_count,
+  like_count,
+  save_count,
+  comment_count,
+  published_at,
+  last_published_at,
+  created_at,
+  updated_at,
+  last_activity_at,
+  last_activity_type,
+  last_activity_detail,
+  collections,
+  trending_marked_by_admin,
+  profiles:author_id (id, username, display_name, avatar_path, bio, created_at),
+  categories:category_id (id, name, slug),
+  work_genres (genres (id, name, slug)),
+  chapters (id, chapter_number, status, published_at, act_id)
+`
+
+export function mapLeanWorkCard(w: any): any {
+  const rawRow = {
+    id: w.id,
+    author_id: w.author_id,
+    title: w.title,
+    slug: w.slug,
+    description: w.description,
+    cover_image_path: w.cover_image_path,
+    language: w.language,
+    category_id: w.category_id,
+    status: w.status,
+    visibility: w.visibility,
+    publication_status: w.publication_status,
+    is_indexable: w.is_indexable,
+    content_rating: w.content_rating,
+    reading_time_minutes: w.reading_time_minutes,
+    word_count: w.word_count,
+    chapter_count: w.chapter_count,
+    view_count: w.view_count,
+    impression_count: w.impression_count,
+    like_count: w.like_count,
+    save_count: w.save_count,
+    comment_count: w.comment_count,
+    published_at: w.published_at,
+    last_published_at: w.last_published_at,
+    created_at: w.created_at,
+    updated_at: w.updated_at,
+    last_activity_at: w.last_activity_at,
+    last_activity_type: w.last_activity_type,
+    last_activity_detail: w.last_activity_detail,
+    collections: w.collections,
+    trending_marked_by_admin: Boolean(w.trending_marked_by_admin),
+    author_name: w.profiles?.display_name || w.profiles?.username || 'Hatchpen Author',
+    author_handle: w.profiles?.username || 'author',
+    author_avatar: w.profiles?.avatar_path || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
+    author_bio: w.profiles?.bio || '',
+    author_created_at: w.profiles?.created_at,
+    category_name: w.categories?.name || 'Novels',
+    category_slug: w.categories?.slug || 'novels',
+    genres: (w.work_genres || []).map((wg: any) => wg.genres).filter(Boolean),
+    acts: w.acts || [],
+    chapters: w.chapters || [],
+  }
+
+  const mappedGenres = Array.isArray(rawRow.genres) ? rawRow.genres : []
+  const primaryGenre = mappedGenres[0] || { name: 'Literary Fiction', slug: 'literary-fiction' }
+
+  const rawActs = Array.isArray(rawRow.acts) ? rawRow.acts : []
+  const publishedActs = rawActs.filter((a: any) => (a.status || '').toLowerCase() === 'published')
+  const publishedActIds = new Set<string>(publishedActs.map((a: any) => a.id))
+
+  const publishedChapters = Array.isArray(rawRow.chapters)
+    ? rawRow.chapters.filter((ch: any) => {
+        if ((ch.status || '').toLowerCase() !== 'published') return false
+        const actId = ch.actId || ch.act_id
+        if (actId && !publishedActIds.has(actId)) return false
+        return true
+      })
+    : []
+  const publishedCount =
+    publishedChapters.length > 0
+      ? publishedChapters.length
+      : (Number(rawRow.chapter_count) || 0)
+
+  return {
+    id: rawRow.id,
+    title: rawRow.title,
+    slug: rawRow.slug || '',
+    subtitle: '',
+    cover: rawRow.cover_image_path || '/default-book-cover.webp',
+    category: rawRow.category_name || 'Novels',
+    categorySlug: rawRow.category_slug || 'novels',
+    genre: primaryGenre.name,
+    genreSlug: primaryGenre.slug,
+    genres: mappedGenres,
+    tags:
+      Array.isArray(rawRow.tags) && rawRow.tags.length > 0
+        ? rawRow.tags
+        : Array.isArray(rawRow.work_tags) && rawRow.work_tags.length > 0
+          ? rawRow.work_tags.map((wt: any) => (typeof wt === 'string' ? wt : wt.tags?.name || wt.tag || wt.name)).filter(Boolean)
+          : ['Serialized', 'Archival'],
+    language: rawRow.language || 'English',
+    status: (rawRow.status === 'completed' ? 'Completed' : rawRow.status === 'on_hiatus' ? 'On Hiatus' : 'Ongoing') as any,
+    visibility: (rawRow.visibility === 'public' ? 'Public' : 'Unlisted') as any,
+    publicationStatus: rawRow.publication_status || 'published',
+    isIndexable: rawRow.is_indexable !== false,
+    isMature: false,
+    featured: false,
+    trending: Boolean(rawRow.trending_marked_by_admin) || (Array.isArray(rawRow.collections) && rawRow.collections.includes('trending_now')),
+    trendingMarkedByAdmin: Boolean(rawRow.trending_marked_by_admin),
+    rising: false,
+    editorPick: false,
+    new_this_week: false,
+    new_chapters_this_week: false,
+    collection: Array.isArray(rawRow.collections) ? rawRow.collections : [],
+    synopsis: rawRow.description || '',
+    fullDescription: rawRow.description || '',
+    chaptersCount: publishedCount,
+    publishedChaptersCount: publishedCount,
+    totalReads: String(rawRow.view_count || '0'),
+    impressionCount: Number(rawRow.impression_count || 0),
+    totalSaves: Number(rawRow.save_count || 0),
+    likeCount: Number(rawRow.like_count || 0),
+    like_count: Number(rawRow.like_count || 0),
+    ratingScore: 5.0,
+    ratingCount: Number(rawRow.like_count || 0),
+    createdAt: rawRow.created_at ? new Date(rawRow.created_at).toISOString() : new Date().toISOString(),
+    updatedAt: rawRow.updated_at ? new Date(rawRow.updated_at).toISOString() : new Date().toISOString(),
+    publishedAt: rawRow.published_at ? new Date(rawRow.published_at).toISOString() : undefined,
+    lastActivityAt: rawRow.last_activity_at ? new Date(rawRow.last_activity_at).toISOString() : rawRow.created_at,
+    lastActivityType: rawRow.last_activity_type,
+    lastActivityDetail: rawRow.last_activity_detail,
+    author: {
+      id: rawRow.author_id || 'author-unknown',
+      name: rawRow.author_name || 'Hatchpen Author',
+      handle: rawRow.author_handle || 'author',
+      avatar: rawRow.author_avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
+      bio: rawRow.author_bio || '',
+      location: '',
+      worksCount: 1,
+      followersCount: '0',
+      createdAt: rawRow.author_created_at ? new Date(rawRow.author_created_at).toISOString() : undefined,
+    },
+    acts: Array.isArray(rawRow.acts)
+      ? rawRow.acts.map((act: any) => ({
+          id: act.id,
+          workId: act.work_id || rawRow.id,
+          number: act.act_number ?? act.number ?? 1,
+          title: act.title || `Act ${act.act_number || 1}`,
+          slug: act.slug || '',
+          description: act.description || '',
+          status: act.status || 'published',
+          viewCount: Number(act.view_count || 0),
+        }))
+      : [],
+    chapters: publishedChapters.map((ch: any) => ({
+      id: ch.id,
+      workId: ch.work_id || rawRow.id,
+      number: ch.chapter_number ?? ch.number ?? 1,
+      title: ch.title || `Chapter ${ch.chapter_number || 1}`,
+      slug: ch.slug || '',
+      content: '',
+      wordCount: Number(ch.word_count || 0),
+      readTimeMinutes: Number(ch.reading_time_minutes || 0),
+      status: ch.status || 'published',
+      publishedAt: ch.published_at || ch.publishedAt,
+      actId: ch.act_id || ch.actId,
+    })),
+  }
+}
+
 export interface TopShelfDependencies extends PlatformWorksDependencies {
   getPlatformWorks?: () => Promise<any[]>
   getTopShelfWorks?: (candidateWorks: any[], options?: any) => any[]
@@ -1628,41 +1815,7 @@ export async function executeGetTopShelf(
 
     let query = admin
       .from('works_with_collections')
-      .select(`
-        id,
-        author_id,
-        title,
-        slug,
-        description,
-        cover_image_path,
-        language,
-        category_id,
-        status,
-        visibility,
-        publication_status,
-        is_indexable,
-        reading_time_minutes,
-        word_count,
-        chapter_count,
-        view_count,
-        impression_count,
-        like_count,
-        save_count,
-        comment_count,
-        published_at,
-        last_published_at,
-        created_at,
-        updated_at,
-        last_activity_at,
-        last_activity_type,
-        last_activity_detail,
-        collections,
-        trending_marked_by_admin,
-        profiles:author_id (id, username, display_name, avatar_path, bio, created_at),
-        categories:category_id (id, name, slug),
-        work_genres (genres (id, name, slug)),
-        chapters (id, chapter_number, status, published_at, act_id)
-      `)
+      .select(LEAN_WORK_CARD_COLUMNS)
       .eq('visibility', 'public')
       .eq('publication_status', 'published')
       .neq('status', 'cancelled')
@@ -1681,155 +1834,7 @@ export async function executeGetTopShelf(
     const { data: supaRows, error: supaErr } = await query
 
     if (!supaErr && Array.isArray(supaRows) && supaRows.length > 0) {
-      const mappedDirectWorks = supaRows.map((w: any) => {
-        const rawRow = {
-          id: w.id,
-          author_id: w.author_id,
-          title: w.title,
-          slug: w.slug,
-          description: w.description,
-          cover_image_path: w.cover_image_path,
-          language: w.language,
-          category_id: w.category_id,
-          status: w.status,
-          visibility: w.visibility,
-          publication_status: w.publication_status,
-          is_indexable: w.is_indexable,
-          content_rating: w.content_rating,
-          reading_time_minutes: w.reading_time_minutes,
-          word_count: w.word_count,
-          chapter_count: w.chapter_count,
-          view_count: w.view_count,
-          impression_count: w.impression_count,
-          like_count: w.like_count,
-          save_count: w.save_count,
-          comment_count: w.comment_count,
-          published_at: w.published_at,
-          last_published_at: w.last_published_at,
-          created_at: w.created_at,
-          updated_at: w.updated_at,
-          last_activity_at: w.last_activity_at,
-          last_activity_type: w.last_activity_type,
-          last_activity_detail: w.last_activity_detail,
-          collections: w.collections,
-          trending_marked_by_admin: Boolean(w.trending_marked_by_admin),
-          author_name: w.profiles?.display_name || w.profiles?.username || 'Hatchpen Author',
-          author_handle: w.profiles?.username || 'author',
-          author_avatar: w.profiles?.avatar_path || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
-          author_bio: w.profiles?.bio || '',
-          author_created_at: w.profiles?.created_at,
-          category_name: w.categories?.name || 'Novels',
-          category_slug: w.categories?.slug || 'novels',
-          genres: (w.work_genres || []).map((wg: any) => wg.genres).filter(Boolean),
-          acts: w.acts || [],
-          chapters: w.chapters || [],
-        }
-
-        const mappedGenres = Array.isArray(rawRow.genres) ? rawRow.genres : []
-        const primaryGenre = mappedGenres[0] || { name: 'Literary Fiction', slug: 'literary-fiction' }
-
-        const rawActs = Array.isArray(rawRow.acts) ? rawRow.acts : []
-        const publishedActs = rawActs.filter((a: any) => (a.status || '').toLowerCase() === 'published')
-        const publishedActIds = new Set<string>(publishedActs.map((a: any) => a.id))
-
-        const publishedChapters = Array.isArray(rawRow.chapters)
-          ? rawRow.chapters.filter((ch: any) => {
-              if ((ch.status || '').toLowerCase() !== 'published') return false
-              const actId = ch.actId || ch.act_id
-              if (actId && !publishedActIds.has(actId)) return false
-              return true
-            })
-          : []
-        const publishedCount =
-          publishedChapters.length > 0
-            ? publishedChapters.length
-            : (Number(rawRow.chapter_count) || 0)
-
-        return {
-          id: rawRow.id,
-          title: rawRow.title,
-          slug: rawRow.slug || '',
-          subtitle: '',
-          cover: rawRow.cover_image_path || '/default-book-cover.webp',
-          category: rawRow.category_name || 'Novels',
-          categorySlug: rawRow.category_slug || 'novels',
-          genre: primaryGenre.name,
-          genreSlug: primaryGenre.slug,
-          genres: mappedGenres,
-          tags:
-            Array.isArray(rawRow.tags) && rawRow.tags.length > 0
-              ? rawRow.tags
-              : Array.isArray(rawRow.work_tags) && rawRow.work_tags.length > 0
-                ? rawRow.work_tags.map((wt: any) => (typeof wt === 'string' ? wt : wt.tags?.name || wt.tag || wt.name)).filter(Boolean)
-                : ['Serialized', 'Archival'],
-          language: rawRow.language || 'English',
-          status: (rawRow.status === 'completed' ? 'Completed' : rawRow.status === 'on_hiatus' ? 'On Hiatus' : 'Ongoing') as any,
-          visibility: (rawRow.visibility === 'public' ? 'Public' : 'Unlisted') as any,
-          publicationStatus: rawRow.publication_status || 'published',
-          isIndexable: rawRow.is_indexable !== false,
-          isMature: false,
-          featured: false,
-          trending: false,
-          rising: false,
-          editorPick: false,
-          new_this_week: false,
-          new_chapters_this_week: false,
-          collection: [],
-          synopsis: rawRow.description || '',
-          fullDescription: rawRow.description || '',
-          chaptersCount: publishedCount,
-          publishedChaptersCount: publishedCount,
-          totalReads: String(rawRow.view_count || '0'),
-          impressionCount: Number(rawRow.impression_count || 0),
-          totalSaves: Number(rawRow.save_count || 0),
-          likeCount: Number(rawRow.like_count || 0),
-          like_count: Number(rawRow.like_count || 0),
-          ratingScore: 5.0,
-          ratingCount: Number(rawRow.like_count || 0),
-          createdAt: rawRow.created_at ? new Date(rawRow.created_at).toISOString() : new Date().toISOString(),
-          updatedAt: rawRow.updated_at ? new Date(rawRow.updated_at).toISOString() : new Date().toISOString(),
-          publishedAt: rawRow.published_at ? new Date(rawRow.published_at).toISOString() : undefined,
-          lastActivityAt: rawRow.last_activity_at ? new Date(rawRow.last_activity_at).toISOString() : rawRow.created_at,
-          lastActivityType: rawRow.last_activity_type,
-          lastActivityDetail: rawRow.last_activity_detail,
-          author: {
-            id: rawRow.author_id || 'author-unknown',
-            name: rawRow.author_name || 'Hatchpen Author',
-            handle: rawRow.author_handle || 'author',
-            avatar: rawRow.author_avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
-            bio: rawRow.author_bio || '',
-            location: '',
-            worksCount: 1,
-            followersCount: '0',
-            createdAt: rawRow.author_created_at ? new Date(rawRow.author_created_at).toISOString() : undefined,
-          },
-          acts: Array.isArray(rawRow.acts)
-            ? rawRow.acts.map((act: any) => ({
-                id: act.id,
-                workId: act.work_id || rawRow.id,
-                number: act.act_number ?? act.number ?? 1,
-                title: act.title || `Act ${act.act_number || 1}`,
-                slug: act.slug || '',
-                description: act.description || '',
-                status: act.status || 'published',
-                viewCount: Number(act.view_count || 0),
-              }))
-            : [],
-          chapters: publishedChapters.map((ch: any) => ({
-            id: ch.id,
-            workId: ch.work_id || rawRow.id,
-            number: ch.chapter_number ?? ch.number ?? 1,
-            title: ch.title || `Chapter ${ch.chapter_number || 1}`,
-            slug: ch.slug || '',
-            content: ch.content || '',
-            wordCount: Number(ch.word_count || 0),
-            readTimeMinutes: Number(ch.reading_time_minutes || 0),
-            status: ch.status || 'published',
-            publishedAt: ch.published_at || ch.publishedAt,
-            actId: ch.act_id || ch.actId,
-          })),
-        }
-      })
+      const mappedDirectWorks = supaRows.map((w: any) => mapLeanWorkCard(w))
 
       const filteredDirectWorks = mappedDirectWorks.filter(
         (w: any) => (Number(w.totalSaves) || 0) > 0
@@ -1882,6 +1887,189 @@ export const getTopShelfServerFn = createServerFn({ method: 'GET' })
     } catch {}
 
     return await executeGetTopShelf({ limit: data?.limit, currentUserId })
+  })
+
+const trendingWorksCache = new Map<string, { data: any[]; timestamp: number }>()
+const TRENDING_WORKS_CACHE_TTL_MS = 30_000
+
+export async function executeGetTrendingWorks(
+  options: { limit?: number; genre?: string } = {},
+  dependencies: PlatformWorksDependencies = {}
+) {
+  const limit = Math.max(1, Math.min(20, options.limit || 10))
+  const genre = options.genre || 'all'
+  const cacheKey = `${genre}:${limit}`
+
+  if (!dependencies.queryRows) {
+    const cached = trendingWorksCache.get(cacheKey)
+    if (cached && Date.now() - cached.timestamp < TRENDING_WORKS_CACHE_TTL_MS) {
+      return cached.data
+    }
+  }
+
+  try {
+    const adminClientFactory = dependencies.createAdminClient || (async () => {
+      const { createAdminClient } = await import('../lib/supabase/server.ts')
+      return createAdminClient()
+    })
+    const admin = await adminClientFactory()
+
+    let query = admin
+      .from('works_with_collections')
+      .select(LEAN_WORK_CARD_COLUMNS)
+      .eq('visibility', 'public')
+      .eq('publication_status', 'published')
+      .neq('status', 'cancelled')
+      .neq('status', 'draft')
+
+    // If active trending snapshot exists, query snapshot
+    let activeTrendingSnapshot: any = null
+    try {
+      const { getActiveTrendingSnapshot } = await import('./trendingEngine.ts')
+      activeTrendingSnapshot = await getActiveTrendingSnapshot(admin)
+    } catch {}
+
+    const { data: supaRows, error: supaErr } = await query
+      .order('trending_marked_by_admin', { ascending: false })
+      .order('view_count', { ascending: false })
+      .order('like_count', { ascending: false })
+      .limit(limit * 2)
+
+    if (!supaErr && Array.isArray(supaRows) && supaRows.length > 0) {
+      let mapped = supaRows.map((r) => mapLeanWorkCard(r))
+      mapped.forEach((w, idx) => {
+        w.trending = true
+        w.trendingRank = idx + 1
+      })
+      if (genre !== 'all') {
+        const target = genre.toLowerCase()
+        mapped = mapped.filter((w) => {
+          const primary = (w.genre || '').toLowerCase()
+          const secondary = Array.isArray(w.genres) ? w.genres.map((g: any) => (g.name || g.slug || '').toLowerCase()) : []
+          return primary.includes(target) || secondary.some((g: string) => g.includes(target))
+        })
+      }
+      const result = mapped.slice(0, limit)
+      if (!dependencies.queryRows) {
+        trendingWorksCache.set(cacheKey, { data: result, timestamp: Date.now() })
+      }
+      return result
+    }
+  } catch (err: any) {
+    console.warn('[executeGetTrendingWorks] DB query fallback:', err?.message || err)
+  }
+
+  // Graceful fallback from platform works
+  const works = await executeGetPlatformWorks(dependencies)
+  let list = works.filter((w) => Boolean(w.trending))
+  list.sort((a, b) => ((a as any).trendingRank ?? 999) - ((b as any).trendingRank ?? 999))
+  if (genre !== 'all') {
+    const target = genre.toLowerCase()
+    list = list.filter((w) => {
+      const primary = (w.genre || '').toLowerCase()
+      const secondary = Array.isArray(w.genres) ? w.genres.map((g: any) => (g.name || g.slug || '').toLowerCase()) : []
+      return primary.includes(target) || secondary.some((g: string) => g.includes(target))
+    })
+  }
+  const result = list.slice(0, limit)
+  if (!dependencies.queryRows) {
+    trendingWorksCache.set(cacheKey, { data: result, timestamp: Date.now() })
+  }
+  return result
+}
+
+export const getTrendingWorksServerFn = createServerFn({ method: 'GET' })
+  .validator((params?: { limit?: number; genre?: string }) => ({
+    limit: params?.limit ? Math.min(Math.max(1, Number(params.limit)), 20) : 10,
+    genre: params?.genre ? String(params.genre) : 'all',
+  }))
+  .handler(async ({ data }) => {
+    return await executeGetTrendingWorks(data)
+  })
+
+const bingeableWorksCache = new Map<string, { data: any[]; timestamp: number }>()
+const BINGEABLE_WORKS_CACHE_TTL_MS = 30_000
+
+export async function executeGetBingeableWorks(
+  options: { limit?: number; currentUserId?: string | null } = {},
+  dependencies: PlatformWorksDependencies = {}
+) {
+  const limit = Math.max(1, Math.min(20, options.limit || 10))
+  const userId = options.currentUserId || 'anon'
+  const cacheKey = `${userId}:${limit}`
+
+  if (!dependencies.queryRows) {
+    const cached = bingeableWorksCache.get(cacheKey)
+    if (cached && Date.now() - cached.timestamp < BINGEABLE_WORKS_CACHE_TTL_MS) {
+      return cached.data
+    }
+  }
+
+  try {
+    const adminClientFactory = dependencies.createAdminClient || (async () => {
+      const { createAdminClient } = await import('../lib/supabase/server.ts')
+      return createAdminClient()
+    })
+    const admin = await adminClientFactory()
+
+    let query = admin
+      .from('works_with_collections')
+      .select(LEAN_WORK_CARD_COLUMNS)
+      .eq('visibility', 'public')
+      .eq('publication_status', 'published')
+      .neq('status', 'cancelled')
+      .neq('status', 'draft')
+      .gte('chapter_count', 1)
+      .lte('chapter_count', 2)
+      .order('like_count', { ascending: false })
+      .order('view_count', { ascending: false })
+      .order('published_at', { ascending: false })
+      .limit(limit * 2)
+
+    const { data: supaRows, error: supaErr } = await query
+
+    if (!supaErr && Array.isArray(supaRows) && supaRows.length > 0) {
+      const mapped = supaRows
+        .map((r) => mapLeanWorkCard(r))
+        .filter((w) => {
+          const chCount = w.publishedChaptersCount ?? w.chaptersCount ?? 0
+          return chCount >= 1 && chCount <= 2
+        })
+      const result = mapped.slice(0, limit)
+      if (!dependencies.queryRows) {
+        bingeableWorksCache.set(cacheKey, { data: result, timestamp: Date.now() })
+      }
+      return result
+    }
+  } catch (err: any) {
+    console.warn('[executeGetBingeableWorks] DB query fallback:', err?.message || err)
+  }
+
+  const works = await executeGetPlatformWorks(dependencies)
+  const { calculateBingeableReads } = await import('../lib/recommendations/bingeable.ts')
+  const result = calculateBingeableReads({
+    candidateWorks: works,
+    currentUserId: options.currentUserId,
+  }).slice(0, limit)
+  if (!dependencies.queryRows) {
+    bingeableWorksCache.set(cacheKey, { data: result, timestamp: Date.now() })
+  }
+  return result
+}
+
+export const getBingeableWorksServerFn = createServerFn({ method: 'GET' })
+  .validator((params?: { limit?: number }) => ({
+    limit: params?.limit ? Math.min(Math.max(1, Number(params.limit)), 20) : 10,
+  }))
+  .handler(async ({ data }) => {
+    let currentUserId: string | null = null
+    try {
+      const { auth } = await import('@clerk/tanstack-react-start/server')
+      const authState = await auth()
+      currentUserId = authState?.userId || null
+    } catch {}
+
+    return await executeGetBingeableWorks({ limit: data?.limit, currentUserId })
   })
 
 // In-memory rate limiting to prevent spam loops from inflating views (max 30 view attempts per min per viewerKey)
