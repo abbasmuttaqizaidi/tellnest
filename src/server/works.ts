@@ -368,8 +368,8 @@ export const getPublicAuthorServerFn = createServerFn({ method: 'GET' })
     // Query live followers, authored published works count, and public views aggregate
     const [{ count: followersCount }, { count: worksCount }, { data: worksData }] = await Promise.all([
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', data.id),
-      supabase.from('works').select('*', { count: 'exact', head: true }).eq('author_id', data.id).eq('visibility', 'public').eq('publication_status', 'published'),
-      supabase.from('works').select('id, slug, title, view_count, genre, cover_image_path').eq('author_id', data.id).eq('visibility', 'public').eq('publication_status', 'published').order('view_count', { ascending: false }).limit(20),
+      supabase.from('works').select('*', { count: 'exact', head: true }).eq('author_id', data.id).in('visibility', ['public', 'Public']).eq('publication_status', 'published'),
+      supabase.from('works').select('id, slug, title, view_count, cover_image_path, work_genres(genres(id, name, slug))').eq('author_id', data.id).in('visibility', ['public', 'Public']).eq('publication_status', 'published').order('view_count', { ascending: false }).limit(20),
     ])
 
     const totalReadsNum = (worksData || []).reduce((acc: number, w: any) => acc + (Number(w.view_count) || 0), 0)
@@ -381,7 +381,7 @@ export const getPublicAuthorServerFn = createServerFn({ method: 'GET' })
       id: w.id,
       slug: w.slug || w.id,
       title: w.title,
-      genre: w.genre,
+      genre: w.work_genres?.[0]?.genres?.name || null,
       cover: w.cover_image_path,
     }))
 
