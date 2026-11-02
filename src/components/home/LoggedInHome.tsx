@@ -379,6 +379,10 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
     const requestId = ++recRequestIdRef.current
     setSignalsError(false)
 
+    const isOnboardingDone = currentUserId
+      ? typeof window !== 'undefined' && localStorage.getItem(`hatchpen_onboarding_completed_${currentUserId}`) === 'true'
+      : false
+
     // While Clerk client auth is still hydrating and we have no server ID, keep loading
     if (!isUserLoaded && !currentUserId) {
       setIsLoadingSignals(true)
@@ -390,9 +394,6 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
       loaderData?.initialRecSignals &&
       (!currentUserId || loaderData.initialRecSignals.clerkUserId === currentUserId)
     ) {
-      const isOnboardingDone = currentUserId
-        ? typeof window !== 'undefined' && localStorage.getItem(`hatchpen_onboarding_completed_${currentUserId}`) === 'true'
-        : false
       const hasPrefs = Boolean(
         loaderData.initialRecSignals.preferences?.genres?.length ||
         loaderData.initialRecSignals.preferences?.categories?.length ||
@@ -421,7 +422,6 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
         if (cachedRaw) {
           const cached = JSON.parse(cachedRaw)
           if (cached && cached.clerkUserId === currentUserId) {
-            const isOnboardingDone = localStorage.getItem(`hatchpen_onboarding_completed_${currentUserId}`) === 'true'
             const hasCachedPrefs = Boolean(
               cached.preferences?.genres?.length ||
               cached.preferences?.categories?.length ||
