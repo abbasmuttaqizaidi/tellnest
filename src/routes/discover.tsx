@@ -41,10 +41,22 @@ export function setClientDiscoverSeed(seed: number) {
   clientDiscoverSeed = seed
 }
 
+function DiscoverPageSkeleton() {
+  return (
+    <div className="py-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 animate-pulse">
+      <div className="h-8 w-48 bg-[var(--bg-subtle)] rounded-lg" />
+      <div className="h-10 w-full max-w-md bg-[var(--bg-subtle)] rounded-full" />
+      <DiscoverGridSkeleton count={12} />
+    </div>
+  )
+}
+
 export const Route = createFileRoute('/discover')({
   // In-Memory SWR (Desktop & Mobile): Keeps data fresh in RAM for 30s; instant 0ms navigation
   staleTime: 30_000,
   gcTime: 1000 * 60 * 5,
+  pendingMs: 0,
+  pendingComponent: DiscoverPageSkeleton,
   validateSearch: (search: Record<string, unknown>): DiscoverRouteSearch => {
     const rawTab = typeof search.tab === 'string' ? search.tab : ''
     const validTabs = ['all', 'new_chapters', 'new_this_week', 'trending', 'rising']

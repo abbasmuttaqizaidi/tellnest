@@ -40,6 +40,9 @@ import defaultBookCover from '../assets/default-book-cover.webp'
 import { FormattedSynopsis } from '../components/FormattedSynopsis'
 import { WorkDetailsSkeleton } from '../components/WorkDetailsSkeleton'
 
+const clientStoryCache = new Map<string, { work: any; timestamp: number }>()
+const CLIENT_STORY_CACHE_TTL_MS = 120_000 // 2 minutes in-memory client cache
+
 export const Route = createFileRoute('/works/$workId')({
   // In-Memory SWR (Desktop & Mobile): Keeps story details fresh in RAM for 60s; instant 0ms navigation
   staleTime: 60_000,
@@ -47,10 +50,25 @@ export const Route = createFileRoute('/works/$workId')({
   pendingMs: 0,
   pendingComponent: WorkDetailsSkeleton,
   loader: async ({ params }) => {
+    const cleanId = (params.workId || '').trim().toLowerCase()
+    if (typeof window !== 'undefined') {
+      const cached = clientStoryCache.get(cleanId)
+      if (cached && Date.now() - cached.timestamp < CLIENT_STORY_CACHE_TTL_MS) {
+        return { work: cached.work }
+      }
+    }
+
     // 1. Fetch full work from Supabase
     try {
       const dbWork = await getPublicWorkServerFn({ data: params.workId })
-      if (dbWork) return { work: dbWork }
+      if (dbWork) {
+        if (typeof window !== 'undefined') {
+          clientStoryCache.set(cleanId, { work: dbWork, timestamp: Date.now() })
+          if (dbWork.id) clientStoryCache.set(dbWork.id.toLowerCase(), { work: dbWork, timestamp: Date.now() })
+          if (dbWork.slug) clientStoryCache.set(dbWork.slug.toLowerCase(), { work: dbWork, timestamp: Date.now() })
+        }
+        return { work: dbWork }
+      }
     } catch (e) {
       console.warn('[Route /works/$workId] Loader DB lookup error:', e)
     }

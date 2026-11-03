@@ -67,12 +67,41 @@ const GLOBAL_JSON_LD = JSON.stringify({
   ],
 })
 
+// In-memory client cache for root auth state to eliminate blocking 2-3s serverless roundtrips on route changes
+let clientAuthUserCache: { user: any; timestamp: number } | null = null
+const CLIENT_AUTH_CACHE_TTL_MS = 60_000 // 60 seconds
+
+export function clearClientAuthUserCache() {
+  clientAuthUserCache = null
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('hatchpen:logged-out', () => {
+    clientAuthUserCache = { user: { userId: null, isAuthenticated: false }, timestamp: Date.now() }
+  })
+}
+
 export const Route = createRootRoute({
   staleTime: 60_000,
   gcTime: 300_000,
   beforeLoad: async () => {
     try {
+      if (typeof window !== 'undefined') {
+        const now = Date.now()
+        if (clientAuthUserCache && now - clientAuthUserCache.timestamp < CLIENT_AUTH_CACHE_TTL_MS) {
+          return {
+            authUser: clientAuthUserCache.user,
+            isAuthenticated: Boolean(clientAuthUserCache.user?.isAuthenticated),
+          }
+        }
+      }
+
       const authUser = await getAuthUserServerFn()
+
+      if (typeof window !== 'undefined') {
+        clientAuthUserCache = { user: authUser, timestamp: Date.now() }
+      }
+
       return {
         authUser,
         isAuthenticated: Boolean(authUser?.isAuthenticated),
@@ -325,6 +354,11 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   const rootData = Route.useLoaderData()
   const pathname = routerState.location.pathname
   const isHomePage = pathname === '/' || pathname === ''
+
+  // Seed client auth user cache synchronously upon initial hydration
+  if (typeof window !== 'undefined' && rootData?.authUser && !clientAuthUserCache) {
+    clientAuthUserCache = { user: rootData.authUser, timestamp: Date.now() }
+  }
 
   const innerContent = (
     <AppProvider>
