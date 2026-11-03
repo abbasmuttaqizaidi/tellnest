@@ -40,7 +40,7 @@ export function HomeStoryCard({
   return (
     <div
       style={style}
-      className={`rounded-xl sm:rounded-2xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-xs hover:shadow-md transition-all duration-300 flex flex-col justify-between overflow-hidden group ${widthClass} ${className}`}
+      className={`rounded-xl sm:rounded-2xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-xs hover:shadow-md transition-all duration-300 flex flex-col justify-between overflow-hidden group active:scale-[0.98] ${widthClass} ${className}`}
     >
       {/* Cover presentation with strict 4-corner badge placement */}
       <div className={`relative ${aspectRatio} w-full overflow-hidden bg-[var(--bg-subtle)]`}>

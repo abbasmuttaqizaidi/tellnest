@@ -45,8 +45,11 @@ import { ViewsBreakdownModal } from '../components/ViewsBreakdownModal'
 import { formatViewCount } from '../lib/utils'
 import { ReaderQuoteShareTooltip } from '../components/reader/ReaderQuoteShareTooltip'
 import { ShareStoryModal } from '../components/ShareStoryModal'
+import { ReaderSkeleton } from '../components/ReaderSkeleton'
 
 export const Route = createFileRoute('/read/$workId/$chapterId')({
+  pendingMs: 0,
+  pendingComponent: ReaderSkeleton,
   loader: async ({ params }) => {
     // 1. Fetch full work from Supabase
     try {

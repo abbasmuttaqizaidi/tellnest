@@ -22,6 +22,18 @@ export interface PublicWorkDependencies {
   supabaseClient?: any
 }
 
+const publicWorkCache = new Map<string, { data: any; timestamp: number }>()
+const PUBLIC_WORK_CACHE_TTL_MS = 60_000 // 60 seconds server-side cache
+
+export function clearPublicWorkCache(idOrSlug?: string) {
+  if (idOrSlug) {
+    const clean = idOrSlug.trim().toLowerCase()
+    publicWorkCache.delete(clean)
+  } else {
+    publicWorkCache.clear()
+  }
+}
+
 /**
  * Core business logic: Fetch a public or unlisted published work by ID or slug.
  * Strictly enforces:
@@ -41,6 +53,13 @@ export async function executeGetPublicWork(
   }
   const clean = idOrSlug.trim().toLowerCase()
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clean)
+
+  if (!dependencies.supabaseClient) {
+    const cached = publicWorkCache.get(clean)
+    if (cached && Date.now() - cached.timestamp < PUBLIC_WORK_CACHE_TTL_MS) {
+      return cached.data
+    }
+  }
 
   let client = dependencies.supabaseClient
   if (!client) {
@@ -320,6 +339,18 @@ export async function executeGetPublicWork(
     acts: mappedActs,
     chapters: mappedChapters,
   }
+
+  if (!dependencies.supabaseClient && mappedWork) {
+    publicWorkCache.set(clean, { data: mappedWork, timestamp: Date.now() })
+    if (mappedWork.id) {
+      publicWorkCache.set(mappedWork.id.toLowerCase(), { data: mappedWork, timestamp: Date.now() })
+    }
+    if (mappedWork.slug) {
+      publicWorkCache.set(mappedWork.slug.toLowerCase(), { data: mappedWork, timestamp: Date.now() })
+    }
+  }
+
+  return mappedWork
 }
 
 /**
@@ -630,6 +661,7 @@ const TOP_SHELF_CACHE_TTL_MS = 60_000 // 60 seconds server-side cache for Top Sh
 export function clearPlatformWorksCache() {
   platformWorksCache.clear()
   topShelfCache.clear()
+  publicWorkCache.clear()
 }
 
 export function clearTopShelfCache() {

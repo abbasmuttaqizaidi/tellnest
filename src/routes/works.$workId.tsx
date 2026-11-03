@@ -38,11 +38,14 @@ import CommentsSection from '../components/CommentsSection'
 import WorkCard from '../components/WorkCard'
 import defaultBookCover from '../assets/default-book-cover.webp'
 import { FormattedSynopsis } from '../components/FormattedSynopsis'
+import { WorkDetailsSkeleton } from '../components/WorkDetailsSkeleton'
 
 export const Route = createFileRoute('/works/$workId')({
   // In-Memory SWR (Desktop & Mobile): Keeps story details fresh in RAM for 60s; instant 0ms navigation
   staleTime: 60_000,
   gcTime: 1000 * 60 * 5,
+  pendingMs: 0,
+  pendingComponent: WorkDetailsSkeleton,
   loader: async ({ params }) => {
     // 1. Fetch full work from Supabase
     try {

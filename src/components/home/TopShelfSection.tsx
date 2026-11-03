@@ -144,7 +144,7 @@ export function TopShelfSection({
             <div
               key={work.id}
               style={{ scrollSnapAlign: 'start' }}
-              className="w-[145px] sm:w-[160px] md:w-[170px] shrink-0 flex flex-col justify-between rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-xs hover:shadow-md transition-all duration-300 overflow-hidden group"
+              className="w-[145px] sm:w-[160px] md:w-[170px] shrink-0 flex flex-col justify-between rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-xs hover:shadow-md transition-all duration-300 overflow-hidden group active:scale-[0.98]"
             >
               {/* Cover with badge */}
               <div className="relative aspect-[2/3] w-full overflow-hidden bg-[var(--bg-subtle)]">

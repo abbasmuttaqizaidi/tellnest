@@ -35,7 +35,7 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
       <div
         data-testid="work-card"
         data-work-id={work.id}
-        className="group relative flex flex-row gap-3.5 sm:gap-6 rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] p-3 sm:p-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all"
+        className="group relative flex flex-row gap-3.5 sm:gap-6 rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] p-3 sm:p-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all active:scale-[0.98]"
       >
         {/* Cover */}
         <Link
@@ -165,7 +165,7 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
     <div
       data-testid="work-card"
       data-work-id={work.id}
-      className="group relative flex flex-col justify-between rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] p-2.5 sm:p-3.5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all"
+      className="group relative flex flex-col justify-between rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] p-2.5 sm:p-3.5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)] transition-all active:scale-[0.98]"
     >
       <div>
         {/* Cover Presentation */}

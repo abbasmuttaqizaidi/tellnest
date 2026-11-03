@@ -950,7 +950,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
                 <div
                   key={work.id}
                   style={{ scrollSnapAlign: 'start' }}
-                  className="w-[145px] sm:w-[160px] md:w-[170px] shrink-0 flex flex-col justify-between rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-xs hover:shadow-md transition-all duration-300 overflow-hidden group"
+                  className="w-[145px] sm:w-[160px] md:w-[170px] shrink-0 flex flex-col justify-between rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-xs hover:shadow-md transition-all duration-300 overflow-hidden group active:scale-[0.98]"
                 >
                   {/* Cover with badge */}
                   <div className="relative aspect-[2/3] w-full overflow-hidden bg-[var(--bg-subtle)]">
@@ -1171,7 +1171,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
               return (
                 <div
                   key={work.id}
-                  className="rounded-2xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-xs hover:shadow-md transition-all duration-300 flex flex-col overflow-hidden group"
+                  className="rounded-2xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-xs hover:shadow-md transition-all duration-300 flex flex-col overflow-hidden group active:scale-[0.98]"
                 >
                   {/* Cover with badge */}
                   <div className="relative aspect-[2/3] overflow-hidden bg-[var(--bg-subtle)]">
@@ -1337,7 +1337,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
               return (
                 <div
                   key={work.id}
-                  className="rounded-2xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-xs hover:shadow-md transition-all duration-300 flex flex-col overflow-hidden group"
+                  className="rounded-2xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-xs hover:shadow-md transition-all duration-300 flex flex-col overflow-hidden group active:scale-[0.98]"
                 >
                   {/* Visual Cover Header */}
                   <div className="relative h-60 sm:h-64 overflow-hidden bg-[var(--bg-subtle)]">
@@ -1480,7 +1480,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
                 <div
                   key={work.id}
                   style={{ scrollSnapAlign: 'start' }}
-                  className="w-[145px] sm:w-[160px] md:w-[170px] shrink-0 flex flex-col justify-between rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-xs hover:shadow-md transition-all duration-300 overflow-hidden group"
+                  className="w-[145px] sm:w-[160px] md:w-[170px] shrink-0 flex flex-col justify-between rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-xs hover:shadow-md transition-all duration-300 overflow-hidden group active:scale-[0.98]"
                 >
                   {/* Cover with badge */}
                   <div className="relative aspect-[2/3] w-full overflow-hidden bg-[var(--bg-subtle)]">

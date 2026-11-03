@@ -305,6 +305,21 @@ export const Route = createRootRoute({
   shellComponent: RootDocument,
 })
 
+function NavigationProgressBar() {
+  const isNavigating = useRouterState({ select: (s) => s.status === 'pending' })
+  if (!isNavigating) return null
+
+  return (
+    <div
+      role="progressbar"
+      aria-label="Loading page..."
+      className="fixed top-0 left-0 right-0 z-[2147483647] h-[2.5px] pointer-events-none overflow-hidden bg-black/5 dark:bg-white/5"
+    >
+      <div className="h-full w-2/5 bg-gradient-to-r from-transparent via-[#B94F37] to-transparent shadow-[0_0_10px_#B94F37] animate-nav-progress" />
+    </div>
+  )
+}
+
 function RootDocument({ children }: { children: React.ReactNode }) {
   const routerState = useRouterState()
   const rootData = Route.useLoaderData()
@@ -313,6 +328,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 
   const innerContent = (
     <AppProvider>
+      <NavigationProgressBar />
       <ClerkSync />
       <InspectletTracker />
       <AuthModal />
