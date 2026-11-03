@@ -1550,11 +1550,6 @@ export async function executeGetNewVoices(
   if (!clerkUserId) {
     if (dependencies.setResponseStatus) {
       dependencies.setResponseStatus(401)
-    } else {
-      try {
-        const { setResponseStatus } = await import('@tanstack/react-start/server')
-        setResponseStatus(401)
-      } catch {}
     }
     const { UnauthorizedError } = await import('./recommendations.ts')
     throw new UnauthorizedError('Unauthorized: Authentication required to access New Voices')

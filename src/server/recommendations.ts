@@ -59,13 +59,6 @@ export async function executeGetUserRecommendationSignals(
   if (!clerkUserId) {
     if (dependencies.setResponseStatus) {
       dependencies.setResponseStatus(401)
-    } else {
-      try {
-        const { setResponseStatus } = await import('@tanstack/react-start/server')
-        setResponseStatus(401)
-      } catch {
-        // Outside active server request context
-      }
     }
     throw new UnauthorizedError('Unauthorized: Authentication required for recommendation signals')
   }
