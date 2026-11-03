@@ -203,6 +203,35 @@ export const Route = createRootRoute({
         title: 'HatchPen Stories & Updates',
         href: 'https://hatchpen.com/rss.xml',
       },
+      // Fast Auth & Backend Warmup: Preconnect critical endpoints to eliminate DNS/TLS latency
+      {
+        rel: 'preconnect',
+        href: 'https://accounts.google.com',
+      },
+      {
+        rel: 'dns-prefetch',
+        href: 'https://accounts.google.com',
+      },
+      {
+        rel: 'preconnect',
+        href: 'https://clerk.com',
+      },
+      {
+        rel: 'dns-prefetch',
+        href: 'https://clerk.com',
+      },
+      {
+        rel: 'preconnect',
+        href: 'https://img.clerk.com',
+      },
+      {
+        rel: 'preconnect',
+        href: 'https://amplbczsaqtleoshttsb.supabase.co',
+      },
+      {
+        rel: 'preconnect',
+        href: 'https://res.cloudinary.com',
+      },
       {
         rel: 'preconnect',
         href: 'https://fonts.googleapis.com',

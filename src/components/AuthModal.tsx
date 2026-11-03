@@ -100,12 +100,12 @@ export function AuthModal() {
         markClientSessionActive()
       }
 
-      // 1. Ensure Clerk is fully loaded before invoking OAuth
+      // 1. Ensure Clerk is fully loaded before invoking OAuth (fast 25ms polling)
       const clerkObj = typeof window !== 'undefined' ? (window as any).Clerk : null
       if (!clerk.loaded && !clerkObj?.loaded) {
         let attempts = 0
-        while (!clerk.loaded && !clerkObj?.loaded && attempts < 25) {
-          await new Promise((resolve) => setTimeout(resolve, 100))
+        while (!clerk.loaded && !clerkObj?.loaded && attempts < 40) {
+          await new Promise((resolve) => setTimeout(resolve, 25))
           attempts++
         }
       }

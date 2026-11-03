@@ -44,10 +44,10 @@ export const Route = createFileRoute('/')({
       const isOnboarded = Boolean(authUser?.onboardingCompleted)
 
       // Parallel server pre-fetch of section data (strictly capped at 10 items per section with memory cache!)
+      // Note: Heavy catalog-wide getPlatformWorksServerFn is excluded from initial route loader to maximize TTFB
       const [
         bootstrap,
         recSignals,
-        platformWorks,
         topShelfDirect,
         trendingDirect,
         bingeableDirect,
@@ -65,10 +65,6 @@ export const Route = createFileRoute('/')({
               return null
             })
           : null,
-        getPlatformWorksServerFn().catch((err) => {
-          console.warn('[Route Loader] Pre-fetch platform works failed:', err?.message || err)
-          return null
-        }),
         executeGetTopShelf({ limit: 10, currentUserId: authUser?.userId }).catch(() => null),
         executeGetTrendingWorks({ limit: 10 }).catch(() => null),
         executeGetBingeableWorks({ limit: 10, currentUserId: authUser?.userId }).catch(() => null),
@@ -78,25 +74,27 @@ export const Route = createFileRoute('/')({
       ])
 
       const initialTopShelf =
-        (Array.isArray(topShelfDirect) && topShelfDirect.length > 0)
+        Array.isArray(topShelfDirect) && topShelfDirect.length > 0
           ? topShelfDirect
-          : (Array.isArray(platformWorks) && platformWorks.length > 0
-              ? getTopShelfWorks(platformWorks, {
-                  limit: 10,
-                  currentUserId: authUser?.userId,
-                })
-              : null)
+          : null
+
+      // Seed initialWorks from section items to give instant hero/top-shelf rendering without full table scan
+      const initialWorks = [
+        ...(Array.isArray(topShelfDirect) ? topShelfDirect : []),
+        ...(Array.isArray(trendingDirect) ? trendingDirect : []),
+        ...(Array.isArray(bingeableDirect) ? bingeableDirect : []),
+      ]
 
       return {
         authUser: authUser || { userId: null, isAuthenticated: false },
         initialBootstrap: bootstrap,
         initialRecSignals: recSignals,
-        initialWorks: platformWorks,
+        initialWorks: initialWorks.length > 0 ? initialWorks : null,
         initialTopShelf,
         initialTrending: Array.isArray(trendingDirect) ? trendingDirect.slice(0, 10) : null,
         initialBingeable: Array.isArray(bingeableDirect) ? bingeableDirect.slice(0, 10) : null,
         initialNewVoices: Array.isArray(newVoicesDirect) ? newVoicesDirect.slice(0, 10) : null,
-        catalogError: platformWorks === null,
+        catalogError: false,
       }
     } catch {
       return {

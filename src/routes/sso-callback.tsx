@@ -40,22 +40,10 @@ export default function SSOCallbackPage() {
     }
   }, [])
 
-  // 2. Snappy progressive feedback (fast, responsive milestones)
+  // 2. Instant responsive feedback
   useEffect(() => {
-    const t1 = setTimeout(() => {
-      setProgress(60)
-      setStatusText('Setting up your reading desk...')
-    }, 120)
-
-    const t2 = setTimeout(() => {
-      setProgress(88)
-      setStatusText('Opening your stories...')
-    }, 280)
-
-    return () => {
-      clearTimeout(t1)
-      clearTimeout(t2)
-    }
+    setProgress(85)
+    setStatusText('Opening your stories...')
   }, [])
 
   const hasRedirectedRef = useRef(false)
@@ -78,7 +66,7 @@ export default function SSOCallbackPage() {
       sessionStorage.removeItem('hatchpen_just_signed_up_google')
       sessionStorage.removeItem('hatchpen_auth_return_url')
     } catch {}
-    window.location.replace(finalDest)
+    navigate({ to: (finalDest || '/') as any, replace: true })
   }
 
   // 3. Direct visit safety: If someone visits /sso-callback directly without OAuth parameters, redirect immediately
