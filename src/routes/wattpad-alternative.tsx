@@ -182,23 +182,23 @@ export default function WattpadAlternativePage() {
         subtitle="The quiet, free platform for authentic serialized reading & writing"
       />
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-12 space-y-16 sm:space-y-24">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-10 lg:pt-12 space-y-12 sm:space-y-20 lg:space-y-24">
         {/* =========================================================================
             1. HERO SECTION
             ========================================================================= */}
-        <section className="text-center max-w-3xl mx-auto space-y-5">
-          <h1 className="font-serif text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-[var(--ink-primary)] leading-[1.08]">
+        <section className="text-center max-w-3xl mx-auto space-y-4 sm:space-y-5">
+          <h1 className="font-serif text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-[var(--ink-primary)] leading-[1.12] sm:leading-[1.08]">
             The Quiet, Free Alternative to <span className="text-[#B94F37]">Wattpad</span>
           </h1>
 
-          <p className="text-base sm:text-lg text-[var(--ink-muted)] leading-relaxed max-w-2xl mx-auto font-normal">
+          <p className="text-sm sm:text-base md:text-lg text-[var(--ink-muted)] leading-relaxed max-w-2xl mx-auto font-normal">
             No coin paywalls, no algorithmic lockouts. A distraction-free home where underrated stories find genuine readers, and emerging writers compete in regular writing contests with real cash prizes.
           </p>
 
-          <div className="flex flex-wrap items-center justify-center gap-3.5 pt-2">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-3.5 pt-2 w-full">
             <Link
               to="/discover"
-              className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full bg-[#201F1D] text-[#F2EDE3] dark:bg-[#F2EDE3] dark:text-[#201F1D] text-sm font-semibold hover:opacity-90 transition-all shadow-sm no-underline"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3 sm:py-3.5 rounded-full bg-[#201F1D] text-[#F2EDE3] dark:bg-[#F2EDE3] dark:text-[#201F1D] text-sm font-semibold hover:opacity-90 transition-all shadow-sm no-underline"
             >
               <span>Start Reading Free</span>
               <ArrowRight className="w-4 h-4" />
@@ -206,29 +206,29 @@ export default function WattpadAlternativePage() {
 
             <Link
               to="/write"
-              className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full border border-[var(--border-strong)] text-[var(--ink-primary)] text-sm font-semibold hover:bg-[var(--bg-surface)] transition-all no-underline"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3 sm:py-3.5 rounded-full border border-[var(--border-strong)] text-[var(--ink-primary)] text-sm font-semibold hover:bg-[var(--bg-surface)] transition-all no-underline"
             >
               <Feather className="w-4 h-4 text-[#B94F37]" />
               <span>Publish Your Story</span>
             </Link>
           </div>
 
-          {/* Micro Trust Points */}
-          <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-8 pt-4 text-xs text-[var(--ink-muted)]">
-            <div className="flex items-center gap-1.5">
-              <Check className="w-4 h-4 text-emerald-600" />
+          {/* Micro Trust Points (2x2 on mobile, flex on sm+) */}
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center justify-center gap-2.5 sm:gap-6 pt-3 sm:pt-4 text-[11px] sm:text-xs text-[var(--ink-muted)]">
+            <div className="flex items-center gap-1.5 justify-center sm:justify-start">
+              <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
               <span>Zero Coin Paywalls</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <Check className="w-4 h-4 text-emerald-600" />
+            <div className="flex items-center gap-1.5 justify-center sm:justify-start">
+              <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
               <span>₹2,000 Writing Contest</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <Check className="w-4 h-4 text-emerald-600" />
+            <div className="flex items-center gap-1.5 justify-center sm:justify-start">
+              <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
               <span>100% Writer Ownership</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <Check className="w-4 h-4 text-emerald-600" />
+            <div className="flex items-center gap-1.5 justify-center sm:justify-start">
+              <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
               <span>Ad-Free Reader</span>
             </div>
           </div>
@@ -237,61 +237,61 @@ export default function WattpadAlternativePage() {
         {/* =========================================================================
             2. WRITING CONTEST SPOTLIGHT (₹2,000 CASH PRIZE)
             ========================================================================= */}
-        <section className="rounded-3xl border-2 border-[#B94F37]/30 bg-gradient-to-br from-[var(--bg-surface)] via-[var(--bg-surface)] to-[#B94F37]/5 p-6 sm:p-10 shadow-xs relative overflow-hidden">
+        <section className="rounded-2xl sm:rounded-3xl border-2 border-[#B94F37]/30 bg-gradient-to-br from-[var(--bg-surface)] via-[var(--bg-surface)] to-[#B94F37]/5 p-5 sm:p-8 lg:p-10 shadow-xs relative overflow-hidden">
           <div className="absolute top-0 right-0 -mt-6 -mr-6 w-36 h-36 bg-[#B94F37]/10 rounded-full blur-2xl pointer-events-none" />
 
-          <div className="max-w-3xl space-y-6">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#B94F37]/10 text-[#B94F37] text-xs font-bold uppercase tracking-wider">
+          <div className="max-w-3xl space-y-4 sm:space-y-6">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#B94F37]/10 text-[#B94F37] text-[11px] sm:text-xs font-bold uppercase tracking-wider">
               <Trophy className="w-3.5 h-3.5" />
               <span>Writer Spotlight & Cash Reward</span>
             </div>
 
-            <div className="space-y-3">
-              <h2 className="font-serif text-2xl sm:text-4xl font-extrabold text-[var(--ink-primary)] leading-tight">
+            <div className="space-y-2 sm:space-y-3">
+              <h2 className="font-serif text-xl sm:text-3xl lg:text-4xl font-extrabold text-[var(--ink-primary)] leading-tight">
                 The HatchPen Indie Writer Contest — <span className="text-[#B94F37]">₹2,000 Cash Prize</span>
               </h2>
-              <p className="text-sm sm:text-base text-[var(--ink-muted)] leading-relaxed">
+              <p className="text-xs sm:text-sm md:text-base text-[var(--ink-muted)] leading-relaxed">
                 We believe emerging indie storytelling deserves real rewards, not just digital sticker badges. Every contest cycle, HatchPen celebrates original serialized stories. The winning writer takes home a direct <strong>₹2,000 cash prize</strong>, permanent top-shelf editorial placement, and platform-wide reader spotlight.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-              <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-canvas)] p-4 space-y-1.5">
-                <div className="flex items-center gap-2 text-sm font-semibold text-[var(--ink-primary)]">
-                  <Award className="w-4 h-4 text-[#B94F37]" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 pt-1 sm:pt-2">
+              <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-canvas)] p-3.5 sm:p-4 space-y-1 sm:space-y-1.5">
+                <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-[var(--ink-primary)]">
+                  <Award className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#B94F37] shrink-0" />
                   <span>Direct Cash Reward</span>
                 </div>
-                <p className="text-xs text-[var(--ink-muted)] leading-normal">
+                <p className="text-[11px] sm:text-xs text-[var(--ink-muted)] leading-normal">
                   ₹2,000 transferred straight to the winning author. No token conversions or hidden deductions.
                 </p>
               </div>
 
-              <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-canvas)] p-4 space-y-1.5">
-                <div className="flex items-center gap-2 text-sm font-semibold text-[var(--ink-primary)]">
-                  <Users className="w-4 h-4 text-[#B94F37]" />
+              <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-canvas)] p-3.5 sm:p-4 space-y-1 sm:space-y-1.5">
+                <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-[var(--ink-primary)]">
+                  <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#B94F37] shrink-0" />
                   <span>Fair Discovery, Not Bot Views</span>
                 </div>
-                <p className="text-xs text-[var(--ink-muted)] leading-normal">
+                <p className="text-[11px] sm:text-xs text-[var(--ink-muted)] leading-normal">
                   Evaluated on chapter engagement, reader completion, and narrative craft—never gamified view counters.
                 </p>
               </div>
 
-              <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-canvas)] p-4 space-y-1.5">
-                <div className="flex items-center gap-2 text-sm font-semibold text-[var(--ink-primary)]">
-                  <ShieldCheck className="w-4 h-4 text-[#B94F37]" />
+              <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-canvas)] p-3.5 sm:p-4 space-y-1 sm:space-y-1.5">
+                <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-[var(--ink-primary)]">
+                  <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#B94F37] shrink-0" />
                   <span>100% Rights Kept</span>
                 </div>
-                <p className="text-xs text-[var(--ink-muted)] leading-normal">
+                <p className="text-[11px] sm:text-xs text-[var(--ink-muted)] leading-normal">
                   Winning does not lock you into exclusive publisher contracts. Your intellectual property stays 100% yours.
                 </p>
               </div>
 
-              <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-canvas)] p-4 space-y-1.5">
-                <div className="flex items-center gap-2 text-sm font-semibold text-[var(--ink-primary)]">
-                  <Flame className="w-4 h-4 text-[#B94F37]" />
+              <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-canvas)] p-3.5 sm:p-4 space-y-1 sm:space-y-1.5">
+                <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-[var(--ink-primary)]">
+                  <Flame className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#B94F37] shrink-0" />
                   <span>Top Shelf Spotlight</span>
                 </div>
-                <p className="text-xs text-[var(--ink-muted)] leading-normal">
+                <p className="text-[11px] sm:text-xs text-[var(--ink-muted)] leading-normal">
                   Winners gain sitewide feature placement in HatchPen’s curated collections and homepage hero feeds.
                 </p>
               </div>
@@ -300,7 +300,7 @@ export default function WattpadAlternativePage() {
             <div className="pt-2">
               <Link
                 to="/write"
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#B94F37] text-white text-sm font-semibold hover:bg-[#a0432e] transition-colors shadow-xs no-underline"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-[#B94F37] text-white text-xs sm:text-sm font-semibold hover:bg-[#a0432e] transition-colors shadow-xs no-underline text-center"
               >
                 <span>Enter Your Serial in the Contest</span>
                 <ArrowRight className="w-4 h-4" />
@@ -310,20 +310,57 @@ export default function WattpadAlternativePage() {
         </section>
 
         {/* =========================================================================
-            3. CORE COMPARISON TABLE
+            3. CORE COMPARISON (Responsive Mobile Cards + Desktop Table)
             ========================================================================= */}
-        <section className="space-y-6">
-          <div className="text-center max-w-2xl mx-auto space-y-2">
-            <h2 className="font-serif text-2xl sm:text-4xl font-bold text-[var(--ink-primary)]">
+        <section className="space-y-5 sm:space-y-6">
+          <div className="text-center max-w-2xl mx-auto space-y-1.5 sm:space-y-2">
+            <h2 className="font-serif text-xl sm:text-3xl lg:text-4xl font-bold text-[var(--ink-primary)]">
               Why Readers & Writers Are Making the Switch
             </h2>
-            <p className="text-sm sm:text-base text-[var(--ink-muted)]">
+            <p className="text-xs sm:text-sm md:text-base text-[var(--ink-muted)]">
               See how HatchPen compares directly to Wattpad across discovery, reading, and creator rewards.
             </p>
           </div>
 
-          {/* Responsive Comparison Matrix */}
-          <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] overflow-hidden shadow-xs">
+          {/* Mobile Comparison Cards (Shown on mobile < md) */}
+          <div className="md:hidden space-y-3">
+            {COMPARISON_ROWS.map((row, idx) => (
+              <div
+                key={idx}
+                className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 space-y-2.5 shadow-2xs"
+              >
+                <div className="font-semibold text-xs sm:text-sm text-[var(--ink-primary)]">
+                  {row.feature}
+                </div>
+                <div className="space-y-2 text-xs">
+                  {/* Wattpad Item */}
+                  <div className="flex items-start gap-2 bg-rose-500/5 dark:bg-rose-950/20 rounded-lg p-2.5 text-[var(--ink-muted)] border border-rose-500/10">
+                    <X className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <span className="font-mono text-[10px] uppercase font-bold text-rose-600 dark:text-rose-400 block mb-0.5">
+                        Wattpad
+                      </span>
+                      <span className="leading-snug">{row.wattpad}</span>
+                    </div>
+                  </div>
+
+                  {/* HatchPen Item */}
+                  <div className="flex items-start gap-2 bg-[#B94F37]/5 dark:bg-[#B94F37]/10 rounded-lg p-2.5 text-[var(--ink-primary)] font-medium border border-[#B94F37]/20">
+                    <Check className="w-3.5 h-3.5 text-[#B94F37] shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <span className="font-mono text-[10px] uppercase font-bold text-[#B94F37] block mb-0.5">
+                        HatchPen
+                      </span>
+                      <span className="leading-snug">{row.hatchpen}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop & Tablet Comparison Table (Shown on md+) */}
+          <div className="hidden md:block rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] overflow-hidden shadow-xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[560px]">
                 <thead>
@@ -371,9 +408,9 @@ export default function WattpadAlternativePage() {
         {/* =========================================================================
             4. THREE CORE PILLARS
             ========================================================================= */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 space-y-2.5">
-            <h3 className="font-serif text-lg font-bold text-[var(--ink-primary)]">
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-6">
+          <div className="rounded-xl sm:rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5 sm:p-6 space-y-2 sm:space-y-2.5">
+            <h3 className="font-serif text-base sm:text-lg font-bold text-[var(--ink-primary)]">
               Underrated Stories First
             </h3>
             <p className="text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed">
@@ -381,8 +418,8 @@ export default function WattpadAlternativePage() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 space-y-2.5">
-            <h3 className="font-serif text-lg font-bold text-[var(--ink-primary)]">
+          <div className="rounded-xl sm:rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5 sm:p-6 space-y-2 sm:space-y-2.5">
+            <h3 className="font-serif text-base sm:text-lg font-bold text-[var(--ink-primary)]">
               Zero-Friction Free Reading
             </h3>
             <p className="text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed">
@@ -390,8 +427,8 @@ export default function WattpadAlternativePage() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 space-y-2.5">
-            <h3 className="font-serif text-lg font-bold text-[var(--ink-primary)]">
+          <div className="rounded-xl sm:rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5 sm:p-6 space-y-2 sm:space-y-2.5">
+            <h3 className="font-serif text-base sm:text-lg font-bold text-[var(--ink-primary)]">
               Genuine Author Community
             </h3>
             <p className="text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed">
@@ -403,9 +440,9 @@ export default function WattpadAlternativePage() {
         {/* =========================================================================
             5. FREQUENTLY ASKED QUESTIONS
             ========================================================================= */}
-        <section className="space-y-6 max-w-3xl mx-auto w-full">
-          <div className="text-center space-y-2">
-            <h2 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)]">
+        <section className="space-y-5 sm:space-y-6 max-w-3xl mx-auto w-full">
+          <div className="text-center space-y-1.5 sm:space-y-2">
+            <h2 className="font-serif text-xl sm:text-3xl font-bold text-[var(--ink-primary)]">
               Frequently Asked Questions
             </h2>
             <p className="text-xs sm:text-sm text-[var(--ink-muted)]">
@@ -413,26 +450,26 @@ export default function WattpadAlternativePage() {
             </p>
           </div>
 
-          <div className="divide-y divide-[var(--border-subtle)] rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 sm:px-6">
+          <div className="divide-y divide-[var(--border-subtle)] rounded-xl sm:rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 sm:px-6">
             {FAQS.map((faq, idx) => {
               const isOpen = openFaqIndex === idx
               return (
-                <div key={idx} className="py-4 sm:py-5">
+                <div key={idx} className="py-3.5 sm:py-5">
                   <button
                     type="button"
                     onClick={() => toggleFaq(idx)}
-                    className="flex w-full items-center justify-between text-left text-sm sm:text-base font-semibold text-[var(--ink-primary)] focus:outline-none"
+                    className="flex w-full items-center justify-between text-left text-xs sm:text-sm md:text-base font-semibold text-[var(--ink-primary)] focus:outline-none cursor-pointer"
                     aria-expanded={isOpen}
                   >
-                    <span>{faq.question}</span>
+                    <span className="pr-2">{faq.question}</span>
                     {isOpen ? (
-                      <ChevronUp className="w-4 h-4 text-[#B94F37] shrink-0 ml-2" />
+                      <ChevronUp className="w-4 h-4 text-[#B94F37] shrink-0" />
                     ) : (
-                      <ChevronDown className="w-4 h-4 text-[var(--ink-muted)] shrink-0 ml-2" />
+                      <ChevronDown className="w-4 h-4 text-[var(--ink-muted)] shrink-0" />
                     )}
                   </button>
                   {isOpen && (
-                    <div className="mt-2.5 pr-4 text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed">
+                    <div className="mt-2 sm:mt-2.5 pr-2 sm:pr-4 text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed">
                       {faq.answer}
                     </div>
                   )}
@@ -445,18 +482,18 @@ export default function WattpadAlternativePage() {
         {/* =========================================================================
             6. BOTTOM CTA
             ========================================================================= */}
-        <section className="text-center max-w-2xl mx-auto py-8 sm:py-12 space-y-5 border-t border-[var(--border-subtle)]">
-          <h2 className="font-serif text-2xl sm:text-4xl font-bold text-[var(--ink-primary)]">
+        <section className="text-center max-w-2xl mx-auto py-6 sm:py-10 space-y-4 sm:space-y-5 border-t border-[var(--border-subtle)]">
+          <h2 className="font-serif text-xl sm:text-3xl lg:text-4xl font-bold text-[var(--ink-primary)] leading-tight">
             Ready for a Quieter Place with Bolder Stories?
           </h2>
           <p className="text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed">
             Join thousands of readers and writers who have stepped beyond algorithmic hype to discover original serialized fiction.
           </p>
 
-          <div className="flex flex-wrap items-center justify-center gap-3.5 pt-2">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-3.5 pt-2 w-full">
             <Link
               to="/discover"
-              className="inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full bg-[#201F1D] text-[#F2EDE3] dark:bg-[#F2EDE3] dark:text-[#201F1D] text-sm font-semibold hover:opacity-90 transition-all shadow-sm no-underline"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full bg-[#201F1D] text-[#F2EDE3] dark:bg-[#F2EDE3] dark:text-[#201F1D] text-sm font-semibold hover:opacity-90 transition-all shadow-sm no-underline"
             >
               <span>Start Reading Free</span>
               <ArrowRight className="w-4 h-4" />
@@ -464,7 +501,7 @@ export default function WattpadAlternativePage() {
 
             <Link
               to="/write"
-              className="inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full border border-[var(--border-strong)] text-[var(--ink-primary)] text-sm font-semibold hover:bg-[var(--bg-surface)] transition-all no-underline"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full border border-[var(--border-strong)] text-[var(--ink-primary)] text-sm font-semibold hover:bg-[var(--bg-surface)] transition-all no-underline"
             >
               <span>Publish Your Story</span>
             </Link>
