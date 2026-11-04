@@ -5,10 +5,12 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   generateRssXml,
+  generateStoryRssXml,
   formatRfc822Date,
   cdata,
 } from '../src/server/rss.ts'
 import rssHandler from '../src/server/rss-handler.ts'
+import storyRssHandler from '../src/server/story-rss-handler.ts'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -252,11 +254,184 @@ test('RSS Robots Invariant: public/robots.txt allows /rss.xml and /feed.xml', ()
   const robots = fs.readFileSync(path.join(rootDir, 'public/robots.txt'), 'utf-8')
   assert.ok(robots.includes('Allow: /rss.xml'), 'robots.txt must allow /rss.xml')
   assert.ok(robots.includes('Allow: /feed.xml'), 'robots.txt must allow /feed.xml')
+  assert.ok(robots.includes('Allow: /rss/'), 'robots.txt must allow /rss/')
 })
 
 test('RSS Route Invariant: vite.config.ts configures nitro routes for /rss.xml and /feed.xml', () => {
   const viteConfig = fs.readFileSync(path.join(rootDir, 'vite.config.ts'), 'utf-8')
   assert.ok(viteConfig.includes("route: '/rss.xml'"), 'vite.config.ts must map /rss.xml')
   assert.ok(viteConfig.includes("route: '/feed.xml'"), 'vite.config.ts must map /feed.xml')
+  assert.ok(viteConfig.includes("route: '/rss/:workId'"), 'vite.config.ts must map /rss/:workId')
   assert.ok(viteConfig.includes('./src/server/rss-handler.ts'), 'vite.config.ts must point to rss-handler')
+  assert.ok(viteConfig.includes('./src/server/story-rss-handler.ts'), 'vite.config.ts must point to story-rss-handler')
+})
+
+// ---------------------------------------------------------------------------
+// 7. Story-Specific Chapter RSS Feeds (/rss/:workId.xml)
+// ---------------------------------------------------------------------------
+
+test('Story RSS 2.0 Generation: Produces standard chapter RSS 2.0 with chapter items', async () => {
+  const mockWork = {
+    id: 'work-abc',
+    slug: 'the-girl-who-saw',
+    title: 'The Girl Who Saw',
+    description: 'A psychological thriller mystery novel.',
+    cover_image_path: 'https://images.unsplash.com/cover.jpg',
+    visibility: 'public',
+    publication_status: 'published',
+    is_indexable: true,
+    published_at: '2026-10-01T10:00:00.000Z',
+    profiles: { id: 'author-123', username: 'mysterywriter', display_name: 'Arthur C. Finch' },
+  }
+
+  const mockChapters = [
+    {
+      id: 'chap-1',
+      chapter_number: 1,
+      title: 'The Awakening',
+      excerpt: 'She woke up to the sound of breaking glass.',
+      status: 'published',
+      is_indexable: true,
+      published_at: '2026-10-01T12:00:00.000Z',
+    },
+    {
+      id: 'chap-2',
+      chapter_number: 2,
+      title: 'Shadows in the Mist',
+      excerpt: 'Footsteps echoed through the damp alleyway.',
+      status: 'published',
+      is_indexable: true,
+      published_at: '2026-10-05T15:30:00.000Z',
+    },
+  ]
+
+  const xml = await generateStoryRssXml('the-girl-who-saw', {
+    workData: mockWork,
+    chaptersData: mockChapters,
+  })
+
+  assert.ok(xml, 'XML should be generated for valid story')
+  assert.ok(xml.startsWith('<?xml version="1.0" encoding="UTF-8"?>'))
+  assert.ok(xml.includes('<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"'))
+  assert.ok(xml.endsWith('</rss>'))
+
+  // Channel tags
+  assert.ok(xml.includes('<title><![CDATA[The Girl Who Saw — Chapter Feed | HatchPen]]></title>'))
+  assert.ok(xml.includes('<link>https://hatchpen.com/works/the-girl-who-saw</link>'))
+  assert.ok(xml.includes('<atom:link href="https://hatchpen.com/rss/the-girl-who-saw.xml" rel="self" type="application/rss+xml" />'))
+  assert.ok(xml.includes('<url>https://images.unsplash.com/cover.jpg</url>'))
+
+  // Chapter 1 verification
+  assert.ok(xml.includes('<title><![CDATA[Chapter 1: The Awakening]]></title>'))
+  assert.ok(xml.includes('<link>https://hatchpen.com/read/the-girl-who-saw/chap-1</link>'))
+  assert.ok(xml.includes('<guid isPermaLink="true">https://hatchpen.com/read/the-girl-who-saw/chap-1</guid>'))
+  assert.ok(xml.includes('<author><![CDATA[Arthur C. Finch]]></author>'))
+  assert.ok(xml.includes('<description><![CDATA[She woke up to the sound of breaking glass.]]></description>'))
+
+  // Chapter 2 verification
+  assert.ok(xml.includes('<title><![CDATA[Chapter 2: Shadows in the Mist]]></title>'))
+  assert.ok(xml.includes('<link>https://hatchpen.com/read/the-girl-who-saw/chap-2</link>'))
+})
+
+test('Story RSS 2.0 Invariant: Returns null for draft, unlisted, or private stories', async () => {
+  const draftWork = {
+    id: 'work-draft',
+    slug: 'draft-book',
+    title: 'Draft Book',
+    visibility: 'public',
+    publication_status: 'draft',
+    is_indexable: true,
+  }
+
+  const unlistedWork = {
+    id: 'work-unlisted',
+    slug: 'unlisted-book',
+    title: 'Unlisted Book',
+    visibility: 'unlisted',
+    publication_status: 'published',
+    is_indexable: true,
+  }
+
+  const nonIndexableWork = {
+    id: 'work-non-index',
+    slug: 'no-index-book',
+    title: 'No Index Book',
+    visibility: 'public',
+    publication_status: 'published',
+    is_indexable: false,
+  }
+
+  assert.equal(await generateStoryRssXml('draft-book', { workData: draftWork }), null)
+  assert.equal(await generateStoryRssXml('unlisted-book', { workData: unlistedWork }), null)
+  assert.equal(await generateStoryRssXml('no-index-book', { workData: nonIndexableWork }), null)
+  assert.equal(await generateStoryRssXml(''), null)
+})
+
+test('Story RSS 2.0 Invariant: Excludes draft and non-indexable chapters', async () => {
+  const mockWork = {
+    id: 'work-mixed',
+    slug: 'mixed-chapters',
+    title: 'Mixed Story',
+    visibility: 'public',
+    publication_status: 'published',
+    is_indexable: true,
+  }
+
+  const chapters = [
+    {
+      id: 'chap-published',
+      chapter_number: 1,
+      title: 'Published Chapter',
+      status: 'published',
+      is_indexable: true,
+    },
+    {
+      id: 'chap-draft',
+      chapter_number: 2,
+      title: 'Secret Draft Chapter',
+      status: 'draft',
+      is_indexable: true,
+    },
+    {
+      id: 'chap-hidden',
+      chapter_number: 3,
+      title: 'Hidden Chapter',
+      status: 'published',
+      is_indexable: false,
+    },
+  ]
+
+  const xml = await generateStoryRssXml('mixed-chapters', {
+    workData: mockWork,
+    chaptersData: chapters,
+  })
+
+  assert.ok(xml.includes('Published Chapter'))
+  assert.ok(!xml.includes('Secret Draft Chapter'))
+  assert.ok(!xml.includes('Hidden Chapter'))
+})
+
+test('Story RSS 2.0 Handler: Returns 200 with XML content-type or 404 if not found', async () => {
+  // Test 404 response for unknown story
+  const notFoundEvent = {
+    context: { params: { workId: 'unknown-story-slug.xml' } },
+    node: { req: { url: '/rss/unknown-story-slug.xml' } },
+  }
+  const notFoundRes = await storyRssHandler(notFoundEvent)
+  assert.equal(notFoundRes.status, 404)
+
+  // Test 400 response for empty workId
+  const emptyEvent = {
+    context: { params: { workId: '' } },
+    node: { req: { url: '/rss/' } },
+  }
+  const emptyRes = await storyRssHandler(emptyEvent)
+  assert.equal(emptyRes.status, 400)
+})
+
+test('Story RSS Autodiscovery: works.$workId.tsx configures chapter feed alternate link', () => {
+  const worksCode = fs.readFileSync(path.join(rootDir, 'src/routes/works.$workId.tsx'), 'utf-8')
+  assert.ok(worksCode.includes("rel: 'alternate'"), 'works.$workId.tsx must configure alternate link')
+  assert.ok(worksCode.includes("type: 'application/rss+xml'"), 'works.$workId.tsx must declare RSS mime type')
+  assert.ok(worksCode.includes('/rss/${canonicalSlug}.xml'), 'works.$workId.tsx must link to canonical story RSS')
 })

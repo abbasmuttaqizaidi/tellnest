@@ -9,6 +9,7 @@ Allow: /category/
 Allow: /genre/
 Allow: /rss.xml
 Allow: /feed.xml
+Allow: /rss/
 
 # Disallow private user states and authenticated editors
 Disallow: /settings

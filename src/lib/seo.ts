@@ -63,6 +63,7 @@ export interface SeoOptions {
   breadcrumbs?: BreadcrumbItem[]
   prevUrl?: string
   nextUrl?: string
+  extraLinks?: Array<{ rel: string; href: string; type?: string; title?: string }>
 }
 
 export function generateMeta(options: SeoOptions = {}) {
@@ -147,6 +148,18 @@ export function generateMeta(options: SeoOptions = {}) {
   }
   if (options.nextUrl) {
     links.push({ rel: 'next', href: resolveAbsoluteUrl(options.nextUrl) })
+  }
+  if (Array.isArray(options.extraLinks)) {
+    for (const extra of options.extraLinks) {
+      if (extra && extra.rel && extra.href) {
+        links.push({
+          rel: extra.rel,
+          href: resolveAbsoluteUrl(extra.href),
+          ...(extra.type ? { type: extra.type } : {}),
+          ...(extra.title ? { title: extra.title } : {}),
+        } as any)
+      }
+    }
   }
 
   const scripts: Array<{ type: string; children: string }> = []

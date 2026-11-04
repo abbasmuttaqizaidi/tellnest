@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Check, Copy, Share2 } from 'lucide-react'
+import { X, Check, Copy, Share2, Rss } from 'lucide-react'
 
 export interface ShareStoryModalProps {
   isOpen: boolean
@@ -215,6 +215,22 @@ export function ShareStoryModal({
                 </>
               )}
             </button>
+          </div>
+
+          {/* Chapter RSS Feed Shortcut */}
+          <div className="mt-3 pt-3 border-t border-[var(--border-subtle)] flex items-center justify-between text-[11px] text-[var(--ink-secondary)]">
+            <span className="flex items-center gap-1.5 font-mono text-[var(--ink-tertiary)]">
+              <Rss className="w-3 h-3 text-amber-500" />
+              <span>Chapter RSS Feed</span>
+            </span>
+            <a
+              href={`${url.replace(/\/works\//, '/rss/')}.xml`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] font-mono text-[var(--ink-primary)] hover:underline flex items-center gap-1"
+            >
+              Feed XML ↗
+            </a>
           </div>
         </motion.div>
       </div>

@@ -163,3 +163,145 @@ export async function generateRssXml(options: GenerateRssOptions = {}): Promise<
 
   return xmlLines.join('\n')
 }
+
+export interface GenerateStoryRssOptions extends GenerateRssOptions {
+  workData?: any
+  chaptersData?: any[]
+}
+
+/**
+ * Generates an RSS 2.0 XML feed for an individual serialized story's published chapters.
+ * Enables instant syndication for serial fiction aggregators and web fiction indexing bots.
+ * Returns null if the work is private, draft, unlisted, not indexable, or not found.
+ */
+export async function generateStoryRssXml(
+  slugOrId: string,
+  options: GenerateStoryRssOptions = {}
+): Promise<string | null> {
+  if (!slugOrId || typeof slugOrId !== 'string' || !slugOrId.trim()) {
+    return null
+  }
+
+  const clean = slugOrId.trim().toLowerCase()
+  const client = options.supabaseClient || defaultSupabase
+  const now = options.currentDate || new Date()
+  const lastBuildDate = formatRfc822Date(now)
+
+  let work = options.workData
+  if (!work) {
+    try {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clean)
+      let query = client
+        .from('works')
+        .select('id, slug, title, description, cover_image_path, language, visibility, publication_status, is_indexable, created_at, updated_at, published_at, profiles!works_author_id_fkey(id, username, display_name)')
+        .eq('visibility', 'public')
+        .eq('publication_status', 'published')
+        .eq('is_indexable', true)
+
+      if (isUuid) {
+        query = query.or(`id.eq.${clean},slug.eq.${clean}`)
+      } else {
+        query = query.eq('slug', clean)
+      }
+
+      const { data, error } = await query.maybeSingle()
+      if (error) {
+        console.warn(`[generateStoryRssXml] Database error for work "${clean}":`, error.message)
+        return null
+      }
+      work = data
+    } catch (err: any) {
+      console.warn(`[generateStoryRssXml] Work lookup error for "${clean}":`, err?.message || err)
+      return null
+    }
+  }
+
+  if (!work || !isSitemapEligibleWork(work)) {
+    return null
+  }
+
+  const canonicalSlug = work.slug || work.id
+  const workUrl = `${CANONICAL_BASE_URL}/works/${canonicalSlug}`
+  const rssSelfUrl = `${CANONICAL_BASE_URL}/rss/${canonicalSlug}.xml`
+  const storyTitle = work.title || 'Untitled Manuscript'
+  const storyDesc = (work.description || work.synopsis || `Latest published chapters from ${storyTitle} on HatchPen.`).slice(0, 500)
+  const authorProfile = Array.isArray(work.profiles) ? work.profiles[0] : (work.profiles || work.author)
+  const authorName = authorProfile?.display_name || authorProfile?.name || authorProfile?.username || 'HatchPen Author'
+  const cover = work.cover_image_path || work.cover
+
+  let chapters = options.chaptersData || work.chapters
+  if (!chapters && work.id) {
+    try {
+      const { data: dbChapters, error: chError } = await client
+        .from('chapters')
+        .select('id, chapter_number, title, excerpt, word_count, status, is_indexable, published_at, created_at')
+        .eq('work_id', work.id)
+        .eq('status', 'published')
+        .order('chapter_number', { ascending: true })
+
+      if (chError) {
+        console.warn(`[generateStoryRssXml] Chapter query error for work ${work.id}:`, chError.message)
+      } else {
+        chapters = dbChapters
+      }
+    } catch (chErr: any) {
+      console.warn(`[generateStoryRssXml] Chapter fetch error for work ${work.id}:`, chErr?.message || chErr)
+    }
+  }
+
+  const eligibleChapters = (Array.isArray(chapters) ? chapters : []).filter(
+    (ch: any) =>
+      (ch.status || 'published').toLowerCase() === 'published' &&
+      ch.is_indexable !== false
+  )
+
+  const xmlLines: string[] = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">',
+    '  <channel>',
+    `    <title>${cdata(`${storyTitle} — Chapter Feed | HatchPen`)}</title>`,
+    `    <link>${workUrl}</link>`,
+    `    <description>${cdata(storyDesc)}</description>`,
+    `    <language>${escapeXml(work.language || 'en')}</language>`,
+    `    <lastBuildDate>${lastBuildDate}</lastBuildDate>`,
+    `    <atom:link href="${rssSelfUrl}" rel="self" type="application/rss+xml" />`,
+  ]
+
+  if (cover && typeof cover === 'string' && cover.startsWith('http')) {
+    xmlLines.push('    <image>')
+    xmlLines.push(`      <url>${escapeXml(cover)}</url>`)
+    xmlLines.push(`      <title>${escapeXml(storyTitle)}</title>`)
+    xmlLines.push(`      <link>${workUrl}</link>`)
+    xmlLines.push('    </image>')
+  }
+
+  for (const ch of eligibleChapters) {
+    const chNum = ch.chapter_number
+    const rawTitle = ch.title || (chNum ? `Chapter ${chNum}` : 'Untitled Chapter')
+    const itemTitle = chNum && !rawTitle.toLowerCase().startsWith('chapter')
+      ? `Chapter ${chNum}: ${rawTitle}`
+      : rawTitle
+    const chapterUrl = `${CANONICAL_BASE_URL}/read/${canonicalSlug}/${ch.id}`
+    const pubDate = formatRfc822Date(ch.published_at || ch.created_at || work.updated_at)
+    const chDesc = (ch.excerpt || `Read ${itemTitle} of ${storyTitle} by ${authorName} on HatchPen.`).slice(0, 300)
+
+    xmlLines.push('    <item>')
+    xmlLines.push(`      <title>${cdata(itemTitle)}</title>`)
+    xmlLines.push(`      <link>${escapeXml(chapterUrl)}</link>`)
+    xmlLines.push(`      <guid isPermaLink="true">${escapeXml(chapterUrl)}</guid>`)
+    xmlLines.push(`      <pubDate>${pubDate}</pubDate>`)
+    xmlLines.push(`      <author>${cdata(authorName)}</author>`)
+    xmlLines.push(`      <description>${cdata(chDesc)}</description>`)
+    if (cover && typeof cover === 'string' && cover.startsWith('http')) {
+      xmlLines.push(
+        `      <enclosure url="${escapeXml(cover)}" length="0" type="${cover.endsWith('.png') ? 'image/png' : 'image/jpeg'}" />`
+      )
+    }
+    xmlLines.push('    </item>')
+  }
+
+  xmlLines.push('  </channel>')
+  xmlLines.push('</rss>')
+
+  return xmlLines.join('\n')
+}

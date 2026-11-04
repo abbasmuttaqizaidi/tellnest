@@ -311,6 +311,16 @@ export const Route = createFileRoute('/works/$workId')({
           : []),
         { name: work.title, url: `/works/${canonicalSlug}` },
       ],
+      extraLinks: isIndexable
+        ? [
+            {
+              rel: 'alternate',
+              type: 'application/rss+xml',
+              title: `${work.title} Chapter Feed`,
+              href: `/rss/${canonicalSlug}.xml`,
+            },
+          ]
+        : undefined,
     })
   },
   component: WorkDetailPage,

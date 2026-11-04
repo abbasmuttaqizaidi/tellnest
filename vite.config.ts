@@ -42,6 +42,10 @@ const config = defineConfig({
           handler: './src/server/rss-handler.ts',
         },
         {
+          route: '/rss/:workId',
+          handler: './src/server/story-rss-handler.ts',
+        },
+        {
           route: '/api/cron/trending-weekly',
           handler: './src/server/cron-trending-handler.ts',
         },

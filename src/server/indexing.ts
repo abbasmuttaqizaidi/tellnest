@@ -42,6 +42,7 @@ export interface IndexingOptions {
   googleCredentials?: GoogleCredentials
   indexNowKey?: string
   host?: string
+  extraFeeds?: string[]
   logger?: {
     info: (...args: any[]) => void
     warn: (...args: any[]) => void
@@ -418,6 +419,40 @@ export async function pingSitemapAndFeeds(options: IndexingOptions = {}): Promis
     })
   }
 
+  // 4. Ping PubSubHubbub for any story-specific RSS feeds
+  if (Array.isArray(options.extraFeeds)) {
+    for (const extraFeed of options.extraFeeds) {
+      if (!extraFeed || typeof extraFeed !== 'string') continue
+      const extraFeedEncoded = encodeURIComponent(extraFeed)
+      try {
+        const extraRes = await fetchFn('https://pubsubhubbub.appspot.com/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: `hub.mode=publish&hub.url=${extraFeedEncoded}`,
+        })
+        results.push({
+          engine: 'rss_websub',
+          status: extraRes.status === 204 || extraRes.ok ? 'success' : 'failed',
+          urlCount: 1,
+          urls: [extraFeed],
+          message: `WebSub story feed ping returned HTTP ${extraRes.status}`,
+          timestamp: now,
+        })
+      } catch (err: any) {
+        results.push({
+          engine: 'rss_websub',
+          status: 'failed',
+          urlCount: 1,
+          urls: [extraFeed],
+          message: `WebSub story feed ping error: ${err?.message || String(err)}`,
+          timestamp: now,
+        })
+      }
+    }
+  }
+
   return results
 }
 
@@ -439,11 +474,33 @@ export async function notifySearchEngines(
     return []
   }
 
+  // Derive story chapter RSS feeds automatically for published chapters/works
+  const storySlugs = new Set<string>()
+  for (const u of cleanUrls) {
+    const match = u.match(/(?:\/works\/|\/read\/)([^/?#]+)/)
+    if (match && match[1]) {
+      storySlugs.add(match[1])
+    }
+  }
+
+  const derivedFeeds = Array.from(storySlugs).map(
+    (slug) => `${CANONICAL_BASE_URL}/rss/${slug}.xml`
+  )
+  const combinedFeeds = [
+    ...derivedFeeds,
+    ...(options.extraFeeds || []),
+  ]
+  const uniqueFeeds = Array.from(new Set(combinedFeeds))
+  const feedOptions: IndexingOptions = {
+    ...options,
+    ...(uniqueFeeds.length > 0 ? { extraFeeds: uniqueFeeds } : {}),
+  }
+
   try {
     const [googleResult, indexNowResult, sitemapResults] = await Promise.allSettled([
       pingGoogleIndexingApi(cleanUrls, options),
       pingIndexNow(cleanUrls, options),
-      pingSitemapAndFeeds(options),
+      pingSitemapAndFeeds(feedOptions),
     ])
 
     const allResults: IndexingResult[] = []
