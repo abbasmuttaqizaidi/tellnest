@@ -1,11 +1,11 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useRef } from 'react'
 import { Link } from '@tanstack/react-router'
-import { Bookmark, Eye } from 'lucide-react'
+import { Bookmark, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useUser } from '@clerk/react'
 import { useApp } from '../../context/AppContext'
 import { getWorkSlug, type Work } from '../../data/mockData'
 import { formatViewCount } from '../../lib/utils'
-import { UnisexAvatar } from '../UnisexAvatar'
+import { OptimizedImage } from '../OptimizedImage'
 import { SectionCarouselSkeleton } from './HomeSkeletons'
 
 export interface TrendingSectionProps {
@@ -15,6 +15,7 @@ export interface TrendingSectionProps {
   className?: string
   title?: string
   subtitle?: string
+  showControls?: boolean
 }
 
 const GENRE_TABS = [
@@ -30,11 +31,13 @@ export function TrendingSection({
   id = 'trending-serials',
   className = '',
   title = 'Trending Serials Today',
-  subtitle,
+  subtitle = 'Community ranked serials updated with weekly canonical rankings.',
+  showControls = true,
 }: TrendingSectionProps) {
   const { allWorks, isWorkSaved, toggleSaveWork, openAuthModal, isOwnWork, isWorksLoading } = useApp()
   const { isSignedIn } = useUser()
   const [activeGenre, setActiveGenre] = useState<string>('all')
+  const carouselRef = useRef<HTMLDivElement>(null)
 
   const candidatePool = works && works.length > 0 ? works : allWorks
 
@@ -59,6 +62,13 @@ export function TrendingSection({
     return trendingSerials.slice(0, 10)
   }, [initialTrendingWorks, trendingSerials, activeGenre, isOwnWork])
 
+  const scrollCarousel = (direction: -1 | 1) => {
+    if (!carouselRef.current) return
+    const container = carouselRef.current
+    const scrollAmount = Math.max(240, container.clientWidth * 0.6) * direction
+    container.scrollBy({ left: scrollAmount, behavior: 'smooth' })
+  }
+
   const handleBookmarkClick = (e: React.MouseEvent, workId: string) => {
     e.preventDefault()
     e.stopPropagation()
@@ -76,154 +86,146 @@ export function TrendingSection({
   const isLoading = isWorksLoading && trendingWorksList.length === 0
 
   return (
-    <section id={id} className={`w-full space-y-5 ${className}`} style={{ contentVisibility: 'auto', containIntrinsicSize: '650px' }}>
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-3 border-b border-[var(--border-subtle)]">
-        <div>
-          <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] tracking-tight">
-            {title}
-          </h3>
+    <section id={id} className={`w-full space-y-4 ${className}`} style={{ contentVisibility: 'auto', containIntrinsicSize: '550px' }}>
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-3 border-b border-[var(--border-subtle)]">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] tracking-tight">
+              {title}
+            </h3>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-amber-600 dark:text-amber-400">
+              🔥 Trending
+            </span>
+          </div>
           {subtitle && (
-            <p className="font-serif text-xs sm:text-sm text-[var(--ink-secondary)] mt-1">
+            <p className="font-serif text-xs sm:text-sm text-[var(--ink-secondary)]">
               {subtitle}
             </p>
           )}
         </div>
 
-        {/* Genre Filters (Swipeable on mobile) */}
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none font-mono text-xs py-1">
-          {GENRE_TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveGenre(tab.id)}
-              className={`px-3 py-1.5 rounded-full transition-all cursor-pointer whitespace-nowrap text-xs font-mono ${
-                activeGenre === tab.id
-                  ? 'bg-[var(--ink-primary)] text-[var(--bg-canvas)] font-semibold shadow-xs'
-                  : 'bg-[var(--bg-surface)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)] border border-[var(--border-subtle)]'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Genre Filters (Horizontal scrollable pills) */}
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none font-mono text-xs py-0.5">
+            {GENRE_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveGenre(tab.id)}
+                className={`px-2.5 py-1 rounded-full transition-all cursor-pointer whitespace-nowrap text-xs font-mono ${
+                  activeGenre === tab.id
+                    ? 'bg-[var(--ink-primary)] text-[var(--bg-canvas)] font-semibold shadow-xs'
+                    : 'bg-[var(--bg-surface)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)] border border-[var(--border-subtle)]'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Desktop Left/Right Carousel Controls */}
+          {showControls && trendingWorksList.length > 0 && (
+            <div className="hidden sm:flex items-center gap-1 shrink-0 ml-1">
+              <button
+                type="button"
+                onClick={() => scrollCarousel(-1)}
+                className="p-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] transition-colors cursor-pointer"
+                title="Previous trending stories"
+                aria-label="Previous trending stories"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollCarousel(1)}
+                className="p-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] transition-colors cursor-pointer"
+                title="Next trending stories"
+                aria-label="Next trending stories"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Leaderboard Bento Grid: Up to 10 Rich Serials (1 col mobile, 2 col md, 3 col lg) */}
       {trendingWorksList.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div
+          ref={carouselRef}
+          className="flex items-stretch gap-3 sm:gap-3.5 overflow-x-auto scroll-smooth py-1 px-0.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+          style={{ scrollSnapType: 'x mandatory' }}
+        >
           {trendingWorksList.map((work, idx) => {
             const wSlug = getWorkSlug(work)
             const saved = isWorkSaved(work.id)
             const rank = (work as any).trendingRank ?? (idx + 1)
-            const firstChapterId = work.chapters?.[0]?.id || 'ch-1'
 
             return (
               <div
                 key={work.id}
-                className="rounded-2xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-xs hover:shadow-md transition-all duration-300 flex flex-col overflow-hidden group active:scale-[0.98]"
+                style={{ scrollSnapAlign: 'start' }}
+                className="w-[145px] sm:w-[160px] md:w-[170px] shrink-0 flex flex-col justify-between rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-xs hover:shadow-md transition-all duration-300 overflow-hidden group active:scale-[0.98]"
               >
-                {/* Visual Cover Header */}
-                <div className="relative h-60 sm:h-64 overflow-hidden bg-[var(--bg-subtle)]">
+                {/* Cover with badge */}
+                <div className="relative aspect-[2/3] w-full overflow-hidden bg-[var(--bg-subtle)]">
                   <Link
                     to="/works/$workId"
                     params={{ workId: wSlug }}
                     preload="intent"
                     className="block w-full h-full no-underline"
                   >
-                    <img
+                    <OptimizedImage
                       src={work.cover}
-                      alt={work.title}
-                      loading="lazy"
-                      decoding="async"
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      alt={`${work.title} by ${work.author?.name || 'Author'} — #${rank} Trending story cover`}
+                      width={170}
+                      height={255}
+                      containerClassName="w-full h-full"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                   </Link>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent pointer-events-none" />
 
-                  {/* Rank & Genre Pill (Top-Left) */}
-                  <div className="absolute top-3 left-3 bg-black/75 text-white backdrop-blur-md px-2.5 py-1 rounded font-mono text-[11px] uppercase tracking-wider flex items-center gap-1 border border-white/20 shadow-xs z-10 pointer-events-none">
-                    <span className="font-bold text-amber-400">#{rank}</span>
-                    <span>in {work.genre}</span>
-                  </div>
+                  {/* Rank Badge #1..#10 */}
+                  <span
+                    title={`${formatViewCount(work.totalReads, false)} Reads`}
+                    className="absolute top-2 left-2 z-10 rounded bg-black/85 backdrop-blur-xs px-1.5 py-0.5 text-[9px] font-mono font-bold text-white border border-white/20 shadow-xs flex items-center gap-1 pointer-events-none"
+                  >
+                    <span className="text-amber-400 font-extrabold">#{rank}</span>
+                    <span>{formatViewCount(work.totalReads, true)} Reads</span>
+                  </span>
 
-                  {/* Bookmark Button (Top-Right) */}
+                  {/* Bookmark Toggle */}
                   <button
                     type="button"
                     onClick={(e) => handleBookmarkClick(e, work.id)}
-                    className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/60 backdrop-blur-md text-white flex items-center justify-center hover:bg-black transition-colors cursor-pointer z-10"
-                    title={saved ? 'Remove Bookmark' : 'Save to Library'}
-                    aria-label={saved ? 'Remove Bookmark' : 'Save to Library'}
+                    className="absolute top-2 right-2 z-10 p-1.5 rounded-full bg-black/60 hover:bg-black/85 text-white/90 hover:text-white backdrop-blur-xs transition cursor-pointer"
+                    title={saved ? 'Remove from Saved' : 'Save to Shelf'}
+                    aria-label={saved ? 'Remove from Saved' : 'Save to Shelf'}
                   >
-                    <Bookmark className={`h-4 w-4 ${saved ? 'fill-amber-400 text-amber-400' : ''}`} />
+                    <Bookmark className={`h-3.5 w-3.5 ${saved ? 'fill-current text-amber-400' : ''}`} />
                   </button>
-
-                  {/* Status Badge (Bottom-Right) */}
-                  {(work.status || (work as any).publicationStatus) && (
-                    <span className="absolute bottom-3 right-4 z-10 inline-flex items-center rounded-md bg-black/80 backdrop-blur-md px-2 py-0.5 text-[9px] font-mono font-semibold text-white uppercase tracking-wider border border-white/15 shadow-xs">
-                      <span>{work.status || (work as any).publicationStatus || 'Ongoing'}</span>
-                    </span>
-                  )}
-
-                  {/* Title & Season Info */}
-                  <div className="absolute bottom-3 left-4 right-28 text-white pointer-events-none">
-                    <span className="font-mono text-[10px] tracking-wider uppercase text-white/80">
-                      Season 1 • {work.publishedChaptersCount ?? work.chaptersCount} Chapters
-                    </span>
-                    <h4 className="font-serif text-lg font-bold text-white leading-snug line-clamp-1 mt-0.5">
-                      {work.title}
-                    </h4>
-                  </div>
                 </div>
 
-                {/* Card Content & Metrics */}
-                <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-4">
-                  <p className="font-serif text-xs sm:text-sm text-[var(--ink-secondary)] line-clamp-2 leading-relaxed">
-                    {work.synopsis}
-                  </p>
+                {/* Info */}
+                <div className="p-3 flex flex-col flex-1 justify-between gap-2">
+                  <div className="space-y-1">
+                    <Link
+                      to="/works/$workId"
+                      params={{ workId: wSlug }}
+                      preload="intent"
+                      className="font-serif text-xs sm:text-sm font-bold text-[var(--ink-primary)] line-clamp-1 group-hover:underline no-underline block"
+                    >
+                      {work.title}
+                    </Link>
+                    <p className="font-mono text-[10px] sm:text-[11px] text-[var(--ink-muted)] truncate">
+                      {work.author?.name || 'Unknown Author'}
+                    </p>
+                  </div>
 
-                  <div className="space-y-3 pt-2 border-t border-[var(--border-subtle)]">
-                    {/* Metrics Bar */}
-                    <div className="flex items-center justify-between text-[var(--ink-muted)] font-mono text-[11px] bg-[var(--bg-canvas)] px-3 py-1.5 rounded-lg border border-[var(--border-subtle)]">
-                      <span className="flex items-center gap-1">
-                        <Eye className="h-3 w-3 text-[var(--ink-faint)]" />
-                        {formatViewCount(work.totalReads, true)} Reads
-                      </span>
-                      {work.totalSaves > 0 ? (
-                        <span className="flex items-center gap-1" title={`${formatViewCount(work.totalSaves, false)} Saves`}>
-                          <Bookmark className="h-3 w-3 text-red-500" />
-                          {formatViewCount(work.totalSaves, true)} Saves
-                        </span>
-                      ) : null}
-                    </div>
-
-                    {/* Author & Action */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full overflow-hidden bg-[var(--bg-subtle)] border border-[var(--border-subtle)]">
-                          <UnisexAvatar
-                            src={work.author.avatar}
-                            name={work.author.name}
-                            size="sm"
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <span className="font-mono text-xs text-[var(--ink-primary)] font-medium">
-                          {work.author.name}
-                        </span>
-                      </div>
-
-                      <Link
-                        to="/read/$workId/$chapterId"
-                        params={{
-                          workId: wSlug,
-                          chapterId: firstChapterId,
-                        }}
-                        preload="intent"
-                        className="inline-flex items-center gap-1 font-mono text-[11px] uppercase font-semibold text-[var(--ink-primary)] hover:underline no-underline"
-                      >
-                        Read Part 1 →
-                      </Link>
-                    </div>
+                  <div className="pt-2 border-t border-[var(--border-subtle)] flex items-center justify-between text-[10px] font-mono text-[var(--ink-muted)]">
+                    <span className="truncate">{work.genre || 'Fiction'}</span>
+                    <span className="text-[9px] text-amber-600 dark:text-amber-400 font-semibold uppercase">
+                      {work.status || (work as any).publicationStatus || 'Ongoing'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -231,11 +233,11 @@ export function TrendingSection({
           })}
         </div>
       ) : isLoading ? (
-        <SectionCarouselSkeleton count={3} />
+        <SectionCarouselSkeleton count={5} />
       ) : (
-        <div className="py-12 px-4 text-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]">
-          <p className="font-serif text-base text-[var(--ink-secondary)]">
-            No stories trending this week yet. Fresh rankings update every Monday.
+        <div className="py-8 px-4 text-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]">
+          <p className="font-serif text-sm text-[var(--ink-secondary)]">
+            No stories trending in this genre right now.
           </p>
         </div>
       )}

@@ -44,6 +44,8 @@ import {
 import { calculateForYouRecommendations } from '../../lib/recommendations/engine'
 import { filterAndOrderNewVoicesStories } from '../../lib/recommendations/newVoices'
 import { calculateBingeableReads, getWorkPublishedChapterCount } from '../../lib/recommendations/bingeable'
+import { TrendingSection } from './TrendingSection'
+import { BingeableSection } from './BingeableSection'
 import { TopShelfSection } from './TopShelfSection'
 import { NewVoicesOpportunityModal } from '../NewVoicesOpportunityModal'
 
@@ -1294,264 +1296,22 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
       </section>
 
       {/* =========================================================================
-          SECTION 3: TRENDING & COMMUNITY RANKINGS (LEADERBOARDS BENTO GRID)
+          SECTION 3: TRENDING & COMMUNITY RANKINGS (CAROUSEL)
           ========================================================================= */}
-      <section id="trending-serials" className="w-full space-y-5" style={{ contentVisibility: 'auto', containIntrinsicSize: '650px' }}>
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-3 border-b border-[var(--border-subtle)]">
-          <div>
-            <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] tracking-tight">
-              Trending Serials Today
-            </h3>
-          </div>
-
-          {/* Genre Filters */}
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none font-mono text-xs">
-            {[
-              { id: 'all', label: 'All Genres' },
-              { id: 'romance', label: 'Romance' },
-              { id: 'speculative', label: 'Speculative' },
-              { id: 'historical', label: 'Historical' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveLeaderboardGenre(tab.id)}
-                className={`px-3 py-1.5 rounded-full transition-all cursor-pointer whitespace-nowrap text-xs font-mono ${
-                  activeLeaderboardGenre === tab.id
-                    ? 'bg-[var(--ink-primary)] text-[var(--bg-canvas)] font-semibold shadow-xs'
-                    : 'bg-[var(--bg-surface)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)] border border-[var(--border-subtle)]'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Leaderboard Bento Grid: Up to 10 Rich Serials */}
-        {trendingWorksList.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {trendingWorksList.map((work, idx) => {
-              const wSlug = getWorkSlug(work)
-              const saved = isWorkSaved(work.id)
-              return (
-                <div
-                  key={work.id}
-                  className="rounded-2xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-xs hover:shadow-md transition-all duration-300 flex flex-col overflow-hidden group active:scale-[0.98]"
-                >
-                  {/* Visual Cover Header */}
-                  <div className="relative h-60 sm:h-64 overflow-hidden bg-[var(--bg-subtle)]">
-                    <img
-                      src={work.cover}
-                      alt={work.title}
-                      loading="lazy"
-                      decoding="async"
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent pointer-events-none" />
-
-                    {/* Rank & Genre Pill (Top-Left) */}
-                    <div className="absolute top-3 left-3 bg-black/75 text-white backdrop-blur-md px-2.5 py-1 rounded font-mono text-[11px] uppercase tracking-wider flex items-center gap-1 border border-white/20 shadow-xs z-10">
-                      <span className="font-bold text-amber-400">#{(work as any).trendingRank ?? (idx + 1)}</span>
-                      <span>in {work.genre}</span>
-                    </div>
-
-                    {/* Bookmark Button (Top-Right) */}
-                    <button
-                      type="button"
-                      onClick={() => toggleSaveWork(work.id)}
-                      className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/60 backdrop-blur-md text-white flex items-center justify-center hover:bg-black transition-colors cursor-pointer z-10"
-                      title={saved ? 'Remove Bookmark' : 'Save to Library'}
-                    >
-                      <Bookmark className={`h-4 w-4 ${saved ? 'fill-amber-400 text-amber-400' : ''}`} />
-                    </button>
-
-                    {/* Status Badge (Bottom-Right) */}
-                    {(work.status || (work as any).publicationStatus) && (
-                      <span className="absolute bottom-3 right-4 z-10 inline-flex items-center rounded-md bg-black/80 backdrop-blur-md px-2 py-0.5 text-[9px] font-mono font-semibold text-white uppercase tracking-wider border border-white/15 shadow-xs">
-                        <span>{work.status || (work as any).publicationStatus || 'Ongoing'}</span>
-                      </span>
-                    )}
-
-                    {/* Title & Season Info */}
-                    <div className="absolute bottom-3 left-4 right-28 text-white">
-                      <span className="font-mono text-[10px] tracking-wider uppercase text-white/80">
-                        Season 1 • {work.publishedChaptersCount ?? work.chaptersCount} Chapters
-                      </span>
-                      <h4 className="font-serif text-lg font-bold text-white leading-snug line-clamp-1 mt-0.5">
-                        {work.title}
-                      </h4>
-                    </div>
-                  </div>
-
-                  {/* Card Content & Metrics */}
-                  <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-4">
-                    <p className="font-serif text-xs sm:text-sm text-[var(--ink-secondary)] line-clamp-2 leading-relaxed">
-                      {work.synopsis}
-                    </p>
-
-                    <div className="space-y-3 pt-2 border-t border-[var(--border-subtle)]">
-                      {/* Metrics Bar */}
-                      <div className="flex items-center justify-between text-[var(--ink-muted)] font-mono text-[11px] bg-[var(--bg-canvas)] px-3 py-1.5 rounded-lg border border-[var(--border-subtle)]">
-                        <span className="flex items-center gap-1">
-                          <Eye className="h-3 w-3 text-[var(--ink-faint)]" />
-                          {formatViewCount(work.totalReads, true)} Reads
-                        </span>
-                        {work.totalSaves > 0 ? (
-                          <span className="flex items-center gap-1" title={`${formatViewCount(work.totalSaves, false)} Saves`}>
-                            <Bookmark className="h-3 w-3 text-red-500" />
-                            {formatViewCount(work.totalSaves, true)} Saves
-                          </span>
-                        ) : null}
-                      </div>
-
-                      {/* Author & Action */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full overflow-hidden bg-[var(--bg-subtle)] border border-[var(--border-subtle)]">
-                          <UnisexAvatar
-                            src={work.author.avatar}
-                            name={work.author.name}
-                            size="sm"
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <span className="font-mono text-xs text-[var(--ink-primary)] font-medium">
-                          {work.author.name}
-                        </span>
-                      </div>
-
-                      <Link
-                        to="/read/$workId/$chapterId"
-                        params={{
-                          workId: wSlug,
-                          chapterId: work.chapters?.[0]?.id || 'ch-1',
-                        }}
-                        preload="intent"
-                        className="inline-flex items-center gap-1 font-mono text-[11px] uppercase font-semibold text-[var(--ink-primary)] hover:underline no-underline"
-                      >
-                        Read Part 1 →
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-        ) : isTrendingLoading ? (
-          <SectionCarouselSkeleton count={5} />
-        ) : (
-          <div className="py-12 px-4 text-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]">
-            <p className="font-serif text-base text-[var(--ink-secondary)]">
-              No stories trending this week yet. Fresh rankings update every Monday.
-            </p>
-          </div>
-        )}
-      </section>
+      <TrendingSection
+        works={works}
+        initialTrendingWorks={loaderData?.initialTrending || undefined}
+        id="trending-serials"
+      />
 
       {/* =========================================================================
           SECTION: BINGEABLE READS FOR YOU (SINGLE-SITTING COMPLETE & 2-CHAPTER ARCS)
           ========================================================================= */}
-      <section id="bingeable-reads" className="w-full space-y-4" style={{ contentVisibility: 'auto', containIntrinsicSize: '550px' }}>
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-3 border-b border-[var(--border-subtle)]">
-          <div className="space-y-1">
-            <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] tracking-tight">
-              Bingeable Reads for You
-            </h3>
-            <p className="font-serif text-xs sm:text-sm text-[var(--ink-secondary)]">
-              Quick, complete stories and two-chapter arcs you can finish in one sitting.
-            </p>
-          </div>
-        </div>
-
-        {bingeableWorksList.length > 0 ? (
-          <div
-            ref={bingeableCarouselRef}
-            className="flex items-stretch gap-3 sm:gap-3.5 overflow-x-auto scroll-smooth py-1 px-0.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-            style={{ scrollSnapType: 'x mandatory' }}
-          >
-            {bingeableWorksList.map((work) => {
-              const wSlug = getWorkSlug(work)
-              const saved = isWorkSaved(work.id)
-              const chCount = getWorkPublishedChapterCount(work)
-
-              return (
-                <div
-                  key={work.id}
-                  style={{ scrollSnapAlign: 'start' }}
-                  className="w-[145px] sm:w-[160px] md:w-[170px] shrink-0 flex flex-col justify-between rounded-xl border border-[var(--border-subtle)] hover:border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-xs hover:shadow-md transition-all duration-300 overflow-hidden group active:scale-[0.98]"
-                >
-                  {/* Cover with badge */}
-                  <div className="relative aspect-[2/3] w-full overflow-hidden bg-[var(--bg-subtle)]">
-                    <Link
-                      to="/works/$workId"
-                      params={{ workId: wSlug }}
-                      preload="intent"
-                      className="block w-full h-full no-underline"
-                    >
-                      <OptimizedImage
-                        src={work.cover}
-                        alt={work.title}
-                        width={170}
-                        height={255}
-                        containerClassName="w-full h-full"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    </Link>
-
-                    {/* Quick read chapter badge */}
-                    <span className="absolute top-2 left-2 z-10 rounded bg-black/80 backdrop-blur-xs px-1.5 py-0.5 text-[9px] font-mono font-semibold text-amber-400 border border-amber-400/20 shadow-xs flex items-center gap-1">
-                      <Zap className="h-2.5 w-2.5 fill-current" />
-                      <span>{chCount === 1 ? '1 Chapter' : '2 Chapters'}</span>
-                    </span>
-
-                    {/* Bookmark Toggle */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        toggleSaveWork(work.id)
-                      }}
-                      className="absolute top-2 right-2 z-10 p-1.5 rounded-full bg-black/60 hover:bg-black/85 text-white/90 hover:text-white backdrop-blur-xs transition cursor-pointer"
-                      title={saved ? 'Remove from Saved' : 'Save to Shelf'}
-                    >
-                      <Bookmark className={`h-3.5 w-3.5 ${saved ? 'fill-current text-amber-400' : ''}`} />
-                    </button>
-                  </div>
-
-                  {/* Info */}
-                  <div className="p-3 flex flex-col flex-1 justify-between gap-2">
-                    <div className="space-y-1">
-                      <Link
-                        to="/works/$workId"
-                        params={{ workId: wSlug }}
-                        preload="intent"
-                        className="font-serif text-xs sm:text-sm font-bold text-[var(--ink-primary)] line-clamp-1 group-hover:underline no-underline block"
-                      >
-                        {work.title}
-                      </Link>
-                      <p className="font-mono text-[10px] sm:text-[11px] text-[var(--ink-muted)] truncate">
-                        {work.author?.name || 'Unknown Author'}
-                      </p>
-                    </div>
-
-                    <div className="pt-2 border-t border-[var(--border-subtle)] flex items-center justify-between text-[10px] font-mono text-[var(--ink-muted)]">
-                      <span className="truncate">{work.genre || 'Fiction'}</span>
-                      <span className="text-[9px] text-amber-600 dark:text-amber-400 font-semibold uppercase">
-                        {work.status === 'Completed' ? 'Complete' : 'Quick Arc'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        ) : isBingeableLoading ? (
-          <SectionCarouselSkeleton count={5} />
-        ) : null}
-      </section>
+      <BingeableSection
+        works={works}
+        initialBingeableWorks={loaderData?.initialBingeable || undefined}
+        id="bingeable-reads"
+      />
 
       {/* =========================================================================
           SECTION: TOP SHELF (COMMUNITY'S TOP 10 MOST-SAVED MASTERPIECES)
