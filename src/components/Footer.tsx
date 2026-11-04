@@ -141,6 +141,14 @@ export default function Footer() {
               </li>
               <li>
                 <Link
+                  to="/wattpad-alternative"
+                  className="hover:text-[var(--ink-primary)] transition-colors no-underline text-inherit text-[11px] sm:text-xs py-0.5 inline-block"
+                >
+                  Wattpad Alternative
+                </Link>
+              </li>
+              <li>
+                <Link
                   to="/login"
                   className="hover:text-[var(--ink-primary)] transition-colors no-underline text-inherit text-[11px] sm:text-xs py-0.5 inline-block font-medium"
                 >

@@ -24,6 +24,7 @@ import { Route as SecretAdminpanelRouteImport } from './routes/secret-adminpanel
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SsoCallbackRouteImport } from './routes/sso-callback'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as WattpadAlternativeRouteImport } from './routes/wattpad-alternative'
 import { Route as AdminWorkEditorWorkIdRouteImport } from './routes/admin-work-editor.$workId'
 import { Route as AuthorAuthorIdRouteImport } from './routes/author.$authorId'
 import { Route as BrowseCollectionRouteImport } from './routes/browse.$collection'
@@ -113,6 +114,11 @@ const TermsRoute = TermsRouteImport.update({
   path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WattpadAlternativeRoute = WattpadAlternativeRouteImport.update({
+  id: '/wattpad-alternative',
+  path: '/wattpad-alternative',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminWorkEditorWorkIdRoute = AdminWorkEditorWorkIdRouteImport.update({
   id: '/admin-work-editor/$workId',
   path: '/admin-work-editor/$workId',
@@ -196,6 +202,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/sso-callback': typeof SsoCallbackRoute
   '/terms': typeof TermsRoute
+  '/wattpad-alternative': typeof WattpadAlternativeRoute
   '/admin-work-editor/$workId': typeof AdminWorkEditorWorkIdRoute
   '/author/$authorId': typeof AuthorAuthorIdRoute
   '/browse/$collection': typeof BrowseCollectionRoute
@@ -226,6 +233,7 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/sso-callback': typeof SsoCallbackRoute
   '/terms': typeof TermsRoute
+  '/wattpad-alternative': typeof WattpadAlternativeRoute
   '/admin-work-editor/$workId': typeof AdminWorkEditorWorkIdRoute
   '/author/$authorId': typeof AuthorAuthorIdRoute
   '/browse/$collection': typeof BrowseCollectionRoute
@@ -257,6 +265,7 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/sso-callback': typeof SsoCallbackRoute
   '/terms': typeof TermsRoute
+  '/wattpad-alternative': typeof WattpadAlternativeRoute
   '/admin-work-editor/$workId': typeof AdminWorkEditorWorkIdRoute
   '/author/$authorId': typeof AuthorAuthorIdRoute
   '/browse/$collection': typeof BrowseCollectionRoute
@@ -289,6 +298,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/sso-callback'
     | '/terms'
+    | '/wattpad-alternative'
     | '/admin-work-editor/$workId'
     | '/author/$authorId'
     | '/browse/$collection'
@@ -319,6 +329,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/sso-callback'
     | '/terms'
+    | '/wattpad-alternative'
     | '/admin-work-editor/$workId'
     | '/author/$authorId'
     | '/browse/$collection'
@@ -349,6 +360,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/sso-callback'
     | '/terms'
+    | '/wattpad-alternative'
     | '/admin-work-editor/$workId'
     | '/author/$authorId'
     | '/browse/$collection'
@@ -380,6 +392,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   SsoCallbackRoute: typeof SsoCallbackRoute
   TermsRoute: typeof TermsRoute
+  WattpadAlternativeRoute: typeof WattpadAlternativeRoute
   AdminWorkEditorWorkIdRoute: typeof AdminWorkEditorWorkIdRoute
   AuthorAuthorIdRoute: typeof AuthorAuthorIdRoute
   BrowseCollectionRoute: typeof BrowseCollectionRoute
@@ -502,6 +515,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/wattpad-alternative': {
+      id: '/wattpad-alternative'
+      path: '/wattpad-alternative'
+      fullPath: '/wattpad-alternative'
+      preLoaderRoute: typeof WattpadAlternativeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin-work-editor/$workId': {
       id: '/admin-work-editor/$workId'
       path: '/admin-work-editor/$workId'
@@ -612,6 +632,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   SsoCallbackRoute: SsoCallbackRoute,
   TermsRoute: TermsRoute,
+  WattpadAlternativeRoute: WattpadAlternativeRoute,
   AdminWorkEditorWorkIdRoute: AdminWorkEditorWorkIdRoute,
   AuthorAuthorIdRoute: AuthorAuthorIdRoute,
   BrowseCollectionRoute: BrowseCollectionRoute,

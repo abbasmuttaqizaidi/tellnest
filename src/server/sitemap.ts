@@ -285,7 +285,13 @@ export async function buildSitemapEntries(options?: BuildSitemapOptions): Promis
     console.warn('[buildSitemapEntries] Unexpected error retrieving database sitemap entries:', err?.message || err)
   }
 
-  // 3. Curated Editorial & Search Intent Collections (/browse/$collection)
+  // 3. Curated Editorial & Search Intent Collections (/browse/$collection & /wattpad-alternative)
+  addEntry({
+    loc: `${CANONICAL_BASE_URL}/wattpad-alternative`,
+    changefreq: 'weekly',
+    priority: 0.85,
+  })
+
   const BROWSE_COLLECTION_SLUGS = [
     'bingeable-reads',
     'new-voices',

@@ -2003,6 +2003,42 @@ test('SEO Architecture: Step 9 Author E-E-A-T, Social Knowledge Graph & rel="me"
   assert.ok(authorRouteCode.includes('rel="me noopener noreferrer"'), 'Author external links must declare rel="me" for E-E-A-T verification')
 })
 
+test('High-Intent SEO: Wattpad Alternative Comparison Landing Page & ₹2,000 Contest Spotlight', async () => {
+  // 1. Route declaration & file existence
+  const routePath = path.join(rootDir, 'src/routes/wattpad-alternative.tsx')
+  assert.ok(fs.existsSync(routePath), 'src/routes/wattpad-alternative.tsx must exist')
+  const routeCode = fs.readFileSync(routePath, 'utf-8')
+
+  assert.ok(
+    routeCode.includes("createFileRoute('/wattpad-alternative')"),
+    'Route must define /wattpad-alternative createFileRoute'
+  )
+
+  // 2. Schema.org WebPage and FAQPage Rich Results
+  assert.ok(routeCode.includes("'@type': 'WebPage'"), 'Route must emit WebPage JSON-LD schema')
+  assert.ok(routeCode.includes("'@type': 'FAQPage'"), 'Route must emit FAQPage JSON-LD schema for rich SERP snippets')
+  assert.ok(routeCode.includes('Why is HatchPen considered the best Wattpad alternative?'), 'FAQ must address core comparison')
+  assert.ok(routeCode.includes('₹2,000 cash prize'), 'FAQ must mention ₹2,000 cash prize')
+
+  // 3. Comparison matrix & UI features
+  assert.ok(routeCode.includes('The Quiet, Free Alternative to'), 'Route must render bold hero headline')
+  assert.ok(routeCode.includes('HatchPen Indie Writer Contest'), 'Route must highlight the writer contest')
+  assert.ok(routeCode.includes('₹2,000 Cash Prize'), 'Route must showcase the ₹2,000 cash reward')
+  assert.ok(routeCode.includes('COMPARISON_ROWS'), 'Route must render structured side-by-side comparison')
+  assert.ok(routeCode.includes('100% Free forever'), 'Comparison must emphasize zero paywalls')
+
+  // 4. Sitemap inclusion
+  const entries = await buildSitemapEntries()
+  const wattpadEntry = entries.find((e) => e.loc === 'https://hatchpen.com/wattpad-alternative')
+  assert.ok(wattpadEntry, 'Sitemap must include https://hatchpen.com/wattpad-alternative')
+  assert.equal(wattpadEntry.priority, 0.85, 'Wattpad alternative landing page must have high priority 0.85')
+
+  // 5. Footer internal link equity
+  const footerCode = fs.readFileSync(path.join(rootDir, 'src/components/Footer.tsx'), 'utf-8')
+  assert.ok(footerCode.includes('to="/wattpad-alternative"'), 'Footer must contain crawlable link to /wattpad-alternative')
+})
+
+
 
 
 
