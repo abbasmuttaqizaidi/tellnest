@@ -160,6 +160,7 @@ export const Route = createFileRoute('/genre/$slug')({
       title: `Read ${genreName} Stories & Serialized Novels Online`,
       description,
       canonicalUrl,
+      noindex: works.length === 0,
       keywords: [
         genreName,
         `read ${genreName.toLowerCase()} online`,

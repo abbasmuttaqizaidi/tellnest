@@ -36,6 +36,22 @@ export default function Footer() {
     { slug: 'philosophical-fiction', name: 'Philosophical Fiction' },
   ]
 
+  const FEATURED_STORIES = [
+    { slug: 'the-night-with-my-best-friend-s-daddy', title: "The Night With My Best Friend's Daddy" },
+    { slug: 'the-girl-who-saw', title: 'The Girl Who Saw' },
+    { slug: 'the-apology-she-was-never-supposed-to-hear', title: 'The Apology She Was Never Supposed to Hear' },
+    { slug: 'the-wedding-that-was-never-mine', title: 'The Wedding That Was Never Mine' },
+    { slug: 'do-not-play-the-final-recording', title: 'Do Not Play the Final Recording' },
+  ]
+
+  const ACTIVE_CATEGORIES = [
+    { slug: 'novels', name: 'Novels' },
+    { slug: 'short-stories', name: 'Short Stories' },
+    { slug: 'new-adult', name: 'New Adult' },
+    { slug: 'fan-fiction', name: 'Fan Fiction' },
+    { slug: 'serialized-fiction', name: 'Serialized Fiction' },
+  ]
+
   return (
     <footer className="w-full border-t border-[var(--border-subtle)] bg-[var(--bg-canvas)] pt-5 pb-6 sm:pt-10 sm:pb-12 text-xs text-[var(--ink-muted)] transition-colors">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -52,33 +68,34 @@ export default function Footer() {
             </p>
           </div>
 
-          {/* Explore Categories */}
+          {/* Top & Trending Stories (Distributes sitewide link equity directly to stories) */}
           <div className="col-span-1">
             <h4 className="font-mono text-[10px] uppercase tracking-wider text-[var(--ink-primary)] font-semibold mb-1.5">
-              Categories
+              Top Serials
             </h4>
             <ul className="space-y-0.5 sm:space-y-1 list-none p-0 m-0">
-              {categories.slice(0, 4).map((cat) => (
-                <li key={cat.slug}>
+              {FEATURED_STORIES.map((story) => (
+                <li key={story.slug}>
                   <Link
-                    to="/category/$slug"
-                    params={{ slug: cat.slug }}
-                    className="hover:text-[var(--ink-primary)] transition-colors no-underline text-inherit text-[11px] sm:text-xs py-0.5 inline-block"
+                    to="/works/$workId"
+                    params={{ workId: story.slug }}
+                    className="hover:text-[var(--ink-primary)] transition-colors no-underline text-inherit text-[11px] sm:text-xs py-0.5 inline-block line-clamp-1"
+                    title={story.title}
                   >
-                    {cat.name}
+                    {story.title}
                   </Link>
                 </li>
               ))}
             </ul>
           </div>
 
-          {/* Formats */}
+          {/* Active Categories (Only categories with published works) */}
           <div className="col-span-1">
             <h4 className="font-mono text-[10px] uppercase tracking-wider text-[var(--ink-primary)] font-semibold mb-1.5">
-              Formats
+              Categories
             </h4>
             <ul className="space-y-0.5 sm:space-y-1 list-none p-0 m-0">
-              {categories.slice(4, 8).map((cat) => (
+              {ACTIVE_CATEGORIES.map((cat) => (
                 <li key={cat.slug}>
                   <Link
                     to="/category/$slug"
@@ -166,6 +183,13 @@ export default function Footer() {
             </h4>
           </div>
           <div className="flex flex-wrap gap-x-3.5 sm:gap-x-4 gap-y-1.5 text-[11px] sm:text-xs">
+            <Link
+              to="/discover"
+              search={{ tab: 'trending' }}
+              className="text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors no-underline py-0.5"
+            >
+              Trending Serials
+            </Link>
             <Link
               to="/browse/$collection"
               params={{ collection: 'bingeable-reads' }}

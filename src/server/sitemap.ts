@@ -153,72 +153,9 @@ export async function buildSitemapEntries(options?: BuildSitemapOptions): Promis
     changefreq: 'daily',
     priority: 0.9,
   })
-  addEntry({
-    loc: `${CANONICAL_BASE_URL}/pricing`,
-    changefreq: 'monthly',
-    priority: 0.7,
-  })
-  addEntry({
-    loc: `${CANONICAL_BASE_URL}/privacy`,
-    changefreq: 'monthly',
-    priority: 0.5,
-  })
-  addEntry({
-    loc: `${CANONICAL_BASE_URL}/terms`,
-    changefreq: 'monthly',
-    priority: 0.5,
-  })
 
-  // 2. All 16 Canonical Categories
-  for (const cat of GLOBAL_CATEGORIES) {
-    if (cat.slug) {
-      addEntry({
-        loc: `${CANONICAL_BASE_URL}/category/${cat.slug}`,
-        changefreq: 'weekly',
-        priority: 0.8,
-      })
-    }
-  }
-
-  // 3. All 33 Canonical Literary Genres
-  for (const genre of GLOBAL_GENRES) {
-    if (genre.slug) {
-      addEntry({
-        loc: `${CANONICAL_BASE_URL}/genre/${genre.slug}`,
-        changefreq: 'weekly',
-        priority: 0.8,
-      })
-    }
-  }
-
-  // 4. Canonical Narrative Tropes & Tags (/tag/$slug)
-  for (const tag of ALL_SUGGESTED_TAGS) {
-    const tagSlug = slugify(tag)
-    if (tagSlug) {
-      addEntry({
-        loc: `${CANONICAL_BASE_URL}/tag/${tagSlug}`,
-        changefreq: 'weekly',
-        priority: 0.7,
-      })
-    }
-  }
-
-  // 5. Curated Editorial & Search Intent Collections (/browse/$collection)
-  const BROWSE_COLLECTION_SLUGS = [
-    'bingeable-reads',
-    'new-voices',
-    'completed-stories',
-    'free-web-novels',
-  ]
-  for (const colSlug of BROWSE_COLLECTION_SLUGS) {
-    addEntry({
-      loc: `${CANONICAL_BASE_URL}/browse/${colSlug}`,
-      changefreq: 'daily',
-      priority: 0.85,
-    })
-  }
-
-  // 4. Live Published Works, Authors, and Chapters from Database
+  // 2. High-Intent Content: Published Public Works, Chapters, and Authors
+  // Prioritized at the top of the sitemap so Googlebot allocates primary crawl budget & index weight to stories
   const client = options?.supabaseClient || defaultSupabase
   try {
     const { data: works, error: worksError } = await client
@@ -247,7 +184,7 @@ export async function buildSitemapEntries(options?: BuildSitemapOptions): Promis
           loc: `${CANONICAL_BASE_URL}/works/${workSlug}`,
           lastmod,
           changefreq: 'weekly',
-          priority: 0.9,
+          priority: 0.95,
         })
 
         // Eligible Author Profile
@@ -337,7 +274,7 @@ export async function buildSitemapEntries(options?: BuildSitemapOptions): Promis
                 loc: `${CANONICAL_BASE_URL}/read/${workSlug}/${ch.id}`,
                 lastmod,
                 changefreq: 'weekly',
-                priority: 0.7,
+                priority: 0.8,
               })
             }
           }
@@ -347,6 +284,72 @@ export async function buildSitemapEntries(options?: BuildSitemapOptions): Promis
   } catch (err: any) {
     console.warn('[buildSitemapEntries] Unexpected error retrieving database sitemap entries:', err?.message || err)
   }
+
+  // 3. Curated Editorial & Search Intent Collections (/browse/$collection)
+  const BROWSE_COLLECTION_SLUGS = [
+    'bingeable-reads',
+    'new-voices',
+    'completed-stories',
+    'free-web-novels',
+  ]
+  for (const colSlug of BROWSE_COLLECTION_SLUGS) {
+    addEntry({
+      loc: `${CANONICAL_BASE_URL}/browse/${colSlug}`,
+      changefreq: 'daily',
+      priority: 0.75,
+    })
+  }
+
+  // 4. All 16 Canonical Categories
+  for (const cat of GLOBAL_CATEGORIES) {
+    if (cat.slug) {
+      addEntry({
+        loc: `${CANONICAL_BASE_URL}/category/${cat.slug}`,
+        changefreq: 'weekly',
+        priority: 0.6,
+      })
+    }
+  }
+
+  // 5. All 33 Canonical Literary Genres
+  for (const genre of GLOBAL_GENRES) {
+    if (genre.slug) {
+      addEntry({
+        loc: `${CANONICAL_BASE_URL}/genre/${genre.slug}`,
+        changefreq: 'weekly',
+        priority: 0.6,
+      })
+    }
+  }
+
+  // 6. Canonical Narrative Tropes & Tags (/tag/$slug)
+  for (const tag of ALL_SUGGESTED_TAGS) {
+    const tagSlug = slugify(tag)
+    if (tagSlug) {
+      addEntry({
+        loc: `${CANONICAL_BASE_URL}/tag/${tagSlug}`,
+        changefreq: 'weekly',
+        priority: 0.5,
+      })
+    }
+  }
+
+  // 7. Utility & Legal Pages
+  addEntry({
+    loc: `${CANONICAL_BASE_URL}/pricing`,
+    changefreq: 'monthly',
+    priority: 0.3,
+  })
+  addEntry({
+    loc: `${CANONICAL_BASE_URL}/privacy`,
+    changefreq: 'monthly',
+    priority: 0.3,
+  })
+  addEntry({
+    loc: `${CANONICAL_BASE_URL}/terms`,
+    changefreq: 'monthly',
+    priority: 0.3,
+  })
 
   return entries
 }

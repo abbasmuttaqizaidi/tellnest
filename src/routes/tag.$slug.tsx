@@ -160,6 +160,7 @@ export const Route = createFileRoute('/tag/$slug')({
       title: `Read Best ${tagName} Stories & Novels Online`,
       description,
       canonicalUrl,
+      noindex: works.length === 0,
       keywords: [
         tagName,
         `${tagName.toLowerCase()} trope`,

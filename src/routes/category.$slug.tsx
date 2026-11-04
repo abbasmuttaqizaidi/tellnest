@@ -146,10 +146,13 @@ export const Route = createFileRoute('/category/$slug')({
       faqJsonLd,
     ]
 
+    const isCategoryEmpty = works.length === 0
+
     return generateMeta({
       title: `Read Best ${categoryName} Stories & Web Novels Online`,
       description,
       canonicalUrl,
+      noindex: isCategoryEmpty,
       keywords: [
         categoryName,
         `read ${categoryName.toLowerCase()} online`,
