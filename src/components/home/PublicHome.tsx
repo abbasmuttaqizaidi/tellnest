@@ -13,6 +13,8 @@ import {
   Users,
 } from 'lucide-react'
 import { PublicMobileStories } from '../PublicMobileStories'
+import { TrendingSection } from './TrendingSection'
+import { BingeableSection } from './BingeableSection'
 import { TopShelfSection } from './TopShelfSection'
 import type { HomeLoaderData } from './LoggedInHome'
 import {
@@ -602,7 +604,29 @@ export default function PublicHome({ loaderData }: PublicHomeProps = {}) {
       </section>
 
       {/* =========================================================================
-          3. TOP SHELF (COMMUNITY'S TOP 10 MOST-SAVED MASTERPIECES)
+          3. TRENDING SERIALS TODAY (LEADERBOARDS BENTO GRID)
+          ========================================================================= */}
+      <div className="py-12 sm:py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-b border-[#D7CFC3]/50 dark:border-neutral-800">
+        <TrendingSection
+          works={works}
+          initialTrendingWorks={loaderData?.initialTrending || undefined}
+          id="trending-serials"
+        />
+      </div>
+
+      {/* =========================================================================
+          4. BINGEABLE READS (SINGLE-SITTING COMPLETE & 2-CHAPTER ARCS)
+          ========================================================================= */}
+      <div className="py-12 sm:py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-b border-[#D7CFC3]/50 dark:border-neutral-800">
+        <BingeableSection
+          works={works}
+          initialBingeableWorks={loaderData?.initialBingeable || undefined}
+          id="bingeable-reads"
+        />
+      </div>
+
+      {/* =========================================================================
+          5. TOP SHELF (COMMUNITY'S TOP 10 MOST-SAVED MASTERPIECES)
           ========================================================================= */}
       <div className="py-12 sm:py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-b border-[#D7CFC3]/50 dark:border-neutral-800">
         <TopShelfSection
