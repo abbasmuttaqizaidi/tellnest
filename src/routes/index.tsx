@@ -19,7 +19,8 @@ import {
   executeGetNewVoices,
 } from '../server/works'
 import PublicHome from '../components/home/PublicHome'
-import LoggedInHome, { type HomeLoaderData, LoggedInHomeSkeleton } from '../components/home/LoggedInHome'
+import LoggedInHome, { type HomeLoaderData } from '../components/home/LoggedInHome'
+import { PublicHomeSkeleton, LoggedInHomeSkeleton } from '../components/home/HomeSkeletons'
 import { getHeroImageSources } from '../config/hero'
 import { getTopShelfWorks } from '../lib/recommendations/topShelf'
 import { useApp } from '../context/AppContext'
@@ -29,11 +30,26 @@ import {
   clearClientSession,
 } from '../lib/authSession'
 
+function HomePendingComponent() {
+  if (typeof window !== 'undefined') {
+    const searchParams = new URLSearchParams(window.location.search)
+    const viewParam = searchParams.get('view')
+    if (viewParam === 'signed-in') return <LoggedInHomeSkeleton />
+    if (viewParam === 'public') return <PublicHomeSkeleton />
+  }
+  const isLoggedOut =
+    typeof window !== 'undefined' && sessionStorage.getItem('hatchpen_just_logged_out') === 'true'
+  const isClientSession = !isLoggedOut && hasActiveClientSession()
+  return isClientSession ? <LoggedInHomeSkeleton /> : <PublicHomeSkeleton />
+}
+
 export const Route = createFileRoute('/')({
   // In-Memory SWR (Desktop & Mobile): Keeps data fresh in RAM for 30s; instant 0ms navigation
   staleTime: 30_000,
   // Retains cached in-memory response for 5 minutes before automatic garbage collection
   gcTime: 1000 * 60 * 5,
+  pendingMs: 0,
+  pendingComponent: HomePendingComponent,
   validateSearch: (search: Record<string, unknown>) => ({
     view: (search.view as string) || undefined,
   }),

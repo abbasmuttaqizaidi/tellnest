@@ -19,14 +19,12 @@ Home route ko aur zyada super-fast banane ke liye 5 specific areas ka status:
     ```
   • Fayda: Browser HTML parse karte waqt hi hero photograph stream/download kar leta hai, providing ~300ms–600ms faster LCP.
   ──────                                                                                                                       
-  ### 3. Instant Home Navigation Skeleton (pendingComponent) — [0ms Feedback]                                                  
+  ### 3. Instant Home Navigation Skeleton (pendingComponent) — [COMPLETED]                                                  
                                                                                                                                
-  • Current Issue: User jab kisi doosre page (jaise /discover, /works/..., /library) se Logo ya "Home" button par click karta  
-  hai, toh Home route me koi pendingComponent na hone ki wajah se transition tab tak nahi dikhti jab tak loader khatam na ho.  
-  • Optimization: createFileRoute('/') me pendingMs: 0 aur pendingComponent add karein:                                        
-      • Guest ke liye PublicHomeSkeleton                                                                                       
-      • Logged-in ke liye LoggedInHomeSkeleton                                                                                 
-  • Fayda: Logo ya Home par click karte hi 0 millisecond me transition hogi.                                                   
+  • Implemented: `src/routes/index.tsx` me `pendingMs: 0` aur dynamic `pendingComponent: HomePendingComponent` add kiya gaya hai:
+      • Guest visitors & logged-out users ke liye instant `PublicHomeSkeleton`
+      • Authenticated members ke liye instant `LoggedInHomeSkeleton`
+  • Fayda: Logo ya Home par kisi bhi page (/discover, /works, /library) se click karte hi 0 millisecond me skeleton transition appear hoti hai.
   ──────                                                                                                                       
   ### 4. Dynamic Code-Splitting (React.lazy) — [Bundle Size Reduction]                                                         
                                                                                                                                

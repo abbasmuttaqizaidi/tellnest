@@ -130,6 +130,16 @@ test('Index Route: Reuses authUser from context to eliminate duplicate server ca
     content.includes('getPlatformWorksServerFn'),
     'Index loader must preserve getPlatformWorksServerFn'
   )
+
+  // 0ms Navigation Skeleton configuration (pendingMs: 0 and pendingComponent)
+  assert.ok(
+    content.includes('pendingMs: 0'),
+    'Index Route must configure pendingMs: 0 for instant navigation feedback'
+  )
+  assert.ok(
+    content.includes('pendingComponent: HomePendingComponent'),
+    'Index Route must configure HomePendingComponent to render instant skeletons'
+  )
 })
 
 test('AuthSession: hasActiveClientSession detects active Clerk UAT and HatchPen session markers', () => {
