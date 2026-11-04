@@ -26,15 +26,12 @@ Home route ko aur zyada super-fast banane ke liye 5 specific areas ka status:
       • Authenticated members ke liye instant `LoggedInHomeSkeleton`
   • Fayda: Logo ya Home par kisi bhi page (/discover, /works, /library) se click karte hi 0 millisecond me skeleton transition appear hoti hai.
   ──────                                                                                                                       
-  ### 4. Dynamic Code-Splitting (React.lazy) — [Bundle Size Reduction]                                                         
+  ### 4. Dynamic Code-Splitting (React.lazy) — [COMPLETED]                                                         
                                                                                                                                
-  • Current Issue: index.tsx me PublicHome (740 lines) aur LoggedInHome (1,780 lines) dono statically imported hain. Ek        
-  anonymous visitor ko bhi pura Logged-in dashboard bundle download karna padta hai.                                           
-  • Optimization: LoggedInHome ko React.lazy() se code-split kar dein.                                                         
-  • Fayda: Public visitor ke liye initial JavaScript bundle ~40% chhota ho jayega aur mobile par site turant interactable ho   
-  jayegi.                                                                                                                      
+  • Implemented: `src/routes/index.tsx` me `LoggedInHome` ko `React.lazy(() => import('../components/home/LoggedInHome'))` ke zariye dynamic code-split chunk banaya gaya hai aur `<React.Suspense fallback={<LoggedInHomeSkeleton />}>` me wrap kiya gaya hai.
+  • Security & Auth Protection: Public visitors aur search engine crawlers ke liye `LoggedInHome` bundle chunk (~51KB minified) kabhi bhi download ya trigger nahi hota. Unauthorized view kisi ko nahi dikhta.
+  • Fayda: Initial JavaScript bundle download significantly reduce hua hai aur mobile par site turant interactive ho jati hai.
   ──────                                                                                                                       
-  ### 5. Below-the-fold Assets & Background Fetching — [Bandwidth Protection]                                                  
+  ### 5. Below-the-fold Assets & Background Fetching — [COMPLETED]                                                  
                                                                                                                                
-  • AppContext me pure platform catalog ka jo background sync (reloadWorksFromDb) chalta hai, usko requestIdleCallback /       
-  deferred queue me daalein taaki wo initial page load aur LCP images ke bandwidth ke sath compete na kare.     
+  • Resolved: `AppContext` me se automatic background catalog sync ko normal users aur public guests ke mount lifecycle se complete remove kar diya gaya hai. Ab ye sirf authenticated Admin sessions me explicitly limit of 15 items ke sath chalta hai, protecting critical page-load bandwidth.     

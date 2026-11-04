@@ -19,8 +19,10 @@ import {
   executeGetNewVoices,
 } from '../server/works'
 import PublicHome from '../components/home/PublicHome'
-import LoggedInHome, { type HomeLoaderData } from '../components/home/LoggedInHome'
+import type { HomeLoaderData } from '../components/home/LoggedInHome'
 import { PublicHomeSkeleton, LoggedInHomeSkeleton } from '../components/home/HomeSkeletons'
+
+const LoggedInHome = React.lazy(() => import('../components/home/LoggedInHome'))
 import { getHeroImageSources } from '../config/hero'
 import { getTopShelfWorks } from '../lib/recommendations/topShelf'
 import { useApp } from '../context/AppContext'
@@ -247,7 +249,11 @@ function HomePage() {
 
   // 1. Explicit query param overrides (testing / previewing)
   if (search?.view === 'signed-in') {
-    return <LoggedInHome forcedView="signed-in" loaderData={loaderData} />
+    return (
+      <React.Suspense fallback={<LoggedInHomeSkeleton />}>
+        <LoggedInHome forcedView="signed-in" loaderData={loaderData} />
+      </React.Suspense>
+    )
   }
   if (search?.view === 'public') {
     return <PublicHome loaderData={loaderData} />
@@ -266,12 +272,20 @@ function HomePage() {
 
   // 4. Definitively signed in by Clerk
   if (isUserLoaded && isSignedIn) {
-    return <LoggedInHome loaderData={loaderData} />
+    return (
+      <React.Suspense fallback={<LoggedInHomeSkeleton />}>
+        <LoggedInHome loaderData={loaderData} />
+      </React.Suspense>
+    )
   }
 
   // 5. Server authenticated or client session indicator active within grace window
   if ((isServerAuthenticated || hasClientSession) && !sessionGraceExpired) {
-    return <LoggedInHome loaderData={loaderData} />
+    return (
+      <React.Suspense fallback={<LoggedInHomeSkeleton />}>
+        <LoggedInHome loaderData={loaderData} />
+      </React.Suspense>
+    )
   }
 
   // 6. True unauthenticated public visitor

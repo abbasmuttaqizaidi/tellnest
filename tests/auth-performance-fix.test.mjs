@@ -140,6 +140,16 @@ test('Index Route: Reuses authUser from context to eliminate duplicate server ca
     content.includes('pendingComponent: HomePendingComponent'),
     'Index Route must configure HomePendingComponent to render instant skeletons'
   )
+
+  // Dynamic code-splitting for LoggedInHome: cut from initial public JS payload
+  assert.ok(
+    content.includes("React.lazy(() => import('../components/home/LoggedInHome'))"),
+    'Index Route must code-split LoggedInHome using React.lazy to protect guest initial JS payload'
+  )
+  assert.ok(
+    content.includes('<React.Suspense fallback={<LoggedInHomeSkeleton />}>'),
+    'Index Route must protect lazy-loaded LoggedInHome with Suspense fallback'
+  )
 })
 
 test('AuthSession: hasActiveClientSession detects active Clerk UAT and HatchPen session markers', () => {
