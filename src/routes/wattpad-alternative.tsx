@@ -187,11 +187,6 @@ export default function WattpadAlternativePage() {
             1. HERO SECTION
             ========================================================================= */}
         <section className="text-center max-w-3xl mx-auto space-y-5">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[#B94F37] text-xs font-semibold uppercase tracking-wider shadow-2xs">
-            <Sparkles className="w-3.5 h-3.5 text-[#B94F37]" />
-            <span>The Genuine Indie Alternative</span>
-          </div>
-
           <h1 className="font-serif text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-[var(--ink-primary)] leading-[1.08]">
             The Quiet, Free Alternative to <span className="text-[#B94F37]">Wattpad</span>
           </h1>
@@ -377,10 +372,7 @@ export default function WattpadAlternativePage() {
             4. THREE CORE PILLARS
             ========================================================================= */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-[#B94F37]/10 flex items-center justify-center text-[#B94F37]">
-              <Sparkles className="w-5 h-5" />
-            </div>
+          <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 space-y-2.5">
             <h3 className="font-serif text-lg font-bold text-[var(--ink-primary)]">
               Underrated Stories First
             </h3>
@@ -389,10 +381,7 @@ export default function WattpadAlternativePage() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600">
-              <BookOpen className="w-5 h-5" />
-            </div>
+          <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 space-y-2.5">
             <h3 className="font-serif text-lg font-bold text-[var(--ink-primary)]">
               Zero-Friction Free Reading
             </h3>
@@ -401,10 +390,7 @@ export default function WattpadAlternativePage() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600">
-              <HeartHandshake className="w-5 h-5" />
-            </div>
+          <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 space-y-2.5">
             <h3 className="font-serif text-lg font-bold text-[var(--ink-primary)]">
               Genuine Author Community
             </h3>
