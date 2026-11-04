@@ -1019,6 +1019,12 @@ test('Brand Search Visibility: Query A (hatchpen) & Query B (hatch pen) — Home
   assert.ok(webSite.alternateName.includes('Hatch Pen'))
   assert.ok(webSite.alternateName.includes('Hatchpen'))
   assert.equal(webSite.name, 'HatchPen')
+
+  // Homepage Hero Image Preload for LCP optimization
+  assert.ok(indexCode.includes("rel: 'preload'"), 'Homepage must include preload link')
+  assert.ok(indexCode.includes("as: 'image'"), 'Homepage must specify as="image"')
+  assert.ok(indexCode.includes("fetchPriority: 'high'"), 'Homepage hero preload must have fetchPriority="high"')
+  assert.ok(indexCode.includes("getHeroImageSources()"), 'Homepage must resolve single source hero image config')
 })
 
 test('Brand Search Visibility: Query C (hatchpen stories) — Discover page metadata and crawlable internal links', () => {

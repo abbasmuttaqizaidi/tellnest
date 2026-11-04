@@ -20,6 +20,7 @@ import {
 } from '../server/works'
 import PublicHome from '../components/home/PublicHome'
 import LoggedInHome, { type HomeLoaderData, LoggedInHomeSkeleton } from '../components/home/LoggedInHome'
+import { getHeroImageSources } from '../config/hero'
 import { getTopShelfWorks } from '../lib/recommendations/topShelf'
 import { useApp } from '../context/AppContext'
 import {
@@ -107,8 +108,8 @@ export const Route = createFileRoute('/')({
       }
     }
   },
-  head: () =>
-    generateMeta({
+  head: () => {
+    const seo = generateMeta({
       title: 'HatchPen — A Quieter Place for Bolder Stories',
       description:
         'Great writing deserves to be discovered, not buried by popularity. Explore original stories, discover emerging writers, and read beyond the hype on HatchPen.',
@@ -132,7 +133,26 @@ export const Route = createFileRoute('/')({
         description:
           'Great writing deserves to be discovered, not buried by popularity. Explore original stories, discover emerging writers, and read beyond the hype on HatchPen.',
       },
-    }),
+    })
+
+    const { src: heroSrc, srcSet: heroSrcSet } = getHeroImageSources()
+
+    return {
+      meta: seo.meta,
+      scripts: seo.scripts,
+      links: [
+        ...seo.links,
+        {
+          rel: 'preload',
+          as: 'image',
+          href: heroSrc,
+          ...(heroSrcSet ? { imageSrcSet: heroSrcSet } : {}),
+          imageSizes: '(min-width: 1024px) 58vw, 100vw',
+          fetchPriority: 'high',
+        },
+      ],
+    }
+  },
   component: HomePage,
 })
 
