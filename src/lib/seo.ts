@@ -8,7 +8,7 @@ export const SITE_NAME = 'HatchPen'
 export const DEFAULT_SITE_URL = 'https://hatchpen.com'
 export const DEFAULT_TITLE = 'HatchPen — Writings. Beyond the Hype.'
 export const DEFAULT_DESCRIPTION =
-  'Great writing deserves to be discovered, not buried by popularity. Explore original stories, discover emerging writers, and read beyond the hype on HatchPen.'
+  'A genuine indie alternative to Wattpad. HatchPen connects new writers with real, engaged readers beyond vanity view counts—a home for underrated stories, hidden gems, and free serialized novels.'
 export const DEFAULT_OG_IMAGE = '/og-image.png'
 
 /**

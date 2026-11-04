@@ -130,12 +130,15 @@ export const Route = createFileRoute('/')({
     const seo = generateMeta({
       title: 'HatchPen — A Quieter Place for Bolder Stories',
       description:
-        'Great writing deserves to be discovered, not buried by popularity. Explore original stories, discover emerging writers, and read beyond the hype on HatchPen.',
+        'A genuine indie alternative to Wattpad. HatchPen connects new writers with real, engaged readers beyond vanity view counts—a home for underrated stories, hidden gems, and free serialized novels.',
       canonicalUrl: 'https://hatchpen.com/',
       keywords: [
+        'wattpad alternative',
+        'underrated stories',
         'serialized fiction',
         'read novels online',
         'indie literature',
+        'emerging writers',
         'web novels',
         'stories by chapter',
         'free reading',
@@ -149,7 +152,7 @@ export const Route = createFileRoute('/')({
         name: 'HatchPen — A Quieter Place for Bolder Stories',
         url: 'https://hatchpen.com/',
         description:
-          'Great writing deserves to be discovered, not buried by popularity. Explore original stories, discover emerging writers, and read beyond the hype on HatchPen.',
+          'A genuine serialized fiction platform and community-driven alternative to Wattpad. HatchPen connects emerging writers with a real, dedicated audience that values original storytelling over vanity view counts and algorithmic hype. Discover underrated stories, hidden gems, and free serialized web novels read chapter by chapter with zero paywalls.',
       },
     })
 

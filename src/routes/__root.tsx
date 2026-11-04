@@ -44,7 +44,7 @@ const GLOBAL_JSON_LD = JSON.stringify({
       url: 'https://hatchpen.com',
       logo: 'https://hatchpen.com/icon-512.png',
       sameAs: [],
-      description: 'Great writing deserves to be discovered, not buried by popularity. Explore original stories, discover emerging writers, and read beyond the hype on HatchPen.',
+      description: 'A genuine serialized fiction platform and community-driven alternative to Wattpad. HatchPen connects emerging writers with a real, dedicated audience that values original storytelling over vanity view counts and algorithmic hype. Discover underrated stories, hidden gems, and free serialized web novels read chapter by chapter with zero paywalls.',
     },
     {
       '@type': 'WebSite',

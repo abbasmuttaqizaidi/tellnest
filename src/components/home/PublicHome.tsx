@@ -329,8 +329,8 @@ export default function PublicHome({ loaderData }: PublicHomeProps = {}) {
               </h1>
 
               {/* Supporting Copy */}
-              <p className="text-[16px] sm:text-[17.5px] leading-[1.58] text-[#5A544C] dark:text-[#A1A1AA] max-w-[350px] mb-8 font-normal">
-                Discover fresh voices, unexpected worlds, and original stories that stay with you on HatchPen.
+              <p className="text-[16px] sm:text-[17.5px] leading-[1.58] text-[#5A544C] dark:text-[#A1A1AA] max-w-[360px] mb-8 font-normal">
+                A home for underrated stories and genuine readers. Discover fresh voices and original fiction discovered by craft, not vanity metrics.
               </p>
 
               {/* Action Buttons */}
@@ -692,10 +692,10 @@ export default function PublicHome({ loaderData }: PublicHomeProps = {}) {
               </div>
               <div className="flex items-center gap-2 mb-2">
                 <Users className="w-4 h-4 text-[#B94F37]" />
-                <h3 className="text-lg font-bold text-[#201F1D] dark:text-[#F4F4F5]">New Voices First</h3>
+                <h3 className="text-lg font-bold text-[#201F1D] dark:text-[#F4F4F5]">Genuine Readers, Not Vanity Counts</h3>
               </div>
               <p className="text-sm text-[#5A544C] dark:text-[#A1A1AA] leading-relaxed">
-                Every new writer gets dedicated reach in their first 5 months. No pay-to-play discovery.
+                New writers get real audience engagement from chapter one. Discovery is driven by story quality, never pay-to-play algorithms or view counts.
               </p>
             </div>
           </div>
