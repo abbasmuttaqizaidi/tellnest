@@ -173,7 +173,6 @@ function WorkManagementPage() {
     addNewChapter,
     showToast,
     reloadWriterWorksFromDb,
-    reloadWorksFromDb,
     updateWork,
   } = useApp()
   const { user } = useUser()
@@ -355,10 +354,7 @@ function WorkManagementPage() {
         cover: targetCover || work.cover,
       })
 
-      await Promise.all([
-        reloadWriterWorksFromDb?.(),
-        reloadWorksFromDb?.(),
-      ])
+      await reloadWriterWorksFromDb?.()
 
       showToast('Manuscript details updated successfully!')
       setEditStoryModalOpen(false)
@@ -503,10 +499,7 @@ function WorkManagementPage() {
           coverImageUrl: newUrl,
         },
       })
-      await Promise.all([
-        reloadWriterWorksFromDb?.(),
-        reloadWorksFromDb?.(),
-      ])
+      await reloadWriterWorksFromDb?.()
       showToast('Manuscript cover image updated!')
       setCoverModalOpen(false)
     } catch (err: any) {
@@ -566,10 +559,7 @@ function WorkManagementPage() {
           work.status = newStat
         }
 
-        await Promise.all([
-          reloadWriterWorksFromDb?.(),
-          reloadWorksFromDb?.(),
-        ])
+        await reloadWriterWorksFromDb?.()
 
         showToast(`Manuscript is now ${newPubStatus} (${newVis})!`)
         setPubModalOpen(false)
@@ -604,10 +594,7 @@ function WorkManagementPage() {
           work.publicationStatus = 'Published'
           work.visibility = 'Public'
         }
-        await Promise.all([
-          reloadWriterWorksFromDb?.(),
-          reloadWorksFromDb?.(),
-        ])
+        await reloadWriterWorksFromDb?.()
         showToast('Manuscript published! It is now live to readers.')
       }
     } catch (err: any) {
@@ -677,10 +664,7 @@ function WorkManagementPage() {
           })
         }
       }
-      await Promise.all([
-        reloadWriterWorksFromDb?.(),
-        reloadWorksFromDb?.(),
-      ]).catch(() => {})
+      await reloadWriterWorksFromDb?.().catch(() => {})
 
       showToast(`Act "${actTitle}" removed`)
       setDeleteActTarget(null)
@@ -750,10 +734,7 @@ function WorkManagementPage() {
               )
             )
           }
-          await Promise.all([
-            reloadWriterWorksFromDb?.(),
-            reloadWorksFromDb?.(),
-          ]).catch(() => {})
+          await reloadWriterWorksFromDb?.().catch(() => {})
           setViewMode('grouped')
           showToast(`Act created: "${enteredTitle}"`)
         }
@@ -869,10 +850,7 @@ function WorkManagementPage() {
       if (work && Array.isArray(work.chapters)) {
         work.chapters = work.chapters.filter((c: any) => c.id !== chapterId)
       }
-      await Promise.all([
-        reloadWriterWorksFromDb?.(),
-        reloadWorksFromDb?.(),
-      ]).catch(() => {})
+      await reloadWriterWorksFromDb?.().catch(() => {})
 
       if (res?.workRevertedToDraft) {
         setPublicationStatus('Draft')
@@ -921,10 +899,7 @@ function WorkManagementPage() {
           work.publicationStatus = 'Draft'
           work.visibility = 'Draft'
         }
-        await Promise.all([
-          reloadWriterWorksFromDb?.(),
-          reloadWorksFromDb?.(),
-        ])
+        await reloadWriterWorksFromDb?.()
         showToast('Manuscript reverted to Draft as no published chapters remain.')
       }
     } catch (err: any) {

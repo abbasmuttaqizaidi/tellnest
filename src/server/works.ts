@@ -673,6 +673,7 @@ export interface PlatformWorksDependencies {
   createAdminClient?: () => any
   queryRows?: () => Promise<any[]>
   refDate?: Date
+  limit?: number
 }
 
 /**
@@ -700,7 +701,8 @@ export async function executeGetPlatformWorks(
   }
 
   const isAuthenticated = Boolean(authState?.userId)
-  const cacheKey = isAuthenticated ? 'auth' : 'anon'
+  const limit = typeof dependencies.limit === 'number' && dependencies.limit > 0 ? dependencies.limit : undefined
+  const cacheKey = `${isAuthenticated ? 'auth' : 'anon'}${limit ? `_limit_${limit}` : ''}`
 
   if (!dependencies.queryRows) {
     const cached = platformWorksCache.get(cacheKey)
@@ -835,7 +837,7 @@ export async function executeGetPlatformWorks(
         LEFT JOIN profiles p ON p.id = w.author_id
         LEFT JOIN categories c ON c.id = w.category_id
         WHERE w.visibility = 'public' AND w.publication_status = 'published'
-        ORDER BY w.last_activity_at DESC NULLS LAST;
+        ORDER BY w.last_activity_at DESC NULLS LAST${limit ? ` LIMIT ${limit}` : ''};
       `
 
       // Use queryRows in tests, or Supabase Admin REST client (HTTPS), falling back to direct pg
@@ -845,13 +847,16 @@ export async function executeGetPlatformWorks(
 
       if (dependencies.queryRows) {
         rawRows = await dependencies.queryRows()
+        if (limit) {
+          rawRows = rawRows.slice(0, limit)
+        }
         querySucceeded = true
       } else {
         // 1. Primary: Query via Supabase REST API (HTTPS) - works in serverless environments (Vercel) without port 5432
         try {
           const { createAdminClient } = await import('../lib/supabase/server.ts')
           const admin = createAdminClient()
-          const { data: supaRows, error: supaErr } = await admin
+          let supaQuery = admin
             .from('works_with_collections')
             .select(`
               *,
@@ -865,6 +870,12 @@ export async function executeGetPlatformWorks(
             .eq('visibility', 'public')
             .eq('publication_status', 'published')
             .order('last_activity_at', { ascending: false })
+
+          if (limit) {
+            supaQuery = supaQuery.limit(limit)
+          }
+
+          const { data: supaRows, error: supaErr } = await supaQuery
 
           if (!supaErr && Array.isArray(supaRows)) {
             querySucceeded = true
@@ -1182,8 +1193,11 @@ export async function executeGetPlatformWorks(
  * Protected discovery collections (rising_stories, new_voices) require authentication.
  */
 export const getPlatformWorksServerFn = createServerFn({ method: 'GET' })
-  .handler(async () => {
-    return await executeGetPlatformWorks()
+  .validator((params?: { limit?: number }) => ({
+    limit: typeof params?.limit === 'number' && params.limit > 0 ? params.limit : undefined,
+  }))
+  .handler(async ({ data }) => {
+    return await executeGetPlatformWorks({ limit: data?.limit })
   })
 
 export interface CategoryPageData {

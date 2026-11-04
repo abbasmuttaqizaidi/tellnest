@@ -71,7 +71,7 @@ const POPULAR_SUGGESTIONS = [
 ]
 
 function CreateWorkPage() {
-  const { categories, genres, reloadWriterWorksFromDb, reloadWorksFromDb, showToast } = useApp()
+  const { categories, genres, reloadWriterWorksFromDb, showToast } = useApp()
   const { user } = useUser()
   const navigate = useNavigate()
 
@@ -196,11 +196,8 @@ function CreateWorkPage() {
 
       showToast('Manuscript successfully registered!')
 
-      // Sync writer works and global platform works
-      await Promise.all([
-        reloadWriterWorksFromDb(),
-        reloadWorksFromDb(),
-      ])
+      // Sync writer works for author
+      await reloadWriterWorksFromDb()
 
       // Navigate to manuscript manage page
       navigate({

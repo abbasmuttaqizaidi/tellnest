@@ -165,7 +165,7 @@ interface AppContextType {
   // Admin work injection & Database Sync
   addAdminPostedWork: (work: Work) => void
   addAdminPostedChapter: (workId: string, chapter: Chapter) => void
-  reloadWorksFromDb: () => Promise<void>
+  reloadWorksFromDb: (opts?: { force?: boolean }) => Promise<void>
 }
 
 const defaultReaderSettings: ReaderSettings = {
@@ -342,26 +342,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const worksRequestSeqRef = React.useRef(0)
 
-  // Fetch works from Database (works_with_collections view) and sync into allWorks
-  const reloadWorksFromDb = React.useCallback(async () => {
+  // Fetch works from Database (works_with_collections view) and sync into allWorks.
+  // Restricted strictly to authenticated admin users with a hard limit of 15 items.
+  const reloadWorksFromDb = React.useCallback(async (opts?: { force?: boolean }) => {
+    // Only execute if an admin session is active or explicitly forced (e.g., in controlled tests or admin panel)
+    const isAdmin = typeof window !== 'undefined' && Boolean(
+      sessionStorage.getItem('hatchpen_admin_session_token') ||
+      localStorage.getItem('hatchpen_admin_session_token') ||
+      sessionStorage.getItem('tellnest_admin_session_token') ||
+      localStorage.getItem('tellnest_admin_session_token')
+    )
+
+    if (!isAdmin && !opts?.force) {
+      return
+    }
+
     const seq = ++worksRequestSeqRef.current
     try {
       setIsWorksLoading((loading) => (allWorks.length === 0 ? true : loading))
       setWorksError(false)
-      const dbWorks = await getPlatformWorksServerFn()
+      const dbWorks = await getPlatformWorksServerFn({ data: { limit: 15 } })
       if (seq !== worksRequestSeqRef.current) {
         return
       }
       setWorksError(false)
       if (Array.isArray(dbWorks) && dbWorks.length > 0) {
+        const cappedWorks = dbWorks.slice(0, 15)
         if (typeof window !== 'undefined') {
           try {
-            localStorage.setItem('hatchpen_cached_platform_works', JSON.stringify(dbWorks))
+            localStorage.setItem('hatchpen_cached_platform_works', JSON.stringify(cappedWorks))
           } catch (e) {}
         }
         setAllWorks((prev) => {
           let updated = [...prev]
-          for (const dbW of dbWorks) {
+          for (const dbW of cappedWorks) {
             const idx = updated.findIndex((w) => w.id === dbW.id)
             if (idx >= 0) {
               updated[idx] = { ...updated[idx], ...dbW }
@@ -384,42 +398,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       } else if (Array.isArray(dbWorks) && dbWorks.length === 0) {
         // Genuine empty catalog returned from DB
         setAllWorks([])
-      } else if (!isSignedIn) {
-        setAllWorks((prev) =>
-          prev.map((w) => ({
-            ...w,
-            rising: false,
-            collection: (w.collection || []).filter(
-              (c: string) => c !== 'rising_stories' && c !== 'new_voices' && c !== 'fresh_voices'
-            ),
-          }))
-        )
       }
     } catch (err) {
       if (seq !== worksRequestSeqRef.current) return
       console.warn('[AppContext] Failed to load DB works:', err)
       setWorksError(true)
-      if (!isSignedIn) {
-        setAllWorks((prev) =>
-          prev.map((w) => ({
-            ...w,
-            rising: false,
-            collection: (w.collection || []).filter(
-              (c: string) => c !== 'rising_stories' && c !== 'new_voices' && c !== 'fresh_voices'
-            ),
-          }))
-        )
-      }
     } finally {
       if (seq === worksRequestSeqRef.current) {
         setIsWorksLoading(false)
       }
     }
   }, [isSignedIn, allWorks.length])
-
-  useEffect(() => {
-    reloadWorksFromDb()
-  }, [reloadWorksFromDb, isSignedIn])
 
   // Auto-enrich reading progress metadata (chapter numbers/titles) when allWorks finishes hydrating from DB
   useEffect(() => {
