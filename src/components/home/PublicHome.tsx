@@ -264,12 +264,14 @@ export default function PublicHome({ loaderData }: PublicHomeProps = {}) {
 
   return (
     <>
-      {/* Mobile-First Dedicated Public Experience (Hero slide, mood explorer, surprise book, top shelf) */}
+      {/* Mobile-First Dedicated Public Experience (Hero slide, mood explorer, surprise book, trending, bingeable, top shelf) */}
       <PublicMobileStories
         onOpenAuth={openAuthModal}
         onOpenWriteModal={openPublicWriteModal}
         works={works}
         initialTopShelfWorks={loaderData?.initialTopShelf || undefined}
+        initialTrendingWorks={loaderData?.initialTrending || undefined}
+        initialBingeableWorks={loaderData?.initialBingeable || undefined}
       />
 
       {/* Desktop Editorial Homepage (md and above) */}

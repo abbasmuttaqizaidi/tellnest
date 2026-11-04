@@ -46,6 +46,8 @@ import bookIdleImg from '../assets/surprise-with-a-random-book/book-idle-9x16.pn
 import bookIdleWebp from '../assets/surprise-with-a-random-book/book-idle-9x16.webp'
 import animatedBookVideoOptimized from '../assets/surprise-with-a-random-book/animated-book-video-optimized.mp4'
 import type { Work } from '../data/mockData'
+import { TrendingSection } from './home/TrendingSection'
+import { BingeableSection } from './home/BingeableSection'
 import { TopShelfSection } from './home/TopShelfSection'
 
 interface PublicMobileStoriesProps {
@@ -53,6 +55,8 @@ interface PublicMobileStoriesProps {
   onOpenWriteModal: () => void
   works?: Work[]
   initialTopShelfWorks?: Work[]
+  initialTrendingWorks?: Work[]
+  initialBingeableWorks?: Work[]
 }
 
 export interface CuratedStoryItem {
@@ -364,6 +368,8 @@ export function PublicMobileStories({
   onOpenWriteModal,
   works,
   initialTopShelfWorks,
+  initialTrendingWorks,
+  initialBingeableWorks,
 }: PublicMobileStoriesProps) {
   const navigate = useNavigate()
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -1223,6 +1229,36 @@ export function PublicMobileStories({
             <span>Surprise me instead</span>
           </button>
         </div>
+      </section>
+
+      {/* =====================================================================
+          SECTION: TRENDING SERIALS TODAY
+          Mobile Public Experience
+          ===================================================================== */}
+      <section
+        id="trending-serials-mobile"
+        className="w-full py-8 px-4 sm:px-6 max-w-md mx-auto bg-white border-t border-neutral-100 flex flex-col justify-center"
+      >
+        <TrendingSection
+          works={works}
+          initialTrendingWorks={initialTrendingWorks}
+          id="trending-serials-mobile-section"
+        />
+      </section>
+
+      {/* =====================================================================
+          SECTION: BINGEABLE READS (SINGLE-SITTING COMPLETE & 2-CHAPTER ARCS)
+          Mobile Public Experience
+          ===================================================================== */}
+      <section
+        id="bingeable-reads-mobile"
+        className="w-full py-8 px-4 sm:px-6 max-w-md mx-auto bg-white border-t border-neutral-100 flex flex-col justify-center"
+      >
+        <BingeableSection
+          works={works}
+          initialBingeableWorks={initialBingeableWorks}
+          id="bingeable-reads-mobile-section"
+        />
       </section>
 
       {/* =====================================================================
