@@ -89,14 +89,9 @@ export function TrendingSection({
     <section id={id} className={`w-full space-y-4 ${className}`} style={{ contentVisibility: 'auto', containIntrinsicSize: '550px' }}>
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-3 border-b border-[var(--border-subtle)]">
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] tracking-tight">
-              {title}
-            </h3>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-amber-600 dark:text-amber-400">
-              🔥 Trending
-            </span>
-          </div>
+          <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] tracking-tight">
+            {title}
+          </h3>
           {subtitle && (
             <p className="font-serif text-xs sm:text-sm text-[var(--ink-secondary)]">
               {subtitle}

@@ -64,14 +64,9 @@ export function TopShelfSection({
         >
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-3 border-b border-[var(--border-subtle)]">
             <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] tracking-tight">
-                  Top Shelf
-                </h3>
-                <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-full bg-[var(--accent-subtle)] text-[var(--accent-primary)] border border-[var(--accent-primary)]/20">
-                  Top 10
-                </span>
-              </div>
+              <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] tracking-tight">
+                Top Shelf
+              </h3>
               <p className="font-serif text-xs sm:text-sm text-[var(--ink-secondary)]">
                 The community's most-saved manuscripts. Stories readers couldn't let go of.
               </p>
@@ -92,14 +87,9 @@ export function TopShelfSection({
     >
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-3 border-b border-[var(--border-subtle)]">
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] tracking-tight">
-              Top Shelf
-            </h3>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--ink-muted)]">
-              Top 10 Community Picks
-            </span>
-          </div>
+          <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] tracking-tight">
+            Top Shelf
+          </h3>
           <p className="font-serif text-xs sm:text-sm text-[var(--ink-secondary)]">
             The most saved and cherished manuscripts across the HatchPen reading community.
           </p>
