@@ -1,37 +1,33 @@
-Home route ko aur zyada super-fast banane ke liye 5 specific areas ka status:                           
-  ──────                                                                                                                       
-  ### 1. Public Content Delivery & Query Utilization — [COMPLETED]
+### 1. Dedicated "Wattpad Alternative" Comparison Landing Page (/compare/wattpad-alternative) (Highest ROI)                  
                                                                                                                                
-  • Resolved: Public view (Desktop & Mobile) par Trending aur Bingeable sections add kiye gaye hain. Server loader ka data ab guest visitors aur Google crawlers dono ko instantly rich content provide kar raha hai.
-  ──────                                                                                                                       
-  ### 2. Hero Image Preload in <head> — [COMPLETED]
+  • Problem: Log Google par actively search karte hain: "Wattpad alternatives 2026", "free sites like Wattpad", "best place to 
+  publish web novels without paywalls".                                                                                        
+  • Opportunity: Ek dedicated, lightweight SEO landing page create karna (jaise /wattpad-alternative ya /compare/wattpad-      
+  alternative):                                                                                                                
+      • Honest comparison table (Zero coin/paywall systems, genuine reader reach vs algorithm suppression, writer-friendly     
+      typography, 100% free reading).                                                                                          
+      • Call-to-action for both readers and migrating writers.                                                                 
+      • Isse direct high-intent audience Google se aane lagegi.                                                                
                                                                                                                                
-  • Implemented: `src/routes/index.tsx` ke `head()` me Hero image (`getHeroImageSources`) ka responsive preload tag add kiya gaya hai:
-    ```ts
-    {
-      rel: 'preload',
-      as: 'image',
-      href: heroSrc,
-      imageSrcSet: heroSrcSet,
-      imageSizes: '(min-width: 1024px) 58vw, 100vw',
-      fetchPriority: 'high',
-    }
-    ```
-  • Fayda: Browser HTML parse karte waqt hi hero photograph stream/download kar leta hai, providing ~300ms–600ms faster LCP.
   ──────                                                                                                                       
-  ### 3. Instant Home Navigation Skeleton (pendingComponent) — [COMPLETED]                                                  
+  ### 2. Deep Story Chapter Indexing & Reading Breadcrumbs                                                                     
                                                                                                                                
-  • Implemented: `src/routes/index.tsx` me `pendingMs: 0` aur dynamic `pendingComponent: HomePendingComponent` add kiya gaya hai:
-      • Guest visitors & logged-out users ke liye instant `PublicHomeSkeleton`
-      • Authenticated members ke liye instant `LoggedInHomeSkeleton`
-  • Fayda: Logo ya Home par kisi bhi page (/discover, /works, /library) se click karte hi 0 millisecond me skeleton transition appear hoti hai.
+  • Jab koi search kare: "The Girl Who Saw Chapter 1" ya "read The Night With My Best Friend's Daddy online free":             
+  • Har published chapter ke page (/read/$workId/$chapterId) par:                                                              
+      • Google ka Article + Chapter Schema already configured hai, lekin reader finish hone par agle chapter ka internal link  
+      equity crawler ke liye aur smooth banana.                                                                                
+      • Chapter titles me dynamic metadata ensure karna: e.g. Chapter 1: The Awakening — The Girl Who Saw | HatchPen.          
+                                                                                                                               
   ──────                                                                                                                       
-  ### 4. Dynamic Code-Splitting (React.lazy) — [COMPLETED]                                                         
+  ### 3. Automated RSS Feeds (/feed.xml / /rss/$workId.xml)                                                                    
                                                                                                                                
-  • Implemented: `src/routes/index.tsx` me `LoggedInHome` ko `React.lazy(() => import('../components/home/LoggedInHome'))` ke zariye dynamic code-split chunk banaya gaya hai aur `<React.Suspense fallback={<LoggedInHomeSkeleton />}>` me wrap kiya gaya hai.
-  • Security & Auth Protection: Public visitors aur search engine crawlers ke liye `LoggedInHome` bundle chunk (~51KB minified) kabhi bhi download ya trigger nahi hota. Unauthorized view kisi ko nahi dikhta.
-  • Fayda: Initial JavaScript bundle download significantly reduce hua hai aur mobile par site turant interactive ho jati hai.
+  • Web Novel Readers & Aggregators (jaise Feedly, RSS readers, aur web fiction indexing bots) RSS feed se new releases track  
+  karte hain.                                                                                                                  
+  • Har nayi story ya chapter aane par automatic RSS feed generate hone se Googlebot ko new chapters publish hote hi minutes ke
+  andar crawl notification mil jata hai bina kisi manual submission ke.                                                        
   ──────                                                                                                                       
-  ### 5. Below-the-fold Assets & Background Fetching — [COMPLETED]                                                  
+  ### 4. Author Profiles as Mini-Portfolios (/author/$username)                                                                
                                                                                                                                
-  • Resolved: `AppContext` me se automatic background catalog sync ko normal users aur public guests ke mount lifecycle se complete remove kar diya gaya hai. Ab ye sirf authenticated Admin sessions me explicitly limit of 15 items ke sath chalta hai, protecting critical page-load bandwidth.     
+  • Authors ke Google Knowledge Graph me unke literary genres aur works linked hain.                                           
+  • Next step me authors ke profile pages par unke Twitter/Insta rel="me" verified links aur unki stories ka visual            
+  bibliography cluster boost karna, taaki jab koi kisi author ka naam Google kare, to unka Hatchpen profile #1 rank kare.  

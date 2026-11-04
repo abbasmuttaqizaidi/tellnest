@@ -136,12 +136,12 @@ export const Route = createFileRoute('/read/$workId/$chapterId')({
       ? `Chapter ${chapterNum}: ${chapter.title}`
       : chapter.title
 
-    const pageTitle = `Read ${work.title} ${chapterLabel} Online Free`
+    const pageTitle = `${chapterLabel} — ${work.title} | HatchPen`
     const cleanExcerpt = (chapter.content || chapter.subtitle || work.synopsis || '')
       .slice(0, 160)
       .replace(/\s+/g, ' ')
       .trim()
-    const pageDescription = `Read ${work.title} ${chapterLabel} online for free on HatchPen. ${
+    const pageDescription = `Read ${chapterLabel} of ${work.title} online for free on HatchPen. ${
       cleanExcerpt ? `"${cleanExcerpt}..." ` : ''
     }Enjoy chapter-by-chapter reading with zero paywalls or subscriptions.`
 
@@ -169,8 +169,8 @@ export const Route = createFileRoute('/read/$workId/$chapterId')({
     const chapterJsonLd = {
       '@context': 'https://schema.org',
       '@type': ['Article', 'Chapter'],
-      headline: `Read ${work.title} ${chapterLabel} Online Free`,
-      name: `${chapter.title} — ${work.title}`,
+      headline: `${chapterLabel} — ${work.title}`,
+      name: `${chapterLabel} — ${work.title}`,
       url: canonicalUrl,
       mainEntityOfPage: canonicalUrl,
       ...(chapterNum !== undefined ? { position: chapterNum } : {}),
@@ -1065,12 +1065,12 @@ function ReaderPage() {
         <div className="pb-2.5 mb-4 sm:pb-3 sm:mb-5 border-b border-[var(--border-subtle)] space-y-1">
           {/* Top Breadcrumb & Desktop Metadata Line */}
           <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-[11px] font-mono text-[var(--ink-muted)]">
-            <div className="flex items-center gap-1.5 truncate">
+            <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 truncate">
               {(!chapter.bannerImage || bannerImageFailed) && (
                 <>
                   <Link
                     to="/works/$workId"
-                    params={{ workId: work.id }}
+                    params={{ workId: canonicalSlug }}
                     className="uppercase tracking-wider font-semibold text-[var(--ink-primary)] hover:underline no-underline truncate max-w-[200px]"
                   >
                     {work.title}
@@ -1078,8 +1078,8 @@ function ReaderPage() {
                   <span>/</span>
                 </>
               )}
-              <span className="font-semibold text-[var(--ink-primary)]">Ch. {chapter.number}</span>
-            </div>
+              <span className="font-semibold text-[var(--ink-primary)]" aria-current="page">Ch. {chapter.number}</span>
+            </nav>
 
             {/* Desktop-Only Metadata (on Mobile, displayed directly below Heading & Actions) */}
             <div className="hidden sm:flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-[var(--ink-faint)]">
@@ -1372,6 +1372,7 @@ function ReaderPage() {
             <Link
               to="/read/$workId/$chapterId"
               params={{ workId: canonicalSlug, chapterId: nextChapter.id }}
+              rel="next"
               className="order-1 sm:order-2 group flex flex-col items-start sm:items-end sm:text-right p-4 rounded-lg border border-[var(--ink-primary)] sm:border-[var(--border-subtle)] bg-[var(--bg-subtle)]/50 sm:bg-[var(--bg-surface)] hover:border-[var(--ink-primary)] transition-all no-underline text-inherit shadow-2xs hover:shadow-xs"
               aria-label={`Advance to Next Chapter: ${nextChapter.number}. ${nextChapter.title}`}
             >
@@ -1405,6 +1406,7 @@ function ReaderPage() {
             <Link
               to="/read/$workId/$chapterId"
               params={{ workId: canonicalSlug, chapterId: prevChapter.id }}
+              rel="prev"
               className="order-2 sm:order-1 group flex flex-col p-4 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:border-[var(--ink-primary)] transition-all no-underline text-inherit"
               aria-label={`Go to Previous Chapter: ${prevChapter.number}. ${prevChapter.title}`}
             >

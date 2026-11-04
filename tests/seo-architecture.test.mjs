@@ -1926,12 +1926,24 @@ test('SEO Architecture: Chapter Reader Deep SERP, Sequential rel links, Chapter 
 
   // Title & description optimization
   assert.ok(
-    readerRouteCode.includes('Read ${work.title} ${chapterLabel} Online Free'),
+    readerRouteCode.includes('${chapterLabel} — ${work.title} | HatchPen'),
     'Chapter reader must use high-intent search title formula'
   )
   assert.ok(
     readerRouteCode.includes('zero paywalls or subscriptions'),
     'Chapter description must emphasize zero paywalls'
+  )
+  assert.ok(
+    readerRouteCode.includes('rel="next"'),
+    'Chapter reader next link must declare rel="next" for crawler sequence'
+  )
+  assert.ok(
+    readerRouteCode.includes('rel="prev"'),
+    'Chapter reader prev link must declare rel="prev" for crawler sequence'
+  )
+  assert.ok(
+    readerRouteCode.includes('aria-label="Breadcrumb"'),
+    'Chapter reader must render semantic breadcrumb navigation'
   )
 
   // Sequential interlinking
