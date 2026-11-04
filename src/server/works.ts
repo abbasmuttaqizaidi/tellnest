@@ -396,11 +396,12 @@ export const getPublicAuthorServerFn = createServerFn({ method: 'GET' })
     const { data, error } = await query.maybeSingle()
     if (error || !data) return null
 
-    // Query live followers, authored published works count, and public views aggregate
-    const [{ count: followersCount }, { count: worksCount }, { data: worksData }] = await Promise.all([
+    // Query live followers, authored published works count, visual bibliography works, and social profile links
+    const [{ count: followersCount }, { count: worksCount }, { data: worksData }, { data: linksData }] = await Promise.all([
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', data.id),
       supabase.from('works').select('*', { count: 'exact', head: true }).eq('author_id', data.id).in('visibility', ['public', 'Public']).eq('publication_status', 'published'),
-      supabase.from('works').select('id, slug, title, view_count, cover_image_path, work_genres(genres(id, name, slug))').eq('author_id', data.id).in('visibility', ['public', 'Public']).eq('publication_status', 'published').order('view_count', { ascending: false }).limit(20),
+      supabase.from('works').select('id, slug, title, view_count, cover_image_path, word_count, reading_time_minutes, status, published_at, work_genres(genres(id, name, slug))').eq('author_id', data.id).in('visibility', ['public', 'Public']).eq('publication_status', 'published').order('view_count', { ascending: false }).limit(50),
+      supabase.from('profile_links').select('platform, url, display_order').eq('profile_id', data.id).order('display_order', { ascending: true }),
     ])
 
     const totalReadsNum = (worksData || []).reduce((acc: number, w: any) => acc + (Number(w.view_count) || 0), 0)
@@ -414,6 +415,11 @@ export const getPublicAuthorServerFn = createServerFn({ method: 'GET' })
       title: w.title,
       genre: w.work_genres?.[0]?.genres?.name || null,
       cover: w.cover_image_path,
+      wordCount: w.word_count,
+      readingTimeMinutes: w.reading_time_minutes,
+      status: w.status,
+      publishedAt: w.published_at,
+      totalReads: String(w.view_count || 0),
     }))
 
     return {
@@ -433,6 +439,11 @@ export const getPublicAuthorServerFn = createServerFn({ method: 'GET' })
       verified: Boolean(data.is_verified),
       isPublic: data.is_public !== false,
       publishedWorks,
+      preferences: pJson,
+      socialLinks: (linksData || []).map((l: any) => ({
+        platform: l.platform,
+        url: l.url,
+      })),
       worksVisibility: (pPriv.worksVisibility === 'hidden' ? 'hidden' : 'public') as 'public' | 'hidden',
       showAvatar: pPriv.showAvatar !== undefined ? Boolean(pPriv.showAvatar) : true,
       showName: pPriv.showName !== undefined ? Boolean(pPriv.showName) : true,

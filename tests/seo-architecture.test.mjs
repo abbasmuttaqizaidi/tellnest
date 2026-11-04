@@ -2050,6 +2050,61 @@ test('High-Intent SEO: Wattpad Alternative Comparison Landing Page & ₹2,000 Co
   assert.ok(footerCode.includes('to="/wattpad-alternative"'), 'Footer must contain crawlable link to /wattpad-alternative')
 })
 
+test('Author Mini-Portfolios: rel="me" verified social links and Visual Bibliography Cluster for Knowledge Graph #1 ranking', () => {
+  const authorRouteCode = fs.readFileSync(
+    path.join(rootDir, 'src/routes/author.$authorId.tsx'),
+    'utf-8'
+  )
+
+  // 1. rel="me" verification in document head extraLinks
+  assert.ok(
+    authorRouteCode.includes("rel: 'me'"),
+    'author route must declare rel="me" in extraLinks for head autodiscovery'
+  )
+
+  // 2. Visual Bibliography ItemList schema for Google Knowledge Graph
+  assert.ok(
+    authorRouteCode.includes("'@type': 'ItemList'"),
+    'author route must emit ItemList schema for visual bibliography cluster'
+  )
+  assert.ok(
+    authorRouteCode.includes('Visual Bibliography of'),
+    'ItemList name must declare Visual Bibliography of author'
+  )
+
+  // 3. Verified social icons and badges in UI
+  assert.ok(authorRouteCode.includes('FaXTwitter'), 'Author profile UI must support Twitter/X verified badge')
+  assert.ok(authorRouteCode.includes('FaInstagram'), 'Author profile UI must support Instagram verified badge')
+  assert.ok(authorRouteCode.includes('SiSubstack'), 'Author profile UI must support Substack verified badge')
+  assert.ok(authorRouteCode.includes('FaGoodreads'), 'Author profile UI must support Goodreads verified badge')
+  assert.ok(
+    authorRouteCode.includes('rel="me noopener noreferrer"'),
+    'Author social links must declare rel="me noopener noreferrer"'
+  )
+
+  // 4. Visual Bibliography DOM section
+  assert.ok(
+    authorRouteCode.includes('aria-label="Visual Bibliography"'),
+    'DOM must declare semantic Visual Bibliography section'
+  )
+  assert.ok(
+    authorRouteCode.includes('Visual Bibliography &amp; Published Manuscripts') ||
+    authorRouteCode.includes('Visual Bibliography & Published Manuscripts'),
+    'DOM must render Visual Bibliography heading'
+  )
+
+  // 5. Server function projection: getPublicAuthorServerFn returns preferences & socialLinks
+  const worksServerCode = fs.readFileSync(path.join(rootDir, 'src/server/works.ts'), 'utf-8')
+  assert.ok(
+    worksServerCode.includes('preferences: pJson'),
+    'getPublicAuthorServerFn must return preferences for social discovery'
+  )
+  assert.ok(
+    worksServerCode.includes('profile_links'),
+    'getPublicAuthorServerFn must query profile_links for external authority'
+  )
+})
+
 
 
 

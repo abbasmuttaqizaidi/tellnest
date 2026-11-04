@@ -20,7 +20,10 @@ import {
   Globe,
   HelpCircle,
   Sparkles,
+  ExternalLink,
 } from 'lucide-react'
+import { FaXTwitter, FaInstagram, FaGoodreads } from 'react-icons/fa6'
+import { SiSubstack } from 'react-icons/si'
 import { generateMeta } from '../lib/seo'
 import { getAuthorSocialCardUrl } from '../lib/og'
 import { getPublicAuthorServerFn } from '../server/works'
@@ -156,6 +159,14 @@ export const Route = createFileRoute('/author/$authorId')({
         '@type': 'Book',
         name: w.title,
         url: `https://hatchpen.com/works/${w.slug || w.id}`,
+        ...(w.cover ? { image: w.cover } : {}),
+        ...(w.genre ? { genre: w.genre } : {}),
+        inLanguage: 'en',
+        publisher: {
+          '@type': 'Organization',
+          name: 'HatchPen',
+          url: 'https://hatchpen.com',
+        },
       }))
 
       // Entity signal: literary genres author writes in with Wikidata sameAs
@@ -184,6 +195,21 @@ export const Route = createFileRoute('/author/$authorId')({
     const authorDescription = author.bio
       ? `${author.bio.slice(0, 130)}${topTitles ? `. Explore stories including ${topTitles} on HatchPen.` : '. Read online free on HatchPen.'}`
       : `Discover original fiction and serialized novels by ${metaAuthorName} on HatchPen${topTitles ? `, including ${topTitles}` : ''}. Read online with zero paywalls.`
+
+    const bibliographyItemList = publishedWorks.length > 0 ? {
+      '@context': 'https://schema.org',
+      '@type': 'ItemList',
+      name: `Visual Bibliography of ${metaAuthorName}`,
+      description: `Complete catalog of serialized novels, manuscripts, and literary works by ${metaAuthorName} on HatchPen.`,
+      numberOfItems: publishedWorks.length,
+      itemListElement: publishedWorks.map((w: any, idx: number) => ({
+        '@type': 'ListItem',
+        position: idx + 1,
+        name: w.title,
+        url: `https://hatchpen.com/works/${w.slug || w.id}`,
+        ...(w.cover ? { image: w.cover } : {}),
+      })),
+    } : null
 
     const faqJsonLd = {
       '@context': 'https://schema.org',
@@ -239,6 +265,10 @@ export const Route = createFileRoute('/author/$authorId')({
         { name: 'Authors', url: '/discover' },
         { name: metaAuthorName, url: authorCanonicalUrl },
       ],
+      extraLinks: sameAsLinks.map((url) => ({
+        rel: 'me',
+        href: url,
+      })),
       jsonLd: [
         {
           '@context': 'https://schema.org',
@@ -246,6 +276,7 @@ export const Route = createFileRoute('/author/$authorId')({
           mainEntity: personEntity,
         },
         faqJsonLd,
+        ...(bibliographyItemList ? [bibliographyItemList] : []),
       ],
     })
   },
@@ -338,6 +369,87 @@ function AuthorProfilePage() {
       )
     ) as string[]
   }, [authorWorks])
+
+  // Verified social profiles for mini-portfolio and W3C rel="me" Knowledge Graph discovery
+  const authorSocials = useMemo(() => {
+    if (!author) return []
+    const pJson = (author.preferences && typeof author.preferences === 'object') ? author.preferences : {}
+    const links: Array<{ label: string; url: string; platform: string }> = []
+
+    // 1. Website
+    const site = author.website || author.websiteUrl
+    if (site && typeof site === 'string' && site.trim()) {
+      const clean = site.trim()
+      const href = clean.startsWith('http') ? clean : `https://${clean}`
+      links.push({
+        label: clean.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''),
+        url: href,
+        platform: 'website',
+      })
+    }
+
+    // 2. Twitter / X
+    const twitterHandle = pJson.twitter || pJson.x
+    if (twitterHandle && typeof twitterHandle === 'string' && twitterHandle.trim()) {
+      const clean = twitterHandle.trim().replace(/^@/, '')
+      const href = twitterHandle.startsWith('http') ? twitterHandle : `https://x.com/${clean}`
+      links.push({
+        label: `@${clean}`,
+        url: href,
+        platform: 'twitter',
+      })
+    }
+
+    // 3. Instagram
+    const instaHandle = pJson.instagram
+    if (instaHandle && typeof instaHandle === 'string' && instaHandle.trim()) {
+      const clean = instaHandle.trim().replace(/^@/, '')
+      const href = instaHandle.startsWith('http') ? instaHandle : `https://instagram.com/${clean}`
+      links.push({
+        label: `@${clean}`,
+        url: href,
+        platform: 'instagram',
+      })
+    }
+
+    // 4. Substack
+    const substack = pJson.substack
+    if (substack && typeof substack === 'string' && substack.trim()) {
+      const clean = substack.trim().replace(/^@/, '').replace(/\.substack\.com$/, '')
+      const href = substack.startsWith('http') ? substack : `https://${clean}.substack.com`
+      links.push({
+        label: 'Substack',
+        url: href,
+        platform: 'substack',
+      })
+    }
+
+    // 5. Goodreads
+    const goodreads = pJson.goodreads
+    if (goodreads && typeof goodreads === 'string' && goodreads.trim()) {
+      const href = goodreads.startsWith('http') ? goodreads : `https://www.goodreads.com/author/show/${goodreads.trim()}`
+      links.push({
+        label: 'Goodreads',
+        url: href,
+        platform: 'goodreads',
+      })
+    }
+
+    // 6. Database profile_links
+    if (Array.isArray(author.socialLinks)) {
+      for (const item of author.socialLinks) {
+        if (item && item.url && !links.some((l) => l.url === item.url)) {
+          links.push({
+            label: item.platform || 'Link',
+            url: item.url,
+            platform: (item.platform || '').toLowerCase(),
+          })
+        }
+      }
+    }
+
+    return links
+  }, [author])
 
   if (!author) {
     return (
@@ -493,6 +605,32 @@ function AuthorProfilePage() {
                   </a>
                 )}
               </div>
+
+              {/* Verified Author Social Links & Mini-Portfolio Badges (rel="me" Google Knowledge Graph identity) */}
+              {authorSocials.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 pt-1.5">
+                  {authorSocials.map((social) => (
+                    <a
+                      key={social.url}
+                      href={social.url}
+                      target="_blank"
+                      rel="me noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-subtle)] hover:bg-[var(--bg-muted)] hover:border-[var(--border-strong)] text-[11px] font-mono text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] transition-all no-underline"
+                      title={`${social.label} (Verified author profile)`}
+                    >
+                      {social.platform === 'twitter' && <FaXTwitter className="h-2.5 w-2.5 shrink-0" />}
+                      {social.platform === 'instagram' && <FaInstagram className="h-2.5 w-2.5 shrink-0 text-pink-600 dark:text-pink-400" />}
+                      {social.platform === 'substack' && <SiSubstack className="h-2.5 w-2.5 shrink-0 text-orange-500" />}
+                      {social.platform === 'goodreads' && <FaGoodreads className="h-2.5 w-2.5 shrink-0 text-amber-700 dark:text-amber-400" />}
+                      {social.platform === 'website' && <Globe className="h-2.5 w-2.5 shrink-0" />}
+                      {!['twitter', 'instagram', 'substack', 'goodreads', 'website'].includes(social.platform) && (
+                        <ExternalLink className="h-2.5 w-2.5 shrink-0" />
+                      )}
+                      <span>{social.label}</span>
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -601,9 +739,24 @@ function AuthorProfilePage() {
           )}
         </div>
       ) : (
-        <section>
-          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[var(--border-subtle)] mb-4 text-xs">
-            <div className="flex flex-wrap items-center gap-2">
+        <section aria-label="Visual Bibliography" className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[var(--border-subtle)]">
+            <div>
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-[var(--accent)] shrink-0" />
+                <h2 className="font-serif text-base sm:text-lg font-bold text-[var(--ink-primary)]">
+                  Visual Bibliography &amp; Published Manuscripts
+                </h2>
+                <span className="font-mono text-[10px] px-2 py-0.5 rounded-full bg-[var(--bg-subtle)] border border-[var(--border-strong)] text-[var(--ink-secondary)]">
+                  {authorWorks.length} {authorWorks.length === 1 ? 'Title' : 'Titles'}
+                </span>
+              </div>
+              <p className="text-[11px] text-[var(--ink-muted)] mt-0.5 font-sans">
+                Explore original serialized fiction, novels, and manuscripts by {displayName}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 text-xs">
               <FilterDisclosure
                 label="Catalog Filter"
                 activeId={activeTab}
@@ -631,15 +784,15 @@ function AuthorProfilePage() {
                   Catalog Hidden from Public
                 </span>
               )}
-            </div>
 
-            <AnimatedSearch
-              variant="expandable"
-              placeholder={`Search works...`}
-              value={searchQuery}
-              onChange={setSearchQuery}
-              shortcut="/"
-            />
+              <AnimatedSearch
+                variant="expandable"
+                placeholder={`Search works...`}
+                value={searchQuery}
+                onChange={setSearchQuery}
+                shortcut="/"
+              />
+            </div>
           </div>
 
           {filteredWorks.length === 0 ? (
