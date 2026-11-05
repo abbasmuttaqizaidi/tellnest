@@ -10,6 +10,12 @@ export interface ContestDetailsModalProps {
   initialData?: ContestPublicPageData | null
 }
 
+// Apple Fluid easeOutQuint curve for organic physical deceleration
+const FLUID_TRANSITION = {
+  duration: 0.32,
+  ease: [0.16, 1, 0.3, 1] as const,
+}
+
 export function ContestDetailsModal({ isOpen, onClose, initialData }: ContestDetailsModalProps) {
   const [data, setData] = useState<ContestPublicPageData | null>(initialData || null)
   const [isLoading, setIsLoading] = useState(false)
@@ -80,31 +86,48 @@ export function ContestDetailsModal({ isOpen, onClose, initialData }: ContestDet
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
+          transition={{ duration: 0.22, ease: 'easeOut' }}
           onClick={onClose}
           className="fixed inset-0 bg-black/60 backdrop-blur-xs"
         />
 
-        {/* Modal Window: Mobile-Optimized with Zero Scrollbars */}
+        {/* Modal Window: Smooth Layout Resizing & Zero Scrollbars */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.96, y: 12 }}
+          layout
+          initial={{ opacity: 0, scale: 0.96, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.96, y: 12 }}
-          transition={{ duration: 0.2, ease: 'easeOut' }}
+          exit={{ opacity: 0, scale: 0.96, y: 10 }}
+          transition={{
+            opacity: { duration: 0.2 },
+            scale: { duration: 0.24, ease: [0.16, 1, 0.3, 1] },
+            y: { duration: 0.24, ease: [0.16, 1, 0.3, 1] },
+            layout: { duration: 0.32, ease: [0.16, 1, 0.3, 1] },
+          }}
           className="relative w-full max-w-md sm:max-w-lg rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-strong)] p-4 sm:p-6 shadow-2xl text-[var(--ink-primary)] z-10 my-auto overflow-hidden"
         >
           {/* Header */}
-          <div className="flex items-start justify-between pb-3 border-b border-[var(--border-subtle)] gap-2">
+          <motion.div layout="position" className="flex items-start justify-between pb-3 border-b border-[var(--border-subtle)] gap-2">
             <div className="min-w-0 flex-1 space-y-1">
-              {showDetails && (
-                <button
-                  type="button"
-                  onClick={() => setShowDetails(false)}
-                  className="inline-flex items-center gap-1 text-[11px] font-mono text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] cursor-pointer transition-colors pb-0.5"
-                >
-                  <ArrowLeft className="w-3 h-3 shrink-0" />
-                  <span>Back to Overview</span>
-                </button>
-              )}
+              <AnimatePresence initial={false}>
+                {showDetails && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0, y: -4 }}
+                    animate={{ opacity: 1, height: 'auto', y: 0 }}
+                    exit={{ opacity: 0, height: 0, y: -4 }}
+                    transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                    className="overflow-hidden"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setShowDetails(false)}
+                      className="inline-flex items-center gap-1 text-[11px] font-mono text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] cursor-pointer transition-colors pb-0.5"
+                    >
+                      <ArrowLeft className="w-3 h-3 shrink-0" />
+                      <span>Back to Overview</span>
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
               <h3 className="font-serif text-lg sm:text-xl font-bold text-[var(--ink-primary)] tracking-tight leading-snug">
                 {contest?.title || `The HatchPen Indie Writer Contest — ${prizeAmount} Cash Prize`}
               </h3>
@@ -116,7 +139,7 @@ export function ContestDetailsModal({ isOpen, onClose, initialData }: ContestDet
             >
               <X className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
-          </div>
+          </motion.div>
 
           {isLoading && !data ? (
             <div className="py-10 flex flex-col items-center justify-center gap-2 text-xs text-[var(--ink-muted)] font-mono">
@@ -124,16 +147,17 @@ export function ContestDetailsModal({ isOpen, onClose, initialData }: ContestDet
               <span>Loading live contest details...</span>
             </div>
           ) : (
-            <div className="pt-3.5 space-y-3">
-              <AnimatePresence mode="wait">
+            <motion.div layout="position" className="pt-3.5 space-y-3">
+              {/* Dynamic Content Switching with PopLayout Crossfade */}
+              <AnimatePresence mode="popLayout" initial={false}>
                 {!showDetails ? (
                   /* VIEW 1: QUICK OVERVIEW */
                   <motion.div
                     key="view-overview"
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: 0.18 }}
+                    initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                    transition={FLUID_TRANSITION}
                     className="space-y-3"
                   >
                     {/* Big Active Contestants Count Card */}
@@ -150,7 +174,7 @@ export function ContestDetailsModal({ isOpen, onClose, initialData }: ContestDet
                       </p>
                     </div>
 
-                    {/* Key Contest Highlights: Cash Prize & Winning Rule */}
+                    {/* Key Highlights: Cash Prize & Winning Rule */}
                     <div className="grid grid-cols-2 gap-2 text-center text-xs">
                       <div className="p-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]">
                         <span className="text-[9.5px] uppercase font-mono tracking-wider text-[var(--ink-tertiary)] block">
@@ -189,13 +213,13 @@ export function ContestDetailsModal({ isOpen, onClose, initialData }: ContestDet
                     </div>
                   </motion.div>
                 ) : (
-                  /* VIEW 2: SCALED-DOWN MINI-CARDS & CONTEST DETAILS (Admin Decided) */
+                  /* VIEW 2: SCALED-DOWN MINI-CARDS & ADMIN DETAILS */
                   <motion.div
                     key="view-details"
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: 0.18 }}
+                    initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                    transition={FLUID_TRANSITION}
                     className="space-y-2.5"
                   >
                     {/* The 3 Cards Scaled Down in a Single 3-Column Row */}
@@ -312,38 +336,52 @@ export function ContestDetailsModal({ isOpen, onClose, initialData }: ContestDet
                 )}
               </AnimatePresence>
 
-              {/* Text Link: Details / Back to Overview Toggle (Above CTA Button, NO Black BG) */}
-              <div className="pt-0.5 text-center">
-                {!showDetails ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowDetails(true)}
-                    className="inline-flex items-center justify-center gap-1 text-xs font-mono text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] underline decoration-[var(--border-strong)] hover:decoration-[var(--ink-primary)] underline-offset-4 py-1 transition-colors cursor-pointer select-none"
-                  >
-                    <span>View Contest Details &amp; Rules →</span>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setShowDetails(false)}
-                    className="inline-flex items-center justify-center gap-1 text-xs font-mono text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] underline decoration-[var(--border-strong)] hover:decoration-[var(--ink-primary)] underline-offset-4 py-1 transition-colors cursor-pointer select-none"
-                  >
-                    <span>← Back to Overview</span>
-                  </button>
-                )}
-              </div>
+              {/* Text Link: Details / Back Toggle with Crossfade */}
+              <motion.div layout="position" className="pt-0.5 text-center">
+                <AnimatePresence mode="wait" initial={false}>
+                  {!showDetails ? (
+                    <motion.button
+                      key="btn-view-details"
+                      type="button"
+                      initial={{ opacity: 0, y: 3 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -3 }}
+                      transition={{ duration: 0.16 }}
+                      onClick={() => setShowDetails(true)}
+                      className="inline-flex items-center justify-center gap-1 text-xs font-mono text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] underline decoration-[var(--border-strong)] hover:decoration-[var(--ink-primary)] underline-offset-4 py-1 transition-colors cursor-pointer select-none"
+                    >
+                      <span>View Contest Details &amp; Rules →</span>
+                    </motion.button>
+                  ) : (
+                    <motion.button
+                      key="btn-back-overview"
+                      type="button"
+                      initial={{ opacity: 0, y: 3 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -3 }}
+                      transition={{ duration: 0.16 }}
+                      onClick={() => setShowDetails(false)}
+                      className="inline-flex items-center justify-center gap-1 text-xs font-mono text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] underline decoration-[var(--border-strong)] hover:decoration-[var(--ink-primary)] underline-offset-4 py-1 transition-colors cursor-pointer select-none"
+                    >
+                      <span>← Back to Overview</span>
+                    </motion.button>
+                  )}
+                </AnimatePresence>
+              </motion.div>
 
               {/* Action Button: Navigate to Contest Page */}
-              <Link
-                to="/writing-contests"
-                onClick={onClose}
-                className="w-full py-2.5 px-4 rounded-xl bg-[var(--ink-primary)] text-[var(--accent-contrast)] hover:opacity-90 font-semibold text-xs sm:text-sm transition-all shadow-xs inline-flex items-center justify-center gap-2 no-underline cursor-pointer"
-              >
-                <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                <span>Open Writing Contest Page</span>
-                <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-              </Link>
-            </div>
+              <motion.div layout="position">
+                <Link
+                  to="/writing-contests"
+                  onClick={onClose}
+                  className="w-full py-2.5 px-4 rounded-xl bg-[var(--ink-primary)] text-[var(--accent-contrast)] hover:opacity-90 font-semibold text-xs sm:text-sm transition-all shadow-xs inline-flex items-center justify-center gap-2 no-underline cursor-pointer"
+                >
+                  <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                  <span>Open Writing Contest Page</span>
+                  <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                </Link>
+              </motion.div>
+            </motion.div>
           )}
         </motion.div>
       </div>
