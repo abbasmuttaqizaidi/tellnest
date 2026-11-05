@@ -217,7 +217,7 @@ function WritingContestsPage() {
       <section className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 sm:p-12 shadow-xs text-center">
         <div className="max-w-3xl mx-auto space-y-4">
           <p className="text-xs sm:text-sm font-mono tracking-wide text-[var(--ink-muted)]">
-            Pan-India & Asia Writers | Free Entry
+            Pan-India & Asia Writers | <span className="bg-[var(--ink-primary)] text-[var(--accent-contrast)]">Free Entry</span>
           </p>
 
           <h1 className="font-serif text-3xl sm:text-5xl font-bold text-[var(--ink-primary)] tracking-tight leading-tight">
@@ -248,7 +248,7 @@ function WritingContestsPage() {
               </span>
             </div>
 
-            <div className="p-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)]">
+            <div className="p-3 rounded-xl border border-[var(--ink-primary)] bg-[var(--bg-subtle)] shadow-md">
               <span className="text-[10px] uppercase font-mono tracking-wider text-[var(--ink-tertiary)] block">
                 Winning Rule
               </span>
