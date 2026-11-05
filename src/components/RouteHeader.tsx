@@ -329,11 +329,10 @@ export function RouteHeader({ title, subtitle, rightExtra, className = '' }: Rou
           <button
             type="button"
             onClick={() => setContestModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] text-[var(--ink-primary)] text-xs font-mono font-medium shadow-2xs transition-all cursor-pointer h-8 select-none"
+            className="inline-flex items-center justify-center rounded-full bg-[#18181B] hover:bg-black dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-[#18181B] px-2.5 py-1 text-[11px] font-medium shadow-xs transition-all cursor-pointer h-7 select-none"
             title="Active Writing Contest Details & Cash Prize"
           >
-            <Trophy className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-            <span className="hidden sm:inline">Contest</span>
+            <span>Contest — ₹2k</span>
           </button>
 
           {/* Action Button: + New (NO Chevron Down icon!) */}

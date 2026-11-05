@@ -738,11 +738,11 @@ export function PublicMobileStories({
                 triggerHaptic(8)
                 setIsContestModalOpen(true)
               }}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-neutral-200 text-amber-600 bg-amber-500/10 hover:bg-amber-500/20 active:scale-95 transition-all cursor-pointer"
+              className="inline-flex items-center justify-center rounded-full bg-[#18181B] text-white hover:bg-black px-2.5 py-1 text-[11px] font-medium shadow-xs active:scale-95 transition-all cursor-pointer select-none"
               aria-label="View writing contest details"
-              title="₹2,000 Writing Contest"
+              title="Writing Contest — ₹2k"
             >
-              <Trophy className="h-4 w-4" />
+              <span>Contest — ₹2k</span>
             </button>
             <button
               type="button"

@@ -360,11 +360,10 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
               <button
                 type="button"
                 onClick={() => setContestModalOpen(true)}
-                className="px-2.5 py-1 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 font-mono text-xs font-semibold hover:bg-amber-500/20 transition-colors inline-flex items-center gap-1.5 cursor-pointer shrink-0 ml-1 select-none"
-                title="Active Writing Contest Details & Cash Prize"
+                className="inline-flex items-center justify-center rounded-full bg-[#18181B] hover:bg-black dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-[#18181B] px-3.5 py-1 text-xs font-medium transition-all shadow-xs cursor-pointer shrink-0 select-none ml-2 tracking-tight"
+                title="Active Writing Contest Details & ₹2,000 Cash Prize"
               >
-                <Trophy className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                <span>₹2,000 Contest</span>
+                <span>Writing Contest — ₹2k</span>
               </button>
             </nav>
           )}
@@ -613,12 +612,10 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
               <button
                 type="button"
                 onClick={() => setContestModalOpen(true)}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 font-mono text-xs font-semibold hover:bg-amber-500/20 transition-colors cursor-pointer shrink-0 select-none"
+                className="md:hidden inline-flex items-center justify-center rounded-full bg-[#18181B] hover:bg-black dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-[#18181B] px-2.5 py-1 text-[11px] font-medium transition-all shadow-xs cursor-pointer shrink-0 select-none"
                 title="Active Writing Contest Details"
               >
-                <Trophy className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                <span className="hidden sm:inline">₹2,000 Contest</span>
-                <span className="sm:hidden">Contest</span>
+                <span>Contest — ₹2k</span>
               </button>
 
               <Link
@@ -713,10 +710,10 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
                 setMobileDrawerOpen(false)
                 setContestModalOpen(true)
               }}
-              className="flex items-center gap-2 w-full text-left py-1.5 px-2.5 rounded-lg text-amber-600 dark:text-amber-400 font-semibold hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+              className="flex items-center justify-between w-full text-left py-2 px-3 rounded-lg bg-[#18181B] dark:bg-white text-white dark:text-[#18181B] font-medium text-xs shadow-xs cursor-pointer transition-opacity hover:opacity-90 my-1"
             >
-              <Trophy className="h-4 w-4 text-amber-500 shrink-0" />
-              <span>₹2,000 Writing Contest</span>
+              <span>Writing Contest — ₹2k</span>
+              <span className="font-mono text-[10px] opacity-75">₹2,000 Prize</span>
             </button>
 
             {isSignedIn && (

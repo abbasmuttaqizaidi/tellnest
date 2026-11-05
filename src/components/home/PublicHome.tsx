@@ -324,10 +324,9 @@ export default function PublicHome({ loaderData }: PublicHomeProps = {}) {
                 <button
                   type="button"
                   onClick={() => setIsContestModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-[#201F1D]/20 hover:border-[#201F1D] dark:border-neutral-700 bg-white dark:bg-neutral-900 text-[#201F1D] dark:text-[#F4F4F5] text-[11px] font-mono font-medium cursor-pointer transition-all shadow-2xs hover:scale-102"
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#18181B] hover:bg-black dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-[#18181B] text-[11px] font-medium cursor-pointer transition-all shadow-xs"
                 >
-                  <Trophy className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                  <span>₹2,000 Writing Contest</span>
+                  <span>Writing Contest — ₹2k</span>
                 </button>
               </div>
 
