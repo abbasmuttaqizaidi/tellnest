@@ -35,6 +35,10 @@ import {
   getIndexNowAdminStatusServerFn,
   triggerIndexingPingServerFn,
 } from '../server/indexing'
+import {
+  getAdminContestOverviewServerFn,
+  saveAdminContestConfigServerFn,
+} from '../server/contests'
 import { isLocalhostEnvironment } from '../components/InspectletTracker'
 import { Badge, Button, Modal } from '../design-system'
 import { UnisexAvatar } from '../components/UnisexAvatar'
@@ -86,6 +90,7 @@ import {
   ArrowRight,
   Radio,
   Zap,
+  Trophy,
 } from 'lucide-react'
 
 import { generateMeta } from '../lib/seo'
@@ -146,7 +151,7 @@ function SecretAdminPanelPage() {
   const [loginError, setLoginError] = useState<string | null>(null)
 
   // Dashboard Navigation & Data State
-  const [activeAdminSection, setActiveAdminSection] = useState<'works' | 'users' | 'mailer' | 'inspectlet' | 'indexing'>('works')
+  const [activeAdminSection, setActiveAdminSection] = useState<'works' | 'users' | 'mailer' | 'inspectlet' | 'indexing' | 'contests'>('works')
   const [loading, setLoading] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -182,6 +187,16 @@ function SecretAdminPanelPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [selectedWorkForHearts, setSelectedWorkForHearts] = useState<any | null>(null)
   const [selectedWorkForSaves, setSelectedWorkForSaves] = useState<any | null>(null)
+
+  // Contests Administration State
+  const [adminContestData, setAdminContestData] = useState<{ contest: any; entries: any[] } | null>(null)
+  const [isLoadingContest, setIsLoadingContest] = useState(false)
+  const [isSavingContest, setIsSavingContest] = useState(false)
+  const [contestThemeInput, setContestThemeInput] = useState('')
+  const [contestCategoryInput, setContestCategoryInput] = useState('all')
+  const [contestPrizeInput, setContestPrizeInput] = useState('2000')
+  const [contestStatusInput, setContestStatusInput] = useState<'upcoming' | 'active' | 'evaluating' | 'completed'>('active')
+  const [contestUpdateNotice, setContestUpdateNotice] = useState<string | null>(null)
 
   // Direct Mailer / Email Broadcast State (Anti-Spam Hardened)
   const [mailRecipientsMode, setMailRecipientsMode] = useState<'custom' | 'all'>('custom')
@@ -716,6 +731,76 @@ function SecretAdminPanelPage() {
       })
     } finally {
       setIsPingingCustomUrl(false)
+    }
+  }
+
+  // Writing Contests Management Handlers
+  const loadAdminContest = async () => {
+    if (!adminToken) return
+    setIsLoadingContest(true)
+    try {
+      const res = await getAdminContestOverviewServerFn({ data: { adminToken } })
+      setAdminContestData(res)
+      if (res.contest) {
+        setContestThemeInput(res.contest.theme || '')
+        setContestCategoryInput(res.contest.category_restriction || 'all')
+        setContestPrizeInput(String(res.contest.prize_inr || 2000))
+        setContestStatusInput(res.contest.status || 'active')
+      }
+    } catch (e) {
+      console.warn('Failed to load contest overview:', e)
+    } finally {
+      setIsLoadingContest(false)
+    }
+  }
+
+  const handleSaveContest = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!adminToken) return
+    setIsSavingContest(true)
+    setContestUpdateNotice(null)
+    try {
+      await saveAdminContestConfigServerFn({
+        data: {
+          adminToken,
+          config: {
+            id: adminContestData?.contest?.id,
+            theme: contestThemeInput.trim() || 'Open Theme',
+            category_restriction: contestCategoryInput === 'all' ? null : contestCategoryInput,
+            prize_inr: Number(contestPrizeInput) || 2000,
+            status: contestStatusInput,
+          },
+        },
+      })
+      setContestUpdateNotice('Contest settings updated successfully.')
+      void loadAdminContest()
+    } catch (err: any) {
+      setContestUpdateNotice(err?.message || 'Failed to update contest.')
+    } finally {
+      setIsSavingContest(false)
+    }
+  }
+
+  const handleSelectWinner = async (workId: string) => {
+    if (!adminToken || !adminContestData?.contest) return
+    if (!confirm('Are you sure you want to declare this manuscript as the official winner?')) return
+    setIsSavingContest(true)
+    try {
+      await saveAdminContestConfigServerFn({
+        data: {
+          adminToken,
+          config: {
+            id: adminContestData.contest.id,
+            winnerWorkId: workId,
+            status: 'completed',
+          },
+        },
+      })
+      void loadAdminContest()
+    } catch (err: any) {
+      alert(err?.message || 'Failed to mark winner.')
+    } finally {
+      setIsSavingContest(false)
     }
   }
 
@@ -2130,6 +2215,24 @@ function SecretAdminPanelPage() {
             <span>SEO &amp; IndexNow</span>
             <span className="ml-1 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 px-2 py-0.5 text-[10px] font-mono font-semibold">
               Live Real-Time
+            </span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveAdminSection('contests')
+              void loadAdminContest()
+            }}
+            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-mono font-medium border-b-2 transition-all cursor-pointer ${
+              activeAdminSection === 'contests'
+                ? 'border-[var(--ink-primary)] text-[var(--ink-primary)] font-bold'
+                : 'border-transparent text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
+            }`}
+          >
+            <Trophy className="h-4 w-4 text-amber-500" />
+            <span>Monthly Contests</span>
+            <span className="ml-1 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 px-2 py-0.5 text-[10px] font-mono font-semibold">
+              ₹2,000 Payout
             </span>
           </button>
         </div>
@@ -3977,7 +4080,7 @@ function SecretAdminPanelPage() {
             </div>
           </div>
         </section>
-      ) : (
+      ) : activeAdminSection === 'indexing' ? (
         /* SEO & INDEXNOW REAL-TIME AUTOMATION SECTION */
         <section className="space-y-8">
           {/* HEADER BANNER */}
@@ -4217,6 +4320,261 @@ function SecretAdminPanelPage() {
               <p className="leading-relaxed">
                 Whenever a writer publishes a new chapter or updates a manuscript via HatchPen Drafting Desk, the system automatically triggers a non-blocking background notification with the story URL, chapter URL, author profile, and literary genre hub URL without slowing down the writer's experience.
               </p>
+            </div>
+          </div>
+        </section>
+      ) : (
+        /* WRITING CONTESTS ADMINISTRATION SECTION */
+        <section className="space-y-8">
+          {/* BANNER */}
+          <div className="rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/50 dark:bg-amber-950/20 p-5 sm:p-6 shadow-xs">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Trophy className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                  <h2 className="font-serif text-lg sm:text-xl font-bold text-[var(--ink-primary)]">
+                    Monthly Indie Writer Contest Administration
+                  </h2>
+                  <span className="rounded-full bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-700 px-2.5 py-0.5 text-[10px] font-mono font-bold">
+                    ₹{adminContestData?.contest?.prize_inr || 2000} Payout
+                  </span>
+                </div>
+                <p className="text-xs text-[var(--ink-muted)] max-w-2xl leading-relaxed">
+                  Configure monthly contest themes, category restrictions, inspect participating manuscripts, access verified author UPI IDs, and declare official winners based on maximum reader likes.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={loadAdminContest}
+                  disabled={isLoadingContest}
+                  className="font-mono text-xs flex items-center gap-1.5"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${isLoadingContest ? 'animate-spin' : ''}`} />
+                  <span>Refresh Entries</span>
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* TWO COLUMN GRID: CONTEST CONFIGURATION & CONTEST METRICS */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* CONFIGURATION FORM */}
+            <div className="lg:col-span-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5 sm:p-6 space-y-4">
+              <div className="flex items-center gap-2 text-[var(--ink-primary)] font-serif text-base font-bold">
+                <Sparkles className="h-4 w-4 text-[var(--accent)]" />
+                <h3>Contest Settings</h3>
+              </div>
+
+              <form onSubmit={handleSaveContest} className="space-y-3.5">
+                <div className="space-y-1">
+                  <label className="text-xs font-mono text-[var(--ink-muted)]">
+                    Theme / Prompt Title
+                  </label>
+                  <input
+                    type="text"
+                    value={contestThemeInput}
+                    onChange={(e) => setContestThemeInput(e.target.value)}
+                    placeholder="e.g. Open Theme or Winter Thrillers"
+                    className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2 text-xs text-[var(--ink-primary)] font-medium focus:outline-hidden focus:border-[var(--ink-primary)]"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-mono text-[var(--ink-muted)]">
+                    Category Restriction
+                  </label>
+                  <select
+                    value={contestCategoryInput}
+                    onChange={(e) => setContestCategoryInput(e.target.value)}
+                    className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2 text-xs text-[var(--ink-primary)] font-medium focus:outline-hidden focus:border-[var(--ink-primary)]"
+                  >
+                    <option value="all">All Categories (Open)</option>
+                    <option value="Novels">Novels</option>
+                    <option value="Short Stories">Short Stories</option>
+                    <option value="Serialized Fiction">Serialized Fiction</option>
+                    <option value="Flash Fiction">Flash Fiction</option>
+                    <option value="Poetry">Poetry</option>
+                    <option value="Essays">Essays</option>
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-mono text-[var(--ink-muted)]">
+                      Prize (INR)
+                    </label>
+                    <input
+                      type="number"
+                      value={contestPrizeInput}
+                      onChange={(e) => setContestPrizeInput(e.target.value)}
+                      className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2 text-xs text-[var(--ink-primary)] font-mono focus:outline-hidden focus:border-[var(--ink-primary)]"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-mono text-[var(--ink-muted)]">
+                      Contest Status
+                    </label>
+                    <select
+                      value={contestStatusInput}
+                      onChange={(e) => setContestStatusInput(e.target.value as any)}
+                      className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2 text-xs text-[var(--ink-primary)] font-medium focus:outline-hidden focus:border-[var(--ink-primary)]"
+                    >
+                      <option value="active">Active (Open)</option>
+                      <option value="evaluating">Evaluating (Review)</option>
+                      <option value="completed">Completed (Winner Set)</option>
+                      <option value="upcoming">Upcoming</option>
+                    </select>
+                  </div>
+                </div>
+
+                {contestUpdateNotice && (
+                  <p className="text-xs font-mono text-emerald-600 dark:text-emerald-400 font-medium">
+                    {contestUpdateNotice}
+                  </p>
+                )}
+
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="md"
+                  disabled={isSavingContest}
+                  className="w-full font-mono text-xs flex items-center justify-center gap-2 mt-2"
+                >
+                  {isSavingContest ? (
+                    <>
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                      <span>Saving Settings...</span>
+                    </>
+                  ) : (
+                    <span>Save Contest Configuration</span>
+                  )}
+                </Button>
+              </form>
+            </div>
+
+            {/* PARTICIPATING ENTRIES & UPI REGISTRY */}
+            <div className="lg:col-span-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5 sm:p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-[var(--ink-primary)] font-serif text-base font-bold">
+                  <Users className="h-4 w-4 text-[var(--accent)]" />
+                  <h3>Participating Manuscripts ({adminContestData?.entries?.length || 0})</h3>
+                </div>
+                <span className="text-xs font-mono text-[var(--ink-muted)]">
+                  Ranked by Verified Reader Likes
+                </span>
+              </div>
+
+              {!adminContestData?.entries || adminContestData.entries.length === 0 ? (
+                <div className="py-12 text-center rounded-lg border border-dashed border-[var(--border-subtle)] p-6 space-y-2">
+                  <Trophy className="h-8 w-8 text-[var(--ink-tertiary)] mx-auto" />
+                  <p className="font-serif text-sm text-[var(--ink-muted)]">
+                    No manuscripts have been entered into this month's contest yet.
+                  </p>
+                  <p className="text-xs text-[var(--ink-muted)]">
+                    Authors can enter their stories via the public <code className="font-mono bg-[var(--bg-subtle)] px-1 py-0.5 rounded">/writing-contests</code> page.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border border-[var(--border-subtle)]">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-[var(--bg-subtle)] border-b border-[var(--border-subtle)] font-mono text-[11px] text-[var(--ink-muted)]">
+                      <tr>
+                        <th className="py-2.5 px-3">Rank</th>
+                        <th className="py-2.5 px-3">Manuscript</th>
+                        <th className="py-2.5 px-3">Author</th>
+                        <th className="py-2.5 px-3">UPI ID (For Payout)</th>
+                        <th className="py-2.5 px-3 text-right">Likes</th>
+                        <th className="py-2.5 px-3 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--border-subtle)] font-sans">
+                      {[...adminContestData.entries]
+                        .sort((a, b) => Number(b.work?.like_count || 0) - Number(a.work?.like_count || 0))
+                        .map((entry, idx) => {
+                          const isWinner = adminContestData?.contest?.winner_work_id === entry.work?.id
+                          return (
+                            <tr
+                              key={entry.id}
+                              className={`hover:bg-[var(--bg-subtle)]/50 transition-colors ${
+                                isWinner ? 'bg-amber-500/10' : ''
+                              }`}
+                            >
+                              <td className="py-2.5 px-3 font-mono font-bold">
+                                {idx === 0 ? '🥇 #1' : idx === 1 ? '🥈 #2' : idx === 2 ? '🥉 #3' : `#${idx + 1}`}
+                              </td>
+                              <td className="py-2.5 px-3 max-w-[180px]">
+                                <a
+                                  href={`/works/${entry.work?.slug || entry.work?.id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="font-medium text-[var(--ink-primary)] hover:underline truncate block"
+                                >
+                                  {entry.work?.title || 'Untitled Work'}
+                                </a>
+                                <span className="text-[10px] text-[var(--ink-tertiary)] block">
+                                  {entry.work?.category || 'Fiction'}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <span className="font-medium text-[var(--ink-primary)] block">
+                                  {entry.author?.full_name || entry.author?.username}
+                                </span>
+                                <span className="font-mono text-[10px] text-[var(--ink-tertiary)]">
+                                  @{entry.author?.username}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 font-mono">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-semibold text-[11px] select-all">
+                                    {entry.upi_id}
+                                  </span>
+                                  <button
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(entry.upi_id)
+                                      setCopiedId(entry.id)
+                                      setTimeout(() => setCopiedId(null), 2000)
+                                    }}
+                                    className="p-1 rounded hover:bg-[var(--bg-subtle)] text-[var(--ink-muted)] transition-colors cursor-pointer"
+                                    title="Copy UPI ID"
+                                  >
+                                    {copiedId === entry.id ? (
+                                      <Check className="h-3 w-3 text-emerald-600" />
+                                    ) : (
+                                      <Copy className="h-3 w-3" />
+                                    )}
+                                  </button>
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-mono font-bold text-rose-600 dark:text-rose-400">
+                                {formatHeartCount(entry.work?.like_count || 0)}
+                              </td>
+                              <td className="py-2.5 px-3 text-right">
+                                {isWinner ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500 text-white font-mono text-[10px] font-bold">
+                                    <Trophy className="h-3 w-3" />
+                                    <span>Winner</span>
+                                  </span>
+                                ) : (
+                                  <button
+                                    onClick={() => handleSelectWinner(entry.work?.id)}
+                                    disabled={isSavingContest}
+                                    className="px-2.5 py-1 rounded-md bg-[var(--ink-primary)] text-[var(--accent-contrast)] hover:opacity-90 font-mono text-[10px] font-medium transition-opacity cursor-pointer"
+                                  >
+                                    Declare Winner
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         </section>

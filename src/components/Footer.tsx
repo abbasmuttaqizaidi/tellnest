@@ -149,6 +149,14 @@ export default function Footer() {
               </li>
               <li>
                 <Link
+                  to="/writing-contests"
+                  className="hover:text-[var(--ink-primary)] transition-colors no-underline text-inherit text-[11px] sm:text-xs py-0.5 inline-block font-medium text-amber-600 dark:text-amber-400"
+                >
+                  Writing Contests (₹2,000 Prize)
+                </Link>
+              </li>
+              <li>
+                <Link
                   to="/login"
                   className="hover:text-[var(--ink-primary)] transition-colors no-underline text-inherit text-[11px] sm:text-xs py-0.5 inline-block font-medium"
                 >

@@ -293,7 +293,7 @@ export default function WattpadAlternativePage() {
 
             <div className="pt-2">
               <Link
-                to="/write"
+                to="/writing-contests"
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-[#B94F37] text-white text-xs sm:text-sm font-semibold hover:bg-[#a0432e] transition-colors shadow-xs no-underline text-center"
               >
                 <span>Enter Your Serial in the Contest</span>

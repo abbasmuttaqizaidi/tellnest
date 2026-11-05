@@ -25,6 +25,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SsoCallbackRouteImport } from './routes/sso-callback'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as WattpadAlternativeRouteImport } from './routes/wattpad-alternative'
+import { Route as WritingContestsRouteImport } from './routes/writing-contests'
 import { Route as AdminWorkEditorWorkIdRouteImport } from './routes/admin-work-editor.$workId'
 import { Route as AuthorAuthorIdRouteImport } from './routes/author.$authorId'
 import { Route as BrowseCollectionRouteImport } from './routes/browse.$collection'
@@ -119,6 +120,11 @@ const WattpadAlternativeRoute = WattpadAlternativeRouteImport.update({
   path: '/wattpad-alternative',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WritingContestsRoute = WritingContestsRouteImport.update({
+  id: '/writing-contests',
+  path: '/writing-contests',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminWorkEditorWorkIdRoute = AdminWorkEditorWorkIdRouteImport.update({
   id: '/admin-work-editor/$workId',
   path: '/admin-work-editor/$workId',
@@ -203,6 +209,7 @@ export interface FileRoutesByFullPath {
   '/sso-callback': typeof SsoCallbackRoute
   '/terms': typeof TermsRoute
   '/wattpad-alternative': typeof WattpadAlternativeRoute
+  '/writing-contests': typeof WritingContestsRoute
   '/admin-work-editor/$workId': typeof AdminWorkEditorWorkIdRoute
   '/author/$authorId': typeof AuthorAuthorIdRoute
   '/browse/$collection': typeof BrowseCollectionRoute
@@ -234,6 +241,7 @@ export interface FileRoutesByTo {
   '/sso-callback': typeof SsoCallbackRoute
   '/terms': typeof TermsRoute
   '/wattpad-alternative': typeof WattpadAlternativeRoute
+  '/writing-contests': typeof WritingContestsRoute
   '/admin-work-editor/$workId': typeof AdminWorkEditorWorkIdRoute
   '/author/$authorId': typeof AuthorAuthorIdRoute
   '/browse/$collection': typeof BrowseCollectionRoute
@@ -266,6 +274,7 @@ export interface FileRoutesById {
   '/sso-callback': typeof SsoCallbackRoute
   '/terms': typeof TermsRoute
   '/wattpad-alternative': typeof WattpadAlternativeRoute
+  '/writing-contests': typeof WritingContestsRoute
   '/admin-work-editor/$workId': typeof AdminWorkEditorWorkIdRoute
   '/author/$authorId': typeof AuthorAuthorIdRoute
   '/browse/$collection': typeof BrowseCollectionRoute
@@ -299,6 +308,7 @@ export interface FileRouteTypes {
     | '/sso-callback'
     | '/terms'
     | '/wattpad-alternative'
+    | '/writing-contests'
     | '/admin-work-editor/$workId'
     | '/author/$authorId'
     | '/browse/$collection'
@@ -330,6 +340,7 @@ export interface FileRouteTypes {
     | '/sso-callback'
     | '/terms'
     | '/wattpad-alternative'
+    | '/writing-contests'
     | '/admin-work-editor/$workId'
     | '/author/$authorId'
     | '/browse/$collection'
@@ -361,6 +372,7 @@ export interface FileRouteTypes {
     | '/sso-callback'
     | '/terms'
     | '/wattpad-alternative'
+    | '/writing-contests'
     | '/admin-work-editor/$workId'
     | '/author/$authorId'
     | '/browse/$collection'
@@ -393,6 +405,7 @@ export interface RootRouteChildren {
   SsoCallbackRoute: typeof SsoCallbackRoute
   TermsRoute: typeof TermsRoute
   WattpadAlternativeRoute: typeof WattpadAlternativeRoute
+  WritingContestsRoute: typeof WritingContestsRoute
   AdminWorkEditorWorkIdRoute: typeof AdminWorkEditorWorkIdRoute
   AuthorAuthorIdRoute: typeof AuthorAuthorIdRoute
   BrowseCollectionRoute: typeof BrowseCollectionRoute
@@ -522,6 +535,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WattpadAlternativeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/writing-contests': {
+      id: '/writing-contests'
+      path: '/writing-contests'
+      fullPath: '/writing-contests'
+      preLoaderRoute: typeof WritingContestsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin-work-editor/$workId': {
       id: '/admin-work-editor/$workId'
       path: '/admin-work-editor/$workId'
@@ -633,6 +653,7 @@ const rootRouteChildren: RootRouteChildren = {
   SsoCallbackRoute: SsoCallbackRoute,
   TermsRoute: TermsRoute,
   WattpadAlternativeRoute: WattpadAlternativeRoute,
+  WritingContestsRoute: WritingContestsRoute,
   AdminWorkEditorWorkIdRoute: AdminWorkEditorWorkIdRoute,
   AuthorAuthorIdRoute: AuthorAuthorIdRoute,
   BrowseCollectionRoute: BrowseCollectionRoute,
