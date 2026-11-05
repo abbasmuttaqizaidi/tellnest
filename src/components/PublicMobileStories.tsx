@@ -1,9 +1,10 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { Home, X, Compass, PenLine, ChevronRight, ArrowLeft, ArrowRight, Dices, Sparkles, BookOpen, Bookmark, Search, Leaf, Menu } from 'lucide-react'
+import { Home, X, Compass, PenLine, ChevronRight, ArrowLeft, ArrowRight, Dices, Sparkles, BookOpen, Bookmark, Search, Leaf, Menu, Trophy } from 'lucide-react'
 import { HatchpenLogo } from './HatchpenLogo'
 import { Drawer } from '../design-system'
+import { ContestDetailsModal } from './ContestDetailsModal'
 
 // Hero Section Reader Portraits (Ambient Editorial Cross-Fade)
 import screen01WomanImg from '../assets/home-screen/screen01-woman.webp'
@@ -374,6 +375,7 @@ export function PublicMobileStories({
   const navigate = useNavigate()
   const [currentIndex, setCurrentIndex] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [isContestModalOpen, setIsContestModalOpen] = useState(false)
   const shouldReduceMotion = useReducedMotion()
 
   const [slideDirection, setSlideDirection] = useState<number>(1)
@@ -728,8 +730,20 @@ export function PublicMobileStories({
             <HatchpenLogo size="xs" variant="compact" forceTheme="light" />
           </Link>
 
-          {/* Top-right action: Join HatchPen & Circular Hamburger Button */}
-          <div className="flex items-center gap-2">
+          {/* Top-right action: Contest, Join HatchPen & Circular Hamburger Button */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic(8)
+                setIsContestModalOpen(true)
+              }}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-neutral-200 text-amber-600 bg-amber-500/10 hover:bg-amber-500/20 active:scale-95 transition-all cursor-pointer"
+              aria-label="View writing contest details"
+              title="₹2,000 Writing Contest"
+            >
+              <Trophy className="h-4 w-4" />
+            </button>
             <button
               type="button"
               onClick={() => {
@@ -1761,6 +1775,15 @@ export function PublicMobileStories({
               <span>Explore Stories</span>
             </Link>
 
+            <Link
+              to="/writing-contests"
+              onClick={() => setMenuOpen(false)}
+              className="flex items-center gap-2 py-1.5 px-2.5 rounded-lg text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
+            >
+              <Trophy className="h-4 w-4 text-amber-500" />
+              <span>₹2,000 Writing Contest</span>
+            </Link>
+
             <button
               type="button"
               onClick={() => {
@@ -1810,6 +1833,12 @@ export function PublicMobileStories({
           </div>
         </div>
       </Drawer>
+
+      {/* Active Contest Quick Details Modal */}
+      <ContestDetailsModal
+        isOpen={isContestModalOpen}
+        onClose={() => setIsContestModalOpen(false)}
+      />
     </div>
   )
 }

@@ -417,3 +417,24 @@ test('Contest Admin Participant Increment: Enforces strictly non-decreasing inva
   assert.equal(incRes.success, true)
   assert.equal(savedBoost, 30)
 })
+
+test('Contest Details Quick Modal & Header Discovery Invariants', () => {
+  // 1. ContestDetailsModal component exists
+  const modalPath = path.join(rootDir, 'src/components/ContestDetailsModal.tsx')
+  assert.ok(fs.existsSync(modalPath), 'ContestDetailsModal.tsx must exist')
+  const modalCode = fs.readFileSync(modalPath, 'utf-8')
+  assert.ok(modalCode.includes('totalContestants'), 'Modal must display totalContestants count')
+  assert.ok(modalCode.includes('to="/writing-contests"'), 'Modal must have button linking to /writing-contests')
+
+  // 2. RouteHeader integration
+  const headerPath = path.join(rootDir, 'src/components/RouteHeader.tsx')
+  const headerCode = fs.readFileSync(headerPath, 'utf-8')
+  assert.ok(headerCode.includes('ContestDetailsModal'), 'RouteHeader must import ContestDetailsModal')
+  assert.ok(headerCode.includes('setContestModalOpen(true)'), 'RouteHeader must have button to open contest modal')
+
+  // 3. PublicHome & PublicMobileStories discovery
+  const publicHomePath = path.join(rootDir, 'src/components/home/PublicHome.tsx')
+  const publicHomeCode = fs.readFileSync(publicHomePath, 'utf-8')
+  assert.ok(publicHomeCode.includes('ContestDetailsModal'), 'PublicHome must include ContestDetailsModal')
+  assert.ok(publicHomeCode.includes('setIsContestModalOpen(true)'), 'PublicHome must trigger contest details modal')
+})

@@ -17,9 +17,11 @@ import {
   Sun,
   Moon,
   Menu,
+  Trophy,
 } from 'lucide-react'
 import { useUser } from '@clerk/react'
 import { useApp } from '../context/AppContext'
+import { ContestDetailsModal } from './ContestDetailsModal'
 export interface RouteHeaderProps {
   title: string
   subtitle?: string
@@ -71,6 +73,7 @@ export function RouteHeader({ title, subtitle, rightExtra, className = '' }: Rou
   // Dropdown states
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [routeMenuOpen, setRouteMenuOpen] = useState(false)
+  const [contestModalOpen, setContestModalOpen] = useState(false)
 
   const dropdownRef = useRef<HTMLDivElement>(null)
   const routeMenuRef = useRef<HTMLDivElement>(null)
@@ -79,6 +82,7 @@ export function RouteHeader({ title, subtitle, rightExtra, className = '' }: Rou
   const routeOptions = [
     { name: 'Home', path: '/', icon: Home, description: 'Daily curated stories & feed' },
     { name: 'Discover', path: '/discover', icon: Compass, description: 'Catalog & editorial collections' },
+    { name: 'Contest', path: '/writing-contests', icon: Trophy, description: '₹2,000 monthly cash prize & live stats' },
     { name: 'Following', path: '/following', icon: Users, description: 'Updates from followed writers' },
     { name: 'Search', path: '/search', icon: Search, description: 'Search manuscripts & authors' },
     { name: 'Library', path: '/library', icon: Bookmark, description: 'Reading shelf & history' },
@@ -321,6 +325,17 @@ export function RouteHeader({ title, subtitle, rightExtra, className = '' }: Rou
 
           {rightExtra}
 
+          {/* Active Contest Quick Details Button */}
+          <button
+            type="button"
+            onClick={() => setContestModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] text-[var(--ink-primary)] text-xs font-mono font-medium shadow-2xs transition-all cursor-pointer h-8 select-none"
+            title="Active Writing Contest Details & Cash Prize"
+          >
+            <Trophy className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+            <span className="hidden sm:inline">Contest</span>
+          </button>
+
           {/* Action Button: + New (NO Chevron Down icon!) */}
           <button
             type="button"
@@ -392,6 +407,12 @@ export function RouteHeader({ title, subtitle, rightExtra, className = '' }: Rou
           )}
         </div>
       </div>
+
+      {/* Active Contest Quick Details Modal */}
+      <ContestDetailsModal
+        isOpen={contestModalOpen}
+        onClose={() => setContestModalOpen(false)}
+      />
     </div>
   )
 }

@@ -11,7 +11,9 @@ import {
   Shield,
   Sprout,
   Users,
+  Trophy,
 } from 'lucide-react'
+import { ContestDetailsModal } from '../ContestDetailsModal'
 import { PublicMobileStories } from '../PublicMobileStories'
 import { TrendingSection } from './TrendingSection'
 import { BingeableSection } from './BingeableSection'
@@ -228,6 +230,7 @@ export default function PublicHome({ loaderData }: PublicHomeProps = {}) {
 
   // Single-source hero photograph configuration (src/config/hero.ts)
   const [heroImageFailed, setHeroImageFailed] = useState(false)
+  const [isContestModalOpen, setIsContestModalOpen] = useState(false)
   const { src: heroSrc, srcSet: heroSrcSet, fallback: heroFallback } = useMemo(() => {
     return getHeroImageSources()
   }, [])
@@ -313,11 +316,19 @@ export default function PublicHome({ loaderData }: PublicHomeProps = {}) {
             {/* Left Content Region (38-42% desktop width) */}
             <div className="lg:col-span-5 flex flex-col justify-center">
               
-              {/* Category / Mission Eyebrow Tag */}
-              <div className="inline-flex items-center gap-2 mb-4">
+              {/* Category / Mission Eyebrow Tag & Active Contest Pill */}
+              <div className="flex flex-wrap items-center gap-2 mb-4">
                 <span className="inline-block px-3 py-1 rounded-full bg-[#EAE4D8]/80 dark:bg-neutral-800 text-[#5A544C] dark:text-[#D4D4D8] text-[11px] font-semibold tracking-wider uppercase">
                   HatchPen — A Serialized Fiction Retreat
                 </span>
+                <button
+                  type="button"
+                  onClick={() => setIsContestModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-[#201F1D]/20 hover:border-[#201F1D] dark:border-neutral-700 bg-white dark:bg-neutral-900 text-[#201F1D] dark:text-[#F4F4F5] text-[11px] font-mono font-medium cursor-pointer transition-all shadow-2xs hover:scale-102"
+                >
+                  <Trophy className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                  <span>₹2,000 Writing Contest</span>
+                </button>
               </div>
 
               {/* Signature Headline */}
@@ -763,6 +774,12 @@ export default function PublicHome({ loaderData }: PublicHomeProps = {}) {
           </div>
         </div>
       </section>
+
+      {/* Active Contest Quick Details Modal */}
+      <ContestDetailsModal
+        isOpen={isContestModalOpen}
+        onClose={() => setIsContestModalOpen(false)}
+      />
 
     </div>
     </>
