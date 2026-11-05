@@ -465,14 +465,31 @@ export async function executeSaveAdminContestConfig(
   const getClient = deps.createAdminClient || createAdminClient
   const client = getClient()
 
-  if (config.id && config.id !== 'default-monthly-contest') {
+  // Resolve target contest ID: either explicit UUID or active DB contest fallback
+  let targetId = config.id && config.id !== 'default-monthly-contest' ? config.id : null
+
+  if (!targetId) {
+    const { data: existingActive } = await client
+      .from('contests')
+      .select('id, participant_boost_count')
+      .or(`slug.eq.monthly-indie-contest,status.eq.active`)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (existingActive?.id) {
+      targetId = existingActive.id
+    }
+  }
+
+  if (targetId) {
     // If admin is adjusting participant_boost_count, enforce non-decreasing rule:
     // "admin agar chahye to is count mein icrement kar sakta hai but decrement nahi kar sakta"
     if (config.participant_boost_count !== undefined) {
       const { data: currentContest } = await client
         .from('contests')
         .select('participant_boost_count')
-        .eq('id', config.id)
+        .eq('id', targetId)
         .maybeSingle()
 
       const currentBoost = Math.max(0, Number(currentContest?.participant_boost_count) || 0)
@@ -497,9 +514,9 @@ export async function executeSaveAdminContestConfig(
       ...(config.winnerWorkId ? { winner_work_id: config.winnerWorkId } : {}),
       updated_at: new Date().toISOString(),
     }
-    const { error } = await client.from('contests').update(updatePayload).eq('id', config.id)
+    const { error } = await client.from('contests').update(updatePayload).eq('id', targetId)
     if (error) throw new Error(error.message)
-    return { success: true }
+    return { success: true, contestId: targetId }
   }
 
   // Create new contest
