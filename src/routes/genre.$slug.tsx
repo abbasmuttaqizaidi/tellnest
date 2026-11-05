@@ -5,7 +5,7 @@ import { GLOBAL_GENRES } from '../lib/taxonomy'
 import WorkCard from '../components/WorkCard'
 import EmptyState from '../components/EmptyState'
 import { FilterDisclosure, AnimatedSearch } from '../design-system'
-import { ArrowLeft, HelpCircle, Sparkles, BookOpen, Compass, Tag } from 'lucide-react'
+import { ArrowLeft, HelpCircle, Sparkles, BookOpen, Compass, Tag, ChevronDown } from 'lucide-react'
 import { generateMeta } from '../lib/seo'
 import { parseTotalReads } from '../lib/utils'
 import { getGenrePageDataServerFn, type GenrePageData } from '../server/works'
@@ -541,48 +541,60 @@ function GenreTemplatePage() {
       )}
 
       {/* Genre FAQ Section (Matches Schema.org FAQPage for Google Rich Snippets) */}
-      <section className="mt-12 sm:mt-16 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 sm:p-10 space-y-6">
+      <section className="mt-12 sm:mt-16 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 sm:p-10 space-y-4">
         <div className="flex items-center gap-2.5 text-[var(--ink-primary)] font-serif text-xl sm:text-2xl font-bold">
           <HelpCircle className="w-5 h-5 text-[var(--accent)] shrink-0" />
           <h2>Frequently Asked Questions About {genreInfo.name} Stories</h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 pt-2">
-          <div className="space-y-1.5">
-            <h3 className="text-sm font-semibold text-[var(--ink-primary)]">
-              What is {genreInfo.name} fiction on HatchPen?
-            </h3>
-            <p className="text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans">
+        <div className="divide-y divide-[var(--border-subtle)] pt-1">
+          <details open className="group py-3.5 sm:py-4 [&_summary::-webkit-details-marker]:hidden">
+            <summary className="flex w-full items-center justify-between text-left text-xs sm:text-sm font-semibold text-[var(--ink-primary)] cursor-pointer select-none">
+              <h3 className="text-xs sm:text-sm font-semibold text-[var(--ink-primary)] pr-2">
+                What is {genreInfo.name} fiction on HatchPen?
+              </h3>
+              <ChevronDown className="w-4 h-4 text-[var(--ink-muted)] group-open:text-[var(--accent)] group-open:rotate-180 transition-transform duration-200 shrink-0" />
+            </summary>
+            <p className="mt-2 text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans pr-4">
               {genreInfo.name} on HatchPen features original serialized novels, novellas, and standalone literary manuscripts characterized by {genreInfo.description.toLowerCase().replace(/\.$/, '')}. Stories are written by independent authors and published chapter by chapter.
             </p>
-          </div>
+          </details>
 
-          <div className="space-y-1.5">
-            <h3 className="text-sm font-semibold text-[var(--ink-primary)]">
-              Can I read {genreInfo.name} stories on HatchPen for free?
-            </h3>
-            <p className="text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans">
+          <details className="group py-3.5 sm:py-4 [&_summary::-webkit-details-marker]:hidden">
+            <summary className="flex w-full items-center justify-between text-left text-xs sm:text-sm font-semibold text-[var(--ink-primary)] cursor-pointer select-none">
+              <h3 className="text-xs sm:text-sm font-semibold text-[var(--ink-primary)] pr-2">
+                Can I read {genreInfo.name} stories on HatchPen for free?
+              </h3>
+              <ChevronDown className="w-4 h-4 text-[var(--ink-muted)] group-open:text-[var(--accent)] group-open:rotate-180 transition-transform duration-200 shrink-0" />
+            </summary>
+            <p className="mt-2 text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans pr-4">
               Yes. All {genreInfo.name} stories on HatchPen are 100% free for readers. There are no paywalls, coin systems, or subscriptions required. You can read comfortably in any web browser without downloading an app.
             </p>
-          </div>
+          </details>
 
-          <div className="space-y-1.5">
-            <h3 className="text-sm font-semibold text-[var(--ink-primary)]">
-              How often are new {genreInfo.name} chapters published?
-            </h3>
-            <p className="text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans">
+          <details className="group py-3.5 sm:py-4 [&_summary::-webkit-details-marker]:hidden">
+            <summary className="flex w-full items-center justify-between text-left text-xs sm:text-sm font-semibold text-[var(--ink-primary)] cursor-pointer select-none">
+              <h3 className="text-xs sm:text-sm font-semibold text-[var(--ink-primary)] pr-2">
+                How often are new {genreInfo.name} chapters published?
+              </h3>
+              <ChevronDown className="w-4 h-4 text-[var(--ink-muted)] group-open:text-[var(--accent)] group-open:rotate-180 transition-transform duration-200 shrink-0" />
+            </summary>
+            <p className="mt-2 text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans pr-4">
               HatchPen authors release new chapters on ongoing serialized schedules. You can save any story to your personal Library to receive instant notifications whenever a new chapter is released.
             </p>
-          </div>
+          </details>
 
-          <div className="space-y-1.5">
-            <h3 className="text-sm font-semibold text-[var(--ink-primary)]">
-              Can independent authors publish {genreInfo.name} stories?
-            </h3>
-            <p className="text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans">
+          <details className="group py-3.5 sm:py-4 [&_summary::-webkit-details-marker]:hidden">
+            <summary className="flex w-full items-center justify-between text-left text-xs sm:text-sm font-semibold text-[var(--ink-primary)] cursor-pointer select-none">
+              <h3 className="text-xs sm:text-sm font-semibold text-[var(--ink-primary)] pr-2">
+                Can independent authors publish {genreInfo.name} stories?
+              </h3>
+              <ChevronDown className="w-4 h-4 text-[var(--ink-muted)] group-open:text-[var(--accent)] group-open:rotate-180 transition-transform duration-200 shrink-0" />
+            </summary>
+            <p className="mt-2 text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans pr-4">
               Yes. Writers can use HatchPen's distraction-free Creator Studio to draft, organize acts, and publish serialized {genreInfo.name} fiction directly to readers worldwide.
             </p>
-          </div>
+          </details>
         </div>
       </section>
     </div>

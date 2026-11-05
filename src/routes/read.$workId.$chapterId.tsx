@@ -20,6 +20,7 @@ import {
   Lock,
   Headphones,
   HelpCircle,
+  ChevronDown,
 } from 'lucide-react'
 import { ChapterAudioPlayer } from '../components/ChapterAudioPlayer'
 import { useChapterAudio } from '../lib/tts/useChapterAudio'
@@ -1450,45 +1451,57 @@ function ReaderPage() {
 
         {/* Chapter FAQ Section (Matches Schema.org FAQPage for Google Rich Snippets) */}
         {work && chapter && (
-          <section className="mt-12 sm:mt-16 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 sm:p-8 space-y-6">
+          <section className="mt-12 sm:mt-16 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 sm:p-8 space-y-4">
             <div className="flex items-center gap-2.5 text-[var(--ink-primary)] font-serif text-lg sm:text-xl font-bold">
               <HelpCircle className="w-5 h-5 text-[var(--accent)] shrink-0" />
               <h2>Frequently Asked Questions About This Chapter</h2>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-              <div className="space-y-1.5">
-                <h3 className="text-sm font-semibold text-[var(--ink-primary)]">
-                  Where can I read {work.title} {chapterLabel} online for free?
-                </h3>
-                <p className="text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans">
+            <div className="divide-y divide-[var(--border-subtle)] pt-1">
+              <details open className="group py-3.5 sm:py-4 [&_summary::-webkit-details-marker]:hidden">
+                <summary className="flex w-full items-center justify-between text-left text-xs sm:text-sm font-semibold text-[var(--ink-primary)] cursor-pointer select-none">
+                  <h3 className="text-xs sm:text-sm font-semibold text-[var(--ink-primary)] pr-2">
+                    Where can I read {work.title} {chapterLabel} online for free?
+                  </h3>
+                  <ChevronDown className="w-4 h-4 text-[var(--ink-muted)] group-open:text-[var(--accent)] group-open:rotate-180 transition-transform duration-200 shrink-0" />
+                </summary>
+                <p className="mt-2 text-xs text-[var(--ink-muted)] leading-relaxed font-sans pr-4">
                   You can read {work.title} {chapterLabel} for free online on HatchPen without any paywalls or subscriptions.
                 </p>
-              </div>
+              </details>
 
-              <div className="space-y-1.5">
-                <h3 className="text-sm font-semibold text-[var(--ink-primary)]">
-                  Are there paywalls, coin systems, or chapter locks on HatchPen?
-                </h3>
-                <p className="text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans">
+              <details className="group py-3.5 sm:py-4 [&_summary::-webkit-details-marker]:hidden">
+                <summary className="flex w-full items-center justify-between text-left text-xs sm:text-sm font-semibold text-[var(--ink-primary)] cursor-pointer select-none">
+                  <h3 className="text-xs sm:text-sm font-semibold text-[var(--ink-primary)] pr-2">
+                    Are there paywalls, coin systems, or chapter locks on HatchPen?
+                  </h3>
+                  <ChevronDown className="w-4 h-4 text-[var(--ink-muted)] group-open:text-[var(--accent)] group-open:rotate-180 transition-transform duration-200 shrink-0" />
+                </summary>
+                <p className="mt-2 text-xs text-[var(--ink-muted)] leading-relaxed font-sans pr-4">
                   No. HatchPen is 100% free with zero paywalls, wait times, or coin locks. Readers can enjoy the full serialization seamlessly.
                 </p>
-              </div>
+              </details>
 
-              <div className="space-y-1.5">
-                <h3 className="text-sm font-semibold text-[var(--ink-primary)]">
-                  How many chapters are available in {work.title}?
-                </h3>
-                <p className="text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans">
+              <details className="group py-3.5 sm:py-4 [&_summary::-webkit-details-marker]:hidden">
+                <summary className="flex w-full items-center justify-between text-left text-xs sm:text-sm font-semibold text-[var(--ink-primary)] cursor-pointer select-none">
+                  <h3 className="text-xs sm:text-sm font-semibold text-[var(--ink-primary)] pr-2">
+                    How many chapters are available in {work.title}?
+                  </h3>
+                  <ChevronDown className="w-4 h-4 text-[var(--ink-muted)] group-open:text-[var(--accent)] group-open:rotate-180 transition-transform duration-200 shrink-0" />
+                </summary>
+                <p className="mt-2 text-xs text-[var(--ink-muted)] leading-relaxed font-sans pr-4">
                   {work.title} currently has {work.chapters?.length || 1} chapter{(work.chapters?.length || 1) === 1 ? '' : 's'} available to read on HatchPen.
                 </p>
-              </div>
+              </details>
 
-              <div className="space-y-1.5">
-                <h3 className="text-sm font-semibold text-[var(--ink-primary)]">
-                  Who is the author of {work.title}?
-                </h3>
-                <p className="text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans">
+              <details className="group py-3.5 sm:py-4 [&_summary::-webkit-details-marker]:hidden">
+                <summary className="flex w-full items-center justify-between text-left text-xs sm:text-sm font-semibold text-[var(--ink-primary)] cursor-pointer select-none">
+                  <h3 className="text-xs sm:text-sm font-semibold text-[var(--ink-primary)] pr-2">
+                    Who is the author of {work.title}?
+                  </h3>
+                  <ChevronDown className="w-4 h-4 text-[var(--ink-muted)] group-open:text-[var(--accent)] group-open:rotate-180 transition-transform duration-200 shrink-0" />
+                </summary>
+                <p className="mt-2 text-xs text-[var(--ink-muted)] leading-relaxed font-sans pr-4">
                   {work.title} is written by{' '}
                   <Link
                     to="/author/$authorId"
@@ -1499,7 +1512,7 @@ function ReaderPage() {
                   </Link>
                   . Explore more chapters and creator releases on HatchPen.
                 </p>
-              </div>
+              </details>
             </div>
           </section>
         )}

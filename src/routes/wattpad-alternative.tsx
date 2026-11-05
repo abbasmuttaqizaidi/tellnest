@@ -101,12 +101,6 @@ export const Route = createFileRoute('/wattpad-alternative')({
 })
 
 export default function WattpadAlternativePage() {
-  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0)
-
-  const toggleFaq = (idx: number) => {
-    setOpenFaqIndex(openFaqIndex === idx ? null : idx)
-  }
-
   const COMPARISON_ROWS = [
     {
       feature: 'Reading Cost & Paywalls',
@@ -451,31 +445,21 @@ export default function WattpadAlternativePage() {
           </div>
 
           <div className="divide-y divide-[var(--border-subtle)] rounded-xl sm:rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 sm:px-6">
-            {FAQS.map((faq, idx) => {
-              const isOpen = openFaqIndex === idx
-              return (
-                <div key={idx} className="py-3.5 sm:py-5">
-                  <button
-                    type="button"
-                    onClick={() => toggleFaq(idx)}
-                    className="flex w-full items-center justify-between text-left text-xs sm:text-sm md:text-base font-semibold text-[var(--ink-primary)] focus:outline-none cursor-pointer"
-                    aria-expanded={isOpen}
-                  >
-                    <span className="pr-2">{faq.question}</span>
-                    {isOpen ? (
-                      <ChevronUp className="w-4 h-4 text-[#B94F37] shrink-0" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-[var(--ink-muted)] shrink-0" />
-                    )}
-                  </button>
-                  {isOpen && (
-                    <div className="mt-2 sm:mt-2.5 pr-2 sm:pr-4 text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed">
-                      {faq.answer}
-                    </div>
-                  )}
+            {FAQS.map((faq, idx) => (
+              <details
+                key={idx}
+                open={idx === 0}
+                className="group py-3.5 sm:py-5 [&_summary::-webkit-details-marker]:hidden"
+              >
+                <summary className="flex w-full items-center justify-between text-left text-xs sm:text-sm md:text-base font-semibold text-[var(--ink-primary)] cursor-pointer select-none">
+                  <span className="pr-2">{faq.question}</span>
+                  <ChevronDown className="w-4 h-4 text-[var(--ink-muted)] group-open:text-[#B94F37] group-open:rotate-180 transition-transform duration-200 shrink-0" />
+                </summary>
+                <div className="mt-2.5 sm:mt-3 pr-2 sm:pr-4 text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans">
+                  {faq.answer}
                 </div>
-              )
-            })}
+              </details>
+            ))}
           </div>
         </section>
 

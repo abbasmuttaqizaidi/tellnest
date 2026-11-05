@@ -21,6 +21,7 @@ import {
   HelpCircle,
   Sparkles,
   ExternalLink,
+  ChevronDown,
 } from 'lucide-react'
 import { FaXTwitter, FaInstagram, FaGoodreads } from 'react-icons/fa6'
 import { SiSubstack } from 'react-icons/si'
@@ -839,48 +840,60 @@ function AuthorProfilePage() {
       )}
 
       {/* Author FAQ Section (Matches Schema.org FAQPage for Google Rich Snippets) */}
-      <section className="mt-10 sm:mt-14 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 sm:p-8 space-y-5">
+      <section className="mt-10 sm:mt-14 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 sm:p-8 space-y-4">
         <div className="flex items-center gap-2.5 text-[var(--ink-primary)] font-serif text-lg sm:text-xl font-bold">
           <HelpCircle className="w-5 h-5 text-[var(--accent)] shrink-0" />
           <h2>Frequently Asked Questions About {displayName}</h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6 pt-1">
-          <div className="space-y-1">
-            <h3 className="text-xs sm:text-sm font-semibold text-[var(--ink-primary)]">
-              Where can I read stories by {displayName}?
-            </h3>
-            <p className="text-xs text-[var(--ink-muted)] leading-relaxed font-sans">
+        <div className="divide-y divide-[var(--border-subtle)] pt-1">
+          <details open className="group py-3.5 sm:py-4 [&_summary::-webkit-details-marker]:hidden">
+            <summary className="flex w-full items-center justify-between text-left text-xs sm:text-sm font-semibold text-[var(--ink-primary)] cursor-pointer select-none">
+              <h3 className="text-xs sm:text-sm font-semibold text-[var(--ink-primary)] pr-2">
+                Where can I read stories by {displayName}?
+              </h3>
+              <ChevronDown className="w-4 h-4 text-[var(--ink-muted)] group-open:text-[var(--accent)] group-open:rotate-180 transition-transform duration-200 shrink-0" />
+            </summary>
+            <p className="mt-2 text-xs text-[var(--ink-muted)] leading-relaxed font-sans pr-4">
               You can read original serialized fiction, novels, and manuscripts by {displayName} directly on HatchPen with zero paywalls or subscriptions.
             </p>
-          </div>
+          </details>
 
-          <div className="space-y-1">
-            <h3 className="text-xs sm:text-sm font-semibold text-[var(--ink-primary)]">
-              Can I read books by {displayName} for free?
-            </h3>
-            <p className="text-xs text-[var(--ink-muted)] leading-relaxed font-sans">
+          <details className="group py-3.5 sm:py-4 [&_summary::-webkit-details-marker]:hidden">
+            <summary className="flex w-full items-center justify-between text-left text-xs sm:text-sm font-semibold text-[var(--ink-primary)] cursor-pointer select-none">
+              <h3 className="text-xs sm:text-sm font-semibold text-[var(--ink-primary)] pr-2">
+                Can I read books by {displayName} for free?
+              </h3>
+              <ChevronDown className="w-4 h-4 text-[var(--ink-muted)] group-open:text-[var(--accent)] group-open:rotate-180 transition-transform duration-200 shrink-0" />
+            </summary>
+            <p className="mt-2 text-xs text-[var(--ink-muted)] leading-relaxed font-sans pr-4">
               Yes. All published chapters by {displayName} on HatchPen are 100% free to read online directly in your browser with zero paywalls, coins, or mandatory subscriptions.
             </p>
-          </div>
+          </details>
 
-          <div className="space-y-1">
-            <h3 className="text-xs sm:text-sm font-semibold text-[var(--ink-primary)]">
-              How can I follow {displayName} for new chapter releases?
-            </h3>
-            <p className="text-xs text-[var(--ink-muted)] leading-relaxed font-sans">
+          <details className="group py-3.5 sm:py-4 [&_summary::-webkit-details-marker]:hidden">
+            <summary className="flex w-full items-center justify-between text-left text-xs sm:text-sm font-semibold text-[var(--ink-primary)] cursor-pointer select-none">
+              <h3 className="text-xs sm:text-sm font-semibold text-[var(--ink-primary)] pr-2">
+                How can I follow {displayName} for new chapter releases?
+              </h3>
+              <ChevronDown className="w-4 h-4 text-[var(--ink-muted)] group-open:text-[var(--accent)] group-open:rotate-180 transition-transform duration-200 shrink-0" />
+            </summary>
+            <p className="mt-2 text-xs text-[var(--ink-muted)] leading-relaxed font-sans pr-4">
               Readers can follow {displayName} by creating a free HatchPen account or adding their stories to their personal Library to receive instant notifications when new chapters publish.
             </p>
-          </div>
+          </details>
 
-          <div className="space-y-1">
-            <h3 className="text-xs sm:text-sm font-semibold text-[var(--ink-primary)]">
-              How many stories has {displayName} published?
-            </h3>
-            <p className="text-xs text-[var(--ink-muted)] leading-relaxed font-sans">
+          <details className="group py-3.5 sm:py-4 [&_summary::-webkit-details-marker]:hidden">
+            <summary className="flex w-full items-center justify-between text-left text-xs sm:text-sm font-semibold text-[var(--ink-primary)] cursor-pointer select-none">
+              <h3 className="text-xs sm:text-sm font-semibold text-[var(--ink-primary)] pr-2">
+                How many stories has {displayName} published?
+              </h3>
+              <ChevronDown className="w-4 h-4 text-[var(--ink-muted)] group-open:text-[var(--accent)] group-open:rotate-180 transition-transform duration-200 shrink-0" />
+            </summary>
+            <p className="mt-2 text-xs text-[var(--ink-muted)] leading-relaxed font-sans pr-4">
               {displayName} has cataloged {authorWorks.length} {authorWorks.length === 1 ? 'manuscript' : 'manuscripts'} on HatchPen.
             </p>
-          </div>
+          </details>
         </div>
       </section>
     </div>
