@@ -20,6 +20,7 @@ import {
   Users,
   ArrowRight,
   Home,
+  Trophy,
 } from 'lucide-react'
 import { useUser, useClerk } from '@clerk/react'
 import { useApp } from '../context/AppContext'
@@ -29,6 +30,7 @@ import { motion, AnimatePresence } from 'motion/react'
 import { UnisexAvatar, UnisexAvatarIcon } from './UnisexAvatar'
 import { HatchpenLogo } from './HatchpenLogo'
 import { hasActiveClientSession, clearClientSession, notifyClientLoggedOut } from '../lib/authSession'
+import { ContestDetailsModal } from './ContestDetailsModal'
 
 export interface HeaderProps {
   serverAuthenticated?: boolean
@@ -129,6 +131,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
   const profileDisplayName = userDisplayName || userProfileUsername || 'Hatchpen Member'
   const profileHandle = userProfileUsername || (user?.username ? user.username : (user?.primaryEmailAddress?.emailAddress?.split('@')[0] || 'reader'))
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [contestModalOpen, setContestModalOpen] = useState(false)
   const userMenuRef = useRef<HTMLDivElement>(null)
 
   // Close desktop user avatar menu when clicking outside or pressing Escape
@@ -352,6 +355,17 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
                   </Link>
                 </>
               )}
+
+              {/* Active Contest Quick Details Button */}
+              <button
+                type="button"
+                onClick={() => setContestModalOpen(true)}
+                className="px-2.5 py-1 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 font-mono text-xs font-semibold hover:bg-amber-500/20 transition-colors inline-flex items-center gap-1.5 cursor-pointer shrink-0 ml-1 select-none"
+                title="Active Writing Contest Details & Cash Prize"
+              >
+                <Trophy className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                <span>₹2,000 Contest</span>
+              </button>
             </nav>
           )}
         </div>
@@ -594,7 +608,19 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
               )}
             </div>
           ) : (
-            <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-1.5 sm:gap-2.5">
+              {/* Active Contest Quick Details Button */}
+              <button
+                type="button"
+                onClick={() => setContestModalOpen(true)}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 font-mono text-xs font-semibold hover:bg-amber-500/20 transition-colors cursor-pointer shrink-0 select-none"
+                title="Active Writing Contest Details"
+              >
+                <Trophy className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                <span className="hidden sm:inline">₹2,000 Contest</span>
+                <span className="sm:hidden">Contest</span>
+              </button>
+
               <Link
                 to="/login"
                 className="hidden sm:inline-flex items-center justify-center rounded-full bg-white text-[#18181B] border border-neutral-200/80 px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-[13px] font-medium hover:bg-neutral-100 transition-all shadow-xs no-underline cursor-pointer"
@@ -679,6 +705,19 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
               <Compass className="h-4 w-4" />
               <span>Discover</span>
             </Link>
+
+            {/* Active Contest Link in Mobile Drawer */}
+            <button
+              type="button"
+              onClick={() => {
+                setMobileDrawerOpen(false)
+                setContestModalOpen(true)
+              }}
+              className="flex items-center gap-2 w-full text-left py-1.5 px-2.5 rounded-lg text-amber-600 dark:text-amber-400 font-semibold hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+            >
+              <Trophy className="h-4 w-4 text-amber-500 shrink-0" />
+              <span>₹2,000 Writing Contest</span>
+            </button>
 
             {isSignedIn && (
               <Link
@@ -814,6 +853,12 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
       <PaletteSearch
         isOpen={paletteOpen}
         onClose={() => setPaletteOpen(false)}
+      />
+
+      {/* Active Contest Quick Details Modal */}
+      <ContestDetailsModal
+        isOpen={contestModalOpen}
+        onClose={() => setContestModalOpen(false)}
       />
     </>
   )
