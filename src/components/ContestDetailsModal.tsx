@@ -120,193 +120,195 @@ export function ContestDetailsModal({ isOpen, onClose, initialData }: ContestDet
             </div>
           ) : (
             <div className="pt-3.5 space-y-3">
-              {/* Dynamic View Switch with Pure GPU Transforms */}
-              <AnimatePresence mode="wait" initial={false}>
-                {!showDetails ? (
-                  /* VIEW 1: QUICK OVERVIEW */
-                  <motion.div
-                    key="view-overview"
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
-                    transition={FAST_GPU_TRANSITION}
-                    className="space-y-3 transform-gpu will-change-[transform,opacity]"
-                  >
-                    {/* Big Active Contestants Count Card */}
-                    <div className="py-3 px-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] text-center space-y-0.5">
-                      <div className="inline-flex items-center gap-1.5 text-[11px] font-mono text-[var(--ink-muted)]">
-                        <Users className="w-3 h-3 text-[var(--ink-primary)]" />
-                        <span>Current Participation</span>
-                      </div>
-                      <div className="font-serif sm:font-mono text-4xl sm:text-5xl font-extrabold text-[var(--ink-primary)] tracking-tight leading-none py-1">
-                        {totalContestants.toLocaleString()}
-                      </div>
-                      <p className="text-[11px] font-serif text-[var(--ink-secondary)]">
-                        Active writers registered in {formattedMonth}
-                      </p>
-                    </div>
-
-                    {/* Key Highlights: Cash Prize & Winning Rule */}
-                    <div className="grid grid-cols-2 gap-2 text-center text-xs">
-                      <div className="p-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]">
-                        <span className="text-[9.5px] uppercase font-mono tracking-wider text-[var(--ink-tertiary)] block">
-                          Cash Prize
-                        </span>
-                        <span className="text-sm sm:text-base font-bold font-mono text-[var(--ink-primary)] mt-0.5 block">
-                          {prizeAmount}
-                        </span>
-                        <span className="text-[10px] text-[var(--ink-muted)] block">
-                          Direct UPI Transfer
-                        </span>
-                      </div>
-
-                      <div className="p-2.5 rounded-xl border border-[var(--ink-primary)] bg-[var(--bg-surface)] shadow-2xs">
-                        <span className="text-[9.5px] uppercase font-mono tracking-wider text-[var(--ink-tertiary)] block">
-                          Winning Rule
-                        </span>
-                        <span className="text-sm sm:text-base font-bold font-mono text-[var(--ink-primary)] mt-0.5 flex items-center justify-center gap-1">
-                          <Heart className="w-3 h-3 fill-[var(--ink-primary)] text-[var(--ink-primary)]" />
-                          <span>Max Likes</span>
-                        </span>
-                        <span className="text-[10px] text-[var(--ink-muted)] block">
-                          Verified Reader Hearts
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Single-line How to Win */}
-                    <div className="text-[11px] text-[var(--ink-secondary)] bg-[var(--bg-subtle)] px-3 py-2 rounded-lg border border-[var(--border-subtle)] flex items-center justify-between gap-2">
-                      <p className="truncate">
-                        <strong className="text-[var(--ink-primary)]">How to Win:</strong> Publish in {formattedMonth}. Highest reader likes wins.
-                      </p>
-                      <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold shrink-0">
-                        100% Free
-                      </span>
-                    </div>
-                  </motion.div>
-                ) : (
-                  /* VIEW 2: SCALED-DOWN MINI-CARDS & ADMIN DETAILS */
-                  <motion.div
-                    key="view-details"
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
-                    transition={FAST_GPU_TRANSITION}
-                    className="space-y-2.5 transform-gpu will-change-[transform,opacity]"
-                  >
-                    {/* The 3 Cards Scaled Down in a Single 3-Column Row */}
-                    <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                      <div className="p-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-subtle)]">
-                        <span className="text-[9px] uppercase font-mono text-[var(--ink-muted)] block truncate">
-                          Contestants
-                        </span>
-                        <span className="text-sm sm:text-base font-bold font-mono text-[var(--ink-primary)] block">
+              {/* Stable Fixed Height Content Stage (Modal height stays identical across view switches) */}
+              <div className="min-h-[252px] flex flex-col justify-between">
+                <AnimatePresence mode="wait" initial={false}>
+                  {!showDetails ? (
+                    /* VIEW 1: QUICK OVERVIEW */
+                    <motion.div
+                      key="view-overview"
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      transition={FAST_GPU_TRANSITION}
+                      className="h-full flex flex-col justify-between space-y-2.5 transform-gpu will-change-[transform,opacity]"
+                    >
+                      {/* Big Active Contestants Count Card */}
+                      <div className="py-3 px-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] text-center space-y-0.5">
+                        <div className="inline-flex items-center gap-1.5 text-[11px] font-mono text-[var(--ink-muted)]">
+                          <Users className="w-3 h-3 text-[var(--ink-primary)]" />
+                          <span>Current Participation</span>
+                        </div>
+                        <div className="font-serif sm:font-mono text-4xl sm:text-5xl font-extrabold text-[var(--ink-primary)] tracking-tight leading-none py-1">
                           {totalContestants.toLocaleString()}
-                        </span>
-                        <span className="text-[9px] text-[var(--ink-muted)] block truncate">
-                          Active Writers
-                        </span>
-                      </div>
-
-                      <div className="p-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)]">
-                        <span className="text-[9px] uppercase font-mono text-[var(--ink-muted)] block truncate">
-                          Cash Prize
-                        </span>
-                        <span className="text-sm sm:text-base font-bold font-mono text-[var(--ink-primary)] block">
-                          {prizeAmount}
-                        </span>
-                        <span className="text-[9px] text-[var(--ink-muted)] block truncate">
-                          UPI Transfer
-                        </span>
-                      </div>
-
-                      <div className="p-2 rounded-lg border border-[var(--ink-primary)] bg-[var(--bg-surface)] shadow-2xs">
-                        <span className="text-[9px] uppercase font-mono text-[var(--ink-muted)] block truncate">
-                          Winning Rule
-                        </span>
-                        <span className="text-sm sm:text-base font-bold font-mono text-[var(--ink-primary)] flex items-center justify-center gap-0.5">
-                          <Heart className="w-2.5 h-2.5 fill-[var(--ink-primary)] text-[var(--ink-primary)]" />
-                          <span>Likes</span>
-                        </span>
-                        <span className="text-[9px] text-[var(--ink-muted)] block truncate">
-                          Max Hearts
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Single-line How to Win */}
-                    <p className="text-[11px] text-[var(--ink-secondary)] truncate font-sans px-0.5">
-                      <strong className="text-[var(--ink-primary)]">How to Win:</strong> Publish in {formattedMonth} with free entry • Max verified likes wins.
-                    </p>
-
-                    {/* Admin Decided Details Card with Genre Highlight */}
-                    <div className="rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-3 space-y-2">
-                      {/* 1. GENRE - Important & Highlighted */}
-                      <div className="p-2.5 rounded-lg border-2 border-[var(--ink-primary)] bg-[var(--bg-subtle)] flex items-center justify-between gap-2 shadow-2xs">
-                        <div className="min-w-0">
-                          <span className="text-[9px] uppercase font-mono font-bold tracking-widest text-[var(--ink-muted)] block">
-                            Target Genre (Key Highlight)
-                          </span>
-                          <p className="font-serif text-sm sm:text-base font-bold text-[var(--ink-primary)] truncate mt-0.5">
-                            {contest?.genre && contest.genre.trim() ? contest.genre : 'All Genres'}
-                          </p>
                         </div>
-                        <span className="shrink-0 px-2 py-0.5 rounded-full bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-[9.5px] font-mono font-bold uppercase tracking-wider">
-                          Primary Focus
-                        </span>
+                        <p className="text-[11px] font-serif text-[var(--ink-secondary)]">
+                          Active writers registered in {formattedMonth}
+                        </p>
                       </div>
 
-                      {/* 2. Admin Specifications Grid */}
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        {/* Theme (Optional) */}
-                        <div className="p-2 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-canvas)]">
-                          <span className="text-[9px] uppercase font-mono text-[var(--ink-muted)] block">
-                            Theme (Optional)
-                          </span>
-                          <span className="font-medium text-[var(--ink-primary)] text-xs block mt-0.5 truncate">
-                            {contest?.theme && contest.theme.trim() ? contest.theme : 'Open Theme'}
-                          </span>
-                        </div>
-
-                        {/* Category (Optional or All categories as placeholder) */}
-                        <div className="p-2 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-canvas)]">
-                          <span className="text-[9px] uppercase font-mono text-[var(--ink-muted)] block">
-                            Category
-                          </span>
-                          <span className="font-medium text-[var(--ink-primary)] text-xs block mt-0.5 truncate">
-                            {contest?.category_restriction && contest.category_restriction.toLowerCase() !== 'all'
-                              ? contest.category_restriction
-                              : 'All Categories'}
-                          </span>
-                        </div>
-
-                        {/* Cash Prize */}
-                        <div className="p-2 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-canvas)]">
-                          <span className="text-[9px] uppercase font-mono text-[var(--ink-muted)] block">
+                      {/* Key Highlights: Cash Prize & Winning Rule */}
+                      <div className="grid grid-cols-2 gap-2 text-center text-xs">
+                        <div className="p-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]">
+                          <span className="text-[9.5px] uppercase font-mono tracking-wider text-[var(--ink-tertiary)] block">
                             Cash Prize
                           </span>
-                          <span className="font-bold font-mono text-[var(--ink-primary)] text-xs block mt-0.5 truncate">
-                            {prizeAmount} via UPI
+                          <span className="text-sm sm:text-base font-bold font-mono text-[var(--ink-primary)] mt-0.5 block">
+                            {prizeAmount}
+                          </span>
+                          <span className="text-[10px] text-[var(--ink-muted)] block">
+                            Direct UPI Transfer
                           </span>
                         </div>
 
-                        {/* Contest Status */}
-                        <div className="p-2 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-canvas)]">
-                          <span className="text-[9px] uppercase font-mono text-[var(--ink-muted)] block">
-                            Contest Status
+                        <div className="p-2.5 rounded-xl border border-[var(--ink-primary)] bg-[var(--bg-surface)] shadow-2xs">
+                          <span className="text-[9.5px] uppercase font-mono tracking-wider text-[var(--ink-tertiary)] block">
+                            Winning Rule
                           </span>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            <span className="font-medium capitalize text-[var(--ink-primary)] text-xs">
-                              {contest?.status || 'Active'}
+                          <span className="text-sm sm:text-base font-bold font-mono text-[var(--ink-primary)] mt-0.5 flex items-center justify-center gap-1">
+                            <Heart className="w-3 h-3 fill-[var(--ink-primary)] text-[var(--ink-primary)]" />
+                            <span>Max Likes</span>
+                          </span>
+                          <span className="text-[10px] text-[var(--ink-muted)] block">
+                            Verified Reader Hearts
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Single-line How to Win */}
+                      <div className="text-[11px] text-[var(--ink-secondary)] bg-[var(--bg-subtle)] px-3 py-2 rounded-lg border border-[var(--border-subtle)] flex items-center justify-between gap-2">
+                        <p className="truncate">
+                          <strong className="text-[var(--ink-primary)]">How to Win:</strong> Publish in {formattedMonth}. Highest reader likes wins.
+                        </p>
+                        <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold shrink-0">
+                          100% Free
+                        </span>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    /* VIEW 2: SCALED-DOWN MINI-CARDS & ADMIN DETAILS */
+                    <motion.div
+                      key="view-details"
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      transition={FAST_GPU_TRANSITION}
+                      className="h-full flex flex-col justify-between space-y-2.5 transform-gpu will-change-[transform,opacity]"
+                    >
+                      {/* The 3 Cards Scaled Down in a Single 3-Column Row */}
+                      <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                        <div className="p-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-subtle)]">
+                          <span className="text-[9px] uppercase font-mono text-[var(--ink-muted)] block truncate">
+                            Contestants
+                          </span>
+                          <span className="text-sm sm:text-base font-bold font-mono text-[var(--ink-primary)] block">
+                            {totalContestants.toLocaleString()}
+                          </span>
+                          <span className="text-[9px] text-[var(--ink-muted)] block truncate">
+                            Active Writers
+                          </span>
+                        </div>
+
+                        <div className="p-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)]">
+                          <span className="text-[9px] uppercase font-mono text-[var(--ink-muted)] block truncate">
+                            Cash Prize
+                          </span>
+                          <span className="text-sm sm:text-base font-bold font-mono text-[var(--ink-primary)] block">
+                            {prizeAmount}
+                          </span>
+                          <span className="text-[9px] text-[var(--ink-muted)] block truncate">
+                            UPI Transfer
+                          </span>
+                        </div>
+
+                        <div className="p-2 rounded-lg border border-[var(--ink-primary)] bg-[var(--bg-surface)] shadow-2xs">
+                          <span className="text-[9px] uppercase font-mono text-[var(--ink-muted)] block truncate">
+                            Winning Rule
+                          </span>
+                          <span className="text-sm sm:text-base font-bold font-mono text-[var(--ink-primary)] flex items-center justify-center gap-0.5">
+                            <Heart className="w-2.5 h-2.5 fill-[var(--ink-primary)] text-[var(--ink-primary)]" />
+                            <span>Likes</span>
+                          </span>
+                          <span className="text-[9px] text-[var(--ink-muted)] block truncate">
+                            Max Hearts
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Single-line How to Win */}
+                      <p className="text-[11px] text-[var(--ink-secondary)] truncate font-sans px-0.5">
+                        <strong className="text-[var(--ink-primary)]">How to Win:</strong> Publish in {formattedMonth} with free entry • Max verified likes wins.
+                      </p>
+
+                      {/* Admin Decided Details Card with Genre Highlight */}
+                      <div className="rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-3 space-y-2">
+                        {/* 1. GENRE - Important & Highlighted */}
+                        <div className="p-2.5 rounded-lg border-2 border-[var(--ink-primary)] bg-[var(--bg-subtle)] flex items-center justify-between gap-2 shadow-2xs">
+                          <div className="min-w-0">
+                            <span className="text-[9px] uppercase font-mono font-bold tracking-widest text-[var(--ink-muted)] block">
+                              Target Genre (Key Highlight)
                             </span>
+                            <p className="font-serif text-sm sm:text-base font-bold text-[var(--ink-primary)] truncate mt-0.5">
+                              {contest?.genre && contest.genre.trim() ? contest.genre : 'All Genres'}
+                            </p>
+                          </div>
+                          <span className="shrink-0 px-2 py-0.5 rounded-full bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-[9.5px] font-mono font-bold uppercase tracking-wider">
+                            Primary Focus
+                          </span>
+                        </div>
+
+                        {/* 2. Admin Specifications Grid */}
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          {/* Theme (Optional) */}
+                          <div className="p-2 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-canvas)]">
+                            <span className="text-[9px] uppercase font-mono text-[var(--ink-muted)] block">
+                              Theme (Optional)
+                            </span>
+                            <span className="font-medium text-[var(--ink-primary)] text-xs block mt-0.5 truncate">
+                              {contest?.theme && contest.theme.trim() ? contest.theme : 'Open Theme'}
+                            </span>
+                          </div>
+
+                          {/* Category (Optional or All categories as placeholder) */}
+                          <div className="p-2 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-canvas)]">
+                            <span className="text-[9px] uppercase font-mono text-[var(--ink-muted)] block">
+                              Category
+                            </span>
+                            <span className="font-medium text-[var(--ink-primary)] text-xs block mt-0.5 truncate">
+                              {contest?.category_restriction && contest.category_restriction.toLowerCase() !== 'all'
+                                ? contest.category_restriction
+                                : 'All Categories'}
+                            </span>
+                          </div>
+
+                          {/* Cash Prize */}
+                          <div className="p-2 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-canvas)]">
+                            <span className="text-[9px] uppercase font-mono text-[var(--ink-muted)] block">
+                              Cash Prize
+                            </span>
+                            <span className="font-bold font-mono text-[var(--ink-primary)] text-xs block mt-0.5 truncate">
+                              {prizeAmount} via UPI
+                            </span>
+                          </div>
+
+                          {/* Contest Status */}
+                          <div className="p-2 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-canvas)]">
+                            <span className="text-[9px] uppercase font-mono text-[var(--ink-muted)] block">
+                              Contest Status
+                            </span>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              <span className="font-medium capitalize text-[var(--ink-primary)] text-xs">
+                                {contest?.status || 'Active'}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
 
               {/* View Switch Button: White Background + Black Border (NOT a text link) */}
               <div className="pt-1">
