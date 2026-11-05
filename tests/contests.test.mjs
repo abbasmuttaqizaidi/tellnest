@@ -275,7 +275,13 @@ test('Contest SEO & Security Invariants: /writing-contests SSR, Schema.org Event
   const routeCode = fs.readFileSync(routePath, 'utf-8')
 
   // 2. SEO Title & Target Keywords for India & Asia
-  assert.ok(routeCode.includes("Writing Contests in India & Asia (2026)"), 'Title must target India & Asia 2026 keywords')
+  assert.ok(
+    routeCode.includes('Writing Contests in India & Asia (${currentYear})') ||
+    routeCode.includes('Writing Contests in India & Asia'),
+    'Title must dynamically target India & Asia with current year'
+  )
+  assert.ok(routeCode.includes('currentYear'), 'Route must dynamically calculate currentYear')
+  assert.ok(routeCode.includes('formattedMonth'), 'Route must dynamically calculate formattedMonth with year')
   assert.ok(routeCode.includes("'writing contest india'"), 'Keywords must include writing contest india')
   assert.ok(routeCode.includes("'writing competition asia'"), 'Keywords must include writing competition asia')
 
@@ -310,4 +316,49 @@ test('Contest SEO & Security Invariants: /writing-contests SSR, Schema.org Event
   const adminCode = fs.readFileSync(path.join(rootDir, 'src/routes/secret-adminpanel.tsx'), 'utf-8')
   assert.ok(adminCode.includes("activeAdminSection === 'contests'"), 'Admin panel must have contests section')
   assert.ok(adminCode.includes('getAdminContestOverviewServerFn'), 'Admin panel must call getAdminContestOverviewServerFn')
+})
+
+test('Contest Dynamic Month & Year Rollover: Automatically transitions to new calendar month and year without manual intervention', async () => {
+  // If database contest has expired (e.g. November 2026 ended), executeGetActiveContest smoothly
+  // rolls over to defaultContest for the active calendar month/year
+  const mockExpiredClient = () => ({
+    from: (table) => {
+      if (table === 'contests') {
+        return {
+          select: () => ({
+            or: () => ({
+              order: () => ({
+                limit: () => ({
+                  maybeSingle: async () => ({
+                    data: {
+                      id: 'old-contest-expired',
+                      title: 'Expired Contest',
+                      slug: 'expired-contest',
+                      status: 'active',
+                      end_date: '2020-01-01T00:00:00Z', // Long in the past
+                    },
+                    error: null,
+                  }),
+                }),
+              }),
+            }),
+          }),
+        }
+      }
+      return {
+        select: () => ({ eq: () => ({ eq: async () => ({ data: [], error: null }) }) }),
+      }
+    },
+  })
+
+  const result = await executeGetActiveContest('monthly-indie-contest', {
+    createAdminClient: mockExpiredClient,
+  })
+
+  // Must have rolled over to current active calendar month/year, NOT frozen on expired
+  assert.notEqual(result.contest?.id, 'old-contest-expired')
+  const now = new Date()
+  const contestStartDate = new Date(result.contest?.start_date)
+  assert.equal(contestStartDate.getUTCFullYear(), now.getUTCFullYear())
+  assert.equal(contestStartDate.getUTCMonth(), now.getUTCMonth())
 })

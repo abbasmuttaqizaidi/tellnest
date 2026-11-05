@@ -55,18 +55,26 @@ export const Route = createFileRoute('/writing-contests')({
   },
   head: ({ loaderData }) => {
     const contest = loaderData?.contest
-    const title = 'Writing Contests in India & Asia (2026) — ₹2,000 Cash Prize & Free Entry | HatchPen'
+    const now = new Date()
+    const contestDate = contest?.start_date ? new Date(contest.start_date) : now
+    const currentYear = contestDate.getFullYear()
+    const currentMonthLong = contestDate.toLocaleDateString('en-US', { month: 'long' })
+    const formattedMonthYear = `${currentMonthLong} ${currentYear}`
+    const defaultStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0)).toISOString()
+    const defaultEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59)).toISOString()
+
+    const title = `Writing Contests in India & Asia (${currentYear}) — ₹2,000 Cash Prize & Free Entry | HatchPen`
     const description =
-      'Participate in monthly online story writing contests in India and Asia with free entry and ₹2,000 cash prizes. Submit original serialized fiction, web novels, and short stories on HatchPen. Maximum reader likes wins.'
+      `Participate in the ${formattedMonthYear} monthly online story writing contest in India and Asia with free entry and ₹2,000 cash prizes. Submit original serialized fiction, web novels, and short stories on HatchPen. Maximum reader likes wins.`
     const canonicalUrl = 'https://hatchpen.com/writing-contests'
 
     const eventJsonLd = {
       '@context': 'https://schema.org',
       '@type': 'Event',
-      name: contest?.title || 'The HatchPen Indie Writer Contest',
+      name: contest?.title ? `${contest.title} (${formattedMonthYear})` : `The HatchPen Indie Writer Contest (${formattedMonthYear})`,
       description,
-      startDate: contest?.start_date || '2026-11-01T00:00:00Z',
-      endDate: contest?.end_date || '2026-11-30T23:59:59Z',
+      startDate: contest?.start_date || defaultStart,
+      endDate: contest?.end_date || defaultEnd,
       eventAttendanceMode: 'https://schema.org/OnlineEventAttendanceMode',
       eventStatus: 'https://schema.org/EventScheduled',
       location: {
@@ -160,7 +168,8 @@ export const Route = createFileRoute('/writing-contests')({
       keywords: [
         'writing contest india',
         'writing competition asia',
-        'writing contests in india 2026',
+        `writing contests in india ${currentYear}`,
+        `writing contest ${currentMonthLong.toLowerCase()} ${currentYear}`,
         'online story writing contest cash prize',
         'free entry writing competition india',
         'short story contest with prize',
@@ -194,13 +203,16 @@ function WritingContestsPage() {
     return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)))
   }, [contest?.end_date])
 
+  const contestDate = useMemo(() => {
+    return contest?.start_date ? new Date(contest.start_date) : new Date()
+  }, [contest?.start_date])
+
   const formattedMonth = useMemo(() => {
-    if (!contest?.start_date) return 'Current Month'
-    return new Date(contest.start_date).toLocaleDateString(undefined, {
+    return contestDate.toLocaleDateString('en-US', {
       month: 'long',
       year: 'numeric',
     })
-  }, [contest?.start_date])
+  }, [contestDate])
 
   return (
     <div className="min-h-screen py-4 sm:py-8 px-3 sm:px-6 lg:px-8 max-w-6xl mx-auto space-y-8 sm:space-y-12">

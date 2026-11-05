@@ -222,7 +222,7 @@ export function ContestEntryModal({ isOpen, onClose, contest, onSuccess }: Conte
                       <div className="space-y-1">
                         <p className="font-medium">No Eligible Stories Found For This Month</p>
                         <p className="text-[11px] text-[var(--ink-muted)] leading-relaxed">
-                          To participate, your story must be published during the active contest month ({new Date(contest.start_date).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}). Drafts or older stories published in previous months are not eligible.
+                          To participate, your story must be published during the active contest month ({new Date(contest.start_date).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}). Drafts or older stories published in previous months are not eligible.
                         </p>
                       </div>
                     </div>

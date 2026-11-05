@@ -109,7 +109,19 @@ export async function executeGetActiveContest(
       .limit(1)
       .maybeSingle()
 
-    const activeContest: ContestInfo = contestData && !contestErr ? contestData : defaultContest
+    // Dynamic month/year rollover invariant:
+    // If a DB contest exists, ensure its active window has not expired.
+    // If expired, smoothly roll over to defaultContest for the active calendar month/year.
+    let activeContest: ContestInfo = defaultContest
+    if (contestData && !contestErr) {
+      const contestEnd = contestData.end_date ? new Date(contestData.end_date).getTime() : Infinity
+      const isStillActiveWindow = contestEnd >= now.getTime()
+      if (contestData.status === 'active' && isStillActiveWindow) {
+        activeContest = contestData
+      } else if (contestData.slug === slug && isStillActiveWindow) {
+        activeContest = contestData
+      }
+    }
 
     // Fetch accepted entries with work and author details
     const { data: entries, error: entriesErr } = await client
