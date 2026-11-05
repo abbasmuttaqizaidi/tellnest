@@ -132,7 +132,7 @@ export function ContestEntryModal({ isOpen, onClose, contest, onSuccess }: Conte
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 15 }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
-          className="relative w-full max-w-lg rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-strong)] p-5 sm:p-7 shadow-2xl text-[var(--ink-primary)] z-10 my-8"
+          className="relative w-full max-w-lg rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-strong)] p-4 sm:p-7 shadow-2xl text-[var(--ink-primary)] z-10 my-4 sm:my-8 max-h-[92vh] overflow-y-auto"
         >
           {/* Header */}
           <div className="flex items-start justify-between pb-4 border-b border-[var(--border-subtle)]">

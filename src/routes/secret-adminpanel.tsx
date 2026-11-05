@@ -195,6 +195,7 @@ function SecretAdminPanelPage() {
   const [contestThemeInput, setContestThemeInput] = useState('')
   const [contestCategoryInput, setContestCategoryInput] = useState('all')
   const [contestPrizeInput, setContestPrizeInput] = useState('2000')
+  const [contestBoostInput, setContestBoostInput] = useState('0')
   const [contestStatusInput, setContestStatusInput] = useState<'upcoming' | 'active' | 'evaluating' | 'completed'>('active')
   const [contestUpdateNotice, setContestUpdateNotice] = useState<string | null>(null)
 
@@ -745,6 +746,7 @@ function SecretAdminPanelPage() {
         setContestThemeInput(res.contest.theme || '')
         setContestCategoryInput(res.contest.category_restriction || 'all')
         setContestPrizeInput(String(res.contest.prize_inr || 2000))
+        setContestBoostInput(String(res.contest.participant_boost_count || 0))
         setContestStatusInput(res.contest.status || 'active')
       }
     } catch (e) {
@@ -768,6 +770,7 @@ function SecretAdminPanelPage() {
             theme: contestThemeInput.trim() || 'Open Theme',
             category_restriction: contestCategoryInput === 'all' ? null : contestCategoryInput,
             prize_inr: Number(contestPrizeInput) || 2000,
+            participant_boost_count: Number(contestBoostInput) || 0,
             status: contestStatusInput,
           },
         },
@@ -4429,6 +4432,33 @@ function SecretAdminPanelPage() {
                       <option value="upcoming">Upcoming</option>
                     </select>
                   </div>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-mono text-[var(--ink-muted)]">
+                      Contestants Count Increment
+                    </label>
+                    <span className="text-[10px] font-mono text-[var(--ink-tertiary)]">
+                      Total Shown: {(adminContestData?.entries?.length || 0) + (Math.max(adminContestData?.contest?.participant_boost_count || 0, Number(contestBoostInput) || 0))}
+                    </span>
+                  </div>
+                  <input
+                    type="number"
+                    min={adminContestData?.contest?.participant_boost_count || 0}
+                    value={contestBoostInput}
+                    onChange={(e) => {
+                      const minVal = adminContestData?.contest?.participant_boost_count || 0
+                      const val = Number(e.target.value)
+                      if (e.target.value === '' || val >= minVal) {
+                        setContestBoostInput(e.target.value)
+                      }
+                    }}
+                    className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2 text-xs text-[var(--ink-primary)] font-mono focus:outline-hidden focus:border-[var(--ink-primary)]"
+                  />
+                  <p className="text-[10px] text-[var(--ink-muted)] font-mono">
+                    Real entries: {adminContestData?.entries?.length || 0}. Increment can only be increased, not decreased.
+                  </p>
                 </div>
 
                 {contestUpdateNotice && (

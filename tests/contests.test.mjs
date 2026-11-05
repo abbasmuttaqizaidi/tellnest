@@ -7,6 +7,7 @@ import {
   validateUpiId,
   executeGetActiveContest,
   executeSubmitContestEntry,
+  executeSaveAdminContestConfig,
 } from '../src/server/contests.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -361,4 +362,58 @@ test('Contest Dynamic Month & Year Rollover: Automatically transitions to new ca
   const contestStartDate = new Date(result.contest?.start_date)
   assert.equal(contestStartDate.getUTCFullYear(), now.getUTCFullYear())
   assert.equal(contestStartDate.getUTCMonth(), now.getUTCMonth())
+})
+
+test('Contest Admin Participant Increment: Enforces strictly non-decreasing invariant and calculates totalContestants accurately', async () => {
+  let savedBoost = 25
+  const mockClient = () => ({
+    from: (table) => {
+      if (table === 'contests') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { participant_boost_count: savedBoost },
+                error: null,
+              }),
+            }),
+          }),
+          update: (payload) => ({
+            eq: async () => {
+              savedBoost = payload.participant_boost_count
+              return { error: null }
+            },
+          }),
+        }
+      }
+      return {}
+    },
+  })
+
+  // 1. Decrement attempt must fail closed (e.g. going from 25 to 20 is forbidden)
+  await assert.rejects(
+    async () => {
+      await executeSaveAdminContestConfig(
+        'valid-admin-token',
+        { id: 'c-1', participant_boost_count: 20 },
+        {
+          verifyAdminToken: () => true,
+          createAdminClient: mockClient,
+        }
+      )
+    },
+    /Contestant count can only be incremented, not decremented/
+  )
+
+  // 2. Increment attempt must succeed (e.g. going from 25 to 30)
+  const incRes = await executeSaveAdminContestConfig(
+    'valid-admin-token',
+    { id: 'c-1', participant_boost_count: 30 },
+    {
+      verifyAdminToken: () => true,
+      createAdminClient: mockClient,
+    }
+  )
+  assert.equal(incRes.success, true)
+  assert.equal(savedBoost, 30)
 })

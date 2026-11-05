@@ -16,6 +16,7 @@ export interface ContestInfo {
   end_date: string
   status: 'upcoming' | 'active' | 'evaluating' | 'completed'
   winner_work_id?: string | null
+  participant_boost_count?: number
   rules_notes?: string | null
 }
 
@@ -47,6 +48,7 @@ export interface ContestPublicPageData {
   contest: ContestInfo | null
   leaderboard: ContestLeaderboardItem[]
   totalEntries: number
+  totalContestants: number
 }
 
 export interface SubmitContestEntryPayload {
@@ -96,6 +98,7 @@ export async function executeGetActiveContest(
     start_date: currentMonthStart,
     end_date: currentMonthEnd,
     status: 'active',
+    participant_boost_count: 0,
     rules_notes:
       'Maximum verified reader likes wins. Story must be published during the active contest month. Open to all indie writers in India & Asia.',
   }
@@ -132,11 +135,14 @@ export async function executeGetActiveContest(
       .eq('contest_id', activeContest.id)
       .eq('status', 'accepted')
 
+    const boostCount = Math.max(0, Number(activeContest.participant_boost_count) || 0)
+
     if (entriesErr || !Array.isArray(entries)) {
       return {
         contest: activeContest,
         leaderboard: [],
         totalEntries: 0,
+        totalContestants: boostCount,
       }
     }
 
@@ -173,10 +179,13 @@ export async function executeGetActiveContest(
       .sort((a, b) => b.work.like_count - a.work.like_count)
       .map((item, idx) => ({ ...item, rank: idx + 1 }))
 
+    const realEntries = items.length
+
     return {
       contest: activeContest,
       leaderboard: items,
-      totalEntries: items.length,
+      totalEntries: realEntries,
+      totalContestants: realEntries + boostCount,
     }
   } catch (err) {
     console.warn('[executeGetActiveContest] Fallback triggered:', err)
@@ -184,6 +193,7 @@ export async function executeGetActiveContest(
       contest: defaultContest,
       leaderboard: [],
       totalEntries: 0,
+      totalContestants: 0,
     }
   }
 }
@@ -456,12 +466,34 @@ export async function executeSaveAdminContestConfig(
   const client = getClient()
 
   if (config.id && config.id !== 'default-monthly-contest') {
+    // If admin is adjusting participant_boost_count, enforce non-decreasing rule:
+    // "admin agar chahye to is count mein icrement kar sakta hai but decrement nahi kar sakta"
+    if (config.participant_boost_count !== undefined) {
+      const { data: currentContest } = await client
+        .from('contests')
+        .select('participant_boost_count')
+        .eq('id', config.id)
+        .maybeSingle()
+
+      const currentBoost = Math.max(0, Number(currentContest?.participant_boost_count) || 0)
+      const requestedBoost = Math.max(0, Number(config.participant_boost_count) || 0)
+
+      if (requestedBoost < currentBoost) {
+        throw new Error(
+          `Contestant count can only be incremented, not decremented (current: ${currentBoost}, requested: ${requestedBoost}).`
+        )
+      }
+    }
+
     const updatePayload: any = {
       ...(config.title ? { title: config.title } : {}),
       ...(config.theme ? { theme: config.theme } : {}),
       ...(config.category_restriction !== undefined ? { category_restriction: config.category_restriction } : {}),
       ...(config.prize_inr ? { prize_inr: config.prize_inr } : {}),
       ...(config.status ? { status: config.status } : {}),
+      ...(config.participant_boost_count !== undefined
+        ? { participant_boost_count: Math.max(0, Number(config.participant_boost_count) || 0) }
+        : {}),
       ...(config.winnerWorkId ? { winner_work_id: config.winnerWorkId } : {}),
       updated_at: new Date().toISOString(),
     }
@@ -477,6 +509,7 @@ export async function executeSaveAdminContestConfig(
     theme: config.theme || 'Open Theme',
     category_restriction: config.category_restriction || 'all',
     prize_inr: config.prize_inr || 2000,
+    participant_boost_count: Math.max(0, Number(config.participant_boost_count) || 0),
     start_date: config.start_date || new Date().toISOString(),
     end_date: config.end_date || new Date().toISOString(),
     status: config.status || 'active',
