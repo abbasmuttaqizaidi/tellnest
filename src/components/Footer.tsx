@@ -226,6 +226,115 @@ export default function Footer() {
             >
               Free Web Novels
             </Link>
+            <Link
+              to="/browse/$collection"
+              params={{ collection: 'enemies-to-lovers' }}
+              className="text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors no-underline py-0.5"
+            >
+              Enemies to Lovers
+            </Link>
+            <Link
+              to="/browse/$collection"
+              params={{ collection: 'slow-burn' }}
+              className="text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors no-underline py-0.5"
+            >
+              Slow Burn
+            </Link>
+            <Link
+              to="/browse/$collection"
+              params={{ collection: 'progression-fantasy' }}
+              className="text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors no-underline py-0.5"
+            >
+              Progression Fantasy
+            </Link>
+            <Link
+              to="/browse/$collection"
+              params={{ collection: 'dark-romance' }}
+              className="text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors no-underline py-0.5"
+            >
+              Dark Romance
+            </Link>
+            <Link
+              to="/browse/$collection"
+              params={{ collection: 'billionaire-romance' }}
+              className="text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors no-underline py-0.5"
+            >
+              Billionaire Romance
+            </Link>
+            <Link
+              to="/browse/$collection"
+              params={{ collection: 'found-family' }}
+              className="text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors no-underline py-0.5"
+            >
+              Found Family
+            </Link>
+          </div>
+        </div>
+
+        {/* Popular Narrative Tropes (High-Traffic Search Intent Equity) */}
+        <div className="py-3 sm:py-4 border-b border-[var(--border-subtle)]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2 mb-2">
+            <h4 className="font-mono text-[10px] uppercase tracking-wider text-[var(--ink-primary)] font-semibold m-0">
+              Popular Tropes
+            </h4>
+          </div>
+          <div className="flex flex-wrap gap-x-3.5 sm:gap-x-4 gap-y-1.5 text-[11px] sm:text-xs">
+            <Link
+              to="/tag/$slug"
+              params={{ slug: 'enemies-to-lovers' }}
+              className="text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors no-underline py-0.5"
+            >
+              #Enemies to Lovers
+            </Link>
+            <Link
+              to="/tag/$slug"
+              params={{ slug: 'slow-burn' }}
+              className="text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors no-underline py-0.5"
+            >
+              #Slow-Burn
+            </Link>
+            <Link
+              to="/tag/$slug"
+              params={{ slug: 'fake-dating' }}
+              className="text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors no-underline py-0.5"
+            >
+              #Fake Dating
+            </Link>
+            <Link
+              to="/tag/$slug"
+              params={{ slug: 'found-family' }}
+              className="text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors no-underline py-0.5"
+            >
+              #Found Family
+            </Link>
+            <Link
+              to="/tag/$slug"
+              params={{ slug: 'second-chance-romance' }}
+              className="text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors no-underline py-0.5"
+            >
+              #Second Chance Romance
+            </Link>
+            <Link
+              to="/tag/$slug"
+              params={{ slug: 'dark-romance' }}
+              className="text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors no-underline py-0.5"
+            >
+              #Dark Romance
+            </Link>
+            <Link
+              to="/tag/$slug"
+              params={{ slug: 'morally-gray' }}
+              className="text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors no-underline py-0.5"
+            >
+              #Morally Gray
+            </Link>
+            <Link
+              to="/tag/$slug"
+              params={{ slug: 'progression-fantasy' }}
+              className="text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors no-underline py-0.5"
+            >
+              #Progression Fantasy
+            </Link>
           </div>
         </div>
 

@@ -1501,6 +1501,54 @@ export const BROWSE_COLLECTIONS: Record<string, BrowseCollectionInfo> = {
     keywords: ['free web novels', 'free serialized fiction', 'read web novels online', 'indie serialized books', 'HatchPen free stories'],
     accentLetter: 'F',
   },
+  'enemies-to-lovers': {
+    slug: 'enemies-to-lovers',
+    name: 'Enemies to Lovers',
+    headline: 'Enemies to Lovers Books & Web Novels',
+    description: 'Read original enemies-to-lovers stories, serialized rivalry romance novels, and slow-burn indie fiction free online with zero paywalls.',
+    keywords: ['enemies to lovers', 'enemies to lovers books', 'rivals to lovers web novels', 'free romance books online', 'HatchPen'],
+    accentLetter: 'E',
+  },
+  'slow-burn': {
+    slug: 'slow-burn',
+    name: 'Slow Burn',
+    headline: 'Slow Burn Romance & Tension-Filled Fiction',
+    description: 'Tension-filled slow-burn serialized fiction, nuanced relationships, and patience-rewarding love stories with zero paywalls.',
+    keywords: ['slow burn romance', 'slow burn web novels', 'slow burn stories', 'read online free', 'HatchPen'],
+    accentLetter: 'S',
+  },
+  'progression-fantasy': {
+    slug: 'progression-fantasy',
+    name: 'Progression Fantasy',
+    headline: 'LitRPG & Progression Fantasy Web Novels',
+    description: 'Dive into power progression, LitRPG systems, cultivation, and magical rank leveling serialized novels free on HatchPen.',
+    keywords: ['progression fantasy', 'litrpg web novel', 'cultivation novels free', 'fantasy serials', 'HatchPen'],
+    accentLetter: 'P',
+  },
+  'dark-romance': {
+    slug: 'dark-romance',
+    name: 'Dark Romance',
+    headline: 'Dark Romance & Morally Gray Fiction',
+    description: 'Captivating dark romance, morally gray anti-heroes, and intense serialized psychological fiction free online.',
+    keywords: ['dark romance', 'dark romance books online', 'morally gray anti-hero', 'read romance free', 'HatchPen'],
+    accentLetter: 'D',
+  },
+  'billionaire-romance': {
+    slug: 'billionaire-romance',
+    name: 'Billionaire Romance',
+    headline: 'Billionaire Romance & CEO Web Novels',
+    description: 'High-society billionaire romance, executive secrets, and contract marriage serialized fiction free without paywalls.',
+    keywords: ['billionaire romance', 'ceo romance novels free', 'contract marriage stories', 'read free online', 'HatchPen'],
+    accentLetter: 'B',
+  },
+  'found-family': {
+    slug: 'found-family',
+    name: 'Found Family',
+    headline: 'Found Family & Ensemble Stories',
+    description: 'Heartwarming adventures, close-knit bonds, and ensemble cast serialized fiction published chapter by chapter with zero paywalls.',
+    keywords: ['found family tropes', 'ensemble cast stories', 'found family fiction', 'read online free', 'HatchPen'],
+    accentLetter: 'F',
+  },
 }
 
 /**
@@ -1549,6 +1597,103 @@ export async function executeGetBrowseCollectionData(
         const s = String(w.status || '').toLowerCase()
         return s === 'completed'
       })
+      break
+    }
+    case 'enemies-to-lovers': {
+      filteredWorks = indexableWorks.filter((w: any) => {
+        const tags = Array.isArray(w.tags) ? w.tags.map((t: string) => slugify(String(t || ''))) : []
+        const text = `${w.title || ''} ${w.synopsis || ''} ${w.genre || ''}`.toLowerCase()
+        return (
+          tags.some((t: string) => t.includes('enemies') || t.includes('forbidden') || t.includes('rival')) ||
+          text.includes('enemies to lovers') ||
+          text.includes('rival') ||
+          text.includes('forbidden')
+        )
+      })
+      if (filteredWorks.length === 0) {
+        filteredWorks = indexableWorks.filter((w: any) => (w.genre || '').toLowerCase().includes('romance')).slice(0, 12)
+      }
+      break
+    }
+    case 'slow-burn': {
+      filteredWorks = indexableWorks.filter((w: any) => {
+        const tags = Array.isArray(w.tags) ? w.tags.map((t: string) => slugify(String(t || ''))) : []
+        const text = `${w.title || ''} ${w.synopsis || ''} ${w.genre || ''}`.toLowerCase()
+        return (
+          tags.some((t: string) => t.includes('slow-burn') || t.includes('burn')) ||
+          text.includes('slow burn') ||
+          text.includes('slow-burn')
+        )
+      })
+      if (filteredWorks.length === 0) {
+        filteredWorks = indexableWorks.filter((w: any) => (w.genre || '').toLowerCase().includes('romance') || (w.genre || '').toLowerCase().includes('drama')).slice(0, 12)
+      }
+      break
+    }
+    case 'progression-fantasy': {
+      filteredWorks = indexableWorks.filter((w: any) => {
+        const tags = Array.isArray(w.tags) ? w.tags.map((t: string) => slugify(String(t || ''))) : []
+        const text = `${w.title || ''} ${w.synopsis || ''} ${w.genre || ''}`.toLowerCase()
+        return (
+          tags.some((t: string) => t.includes('progression') || t.includes('litrpg') || t.includes('cultivation') || t.includes('fantasy')) ||
+          text.includes('progression') ||
+          text.includes('litrpg') ||
+          (w.genre || '').toLowerCase().includes('fantasy')
+        )
+      })
+      if (filteredWorks.length === 0) {
+        filteredWorks = indexableWorks.filter((w: any) => (w.genre || '').toLowerCase().includes('fantasy') || (w.genre || '').toLowerCase().includes('adventure')).slice(0, 12)
+      }
+      break
+    }
+    case 'dark-romance': {
+      filteredWorks = indexableWorks.filter((w: any) => {
+        const tags = Array.isArray(w.tags) ? w.tags.map((t: string) => slugify(String(t || ''))) : []
+        const text = `${w.title || ''} ${w.synopsis || ''} ${w.genre || ''}`.toLowerCase()
+        return (
+          tags.some((t: string) => t.includes('dark-romance') || t.includes('morally-gray') || t.includes('anti-hero') || t.includes('dark')) ||
+          text.includes('dark romance') ||
+          text.includes('morally gray') ||
+          (w.genre || '').toLowerCase().includes('dark romance') ||
+          (w.genre || '').toLowerCase().includes('thriller')
+        )
+      })
+      if (filteredWorks.length === 0) {
+        filteredWorks = indexableWorks.filter((w: any) => (w.genre || '').toLowerCase().includes('thriller') || (w.genre || '').toLowerCase().includes('romance')).slice(0, 12)
+      }
+      break
+    }
+    case 'billionaire-romance': {
+      filteredWorks = indexableWorks.filter((w: any) => {
+        const tags = Array.isArray(w.tags) ? w.tags.map((t: string) => slugify(String(t || ''))) : []
+        const text = `${w.title || ''} ${w.synopsis || ''} ${w.genre || ''}`.toLowerCase()
+        return (
+          tags.some((t: string) => t.includes('billionaire') || t.includes('ceo') || t.includes('contract') || t.includes('fake-dating')) ||
+          text.includes('billionaire') ||
+          text.includes('ceo') ||
+          text.includes('contract marriage') ||
+          text.includes('fake dating')
+        )
+      })
+      if (filteredWorks.length === 0) {
+        filteredWorks = indexableWorks.filter((w: any) => (w.genre || '').toLowerCase().includes('contemporary') || (w.genre || '').toLowerCase().includes('romance')).slice(0, 12)
+      }
+      break
+    }
+    case 'found-family': {
+      filteredWorks = indexableWorks.filter((w: any) => {
+        const tags = Array.isArray(w.tags) ? w.tags.map((t: string) => slugify(String(t || ''))) : []
+        const text = `${w.title || ''} ${w.synopsis || ''} ${w.genre || ''}`.toLowerCase()
+        return (
+          tags.some((t: string) => t.includes('found-family') || t.includes('ensemble') || t.includes('friendship')) ||
+          text.includes('found family') ||
+          text.includes('ensemble') ||
+          text.includes('friendship')
+        )
+      })
+      if (filteredWorks.length === 0) {
+        filteredWorks = indexableWorks.filter((w: any) => (w.genre || '').toLowerCase().includes('coming') || (w.genre || '').toLowerCase().includes('adventure')).slice(0, 12)
+      }
       break
     }
     case 'free-web-novels':

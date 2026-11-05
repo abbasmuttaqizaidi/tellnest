@@ -5,7 +5,7 @@ import { ALL_SUGGESTED_TAGS, slugify } from '../lib/taxonomy'
 import WorkCard from '../components/WorkCard'
 import EmptyState from '../components/EmptyState'
 import { FilterDisclosure, AnimatedSearch } from '../design-system'
-import { ArrowLeft, HelpCircle, Sparkles, BookOpen, Compass, Tag as TagIcon } from 'lucide-react'
+import { ArrowLeft, HelpCircle, Sparkles, BookOpen, Compass, Tag as TagIcon, ChevronDown } from 'lucide-react'
 import { generateMeta } from '../lib/seo'
 import { parseTotalReads } from '../lib/utils'
 import { getTagPageDataServerFn, type TagPageData } from '../server/works'
@@ -68,7 +68,7 @@ export const Route = createFileRoute('/tag/$slug')({
     const tag = loaderData.tag
     const tagName = tag.name
     const canonicalUrl = `https://hatchpen.com/tag/${tag.slug}`
-    const description = `Read original ${tagName} stories, serialized novels, and indie manuscripts on HatchPen. Enjoy chapter-by-chapter reading with zero paywalls or subscriptions.`
+    const description = `Read original ${tagName} stories, serialized novels, and indie manuscripts on HatchPen. Enjoy chapter-by-chapter reading with zero paywalls, coins, or mandatory subscriptions.`
     const works = loaderData.works || []
 
     const faqJsonLd = {
@@ -157,7 +157,7 @@ export const Route = createFileRoute('/tag/$slug')({
     ]
 
     return generateMeta({
-      title: `Read Best ${tagName} Stories & Novels Online`,
+      title: `Free ${tagName} Stories & Novels [Read Online] | HatchPen`,
       description,
       canonicalUrl,
       noindex: works.length === 0,
@@ -401,42 +401,46 @@ function TagTemplatePage() {
           <h2>Frequently Asked Questions About #{tagInfo.name} Stories</h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 pt-2">
-          <div className="space-y-1.5">
-            <h3 className="text-sm font-semibold text-[var(--ink-primary)]">
-              What are #{tagInfo.name} stories on HatchPen?
-            </h3>
-            <p className="text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans">
+        <div className="divide-y divide-[var(--border-subtle)] border-t border-[var(--border-subtle)] pt-1">
+          <details className="group py-3.5 [&_summary::-webkit-details-marker]:hidden" open>
+            <summary className="flex items-center justify-between cursor-pointer list-none text-sm font-semibold text-[var(--ink-primary)] hover:text-[var(--accent)] transition-colors">
+              <span>What are #{tagInfo.name} stories on HatchPen?</span>
+              <ChevronDown className="w-4 h-4 text-[var(--ink-muted)] group-open:rotate-180 transition-transform duration-200 shrink-0 ml-2" />
+            </summary>
+            <p className="mt-2 text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans pr-4">
               #{tagInfo.name} fiction on HatchPen includes original serialized novels and standalone manuscripts centered around {tagInfo.name.toLowerCase()} themes. Stories are written by independent authors and published chapter by chapter.
             </p>
-          </div>
+          </details>
 
-          <div className="space-y-1.5">
-            <h3 className="text-sm font-semibold text-[var(--ink-primary)]">
-              Can I read #{tagInfo.name} stories on HatchPen for free?
-            </h3>
-            <p className="text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans">
+          <details className="group py-3.5 [&_summary::-webkit-details-marker]:hidden">
+            <summary className="flex items-center justify-between cursor-pointer list-none text-sm font-semibold text-[var(--ink-primary)] hover:text-[var(--accent)] transition-colors">
+              <span>Can I read #{tagInfo.name} stories on HatchPen for free?</span>
+              <ChevronDown className="w-4 h-4 text-[var(--ink-muted)] group-open:rotate-180 transition-transform duration-200 shrink-0 ml-2" />
+            </summary>
+            <p className="mt-2 text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans pr-4">
               Yes. All #{tagInfo.name} stories on HatchPen are 100% free for readers. There are no paywalls, coin systems, or subscriptions required. You can read comfortably in any web browser without downloading an app.
             </p>
-          </div>
+          </details>
 
-          <div className="space-y-1.5">
-            <h3 className="text-sm font-semibold text-[var(--ink-primary)]">
-              How often are new #{tagInfo.name} chapters published?
-            </h3>
-            <p className="text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans">
+          <details className="group py-3.5 [&_summary::-webkit-details-marker]:hidden">
+            <summary className="flex items-center justify-between cursor-pointer list-none text-sm font-semibold text-[var(--ink-primary)] hover:text-[var(--accent)] transition-colors">
+              <span>How often are new #{tagInfo.name} chapters published?</span>
+              <ChevronDown className="w-4 h-4 text-[var(--ink-muted)] group-open:rotate-180 transition-transform duration-200 shrink-0 ml-2" />
+            </summary>
+            <p className="mt-2 text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans pr-4">
               HatchPen authors release new chapters on ongoing serialized schedules. You can save any story to your personal Library to receive instant notifications whenever a new chapter is released.
             </p>
-          </div>
+          </details>
 
-          <div className="space-y-1.5">
-            <h3 className="text-sm font-semibold text-[var(--ink-primary)]">
-              Can independent authors publish #{tagInfo.name} stories?
-            </h3>
-            <p className="text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans">
+          <details className="group py-3.5 [&_summary::-webkit-details-marker]:hidden">
+            <summary className="flex items-center justify-between cursor-pointer list-none text-sm font-semibold text-[var(--ink-primary)] hover:text-[var(--accent)] transition-colors">
+              <span>Can independent authors publish #{tagInfo.name} stories?</span>
+              <ChevronDown className="w-4 h-4 text-[var(--ink-muted)] group-open:rotate-180 transition-transform duration-200 shrink-0 ml-2" />
+            </summary>
+            <p className="mt-2 text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans pr-4">
               Yes. Writers can use HatchPen's distraction-free Creator Studio to draft, organize acts, and publish serialized #{tagInfo.name} fiction directly to readers worldwide.
             </p>
-          </div>
+          </details>
         </div>
       </section>
     </div>

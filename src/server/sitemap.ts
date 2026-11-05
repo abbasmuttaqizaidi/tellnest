@@ -297,6 +297,12 @@ export async function buildSitemapEntries(options?: BuildSitemapOptions): Promis
     'new-voices',
     'completed-stories',
     'free-web-novels',
+    'enemies-to-lovers',
+    'slow-burn',
+    'progression-fantasy',
+    'dark-romance',
+    'billionaire-romance',
+    'found-family',
   ]
   for (const colSlug of BROWSE_COLLECTION_SLUGS) {
     addEntry({

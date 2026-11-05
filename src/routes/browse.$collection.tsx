@@ -5,7 +5,7 @@ import { GLOBAL_GENRES } from '../lib/taxonomy'
 import WorkCard from '../components/WorkCard'
 import EmptyState from '../components/EmptyState'
 import { FilterDisclosure, AnimatedSearch } from '../design-system'
-import { ArrowLeft, HelpCircle, Compass, Layers, BookOpen, Sparkles, Flame } from 'lucide-react'
+import { ArrowLeft, HelpCircle, Compass, Layers, BookOpen, Sparkles, Flame, ChevronDown } from 'lucide-react'
 import { generateMeta } from '../lib/seo'
 import { parseTotalReads } from '../lib/utils'
 import {
@@ -61,7 +61,7 @@ export const Route = createFileRoute('/browse/$collection')({
     const collection = loaderData.collection
     const collectionName = collection.name
     const canonicalUrl = `https://hatchpen.com/browse/${collection.slug}`
-    const description = `${collection.description} Read online for free on HatchPen with zero paywalls or subscriptions.`
+    const description = `${collection.description} Read top indie novels and serialized stories chapter by chapter with zero coins or paywalls on HatchPen.`
     const works = loaderData.works || []
 
     const faqJsonLd = {
@@ -148,8 +148,10 @@ export const Route = createFileRoute('/browse/$collection')({
       faqJsonLd,
     ]
 
+    const pageTitle = `${collection.headline} [Read Free Online] | HatchPen`
+
     return generateMeta({
-      title: `${collectionName} — ${collection.headline}`,
+      title: pageTitle,
       description,
       canonicalUrl,
       keywords: [
@@ -415,42 +417,46 @@ function BrowseCollectionTemplatePage() {
           <h2>Frequently Asked Questions About {collectionInfo.name}</h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 pt-2">
-          <div className="space-y-1.5">
-            <h3 className="text-sm font-semibold text-[var(--ink-primary)]">
-              What is the {collectionInfo.name} collection on HatchPen?
-            </h3>
-            <p className="text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans">
+        <div className="divide-y divide-[var(--border-subtle)] border-t border-[var(--border-subtle)] pt-1">
+          <details className="group py-3.5 [&_summary::-webkit-details-marker]:hidden" open>
+            <summary className="flex items-center justify-between cursor-pointer list-none text-sm font-semibold text-[var(--ink-primary)] hover:text-[var(--accent)] transition-colors">
+              <span>What is the {collectionInfo.name} collection on HatchPen?</span>
+              <ChevronDown className="w-4 h-4 text-[var(--ink-muted)] group-open:rotate-180 transition-transform duration-200 shrink-0 ml-2" />
+            </summary>
+            <p className="mt-2 text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans pr-4">
               {collectionInfo.name} on HatchPen features {collectionInfo.description.toLowerCase().replace(/\.$/, '')}. Stories are written by independent authors and published serialized chapter by chapter.
             </p>
-          </div>
+          </details>
 
-          <div className="space-y-1.5">
-            <h3 className="text-sm font-semibold text-[var(--ink-primary)]">
-              Can I read {collectionInfo.name} stories on HatchPen for free?
-            </h3>
-            <p className="text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans">
+          <details className="group py-3.5 [&_summary::-webkit-details-marker]:hidden">
+            <summary className="flex items-center justify-between cursor-pointer list-none text-sm font-semibold text-[var(--ink-primary)] hover:text-[var(--accent)] transition-colors">
+              <span>Can I read {collectionInfo.name} stories on HatchPen for free?</span>
+              <ChevronDown className="w-4 h-4 text-[var(--ink-muted)] group-open:rotate-180 transition-transform duration-200 shrink-0 ml-2" />
+            </summary>
+            <p className="mt-2 text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans pr-4">
               Yes. All stories in the {collectionInfo.name} collection are 100% free for readers. There are no paywalls, coin systems, or subscriptions required. You can read comfortably in any web browser without downloading an app.
             </p>
-          </div>
+          </details>
 
-          <div className="space-y-1.5">
-            <h3 className="text-sm font-semibold text-[var(--ink-primary)]">
-              How often is this collection updated?
-            </h3>
-            <p className="text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans">
+          <details className="group py-3.5 [&_summary::-webkit-details-marker]:hidden">
+            <summary className="flex items-center justify-between cursor-pointer list-none text-sm font-semibold text-[var(--ink-primary)] hover:text-[var(--accent)] transition-colors">
+              <span>How often is this collection updated?</span>
+              <ChevronDown className="w-4 h-4 text-[var(--ink-muted)] group-open:rotate-180 transition-transform duration-200 shrink-0 ml-2" />
+            </summary>
+            <p className="mt-2 text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans pr-4">
               The {collectionInfo.name} collection updates continuously as authors release new chapters and new manuscripts publish across HatchPen. You can save any story to your personal Library to get updates when new chapters release.
             </p>
-          </div>
+          </details>
 
-          <div className="space-y-1.5">
-            <h3 className="text-sm font-semibold text-[var(--ink-primary)]">
-              Can independent writers be featured in {collectionInfo.name}?
-            </h3>
-            <p className="text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans">
+          <details className="group py-3.5 [&_summary::-webkit-details-marker]:hidden">
+            <summary className="flex items-center justify-between cursor-pointer list-none text-sm font-semibold text-[var(--ink-primary)] hover:text-[var(--accent)] transition-colors">
+              <span>Can independent writers be featured in {collectionInfo.name}?</span>
+              <ChevronDown className="w-4 h-4 text-[var(--ink-muted)] group-open:rotate-180 transition-transform duration-200 shrink-0 ml-2" />
+            </summary>
+            <p className="mt-2 text-xs sm:text-sm text-[var(--ink-muted)] leading-relaxed font-sans pr-4">
               Yes. Writers can use HatchPen Creator Studio to draft, format, and serialize their own stories. Qualifying stories are automatically surfaced across HatchPen's curated discovery hubs.
             </p>
-          </div>
+          </details>
         </div>
       </section>
     </div>

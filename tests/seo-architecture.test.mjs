@@ -2105,6 +2105,90 @@ test('Author Mini-Portfolios: rel="me" verified social links and Visual Bibliogr
   )
 })
 
+test('Programmatic Trope Hubs & CTR Optimization: Step 5 — Trope Collections, Expanded Taxonomy, Sitemap, and CTR Metadata', async () => {
+  const { BROWSE_COLLECTIONS, executeGetBrowseCollectionData } = await import('../src/server/works.ts')
+  const { SUGGESTED_TAGS, ALL_SUGGESTED_TAGS } = await import('../src/lib/taxonomy.ts')
+
+  // 1. Expanded High-Intent Collections
+  assert.ok(BROWSE_COLLECTIONS['enemies-to-lovers'], 'BROWSE_COLLECTIONS must contain enemies-to-lovers')
+  assert.ok(BROWSE_COLLECTIONS['slow-burn'], 'BROWSE_COLLECTIONS must contain slow-burn')
+  assert.ok(BROWSE_COLLECTIONS['progression-fantasy'], 'BROWSE_COLLECTIONS must contain progression-fantasy')
+  assert.ok(BROWSE_COLLECTIONS['dark-romance'], 'BROWSE_COLLECTIONS must contain dark-romance')
+  assert.ok(BROWSE_COLLECTIONS['billionaire-romance'], 'BROWSE_COLLECTIONS must contain billionaire-romance')
+  assert.ok(BROWSE_COLLECTIONS['found-family'], 'BROWSE_COLLECTIONS must contain found-family')
+
+  // 2. High-Intent Trope Filtering Logic
+  const mockWorks = [
+    {
+      id: 'w-enemies',
+      title: 'Bitter Rivals in Love',
+      slug: 'bitter-rivals',
+      status: 'Ongoing',
+      visibility: 'public',
+      publication_status: 'published',
+      is_indexable: true,
+      tags: ['enemies to lovers', 'slow burn'],
+      genre: 'Romance',
+      chapters: [{ id: 'c1', number: 1, title: 'Chapter 1', status: 'published' }],
+    },
+    {
+      id: 'w-progression',
+      title: 'Level Up System Realm',
+      slug: 'level-up-system',
+      status: 'Ongoing',
+      visibility: 'public',
+      publication_status: 'published',
+      is_indexable: true,
+      tags: ['litrpg', 'progression fantasy'],
+      genre: 'Fantasy',
+      chapters: [{ id: 'c1', number: 1, title: 'Chapter 1', status: 'published' }],
+    },
+  ]
+  const mockDeps = {
+    queryRows: async () => mockWorks,
+  }
+
+  const enemiesResult = await executeGetBrowseCollectionData('enemies-to-lovers', mockDeps)
+  assert.equal(enemiesResult.isNotFound, false)
+  assert.ok(enemiesResult.works.some((w) => w.id === 'w-enemies'), 'enemies-to-lovers collection must surface tagged work')
+
+  const progResult = await executeGetBrowseCollectionData('progression-fantasy', mockDeps)
+  assert.equal(progResult.isNotFound, false)
+  assert.ok(progResult.works.some((w) => w.id === 'w-progression'), 'progression-fantasy collection must surface tagged work')
+
+  // 3. Taxonomy Expansion
+  assert.ok(SUGGESTED_TAGS.Themes.includes('Enemies to Lovers'), 'Themes must include Enemies to Lovers')
+  assert.ok(SUGGESTED_TAGS.Themes.includes('Billionaire Romance'), 'Themes must include Billionaire Romance')
+  assert.ok(SUGGESTED_TAGS.Themes.includes('Progression Fantasy'), 'Themes must include Progression Fantasy')
+  assert.ok(ALL_SUGGESTED_TAGS.includes('Enemies to Lovers'), 'ALL_SUGGESTED_TAGS must include Enemies to Lovers')
+
+  // 4. Sitemap inclusion of all 10 browse collection hubs
+  const sitemapCode = fs.readFileSync(path.join(rootDir, 'src/server/sitemap.ts'), 'utf-8')
+  assert.ok(sitemapCode.includes("'enemies-to-lovers'"), 'sitemap.ts must list enemies-to-lovers')
+  assert.ok(sitemapCode.includes("'slow-burn'"), 'sitemap.ts must list slow-burn')
+  assert.ok(sitemapCode.includes("'progression-fantasy'"), 'sitemap.ts must list progression-fantasy')
+  assert.ok(sitemapCode.includes("'dark-romance'"), 'sitemap.ts must list dark-romance')
+  assert.ok(sitemapCode.includes("'billionaire-romance'"), 'sitemap.ts must list billionaire-romance')
+  assert.ok(sitemapCode.includes("'found-family'"), 'sitemap.ts must list found-family')
+
+  // 5. CTR Metadata Optimization
+  const browseRouteCode = fs.readFileSync(path.join(rootDir, 'src/routes/browse.$collection.tsx'), 'utf-8')
+  assert.ok(browseRouteCode.includes('[Read Free Online] | HatchPen'), 'browse route must use CTR-optimized title hook')
+  assert.ok(browseRouteCode.includes('zero coins or paywalls on HatchPen'), 'browse route must highlight zero coins/paywalls in description')
+  assert.ok(browseRouteCode.includes('<details className="group py-3.5'), 'browse route must render native <details> FAQ accordions')
+
+  const tagRouteCode = fs.readFileSync(path.join(rootDir, 'src/routes/tag.$slug.tsx'), 'utf-8')
+  assert.ok(tagRouteCode.includes('Free ${tagName} Stories & Novels [Read Online] | HatchPen'), 'tag route must use CTR-optimized title hook')
+  assert.ok(tagRouteCode.includes('zero paywalls, coins, or mandatory subscriptions'), 'tag route must highlight zero paywalls and coins')
+  assert.ok(tagRouteCode.includes('<details className="group py-3.5'), 'tag route must render native <details> FAQ accordions')
+
+  // 6. Footer internal link equity
+  const footerCode = fs.readFileSync(path.join(rootDir, 'src/components/Footer.tsx'), 'utf-8')
+  assert.ok(footerCode.includes('Popular Tropes'), 'Footer must feature Popular Tropes section')
+  assert.ok(footerCode.includes('to="/tag/$slug"'), 'Footer must link to /tag/$slug')
+  assert.ok(footerCode.includes("params={{ collection: 'enemies-to-lovers' }}"), 'Footer must link to enemies-to-lovers collection')
+})
+
 
 
 
