@@ -431,11 +431,16 @@ test('Contest Details Quick Modal & Header Discovery Invariants', () => {
   assert.ok(modalCode.includes('Theme (Optional)'), 'Theme must be displayed')
   assert.ok(modalCode.includes('All Categories'), 'Category with All Categories placeholder must be present')
 
-  // 2. RouteHeader integration
-  const headerPath = path.join(rootDir, 'src/components/RouteHeader.tsx')
-  const headerCode = fs.readFileSync(headerPath, 'utf-8')
-  assert.ok(headerCode.includes('ContestDetailsModal'), 'RouteHeader must import ContestDetailsModal')
-  assert.ok(headerCode.includes('setContestModalOpen(true)'), 'RouteHeader must have button to open contest modal')
+  // 2. Global Header integration & RouteHeader invariant
+  const globalHeaderPath = path.join(rootDir, 'src/components/Header.tsx')
+  const globalHeaderCode = fs.readFileSync(globalHeaderPath, 'utf-8')
+  assert.ok(globalHeaderCode.includes('ContestDetailsModal'), 'Header.tsx must import ContestDetailsModal')
+  assert.ok(globalHeaderCode.includes('setContestModalOpen(true)'), 'Header.tsx must have button to open contest modal')
+
+  const routeHeaderPath = path.join(rootDir, 'src/components/RouteHeader.tsx')
+  const routeHeaderCode = fs.readFileSync(routeHeaderPath, 'utf-8')
+  assert.ok(!routeHeaderCode.includes('ContestDetailsModal'), 'Secondary RouteHeader must not render ContestDetailsModal')
+  assert.ok(!routeHeaderCode.includes('Contest — ₹2k'), 'Secondary RouteHeader must not display the contest button')
 
   // 3. PublicHome & PublicMobileStories discovery
   const publicHomePath = path.join(rootDir, 'src/components/home/PublicHome.tsx')

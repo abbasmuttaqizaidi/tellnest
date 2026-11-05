@@ -21,7 +21,6 @@ import {
 } from 'lucide-react'
 import { useUser } from '@clerk/react'
 import { useApp } from '../context/AppContext'
-import { ContestDetailsModal } from './ContestDetailsModal'
 export interface RouteHeaderProps {
   title: string
   subtitle?: string
@@ -73,7 +72,6 @@ export function RouteHeader({ title, subtitle, rightExtra, className = '' }: Rou
   // Dropdown states
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [routeMenuOpen, setRouteMenuOpen] = useState(false)
-  const [contestModalOpen, setContestModalOpen] = useState(false)
 
   const dropdownRef = useRef<HTMLDivElement>(null)
   const routeMenuRef = useRef<HTMLDivElement>(null)
@@ -325,16 +323,6 @@ export function RouteHeader({ title, subtitle, rightExtra, className = '' }: Rou
 
           {rightExtra}
 
-          {/* Active Contest Quick Details Button */}
-          <button
-            type="button"
-            onClick={() => setContestModalOpen(true)}
-            className="inline-flex items-center justify-center rounded-full bg-[#18181B] hover:bg-black dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-[#18181B] px-2.5 py-1 text-[11px] font-medium shadow-xs transition-all cursor-pointer h-7 select-none"
-            title="Active Writing Contest Details & Cash Prize"
-          >
-            <span>Contest — ₹2k</span>
-          </button>
-
           {/* Action Button: + New (NO Chevron Down icon!) */}
           <button
             type="button"
@@ -406,12 +394,6 @@ export function RouteHeader({ title, subtitle, rightExtra, className = '' }: Rou
           )}
         </div>
       </div>
-
-      {/* Active Contest Quick Details Modal */}
-      <ContestDetailsModal
-        isOpen={contestModalOpen}
-        onClose={() => setContestModalOpen(false)}
-      />
     </div>
   )
 }
