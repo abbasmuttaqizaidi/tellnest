@@ -214,23 +214,22 @@ function WritingContestsPage() {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 sm:p-12 shadow-xs">
-        <div className="max-w-3xl space-y-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-mono font-semibold">
-            <Trophy className="w-3.5 h-3.5" />
-            <span>Pan-India & Asia Writers • Free Entry</span>
-          </div>
+      <section className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 sm:p-12 shadow-xs text-center">
+        <div className="max-w-3xl mx-auto space-y-4">
+          <p className="text-xs sm:text-sm font-mono tracking-wide text-[var(--ink-muted)]">
+            Pan-India & Asia Writers | Free Entry
+          </p>
 
           <h1 className="font-serif text-3xl sm:text-5xl font-bold text-[var(--ink-primary)] tracking-tight leading-tight">
             The HatchPen Indie Writer Contest — ₹{contest?.prize_inr.toLocaleString()} Cash Prize
           </h1>
 
-          <p className="text-sm sm:text-base text-[var(--ink-secondary)] leading-relaxed font-sans">
+          <p className="text-sm sm:text-base text-[var(--ink-secondary)] leading-relaxed font-sans max-w-2xl mx-auto">
             A genuine, transparent monthly writing competition for emerging authors in India and Asia. No vanity algorithms or paid boosts. The story that garners the most verified reader likes wins the ₹2,000 cash prize transferred directly via UPI.
           </p>
 
-          {/* Quick Metrics Badges */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3">
+          {/* Quick Metrics Cards (Neutral Monochromatic) */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 text-center">
             <div className="p-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)]">
               <span className="text-[10px] uppercase font-mono tracking-wider text-[var(--ink-tertiary)] block">
                 Cash Prize
@@ -244,7 +243,7 @@ function WritingContestsPage() {
               <span className="text-[10px] uppercase font-mono tracking-wider text-[var(--ink-tertiary)] block">
                 Entry Fee
               </span>
-              <span className="text-base sm:text-lg font-bold font-mono text-emerald-600 dark:text-emerald-400">
+              <span className="text-base sm:text-lg font-bold font-mono text-[var(--ink-primary)]">
                 100% Free
               </span>
             </div>
@@ -253,8 +252,8 @@ function WritingContestsPage() {
               <span className="text-[10px] uppercase font-mono tracking-wider text-[var(--ink-tertiary)] block">
                 Winning Rule
               </span>
-              <span className="text-base sm:text-lg font-bold font-mono text-[var(--ink-primary)] flex items-center gap-1">
-                <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
+              <span className="text-base sm:text-lg font-bold font-mono text-[var(--ink-primary)] flex items-center justify-center gap-1.5">
+                <Heart className="w-4 h-4 text-[var(--ink-primary)] fill-[var(--ink-primary)]" />
                 <span>Max Likes</span>
               </span>
             </div>
@@ -263,14 +262,14 @@ function WritingContestsPage() {
               <span className="text-[10px] uppercase font-mono tracking-wider text-[var(--ink-tertiary)] block">
                 Days Left ({formattedMonth})
               </span>
-              <span className="text-base sm:text-lg font-bold font-mono text-amber-600 dark:text-amber-400">
+              <span className="text-base sm:text-lg font-bold font-mono text-[var(--ink-primary)]">
                 {daysLeft} Days
               </span>
             </div>
           </div>
 
           {/* Call to Actions */}
-          <div className="flex flex-wrap items-center gap-3 pt-3">
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-3">
             <button
               onClick={() => setIsEntryModalOpen(true)}
               className="px-5 py-3 rounded-xl bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-xs sm:text-sm font-semibold hover:opacity-90 transition-opacity inline-flex items-center gap-2 shadow-xs cursor-pointer"
@@ -357,8 +356,8 @@ function WritingContestsPage() {
                       </span>
 
                       {/* Likes Counter */}
-                      <span className="inline-flex items-center gap-1.5 font-mono text-xs font-semibold text-rose-600 dark:text-rose-400">
-                        <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500" />
+                      <span className="inline-flex items-center gap-1.5 font-mono text-xs font-semibold text-[var(--ink-primary)]">
+                        <Heart className="w-3.5 h-3.5 fill-[var(--ink-primary)] text-[var(--ink-primary)]" />
                         <span>{formatHeartCount(item.work.like_count)} Likes</span>
                       </span>
                     </div>

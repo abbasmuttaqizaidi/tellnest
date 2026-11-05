@@ -4549,7 +4549,7 @@ function SecretAdminPanelPage() {
                                   </button>
                                 </div>
                               </td>
-                              <td className="py-2.5 px-3 text-right font-mono font-bold text-rose-600 dark:text-rose-400">
+                              <td className="py-2.5 px-3 text-right font-mono font-bold text-[var(--ink-primary)]">
                                 {formatHeartCount(entry.work?.like_count || 0)}
                               </td>
                               <td className="py-2.5 px-3 text-right">
