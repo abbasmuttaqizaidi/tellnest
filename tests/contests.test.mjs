@@ -425,6 +425,11 @@ test('Contest Details Quick Modal & Header Discovery Invariants', () => {
   const modalCode = fs.readFileSync(modalPath, 'utf-8')
   assert.ok(modalCode.includes('totalContestants'), 'Modal must display totalContestants count')
   assert.ok(modalCode.includes('to="/writing-contests"'), 'Modal must have button linking to /writing-contests')
+  assert.ok(!modalCode.includes('Monthly Writing Contest •'), 'Static header pill "Monthly Writing Contest •" must be removed')
+  assert.ok(modalCode.includes('setShowDetails'), 'Modal must have details toggle button')
+  assert.ok(modalCode.includes('Target Genre (Key Highlight)') || modalCode.includes('Featured Genre'), 'Genre must be highlighted')
+  assert.ok(modalCode.includes('Theme (Optional)'), 'Theme must be displayed')
+  assert.ok(modalCode.includes('All Categories'), 'Category with All Categories placeholder must be present')
 
   // 2. RouteHeader integration
   const headerPath = path.join(rootDir, 'src/components/RouteHeader.tsx')

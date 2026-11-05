@@ -17,6 +17,7 @@ export interface ContestInfo {
   status: 'upcoming' | 'active' | 'evaluating' | 'completed'
   winner_work_id?: string | null
   participant_boost_count?: number
+  genre?: string | null
   rules_notes?: string | null
 }
 
@@ -94,6 +95,7 @@ export async function executeGetActiveContest(
     contest_type: 'monthly',
     theme: 'Open Theme — Original Fiction & Web Serials',
     category_restriction: 'all',
+    genre: 'All Genres',
     prize_inr: 2000,
     start_date: currentMonthStart,
     end_date: currentMonthEnd,
@@ -506,6 +508,7 @@ export async function executeSaveAdminContestConfig(
       ...(config.title ? { title: config.title } : {}),
       ...(config.theme ? { theme: config.theme } : {}),
       ...(config.category_restriction !== undefined ? { category_restriction: config.category_restriction } : {}),
+      ...(config.genre !== undefined ? { genre: config.genre } : {}),
       ...(config.prize_inr ? { prize_inr: config.prize_inr } : {}),
       ...(config.status ? { status: config.status } : {}),
       ...(config.participant_boost_count !== undefined
@@ -525,6 +528,7 @@ export async function executeSaveAdminContestConfig(
     slug: (config.title || 'monthly-contest').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
     theme: config.theme || 'Open Theme',
     category_restriction: config.category_restriction || 'all',
+    genre: config.genre || 'All Genres',
     prize_inr: config.prize_inr || 2000,
     participant_boost_count: Math.max(0, Number(config.participant_boost_count) || 0),
     start_date: config.start_date || new Date().toISOString(),

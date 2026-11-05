@@ -193,6 +193,7 @@ function SecretAdminPanelPage() {
   const [isLoadingContest, setIsLoadingContest] = useState(false)
   const [isSavingContest, setIsSavingContest] = useState(false)
   const [contestThemeInput, setContestThemeInput] = useState('')
+  const [contestGenreInput, setContestGenreInput] = useState('All Genres')
   const [contestCategoryInput, setContestCategoryInput] = useState('all')
   const [contestPrizeInput, setContestPrizeInput] = useState('2000')
   const [contestBoostInput, setContestBoostInput] = useState('0')
@@ -744,6 +745,7 @@ function SecretAdminPanelPage() {
       setAdminContestData(res)
       if (res.contest) {
         setContestThemeInput(res.contest.theme || '')
+        setContestGenreInput(res.contest.genre || 'All Genres')
         setContestCategoryInput(res.contest.category_restriction || 'all')
         setContestPrizeInput(String(res.contest.prize_inr || 2000))
         setContestBoostInput(String(res.contest.participant_boost_count || 0))
@@ -768,6 +770,7 @@ function SecretAdminPanelPage() {
           config: {
             id: adminContestData?.contest?.id,
             theme: contestThemeInput.trim() || 'Open Theme',
+            genre: contestGenreInput.trim() || 'All Genres',
             category_restriction: contestCategoryInput === 'all' ? null : contestCategoryInput,
             prize_inr: Number(contestPrizeInput) || 2000,
             participant_boost_count: Number(contestBoostInput) || 0,
@@ -4382,6 +4385,20 @@ function SecretAdminPanelPage() {
                     onChange={(e) => setContestThemeInput(e.target.value)}
                     placeholder="e.g. Open Theme or Winter Thrillers"
                     className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2 text-xs text-[var(--ink-primary)] font-medium focus:outline-hidden focus:border-[var(--ink-primary)]"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-mono text-[var(--ink-muted)] flex items-center justify-between">
+                    <span>Genre (Important • Highlighted in Contest)</span>
+                    <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold uppercase">Key Focus</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={contestGenreInput}
+                    onChange={(e) => setContestGenreInput(e.target.value)}
+                    placeholder="e.g. All Genres, Mystery & Thriller, Romance, Sci-Fi..."
+                    className="w-full rounded-lg border border-amber-500/40 bg-[var(--bg-canvas)] px-3 py-2 text-xs text-[var(--ink-primary)] font-medium focus:outline-hidden focus:border-amber-500"
                   />
                 </div>
 

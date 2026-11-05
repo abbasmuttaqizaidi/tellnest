@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Trophy, X, Users, Heart, ArrowRight, ShieldCheck, Sparkles, Loader2 } from 'lucide-react'
+import { Trophy, X, Users, Heart, ArrowRight, ShieldCheck, Sparkles, Loader2, ChevronDown } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 import { getActiveContestServerFn, type ContestPublicPageData } from '../server/contests'
 
@@ -13,6 +13,7 @@ export interface ContestDetailsModalProps {
 export function ContestDetailsModal({ isOpen, onClose, initialData }: ContestDetailsModalProps) {
   const [data, setData] = useState<ContestPublicPageData | null>(initialData || null)
   const [isLoading, setIsLoading] = useState(false)
+  const [showDetails, setShowDetails] = useState(false)
 
   // Fetch active contest details when modal opens if not already loaded
   useEffect(() => {
@@ -93,11 +94,22 @@ export function ContestDetailsModal({ isOpen, onClose, initialData }: ContestDet
         >
           {/* Header */}
           <div className="flex items-start justify-between pb-4 border-b border-[var(--border-subtle)]">
-            <div className="space-y-1">
-              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--ink-secondary)] text-[11px] font-mono">
-                <Trophy className="w-3.5 h-3.5 text-amber-500" />
-                <span>Monthly Writing Contest • {formattedMonth}</span>
-              </div>
+            <div className="space-y-2.5">
+              {/* Details Toggle Button */}
+              <button
+                type="button"
+                onClick={() => setShowDetails((prev) => !prev)}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-[var(--border-strong)] bg-[var(--bg-subtle)] hover:bg-[var(--bg-surface)] text-[var(--ink-primary)] text-xs font-mono font-medium transition-all shadow-xs cursor-pointer select-none"
+                aria-expanded={showDetails}
+                title="View active contest rules, genre focus, and details"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-[var(--ink-muted)] shrink-0" />
+                <span>{showDetails ? 'Hide Details' : 'Details'}</span>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 transition-transform duration-200 ${showDetails ? 'rotate-180' : ''}`}
+                />
+              </button>
+
               <h3 className="font-serif text-xl sm:text-2xl font-bold text-[var(--ink-primary)] tracking-tight">
                 {contest?.title || `The HatchPen Indie Writer Contest — ${prizeAmount} Cash Prize`}
               </h3>
@@ -110,6 +122,91 @@ export function ContestDetailsModal({ isOpen, onClose, initialData }: ContestDet
               <X className="w-5 h-5" />
             </button>
           </div>
+
+          {/* Smooth Animated Contest Details (Admin Configured) */}
+          <AnimatePresence>
+            {showDetails && (
+              <motion.div
+                key="contest-admin-details"
+                initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                animate={{ opacity: 1, height: 'auto', marginTop: 16 }}
+                exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                className="overflow-hidden"
+              >
+                <div className="rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-4 sm:p-5 shadow-xs space-y-3.5">
+                  {/* 1. GENRE - Important & Must Be Highlighted */}
+                  <div className="p-3.5 rounded-xl border-2 border-[var(--ink-primary)] bg-[var(--bg-subtle)] flex items-center justify-between gap-3 shadow-2xs">
+                    <div className="min-w-0">
+                      <span className="text-[10px] uppercase font-mono font-bold tracking-widest text-[var(--ink-muted)] block">
+                        Target Genre (Key Highlight)
+                      </span>
+                      <p className="font-serif text-base sm:text-lg font-bold text-[var(--ink-primary)] truncate mt-0.5">
+                        {contest?.genre && contest.genre.trim() ? contest.genre : 'All Genres'}
+                      </p>
+                    </div>
+                    <span className="shrink-0 px-2.5 py-1 rounded-full bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-[10px] font-mono font-bold uppercase tracking-wider shadow-xs">
+                      Featured Genre
+                    </span>
+                  </div>
+
+                  {/* 2. Key Admin Details Grid: Theme, Category, Prize, Contest Status */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                    {/* Theme (Optional) */}
+                    <div className="p-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)]">
+                      <span className="text-[10px] uppercase font-mono text-[var(--ink-muted)] block">
+                        Theme (Optional)
+                      </span>
+                      <span className="font-medium text-[var(--ink-primary)] block mt-0.5 truncate">
+                        {contest?.theme && contest.theme.trim() ? contest.theme : 'Open Theme'}
+                      </span>
+                    </div>
+
+                    {/* Category (Optional or All categories as placeholder) */}
+                    <div className="p-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)]">
+                      <span className="text-[10px] uppercase font-mono text-[var(--ink-muted)] block">
+                        Category
+                      </span>
+                      <span className="font-medium text-[var(--ink-primary)] block mt-0.5 truncate">
+                        {contest?.category_restriction && contest.category_restriction.toLowerCase() !== 'all'
+                          ? contest.category_restriction
+                          : 'All Categories'}
+                      </span>
+                    </div>
+
+                    {/* Cash Prize */}
+                    <div className="p-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)]">
+                      <span className="text-[10px] uppercase font-mono text-[var(--ink-muted)] block">
+                        Cash Prize
+                      </span>
+                      <span className="font-bold font-mono text-[var(--ink-primary)] block mt-0.5">
+                        {prizeAmount} via UPI
+                      </span>
+                    </div>
+
+                    {/* Contest Status */}
+                    <div className="p-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)]">
+                      <span className="text-[10px] uppercase font-mono text-[var(--ink-muted)] block">
+                        Contest Status
+                      </span>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            contest?.status === 'active' || !contest?.status
+                              ? 'bg-emerald-500 animate-pulse'
+                              : 'bg-amber-500'
+                          }`}
+                        />
+                        <span className="font-medium capitalize text-[var(--ink-primary)]">
+                          {contest?.status || 'Active'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {isLoading && !data ? (
             <div className="py-12 flex flex-col items-center justify-center gap-2 text-xs text-[var(--ink-muted)] font-mono">
