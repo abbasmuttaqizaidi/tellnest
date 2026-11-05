@@ -608,16 +608,6 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
             </div>
           ) : (
             <div className="flex items-center gap-1.5 sm:gap-2.5">
-              {/* Active Contest Quick Details Button */}
-              <button
-                type="button"
-                onClick={() => setContestModalOpen(true)}
-                className="md:hidden inline-flex items-center justify-center rounded-full bg-[#18181B] hover:bg-black dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-[#18181B] px-2.5 py-1 text-[11px] font-medium transition-all shadow-xs cursor-pointer shrink-0 select-none"
-                title="Active Writing Contest Details"
-              >
-                <span>Contest — ₹2k</span>
-              </button>
-
               <Link
                 to="/login"
                 className="hidden sm:inline-flex items-center justify-center rounded-full bg-white text-[#18181B] border border-neutral-200/80 px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-[13px] font-medium hover:bg-neutral-100 transition-all shadow-xs no-underline cursor-pointer"
@@ -641,6 +631,16 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
               </button>
             </div>
           )}
+
+          {/* Active Contest Button on Mobile Top Bar (Always visible for all users) */}
+          <button
+            type="button"
+            onClick={() => setContestModalOpen(true)}
+            className="md:hidden inline-flex items-center justify-center rounded-full bg-[#18181B] hover:bg-black dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-[#18181B] px-2.5 py-1 text-[11px] font-medium transition-all shadow-xs cursor-pointer shrink-0 select-none"
+            title="Writing Contest — ₹2k"
+          >
+            <span>Contest — ₹2k</span>
+          </button>
 
           {/* Mobile Navigation Hamburger */}
           <button
