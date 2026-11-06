@@ -277,14 +277,14 @@ export function StoryLoreModal({
           </form>
 
           {/* Defined Entities Section */}
-          <div className="space-y-3">
+          <div className="space-y-2 pt-2 border-t border-[var(--border-subtle)]">
             <div className="flex items-center justify-between">
               <div>
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--ink-muted)] font-mono">
+                <h4 className="text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-muted)] font-mono">
                   Defined in this Chapter ({entitiesWithStats.length})
                 </h4>
                 {totalUnlinked > 0 && (
-                  <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                  <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
                     {totalUnlinked} unlinked mention{totalUnlinked !== 1 ? 's' : ''} found in your text
                   </p>
                 )}
@@ -294,72 +294,70 @@ export function StoryLoreModal({
                 <button
                   type="button"
                   onClick={handleLinkAllThroughout}
-                  className="px-3 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 text-xs font-semibold border border-amber-500/20 transition-colors flex items-center gap-1.5 cursor-pointer"
+                  className="px-2.5 py-1 rounded-md bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 text-[11px] font-semibold border border-amber-500/20 transition-colors flex items-center gap-1 cursor-pointer"
                 >
-                  <Sparkles className="h-3.5 w-3.5" />
+                  <Sparkles className="h-3 w-3" />
                   <span>Link All Throughout ({totalUnlinked})</span>
                 </button>
               )}
             </div>
 
             {entitiesWithStats.length === 0 ? (
-              <div className="py-8 text-center rounded-xl border border-dashed border-[var(--border-subtle)] p-6 bg-[var(--bg-canvas)]/30">
-                <BookOpen className="h-8 w-8 text-[var(--ink-muted)] mx-auto mb-2 opacity-50" />
-                <p className="text-sm font-medium text-[var(--ink-primary)]">
+              <div className="py-4 text-center rounded-lg border border-dashed border-[var(--border-subtle)] p-3 bg-[var(--bg-canvas)]/30">
+                <p className="text-xs text-[var(--ink-muted)]">
                   No characters or lore defined yet
                 </p>
-                <p className="text-xs text-[var(--ink-muted)] mt-1 max-w-sm mx-auto">
-                  Highlight any word in your story to add a lore note, or use the form above to define your characters once and link them all.
+                <p className="text-[11px] text-[var(--ink-faint)] mt-0.5">
+                  Highlight any word in your story or use the form above to define lore notes.
                 </p>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
                 {entitiesWithStats.map((ent) => (
                   <div
                     key={ent.name.toLowerCase()}
-                    className="p-3 rounded-xl bg-[var(--bg-canvas)] border border-[var(--border-subtle)] flex items-start justify-between gap-3 hover:border-[var(--border-strong)] transition-colors"
+                    className="py-1.5 px-2.5 rounded-lg bg-[var(--bg-canvas)] border border-[var(--border-subtle)] flex items-center justify-between gap-3 hover:border-[var(--border-strong)] transition-colors text-xs"
                   >
-                    <div className="space-y-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-serif font-bold text-sm text-[var(--ink-primary)] truncate">
-                          {ent.name}
-                        </span>
-                        <span className="text-[9px] font-mono uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded bg-[var(--bg-surface)] text-[var(--ink-muted)] border border-[var(--border-subtle)]">
-                          {ent.entityType}
-                        </span>
-                      </div>
-                      <p className="text-xs text-[var(--ink-secondary)] leading-relaxed break-words">
+                    <div className="min-w-0 flex-1 flex items-center gap-2">
+                      <span className="font-serif font-bold text-xs text-[var(--ink-primary)] shrink-0">
+                        {ent.name}
+                      </span>
+                      <span className="text-[9px] font-mono uppercase font-semibold px-1.5 py-0.2 rounded bg-[var(--bg-surface)] text-[var(--ink-muted)] border border-[var(--border-subtle)] shrink-0">
+                        {ent.entityType}
+                      </span>
+                      <span className="text-[11px] text-[var(--ink-secondary)] truncate">
                         {ent.description}
-                      </p>
-                      <div className="text-[11px] text-[var(--ink-muted)] font-mono">
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-[10px] text-[var(--ink-muted)] font-mono">
                         {ent.linkedCount} linked
                         {ent.unlinkedCount > 0 && (
-                          <span className="text-amber-600 dark:text-amber-400 font-semibold ml-1.5">
+                          <span className="text-amber-600 dark:text-amber-400 font-semibold ml-1">
                             • {ent.unlinkedCount} unlinked
                           </span>
                         )}
-                      </div>
-                    </div>
+                      </span>
 
-                    <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
                       {ent.unlinkedCount > 0 && (
                         <button
                           type="button"
                           onClick={() => handleLinkSpecific(ent)}
-                          className="px-2.5 py-1 rounded-md text-[11px] font-medium bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] border border-[var(--border-subtle)] transition-colors cursor-pointer flex items-center gap-1"
+                          className="px-2 py-0.5 rounded text-[10px] font-medium bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] border border-[var(--border-subtle)] transition-colors cursor-pointer flex items-center gap-1"
                           title="Link all occurrences"
                         >
-                          <LinkIcon className="h-3 w-3" />
-                          <span>Link ({ent.unlinkedCount})</span>
+                          <LinkIcon className="h-2.5 w-2.5" />
+                          <span>Link</span>
                         </button>
                       )}
                       <button
                         type="button"
                         onClick={() => handleUnlink(ent.name)}
-                        className="p-1.5 rounded-md text-[var(--ink-muted)] hover:text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer"
+                        className="p-1 rounded text-[var(--ink-muted)] hover:text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer"
                         title="Unlink all mentions in this chapter"
                       >
-                        <Unlink className="h-3.5 w-3.5" />
+                        <Unlink className="h-3 w-3" />
                       </button>
                     </div>
                   </div>
