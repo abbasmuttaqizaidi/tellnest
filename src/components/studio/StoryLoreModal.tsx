@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useRef, useEffect } from 'react'
 import {
   X,
   Sparkles,
@@ -12,6 +12,7 @@ import {
   Trash2,
   AlertCircle,
   HelpCircle,
+  ChevronDown,
 } from 'lucide-react'
 import {
   extractLoreEntities,
@@ -30,6 +31,12 @@ export interface StoryLoreModalProps {
   initialSelectedText?: string
 }
 
+const ENTITY_TYPES = [
+  { value: 'Character', label: 'Character', icon: User },
+  { value: 'Location', label: 'Location', icon: MapPin },
+  { value: 'Lore', label: 'Lore', icon: BookOpen },
+] as const
+
 export function StoryLoreModal({
   isOpen,
   onClose,
@@ -43,16 +50,31 @@ export function StoryLoreModal({
   const [description, setDescription] = useState('')
   const [applyToAll, setApplyToAll] = useState(true)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
+  const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false)
+  const typeDropdownRef = useRef<HTMLDivElement>(null)
 
   // Sync initialSelectedText when opened
-  React.useEffect(() => {
+  useEffect(() => {
     if (isOpen) {
       if (initialSelectedText) {
         setName(initialSelectedText.trim())
       }
       setToastMessage(null)
+      setIsTypeDropdownOpen(false)
     }
   }, [isOpen, initialSelectedText])
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    if (!isTypeDropdownOpen) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (typeDropdownRef.current && !typeDropdownRef.current.contains(e.target as Node)) {
+        setIsTypeDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isTypeDropdownOpen])
 
   const showToast = (msg: string) => {
     setToastMessage(msg)
@@ -203,24 +225,59 @@ export function StoryLoreModal({
               <span className="text-xs font-semibold uppercase tracking-wider text-[var(--ink-muted)] font-mono">
                 {name ? `Annotate "${name}"` : 'Add New Lore Note'}
               </span>
-              <div className="flex items-center gap-1">
-                {(['Character', 'Location', 'Lore'] as const).map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setEntityType(t)}
-                    className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer flex items-center gap-1 ${
-                      entityType === t
-                        ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)]'
-                        : 'text-[var(--ink-muted)] hover:bg-[var(--bg-surface)]'
+
+              {/* Entity Type Dropdown */}
+              <div className="relative" ref={typeDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsTypeDropdownOpen((prev) => !prev)}
+                  className="px-2.5 py-1 rounded-lg text-xs font-medium bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] border border-[var(--border-subtle)] hover:border-[var(--border-strong)] transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+                  aria-haspopup="listbox"
+                  aria-expanded={isTypeDropdownOpen}
+                >
+                  {entityType === 'Character' && <User className="h-3.5 w-3.5 text-[var(--ink-muted)]" />}
+                  {entityType === 'Location' && <MapPin className="h-3.5 w-3.5 text-[var(--ink-muted)]" />}
+                  {entityType === 'Lore' && <BookOpen className="h-3.5 w-3.5 text-[var(--ink-muted)]" />}
+                  <span>{entityType}</span>
+                  <ChevronDown
+                    className={`h-3 w-3 text-[var(--ink-muted)] transition-transform duration-150 ${
+                      isTypeDropdownOpen ? 'rotate-180' : ''
                     }`}
+                  />
+                </button>
+
+                {isTypeDropdownOpen && (
+                  <div
+                    className="absolute right-0 top-full mt-1 w-36 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg shadow-xl py-1 z-30 animate-in fade-in zoom-in-95 duration-100"
+                    role="listbox"
                   >
-                    {t === 'Character' && <User className="h-3 w-3" />}
-                    {t === 'Location' && <MapPin className="h-3 w-3" />}
-                    {t === 'Lore' && <BookOpen className="h-3 w-3" />}
-                    {t}
-                  </button>
-                ))}
+                    {ENTITY_TYPES.map((t) => {
+                      const Icon = t.icon
+                      const isSelected = entityType === t.value
+                      return (
+                        <button
+                          key={t.value}
+                          type="button"
+                          role="option"
+                          aria-selected={isSelected}
+                          onClick={() => {
+                            setEntityType(t.value)
+                            setIsTypeDropdownOpen(false)
+                          }}
+                          className={`w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-left transition-colors cursor-pointer ${
+                            isSelected
+                              ? 'bg-[var(--bg-canvas)] font-semibold text-[var(--ink-primary)]'
+                              : 'text-[var(--ink-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--ink-primary)]'
+                          }`}
+                        >
+                          <Icon className="h-3.5 w-3.5 shrink-0 text-[var(--ink-muted)]" />
+                          <span className="flex-1">{t.label}</span>
+                          {isSelected && <Check className="h-3 w-3 text-[var(--ink-primary)] shrink-0" />}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             </div>
 
