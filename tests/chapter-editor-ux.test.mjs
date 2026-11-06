@@ -150,7 +150,7 @@ test('Chapter Editor UX: Dramatic Act Dropdown in Editor', async (t) => {
   )
 })
 
-test('Chapter Editor UX: Publish Button Disabled until Saved Invariant', async (t) => {
+test('Chapter Editor UX: Publish Button Disabled while Saving Invariant', async (t) => {
   const richEditorFile = fs.readFileSync(
     path.resolve(process.cwd(), 'src/components/studio/StoryRichEditor.tsx'),
     'utf-8'
@@ -161,28 +161,28 @@ test('Chapter Editor UX: Publish Button Disabled until Saved Invariant', async (
     'utf-8'
   )
 
-  // 1. Verify StoryRichEditor disables Publish button when autosaveStatus is dirty or saving
+  // 1. Verify StoryRichEditor disables Publish button when actively saving
   assert.ok(
-    richEditorFile.includes('disabled={autosaveStatus !== \'saved\'}'),
-    'Publish button in StoryRichEditor must be strictly disabled when autosaveStatus !== "saved"'
+    richEditorFile.includes("disabled={autosaveStatus === 'saving'}"),
+    'Publish button in StoryRichEditor must be strictly disabled when autosaveStatus === "saving"'
   )
 
   // 2. Verify disabled visual styling and tooltip
   assert.ok(
-    richEditorFile.includes('Save chapter changes before publishing'),
-    'Publish button must inform user that chapter changes must be saved first'
+    richEditorFile.includes('Saving changes...'),
+    'Publish button must inform user that chapter changes are being saved'
   )
 
   // 3. Verify disabled cursor and opacity
   assert.ok(
-    richEditorFile.includes('cursor-not-allowed opacity-50'),
+    richEditorFile.includes('cursor-not-allowed opacity-60'),
     'Disabled Publish button must have cursor-not-allowed and reduced opacity'
   )
 
-  // 4. Verify handlePublish in route guards against unsaved publish attempts
+  // 4. Verify handlePublish in route guards against concurrent saving attempts
   assert.ok(
-    chapterRouteFile.includes('if (autosaveStatus !== \'saved\')'),
-    'handlePublish in chapter route must reject execution if autosaveStatus !== "saved"'
+    chapterRouteFile.includes('if (isSavingRef.current) return'),
+    'handlePublish in chapter route must reject execution if already saving'
   )
 })
 
