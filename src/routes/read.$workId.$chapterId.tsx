@@ -1365,7 +1365,7 @@ function ReaderPage() {
                     }}
                     className={`whitespace-pre-line break-words ${
                       readerSettings.fontFamily === 'serif'
-                        ? 'first-letter:font-serif first-letter:text-4xl first-letter:float-left first-letter:pr-2.5 first-letter:leading-none first-letter:text-[var(--ink-primary)] first-letter:font-bold'
+                        ? 'first-letter:font-serif first-letter:text-3xl sm:first-letter:text-4xl first-letter:font-bold first-letter:text-[var(--ink-primary)] first-letter:align-baseline'
                         : ''
                     }`}
                   >
@@ -1440,7 +1440,7 @@ function ReaderPage() {
                       : ''
                   } ${
                     idx === 0 && readerSettings.fontFamily === 'serif' && !isSpeaking
-                      ? 'first-letter:font-serif first-letter:text-4xl first-letter:float-left first-letter:pr-2.5 first-letter:leading-none first-letter:text-[var(--ink-primary)] first-letter:font-bold'
+                      ? 'first-letter:font-serif first-letter:text-3xl sm:first-letter:text-4xl first-letter:font-bold first-letter:text-[var(--ink-primary)] first-letter:align-baseline'
                       : ''
                   }`}
                   title={isAudioOpen ? 'Click to listen from this paragraph' : undefined}

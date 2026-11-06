@@ -181,7 +181,7 @@ function formatInlineMarkdown(text: string): React.ReactNode {
   })
 }
 
-function renderChapterParagraph(text: string): React.ReactNode {
+function renderChapterParagraph(text: string, isFirstParagraph: boolean = false): React.ReactNode {
   const cleanText = text.replace(/\\+[ \t]*(?=\r?\n|$)/g, '')
   const trimmed = cleanText.trim()
   if (!trimmed) {
@@ -254,7 +254,13 @@ function renderChapterParagraph(text: string): React.ReactNode {
   }
 
   return (
-    <p className="font-serif leading-relaxed text-[var(--ink-secondary)] mb-4">
+    <p
+      className={`font-serif leading-relaxed text-[var(--ink-secondary)] mb-4 ${
+        isFirstParagraph
+          ? 'first-letter:font-serif first-letter:text-3xl sm:first-letter:text-4xl first-letter:font-bold first-letter:text-[var(--ink-primary)] first-letter:align-baseline'
+          : ''
+      }`}
+    >
       {formatInlineMarkdown(cleanText)}
     </p>
   )
@@ -1149,7 +1155,7 @@ export function StoryRichEditor({
                     .split(/\n\s*\n/)
                     .map((paragraph, idx) => (
                       <React.Fragment key={idx}>
-                        {renderChapterParagraph(paragraph)}
+                        {renderChapterParagraph(paragraph, idx === 0)}
                       </React.Fragment>
                     ))
                 ) : (
