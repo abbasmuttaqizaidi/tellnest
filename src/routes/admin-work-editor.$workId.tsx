@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate, useRouter } from '@tanstack/react-router'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useApp } from '../context/AppContext'
 import {
@@ -13,9 +13,11 @@ import {
   getAdminUsersServerFn,
   adminBulkLinkLoreServerFn,
   adminBulkUnlinkLoreServerFn,
+  adminDeleteLoreEntityServerFn,
   type WorkActAnalytics,
   type AdminUser,
 } from '../server/admin'
+import { getStoryLoreBibleServerFn } from '../server/writer'
 import { StoryLoreModal } from '../components/studio/StoryLoreModal'
 import {
   extractLoreEntities,
@@ -228,6 +230,19 @@ function AdminWorkEditorPage() {
   const [newLoreType, setNewLoreType] = useState<'Character' | 'Location' | 'Lore'>('Character')
   const [newLoreDesc, setNewLoreDesc] = useState('')
   const [isLinkingLore, setIsLinkingLore] = useState(false)
+  const [dbLoreEntities, setDbLoreEntities] = useState<LoreEntity[]>([])
+
+  const loadLoreBibleFromDb = useCallback(async () => {
+    if (!work?.id) return
+    try {
+      const res = await getStoryLoreBibleServerFn({ data: { workId: work.id } })
+      if (res?.entities) {
+        setDbLoreEntities(res.entities)
+      }
+    } catch (e) {
+      console.warn('[admin-work-editor] Failed to load lore bible from DB:', e)
+    }
+  }, [work?.id])
 
   // Sync state ONLY on initial load of this manuscript or when work ID changes, NOT on every background re-fetch while editing
   useEffect(() => {
@@ -780,12 +795,34 @@ function AdminWorkEditorPage() {
     }
   }
 
-  // All chapters combined text to extract story-wide lore entities
+  // Automatically load lore bible entities from DB on mount / authentication
+  useEffect(() => {
+    if (isAuthenticated && work?.id) {
+      void loadLoreBibleFromDb()
+    }
+  }, [isAuthenticated, work?.id, loadLoreBibleFromDb])
+
+  // Merge lore entities from DB and chapter text
   const storyLoreEntities = useMemo(() => {
-    if (!work?.chapters) return []
-    const combinedContent = work.chapters.map((c) => c.content || '').join('\n\n')
-    return extractLoreEntities(combinedContent)
-  }, [work?.chapters])
+    const map = new Map<string, LoreEntity>()
+
+    // 1. Entities defined in DB Story Lore Bible
+    for (const ent of dbLoreEntities) {
+      map.set(ent.name.toLowerCase(), ent)
+    }
+
+    // 2. Entities parsed from chapter markdown
+    if (work?.chapters) {
+      const combinedContent = work.chapters.map((c) => c.content || '').join('\n\n')
+      for (const ent of extractLoreEntities(combinedContent)) {
+        if (!map.has(ent.name.toLowerCase())) {
+          map.set(ent.name.toLowerCase(), ent)
+        }
+      }
+    }
+
+    return Array.from(map.values())
+  }, [dbLoreEntities, work?.chapters])
 
   // Admin Bulk Link Lore across all chapters in this story
   const handleAdminBulkLinkLore = async (entity: LoreEntity) => {
@@ -808,6 +845,7 @@ function AdminWorkEditorPage() {
           'success'
         )
         // Refresh DB data
+        await loadLoreBibleFromDb()
         await loadActsFromDb(adminToken)
         try {
           const dbWork = await getPublicWorkServerFn({ data: work.id })
@@ -839,6 +877,7 @@ function AdminWorkEditorPage() {
           `Unlinked ${res.totalMentionsUnlinked} mention${res.totalMentionsUnlinked !== 1 ? 's' : ''} of "${entityName}" across ${res.updatedChaptersCount} chapter${res.updatedChaptersCount !== 1 ? 's' : ''}.`,
           'success'
         )
+        await loadLoreBibleFromDb()
         await loadActsFromDb(adminToken)
         try {
           const dbWork = await getPublicWorkServerFn({ data: work.id })
@@ -848,6 +887,39 @@ function AdminWorkEditorPage() {
       }
     } catch (err: any) {
       showToast(err?.message || 'Failed to unlink lore across chapters', 'error')
+    } finally {
+      setIsLinkingLore(false)
+    }
+  }
+
+  // Admin Delete Lore Entity from Story Lore Bible & Unlink
+  const handleAdminDeleteLoreEntity = async (entityName: string) => {
+    if (!adminToken) return
+    setIsLinkingLore(true)
+    try {
+      const res = await adminDeleteLoreEntityServerFn({
+        data: {
+          adminToken,
+          workId: work.id,
+          entityName,
+          unlinkEverywhere: true,
+        },
+      })
+      if (res?.success) {
+        showToast(
+          `Deleted "${entityName}" from Lore Bible${res.unlinkedCount ? ` & unlinked ${res.unlinkedCount} mentions` : ''}.`,
+          'success'
+        )
+        await loadLoreBibleFromDb()
+        await loadActsFromDb(adminToken)
+        try {
+          const dbWork = await getPublicWorkServerFn({ data: work.id })
+          if (dbWork) setLocalWorkOverride(dbWork)
+        } catch {}
+        await reloadWorksFromDb()
+      }
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to delete lore entity', 'error')
     } finally {
       setIsLinkingLore(false)
     }
@@ -1852,15 +1924,27 @@ function AdminWorkEditorPage() {
                           </span>
                         )}
 
-                        <button
-                          type="button"
-                          disabled={isLinkingLore}
-                          onClick={() => handleAdminBulkUnlinkLore(ent.name)}
-                          className="text-[11px] font-mono text-[var(--ink-muted)] hover:text-red-500 transition-colors cursor-pointer"
-                          title="Unlink all mentions across the story"
-                        >
-                          Unlink All
-                        </button>
+                        <div className="flex items-center gap-2.5">
+                          <button
+                            type="button"
+                            disabled={isLinkingLore}
+                            onClick={() => handleAdminBulkUnlinkLore(ent.name)}
+                            className="text-[11px] font-mono text-[var(--ink-muted)] hover:text-amber-600 transition-colors cursor-pointer"
+                            title="Unlink all mentions across the story"
+                          >
+                            Unlink All
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={isLinkingLore}
+                            onClick={() => handleAdminDeleteLoreEntity(ent.name)}
+                            className="p-1 rounded text-[var(--ink-muted)] hover:text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer"
+                            title="Delete from Story Lore Bible and unlink all occurrences"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   )

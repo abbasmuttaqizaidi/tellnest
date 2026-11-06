@@ -372,3 +372,57 @@ test('Story Lore Bible: Delete entity deletes from DB table and unlinks occurren
   assert.equal(res.unlinkedCount, 1)
   assert.equal(updatedContent, 'Arthur returned.')
 })
+
+test('Admin Story Lore: Validates admin authentication and required fields', async () => {
+  const { executeAdminDeleteLoreEntity, generateAdminToken } = await import('../src/server/admin.ts')
+
+  // Fails with missing adminToken
+  await assert.rejects(
+    async () => {
+      await executeAdminDeleteLoreEntity({
+        adminToken: '',
+        workId: '00000000-0000-0000-0000-000000000001',
+        entityName: 'Arthur',
+      })
+    },
+    { message: /Admin authorization token is required/ }
+  )
+
+  // Fails with invalid adminToken
+  await assert.rejects(
+    async () => {
+      await executeAdminDeleteLoreEntity({
+        adminToken: 'invalid-token',
+        workId: '00000000-0000-0000-0000-000000000001',
+        entityName: 'Arthur',
+      })
+    },
+    { message: /Unauthorized: Invalid administration key/ }
+  )
+
+  const { token: validToken } = generateAdminToken()
+
+  // Fails with missing workId
+  await assert.rejects(
+    async () => {
+      await executeAdminDeleteLoreEntity({
+        adminToken: validToken,
+        workId: '',
+        entityName: 'Arthur',
+      })
+    },
+    { message: /Work ID is required/ }
+  )
+
+  // Fails with missing entityName
+  await assert.rejects(
+    async () => {
+      await executeAdminDeleteLoreEntity({
+        adminToken: validToken,
+        workId: '00000000-0000-0000-0000-000000000001',
+        entityName: '',
+      })
+    },
+    { message: /Entity name is required/ }
+  )
+})

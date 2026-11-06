@@ -1623,6 +1623,24 @@ export const adminBulkLinkLoreServerFn = createServerFn({ method: 'POST' })
       query = query.in('id', chapterIds)
     }
 
+    // Persist to story_lore_entities table
+    try {
+      await admin
+        .from('story_lore_entities')
+        .upsert(
+          {
+            work_id: targetWorkUuid,
+            name: entity.name.trim(),
+            entity_type: entity.entityType,
+            description: entity.description.trim(),
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'work_id,name' }
+        )
+    } catch {
+      // Continue if table not yet migrated
+    }
+
     const { data: chapters, error: chErr } = await query
     if (chErr) throw new Error(chErr.message)
     if (!chapters || chapters.length === 0) {
@@ -1739,6 +1757,75 @@ export const adminBulkUnlinkLoreServerFn = createServerFn({ method: 'POST' })
       totalMentionsUnlinked,
       entityName,
     }
+  })
+
+export interface AdminDeleteLoreEntityPayload {
+  adminToken: string
+  workId: string
+  entityName: string
+  unlinkEverywhere?: boolean
+}
+
+export async function executeAdminDeleteLoreEntity(
+  data: AdminDeleteLoreEntityPayload,
+  adminClient?: any
+) {
+  if (!data.adminToken) throw new Error('Admin authorization token is required')
+  if (!isValidAdminToken(data.adminToken)) {
+    throw new Error('Unauthorized: Invalid administration key')
+  }
+  if (!data.workId?.trim()) throw new Error('Work ID is required')
+  if (!data.entityName?.trim()) throw new Error('Entity name is required')
+
+  const admin = adminClient || createAdminClient()
+  const { workId, entityName, unlinkEverywhere } = data
+
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(workId)
+  let targetWorkUuid = workId
+  if (!isUuid) {
+    const { data: wRow } = await admin.from('works').select('id').eq('slug', workId).maybeSingle()
+    if (wRow?.id) targetWorkUuid = wRow.id
+  }
+
+  // Delete from story_lore_entities table
+  try {
+    await admin
+      .from('story_lore_entities')
+      .delete()
+      .eq('work_id', targetWorkUuid)
+      .ilike('name', entityName.trim())
+  } catch {
+    // Continue if table not yet migrated
+  }
+
+  let unlinkedCount = 0
+  if (unlinkEverywhere) {
+    const unlinkRes = await adminBulkUnlinkLoreServerFn({
+      data: {
+        adminToken: data.adminToken,
+        workId: targetWorkUuid,
+        entityName: entityName.trim(),
+      },
+    })
+    unlinkedCount = unlinkRes?.totalMentionsUnlinked || 0
+  }
+
+  return {
+    success: true,
+    deletedName: entityName.trim(),
+    unlinkedCount,
+  }
+}
+
+export const adminDeleteLoreEntityServerFn = createServerFn({ method: 'POST' })
+  .validator((params: AdminDeleteLoreEntityPayload) => {
+    if (!params.adminToken) throw new Error('Admin authorization token is required')
+    if (!params.workId?.trim()) throw new Error('Work ID is required')
+    if (!params.entityName?.trim()) throw new Error('Entity name is required')
+    return params
+  })
+  .handler(async ({ data }: { data: AdminDeleteLoreEntityPayload }) => {
+    return executeAdminDeleteLoreEntity(data)
   })
 
 /**
