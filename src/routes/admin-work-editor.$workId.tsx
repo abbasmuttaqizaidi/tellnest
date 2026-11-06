@@ -2284,6 +2284,7 @@ function AdminWorkEditorPage() {
         isOpen={showChLoreModal}
         onClose={() => setShowChLoreModal(false)}
         content={chContentInput}
+        workId={work?.id}
         onUpdateContent={(newContent) => {
           setChContentInput(newContent)
         }}

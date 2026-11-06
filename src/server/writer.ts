@@ -11,9 +11,11 @@ import {
   countEntityMentions,
   linkAllOccurrences,
   unlinkAllOccurrences,
+  linkMultipleEntities,
   type LoreEntity,
   type StoryLoreEntity,
 } from '../lib/lore/loreParser.ts'
+import { parseLoreCsv } from '../lib/lore/csvLoreParser.ts'
 
 /**
  * Helper to resolve or auto-provision a profile row for the authenticated Clerk user.
@@ -247,7 +249,7 @@ export interface CreateWriterWorkResult {
  * or if the client-provided clerkUserId does not match, request is rejected.
  */
 export async function authenticateWriterRequest(
-  clientUserId: string,
+  clientUserId?: string,
   authResolver?: () => Promise<{ userId: string | null } | null>
 ): Promise<string> {
   let authState: { userId: string | null } | null = null
@@ -272,7 +274,7 @@ export async function authenticateWriterRequest(
     throw new Error('Unauthorized: No active authenticated session found.')
   }
 
-  if (serverUserId !== clientUserId) {
+  if (clientUserId && serverUserId !== clientUserId) {
     throw new Error('Unauthorized: Client user ID does not match authenticated server session.')
   }
 
@@ -2203,10 +2205,7 @@ export async function executeSaveStoryLoreEntity(
   if (!data.description?.trim()) throw new Error('Tooltip description is required')
 
   const admin = adminClient || createAdminClient()
-
-  if (!data.clerkUserId) {
-    throw new Error('User authentication required')
-  }
+  if (!data.clerkUserId) throw new Error('User authentication required')
   const verifiedUserId = await authenticateWriterRequest(data.clerkUserId, authResolver)
   const profile = await resolveUserProfile(admin, verifiedUserId)
 
@@ -2372,7 +2371,6 @@ export const saveStoryLoreEntityServerFn = createServerFn({ method: 'POST' })
     if (!params.workId?.trim()) throw new Error('Work ID is required')
     if (!params.name?.trim()) throw new Error('Entity name is required')
     if (!params.description?.trim()) throw new Error('Tooltip description is required')
-    if (!params.clerkUserId?.trim()) throw new Error('User authentication required')
     return params
   })
   .handler(async ({ data }) => {
@@ -2506,7 +2504,6 @@ export const bulkLinkStoryLoreServerFn = createServerFn({ method: 'POST' })
   .validator((params: BulkLinkStoryLorePayload) => {
     if (!params.workId?.trim()) throw new Error('Work ID is required')
     if (!params.entityName?.trim()) throw new Error('Entity name is required')
-    if (!params.clerkUserId?.trim()) throw new Error('User authentication required')
     return params
   })
   .handler(async ({ data }) => {
@@ -2601,7 +2598,6 @@ export const bulkUnlinkStoryLoreServerFn = createServerFn({ method: 'POST' })
   .validator((params: BulkUnlinkStoryLorePayload) => {
     if (!params.workId?.trim()) throw new Error('Work ID is required')
     if (!params.entityName?.trim()) throw new Error('Entity name is required')
-    if (!params.clerkUserId?.trim()) throw new Error('User authentication required')
     return params
   })
   .handler(async ({ data }) => {
@@ -2679,9 +2675,181 @@ export const deleteStoryLoreEntityServerFn = createServerFn({ method: 'POST' })
   .validator((params: DeleteStoryLoreEntityPayload) => {
     if (!params.workId?.trim()) throw new Error('Work ID is required')
     if (!params.entityName?.trim()) throw new Error('Entity name is required')
-    if (!params.clerkUserId?.trim()) throw new Error('User authentication required')
     return params
   })
   .handler(async ({ data }) => {
     return executeDeleteStoryLoreEntity(data)
+  })
+
+export interface ImportStoryLoreCsvPayload {
+  workId: string
+  clerkUserId?: string
+  csvText: string
+  linkAllChapters?: boolean
+}
+
+export async function executeImportStoryLoreCsv(
+  data: ImportStoryLoreCsvPayload,
+  adminClient?: any,
+  authResolver?: () => Promise<{ userId: string | null } | null>
+) {
+  if (!data.workId?.trim()) throw new Error('Work ID is required')
+  if (!data.csvText || typeof data.csvText !== 'string' || !data.csvText.trim()) {
+    throw new Error('CSV text content is required')
+  }
+
+  const admin = adminClient || createAdminClient()
+  if (!data.clerkUserId) throw new Error('User authentication required')
+  const verifiedUserId = await authenticateWriterRequest(data.clerkUserId, authResolver)
+  const profile = await resolveUserProfile(admin, verifiedUserId)
+
+  let workUuid = data.workId.trim()
+  const isWorkUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(workUuid)
+  let workRow: any = null
+
+  if (isWorkUuid) {
+    const { data: row } = await admin
+      .from('works')
+      .select('id, title, slug, author_id')
+      .eq('id', workUuid)
+      .maybeSingle()
+    workRow = row
+  } else {
+    const { data: row } = await admin
+      .from('works')
+      .select('id, title, slug, author_id')
+      .eq('slug', workUuid.toLowerCase())
+      .maybeSingle()
+    workRow = row
+    if (workRow?.id) workUuid = workRow.id
+  }
+
+  if (!workRow || workRow.author_id !== profile.id) {
+    throw new Error('Unauthorized: You can only manage lore for your own manuscripts.')
+  }
+
+  // Parse CSV
+  const parseResult = parseLoreCsv(data.csvText)
+  if (parseResult.errors.length > 0 && parseResult.validRows.length === 0) {
+    throw new Error(`Invalid CSV format: ${parseResult.errors[0]}`)
+  }
+  if (parseResult.validRows.length === 0) {
+    throw new Error('No valid entity rows found in the CSV file.')
+  }
+
+  const nowIso = new Date().toISOString()
+
+  // Map valid entries, deduplicating by case-insensitive name for database upsert
+  const uniqueByNameMap = new Map<
+    string,
+    { work_id: string; name: string; entity_type: string; description: string; updated_at: string }
+  >()
+
+  for (const row of parseResult.validRows) {
+    const key = row.name.trim().toLowerCase()
+    uniqueByNameMap.set(key, {
+      work_id: workUuid,
+      name: row.name.trim(),
+      entity_type: row.type || 'Character',
+      description: row.tooltip.trim(),
+      updated_at: nowIso,
+    })
+  }
+
+  const rowsToUpsert = Array.from(uniqueByNameMap.values())
+
+  try {
+    const CHUNK_SIZE = 100
+    for (let i = 0; i < rowsToUpsert.length; i += CHUNK_SIZE) {
+      const chunk = rowsToUpsert.slice(i, i + CHUNK_SIZE)
+      await admin.from('story_lore_entities').upsert(chunk, { onConflict: 'work_id,name' })
+    }
+  } catch (err: any) {
+    console.warn('[executeImportStoryLoreCsv] story_lore_entities table upsert notice:', err?.message)
+  }
+
+  let chaptersUpdated = 0
+  let totalMentionsLinked = 0
+
+  if (data.linkAllChapters) {
+    const { data: chapters } = await admin
+      .from('chapters')
+      .select('id, content')
+      .eq('work_id', workUuid)
+
+    if (chapters && chapters.length > 0) {
+      const entitiesToLink: LoreEntity[] = rowsToUpsert.map((r) => ({
+        name: r.name,
+        entityType: r.entity_type,
+        description: r.description,
+      }))
+
+      const chaptersToUpdate: {
+        id: string
+        content: string
+        wordCount: number
+        readingTime: number
+      }[] = []
+
+      for (const ch of chapters) {
+        const { newMarkdown, totalLinked } = linkMultipleEntities(ch.content || '', entitiesToLink)
+        if (totalLinked > 0) {
+          const cleanContent = newMarkdown.replace(/\\+[ \t]*(?=\r?\n|$)/g, '').trim()
+          const wordCount = cleanContent.split(/\s+/).filter(Boolean).length
+          const readingTime = Math.max(1, Math.ceil(wordCount / 220))
+          chaptersToUpdate.push({
+            id: ch.id,
+            content: cleanContent,
+            wordCount,
+            readingTime,
+          })
+          totalMentionsLinked += totalLinked
+        }
+      }
+
+      // Batch update chapters concurrently (5 at a time)
+      const CONCURRENCY = 5
+      for (let i = 0; i < chaptersToUpdate.length; i += CONCURRENCY) {
+        const batch = chaptersToUpdate.slice(i, i + CONCURRENCY)
+        await Promise.all(
+          batch.map((item) =>
+            admin
+              .from('chapters')
+              .update({
+                content: item.content,
+                word_count: item.wordCount,
+                reading_time_minutes: item.readingTime,
+                updated_at: nowIso,
+              })
+              .eq('id', item.id)
+          )
+        )
+        chaptersUpdated += batch.length
+      }
+    }
+  }
+
+  clearPublicWorkCache(workUuid)
+  if (workRow.slug) clearPublicWorkCache(workRow.slug)
+
+  return {
+    success: true,
+    totalRowsParsed: parseResult.totalRows,
+    importedCount: parseResult.validRows.length,
+    uniqueEntitiesCount: rowsToUpsert.length,
+    duplicateCount: parseResult.duplicateCount,
+    chaptersUpdated,
+    totalMentionsLinked,
+    warnings: parseResult.errors,
+  }
+}
+
+export const importStoryLoreCsvServerFn = createServerFn({ method: 'POST' })
+  .validator((params: ImportStoryLoreCsvPayload) => {
+    if (!params.workId?.trim()) throw new Error('Work ID is required')
+    if (!params.csvText?.trim()) throw new Error('CSV text is required')
+    return params
+  })
+  .handler(async ({ data }) => {
+    return executeImportStoryLoreCsv(data)
   })

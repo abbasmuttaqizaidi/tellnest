@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react'
+import { useUser } from '@clerk/react'
 import {
   X,
   Sparkles,
@@ -17,7 +18,9 @@ import {
   Search,
   Loader2,
   Filter,
+  FileSpreadsheet,
 } from 'lucide-react'
+import { StoryLoreCsvModal } from './StoryLoreCsvModal'
 import {
   extractLoreEntities,
   countEntityMentions,
@@ -62,6 +65,7 @@ export function StoryLoreModal({
   chapterId,
   initialTab,
 }: StoryLoreModalProps) {
+  const { user } = useUser()
   const hasChapterContext = Boolean(onUpdateContent)
 
   // Tab State: 'chapter' or 'bible'
@@ -86,6 +90,7 @@ export function StoryLoreModal({
   const [bibleSearchQuery, setBibleSearchQuery] = useState('')
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<'ALL' | 'Character' | 'Location' | 'Lore'>('ALL')
   const [actionLoadingEntity, setActionLoadingEntity] = useState<string | null>(null)
+  const [isCsvModalOpen, setIsCsvModalOpen] = useState(false)
 
   const showToast = (msg: string) => {
     setToastMessage(msg)
@@ -202,6 +207,7 @@ export function StoryLoreModal({
         const saveRes = await saveStoryLoreEntityServerFn({
           data: {
             workId,
+            clerkUserId: user?.id,
             name: trimmedName,
             entityType,
             description: trimmedDesc,
@@ -317,7 +323,7 @@ export function StoryLoreModal({
     setActionLoadingEntity(actionKey)
     try {
       const res = await bulkLinkStoryLoreServerFn({
-        data: { workId, entityName: ent.name },
+        data: { workId, clerkUserId: user?.id, entityName: ent.name },
       })
       if (hasChapterContext && onUpdateContent) {
         const { newMarkdown } = linkAllOccurrences(content, ent)
@@ -342,7 +348,7 @@ export function StoryLoreModal({
     setActionLoadingEntity(actionKey)
     try {
       const res = await bulkUnlinkStoryLoreServerFn({
-        data: { workId, entityName: entName },
+        data: { workId, clerkUserId: user?.id, entityName: entName },
       })
       if (hasChapterContext && onUpdateContent) {
         const { newMarkdown } = unlinkAllOccurrences(content, entName)
@@ -367,7 +373,7 @@ export function StoryLoreModal({
     setActionLoadingEntity(actionKey)
     try {
       const res = await deleteStoryLoreEntityServerFn({
-        data: { workId, entityName: entName, unlinkEverywhere: true },
+        data: { workId, clerkUserId: user?.id, entityName: entName, unlinkEverywhere: true },
       })
       if (hasChapterContext && onUpdateContent) {
         const { newMarkdown } = unlinkAllOccurrences(content, entName)
@@ -412,14 +418,27 @@ export function StoryLoreModal({
                 Manuscript-wide lore bible and interactive footnotes for characters, places, and terms.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-1.5 rounded-lg text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
-              aria-label="Close"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            <div className="flex items-center gap-2">
+              {workId && (
+                <button
+                  type="button"
+                  onClick={() => setIsCsvModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 font-semibold border border-amber-500/20 transition-colors cursor-pointer"
+                  title="Import Story Lore from CSV spreadsheet"
+                >
+                  <FileSpreadsheet className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Import CSV</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-1.5 rounded-lg text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
           {/* Navigation Tabs (when in chapter editor and workId is present) */}
@@ -734,13 +753,26 @@ export function StoryLoreModal({
             <div className="space-y-3 pt-2 border-t border-[var(--border-subtle)]">
               {/* Header + Search Bar */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-                <div>
-                  <h4 className="text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-muted)] font-mono">
-                    Manuscript Lore Bible ({bibleEntities.length})
-                  </h4>
-                  <p className="text-[10px] text-[var(--ink-muted)]">
-                    All characters, locations, and world-building notes across your story.
-                  </p>
+                <div className="flex items-center justify-between gap-2 flex-1">
+                  <div>
+                    <h4 className="text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-muted)] font-mono">
+                      Manuscript Lore Bible ({bibleEntities.length})
+                    </h4>
+                    <p className="text-[10px] text-[var(--ink-muted)]">
+                      All characters, locations, and world-building notes across your story.
+                    </p>
+                  </div>
+
+                  {workId && (
+                    <button
+                      type="button"
+                      onClick={() => setIsCsvModalOpen(true)}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 font-semibold border border-amber-500/20 transition-colors cursor-pointer shrink-0"
+                    >
+                      <FileSpreadsheet className="h-3.5 w-3.5" />
+                      <span>Import CSV</span>
+                    </button>
+                  )}
                 </div>
 
                 {/* Filter Pills */}
@@ -946,6 +978,21 @@ export function StoryLoreModal({
           </div>
         </div>
       </div>
+
+      {/* CSV Lore Import Modal */}
+      {workId && (
+        <StoryLoreCsvModal
+          isOpen={isCsvModalOpen}
+          onClose={() => setIsCsvModalOpen(false)}
+          workId={workId}
+          onImportSuccess={async (res) => {
+            await loadBibleEntities()
+            showToast(
+              `Imported ${res.importedCount} lore entities (${res.totalMentionsLinked} mentions linked across ${res.chaptersUpdated} chapters)`
+            )
+          }}
+        />
+      )}
     </div>
   )
 }

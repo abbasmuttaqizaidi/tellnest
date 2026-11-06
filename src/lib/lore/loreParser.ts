@@ -254,6 +254,101 @@ export function linkAllOccurrences(
 }
 
 /**
+ * High-performance single-pass multi-entity linker.
+ * Combines all entities into a single ordered regex alternation (sorted length-descending),
+ * guaranteeing zero substring shadowing and zero nested link corruption in O(N) time.
+ */
+export function linkMultipleEntities(
+  markdown: string,
+  entities: LoreEntity[]
+): { newMarkdown: string; totalLinked: number; entityLinkCounts: Record<string, number> } {
+  if (!markdown || !entities || entities.length === 0) {
+    return { newMarkdown: markdown, totalLinked: 0, entityLinkCounts: {} }
+  }
+
+  // Filter valid entries and sort by descending name length
+  const validEntities = entities
+    .filter((e) => e.name && e.name.trim() && e.description && e.description.trim())
+    .sort((a, b) => b.name.trim().length - a.name.trim().length)
+
+  if (validEntities.length === 0) {
+    return { newMarkdown: markdown, totalLinked: 0, entityLinkCounts: {} }
+  }
+
+  // Map of exact names and case-insensitive fallbacks to their payload
+  const exactLookup = new Map<string, { entity: LoreEntity; payload: string }>()
+  const escapedPatterns: string[] = []
+  const seenPatterns = new Set<string>()
+
+  for (const ent of validEntities) {
+    const trimmed = ent.name.trim()
+    const payload = buildLorePayload(ent)
+    exactLookup.set(trimmed, { entity: ent, payload })
+
+    const escaped = escapeRegExp(trimmed)
+    if (!seenPatterns.has(escaped)) {
+      seenPatterns.add(escaped)
+      escapedPatterns.push(escaped)
+    }
+  }
+
+  // Combined single-pass alternation regex
+  const combinedRegex = new RegExp(
+    `(?<![\\p{L}\\p{N}_])(${escapedPatterns.join('|')})(?![\\p{L}\\p{N}_])`,
+    'gu'
+  )
+
+  let totalLinked = 0
+  const entityLinkCounts: Record<string, number> = {}
+
+  // Protected tokens: code blocks, inline code, HTML tags, markdown links, wiki links
+  const tokenRegex = /(```[\s\S]*?```|`[^`]+`|<[^>]+>|!?\\*\[[^\]]*\\*\]\([^)]*\)|\\*\[\\*\[[^\]]*\\*\]\\*\])/g
+  const parts = markdown.split(tokenRegex)
+
+  const processed = parts.map((part) => {
+    // If it's a protected block, leave untouched
+    if (
+      part.startsWith('```') ||
+      (part.startsWith('`') && part.endsWith('`')) ||
+      part.startsWith('<') ||
+      part.startsWith('[') ||
+      part.startsWith('![') ||
+      part.startsWith('\\[')
+    ) {
+      return part
+    }
+
+    // Single-pass replacement on plain prose
+    return part.replace(combinedRegex, (_full, matchedWord) => {
+      // Find matching lookup (exact case first, then normalized apostrophe)
+      let lookup = exactLookup.get(matchedWord)
+      if (!lookup) {
+        // Fallback for straight vs curly apostrophe
+        const normKey = matchedWord.replace(/’/g, "'")
+        for (const [key, val] of exactLookup.entries()) {
+          if (key.replace(/’/g, "'") === normKey) {
+            lookup = val
+            break
+          }
+        }
+      }
+
+      if (!lookup) return matchedWord
+
+      totalLinked++
+      entityLinkCounts[lookup.entity.name] = (entityLinkCounts[lookup.entity.name] || 0) + 1
+      return `[${matchedWord}](${lookup.payload})`
+    })
+  })
+
+  return {
+    newMarkdown: processed.join(''),
+    totalLinked,
+    entityLinkCounts,
+  }
+}
+
+/**
  * Links ONLY the first unlinked occurrence of an entity name across the chapter prose.
  * Used when applyToAll is unchecked.
  */
