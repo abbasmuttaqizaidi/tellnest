@@ -47,6 +47,8 @@ import { formatViewCount } from '../lib/utils'
 import { ReaderQuoteShareTooltip } from '../components/reader/ReaderQuoteShareTooltip'
 import { ShareStoryModal } from '../components/ShareStoryModal'
 import { ReaderSkeleton } from '../components/ReaderSkeleton'
+import { LoreGlossaryTrigger } from '../components/reader/LoreGlossaryTrigger'
+import { parseLorePayload } from '../lib/lore/loreParser'
 
 export const Route = createFileRoute('/read/$workId/$chapterId')({
   pendingMs: 0,
@@ -281,15 +283,69 @@ function formatInlineMarkdown(text: string): React.ReactNode {
   const cleanText = text.replace(/\\+[ \t]*(?=\r?\n|$)/g, '')
 
   // Regex matches:
-  // 1. Bold (**text** or __text__)
-  // 2. Italic (*text* or _text_)
-  // 3. Strikethrough (~~text~~)
-  // 4. Inline code (`code`)
-  const regex = /(\*\*[^*]+\*\*|__[^_]+__|(?<!\*)\*[^*]+\*(?!\*)|(?<!_)_[^_]+_(?!_)|~~[^~]+~~|`[^`]+`)/g
+  // 1. Wiki Lore Link ([[Text|Type|Description]] or [[Text|Description]])
+  // 2. Markdown Lore / Hyperlink ([Text](lore:...) or [Text](url))
+  // 3. Bold (**text** or __text__)
+  // 4. Italic (*text* or _text_)
+  // 5. Strikethrough (~~text~~)
+  // 6. Inline code (`code`)
+  const regex = /(\[\[[^|\]]+\|[^\]]+\]\]|\[[^\]]+\]\([^)]+\)|\*\*[^*]+\*\*|__[^_]+__|(?<!\*)\*[^*]+\*(?!\*)|(?<!_)_[^_]+_(?!_)|~~[^~]+~~|`[^`]+`)/g
   const parts = cleanText.split(regex)
   if (parts.length === 1) return cleanText
 
   return parts.map((part, index) => {
+    // 1. Wiki lore link: [[Text|Type|Description]] or [[Text|Description]]
+    if (part.startsWith('[[') && part.endsWith(']]') && part.length >= 5) {
+      const inner = part.slice(2, -2)
+      const pipeIdx = inner.indexOf('|')
+      if (pipeIdx !== -1) {
+        const entityName = inner.slice(0, pipeIdx).trim()
+        const rawPayload = inner.slice(pipeIdx + 1).trim()
+        const { entityType, description } = parseLorePayload(rawPayload)
+        return (
+          <LoreGlossaryTrigger
+            key={index}
+            text={entityName}
+            entityType={entityType}
+            description={description}
+          />
+        )
+      }
+    }
+
+    // 2. Markdown link: [Text](lore:Type|Description) or [Text](url)
+    if (part.startsWith('[') && part.endsWith(')') && part.includes('](')) {
+      const match = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/)
+      if (match) {
+        const linkText = match[1]
+        const linkTarget = match[2]
+        if (linkTarget.startsWith('lore:')) {
+          const rawPayload = linkTarget.slice(5)
+          const { entityType, description } = parseLorePayload(rawPayload)
+          return (
+            <LoreGlossaryTrigger
+              key={index}
+              text={linkText}
+              entityType={entityType}
+              description={description}
+            />
+          )
+        }
+        // Standard Web Link
+        return (
+          <a
+            key={index}
+            href={linkTarget}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-amber-700 dark:text-amber-400 underline underline-offset-4 decoration-amber-500/50 hover:opacity-80 transition-opacity"
+          >
+            {linkText}
+          </a>
+        )
+      }
+    }
+
     // Bold: **text** or __text__
     if ((part.startsWith('**') && part.endsWith('**') && part.length >= 4) ||
         (part.startsWith('__') && part.endsWith('__') && part.length >= 4)) {

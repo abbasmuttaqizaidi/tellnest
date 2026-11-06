@@ -119,6 +119,8 @@ export function cleanTextForSpeech(rawText: string): string {
   return rawText
     // Remove markdown links [text](url) -> text
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    // Remove wiki/lore links [[text|...]] -> text
+    .replace(/\[\[([^|\]]+)(?:\|[^\]]+)?\]\]/g, '$1')
     // Remove standalone URLs
     .replace(/https?:\/\/\S+/g, '')
     // Remove markdown headings (# Heading -> Heading)

@@ -28,9 +28,20 @@ import {
   Image as ImageIcon,
   X,
   Layers,
+  Sparkles,
+  BookOpen,
+  Tag,
 } from 'lucide-react'
+import Link from '@tiptap/extension-link'
 import { ChapterDiffViewer } from './ChapterDiffViewer'
 import { CloudinaryImageUpload } from '../CloudinaryImageUpload'
+import { LoreGlossaryTrigger } from '../reader/LoreGlossaryTrigger'
+import { StoryLoreModal } from './StoryLoreModal'
+import {
+  extractLoreEntities,
+  countEntityMentions,
+  parseLorePayload,
+} from '../../lib/lore/loreParser'
 
 export interface StoryRichEditorProps {
   title: string
@@ -67,11 +78,62 @@ export interface StoryRichEditorProps {
 function formatInlineMarkdown(text: string): React.ReactNode {
   // Strip any trailing backslashes before newlines or end of line (markdown hard-break artifacts)
   const cleanText = text.replace(/\\+[ \t]*(?=\r?\n|$)/g, '')
-  const regex = /(\*\*[^*]+\*\*|__[^_]+__|(?<!\*)\*[^*]+\*(?!\*)|(?<!_)_[^_]+_(?!_)|~~[^~]+~~|`[^`]+`)/g
+  const regex = /(\[\[[^|\]]+\|[^\]]+\]\]|\[[^\]]+\]\([^)]+\)|\*\*[^*]+\*\*|__[^_]+__|(?<!\*)\*[^*]+\*(?!\*)|(?<!_)_[^_]+_(?!_)|~~[^~]+~~|`[^`]+`)/g
   const parts = cleanText.split(regex)
   if (parts.length === 1) return cleanText
 
   return parts.map((part, index) => {
+    // 1. Wiki lore link: [[Text|Type|Description]] or [[Text|Description]]
+    if (part.startsWith('[[') && part.endsWith(']]') && part.length >= 5) {
+      const inner = part.slice(2, -2)
+      const pipeIdx = inner.indexOf('|')
+      if (pipeIdx !== -1) {
+        const entityName = inner.slice(0, pipeIdx).trim()
+        const rawPayload = inner.slice(pipeIdx + 1).trim()
+        const { entityType, description } = parseLorePayload(rawPayload)
+        return (
+          <LoreGlossaryTrigger
+            key={index}
+            text={entityName}
+            entityType={entityType}
+            description={description}
+          />
+        )
+      }
+    }
+
+    // 2. Markdown link: [Text](lore:Type|Description) or [Text](url)
+    if (part.startsWith('[') && part.endsWith(')') && part.includes('](')) {
+      const match = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/)
+      if (match) {
+        const linkText = match[1]
+        const linkTarget = match[2]
+        if (linkTarget.startsWith('lore:')) {
+          const rawPayload = linkTarget.slice(5)
+          const { entityType, description } = parseLorePayload(rawPayload)
+          return (
+            <LoreGlossaryTrigger
+              key={index}
+              text={linkText}
+              entityType={entityType}
+              description={description}
+            />
+          )
+        }
+        return (
+          <a
+            key={index}
+            href={linkTarget}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-amber-700 dark:text-amber-400 underline underline-offset-4 decoration-amber-500/50 hover:opacity-80 transition-opacity"
+          >
+            {linkText}
+          </a>
+        )
+      }
+    }
+
     if (
       (part.startsWith('**') && part.endsWith('**') && part.length >= 4) ||
       (part.startsWith('__') && part.endsWith('__') && part.length >= 4)
@@ -226,6 +288,21 @@ export function StoryRichEditor({
   const [showTypographyMenu, setShowTypographyMenu] = useState(false)
   const [hasSelection, setHasSelection] = useState(false)
 
+  // Story Lore and Footnote Annotations
+  const [isLoreModalOpen, setIsLoreModalOpen] = useState(false)
+  const [loreSelectedText, setLoreSelectedText] = useState('')
+
+  const definedLoreEntities = useMemo(() => {
+    return extractLoreEntities(content || '')
+  }, [content])
+
+  const totalUnlinkedLoreMentions = useMemo(() => {
+    return definedLoreEntities.reduce((sum, e) => {
+      const stats = countEntityMentions(content || '', e.name)
+      return sum + stats.unlinkedCount
+    }, 0)
+  }, [definedLoreEntities, content])
+
   const editorContainerRef = useRef<HTMLDivElement | null>(null)
 
   // Typography class calculations
@@ -256,6 +333,13 @@ export function StoryRichEditor({
         blockquote: {},
         bulletList: {},
         orderedList: {},
+      }),
+      Link.configure({
+        openOnClick: false,
+        autolink: false,
+        HTMLAttributes: {
+          class: 'story-lore-link font-inherit text-inherit underline decoration-dotted decoration-[var(--ink-muted)] underline-offset-4',
+        },
       }),
       Placeholder.configure({
         placeholder: 'Begin crafting your narrative here. Words flow naturally without distraction...',
@@ -586,6 +670,37 @@ export function StoryRichEditor({
             </button>
           </div>
 
+          {/* Characters & Story Lore */}
+          <div className="flex items-center rounded-lg bg-[var(--bg-canvas)] p-0.5 border border-[var(--border-subtle)]">
+            <button
+              type="button"
+              onClick={() => {
+                const selected = editor ? editor.state.doc.textBetween(editor.state.selection.from, editor.state.selection.to) : ''
+                setLoreSelectedText(selected)
+                setIsLoreModalOpen(true)
+              }}
+              className={`px-2 py-1 rounded text-xs transition-colors flex items-center gap-1.5 cursor-pointer ${
+                totalUnlinkedLoreMentions > 0
+                  ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 font-semibold border border-amber-500/30'
+                  : definedLoreEntities.length > 0
+                  ? 'bg-[var(--bg-surface)] text-[var(--ink-primary)] font-medium'
+                  : 'hover:bg-[var(--bg-surface)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
+              }`}
+              title="Characters & Lore Notes (interactive footnotes for readers)"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+              <span className="font-serif text-[11px]">Lore</span>
+              {definedLoreEntities.length > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-[var(--bg-surface)] border border-[var(--border-subtle)]">
+                  {definedLoreEntities.length}
+                </span>
+              )}
+              {totalUnlinkedLoreMentions > 0 && (
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+              )}
+            </button>
+          </div>
+
           {/* Undo / Redo */}
           <div className="hidden sm:flex items-center rounded-lg bg-[var(--bg-canvas)] p-0.5 border border-[var(--border-subtle)]">
             <button
@@ -853,6 +968,20 @@ export function StoryRichEditor({
           >
             ✦ Break
           </button>
+          <span className="h-3 w-px bg-[var(--border-subtle)]" />
+          <button
+            type="button"
+            onClick={() => {
+              const selected = editor ? editor.state.doc.textBetween(editor.state.selection.from, editor.state.selection.to) : ''
+              setLoreSelectedText(selected)
+              setIsLoreModalOpen(true)
+            }}
+            className="px-2 py-0.5 rounded text-[11px] font-medium bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 border border-amber-500/30 flex items-center gap-1 transition-colors cursor-pointer"
+            title="Annotate this character or location with a reader footnote"
+          >
+            <Sparkles className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+            <span>Lore Note</span>
+          </button>
         </div>
       )}
 
@@ -1068,6 +1197,23 @@ export function StoryRichEditor({
           <span>{charCount.toLocaleString()} chars</span>
           <span>•</span>
           <span>~{readTimeMinutes} min read</span>
+          {totalUnlinkedLoreMentions > 0 && (
+            <>
+              <span>•</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setLoreSelectedText('')
+                  setIsLoreModalOpen(true)
+                }}
+                className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 font-sans text-[11px] font-semibold border border-amber-500/20 transition-colors cursor-pointer"
+                title="Review unlinked characters or lore notes"
+              >
+                <Sparkles className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                <span>{totalUnlinkedLoreMentions} unlinked lore mention{totalUnlinkedLoreMentions > 1 ? 's' : ''}</span>
+              </button>
+            </>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
@@ -1145,6 +1291,20 @@ export function StoryRichEditor({
           </div>
         </div>
       )}
+
+      {/* Story Lore & Footnotes Manager Modal */}
+      <StoryLoreModal
+        isOpen={isLoreModalOpen}
+        onClose={() => setIsLoreModalOpen(false)}
+        content={content}
+        onUpdateContent={(newMd) => {
+          onChange(newMd)
+          if (editor) {
+            editor.commands.setContent(newMd, { emitUpdate: false })
+          }
+        }}
+        initialSelectedText={loreSelectedText}
+      />
     </div>
   )
 }
