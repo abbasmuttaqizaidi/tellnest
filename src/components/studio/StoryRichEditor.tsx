@@ -42,6 +42,7 @@ import {
   extractLoreEntities,
   countEntityMentions,
   parseLorePayload,
+  normalizeLoreLinks,
 } from '../../lib/lore/loreParser'
 
 export interface StoryRichEditorProps {
@@ -1314,10 +1315,11 @@ export function StoryRichEditor({
         onClose={() => setIsLoreModalOpen(false)}
         content={content}
         onUpdateContent={(newMd) => {
-          onChange(newMd)
+          const normalized = normalizeLoreLinks(newMd)
+          onChange(normalized)
           if (editor) {
             const { from, to } = editor.state.selection
-            editor.commands.setContent(newMd, { emitUpdate: false })
+            editor.commands.setContent(normalized, { emitUpdate: false })
             try {
               const maxPos = editor.state.doc.content.size
               const safeFrom = Math.min(from, maxPos)

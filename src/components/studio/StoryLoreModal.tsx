@@ -81,8 +81,8 @@ export function StoryLoreModal({
   }, [entitiesWithStats])
 
   // Handle Save / Link single entity
-  const handleSaveEntity = (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSaveEntity = (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
     const trimmedName = name.trim()
     const trimmedDesc = description.trim()
     if (!trimmedName || !trimmedDesc) return
@@ -101,12 +101,24 @@ export function StoryLoreModal({
     if (countReplaced > 0) {
       onUpdateContent(newMarkdown)
       showToast(`Linked ${countReplaced} occurrence${countReplaced > 1 ? 's' : ''} of "${trimmedName}"`)
-      // Reset form on success
       setName('')
       setDescription('')
+      onClose()
     } else {
       // Clear feedback when word is not found in chapter prose
       showToast(`"${trimmedName}" chapter text mein nahi mila. Pehle ise chapter text mein likhein.`)
+    }
+  }
+
+  // Handle Footer Action (Done / Save & Link)
+  const handleFooterAction = (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    const trimmedName = name.trim()
+    const trimmedDesc = description.trim()
+    if (trimmedName && trimmedDesc) {
+      handleSaveEntity()
+    } else {
+      onClose()
     }
   }
 
@@ -363,13 +375,23 @@ export function StoryLoreModal({
             <HelpCircle className="h-3.5 w-3.5" />
             <span>Format: <code className="font-mono text-[10px] bg-[var(--bg-surface)] px-1 py-0.5 rounded border border-[var(--border-subtle)]">[Name](lore:Type|Desc)</code></span>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-1.5 rounded-lg bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-xs font-semibold hover:opacity-90 transition-opacity cursor-pointer"
-          >
-            Done
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3 py-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)] text-xs font-semibold hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleFooterAction}
+              className="px-4 py-1.5 rounded-lg bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-xs font-semibold hover:opacity-90 transition-opacity cursor-pointer flex items-center gap-1.5"
+            >
+              <Check className="h-3.5 w-3.5" />
+              <span>{name.trim() && description.trim() ? 'Save & Link' : 'Done'}</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

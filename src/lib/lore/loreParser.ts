@@ -41,6 +41,27 @@ export function buildLorePayload(entity: LoreEntity): string {
 }
 
 /**
+ * Normalizes all lore links in a markdown document so that unencoded spaces,
+ * parentheses, and quotes in legacy lore payloads are cleanly converted to RFC 3986.
+ */
+export function normalizeLoreLinks(markdown: string): string {
+  if (!markdown) return markdown
+  return markdown.replace(/\\*\[([^\]]+)\\*\]\(lore:([^)]+)\)/g, (full, name, rawPayload) => {
+    if (
+      rawPayload.includes(' ') ||
+      rawPayload.includes('(') ||
+      rawPayload.includes(')') ||
+      rawPayload.includes('"') ||
+      rawPayload.includes("'")
+    ) {
+      const { entityType, description } = parseLorePayload(rawPayload)
+      return `[${name}](${buildLorePayload({ name, entityType, description })})`
+    }
+    return full
+  })
+}
+
+/**
  * Parses payload string into entityType and description.
  * Safe against double-encoding and unencoded legacy strings.
  * e.g. "Character|Male%2C%2023" -> { entityType: "Character", description: "Male, 23" }

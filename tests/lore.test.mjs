@@ -9,6 +9,7 @@ import {
   unlinkAllOccurrences,
   buildLorePayload,
   fixedEncodeURIComponent,
+  normalizeLoreLinks,
 } from '../src/lib/lore/loreParser.ts'
 
 test('parseLorePayload correctly separates entityType and description', () => {
@@ -186,4 +187,24 @@ test('admin multi-chapter lore linking workflow', () => {
   assert.ok(updated[0].content.includes('[Arthur](lore:Character|The%20legendary%20protagonist)'))
   assert.ok(updated[1].content.includes('[Arthur](lore:Character|The%20legendary%20protagonist)'))
   assert.equal(updated[2].content, chapters[2].content)
+})
+
+test('user case: links Navya in chapter text containing legacy Kavya lore link', () => {
+  const originalText = `This is a story about a woman called Navya and a man called [Kavya](lore:Character|man, 23).
+
+Navya didint know that he can get pass through the bridge but when [Kavya](lore:Character|man, 23) saw that so he was very happy`
+
+  const entity = {
+    name: 'Navya',
+    entityType: 'Character',
+    description: 'woman, 23',
+  }
+
+  const { newMarkdown, countReplaced } = linkAllOccurrences(originalText, entity)
+  assert.equal(countReplaced, 2)
+  const normalized = normalizeLoreLinks(newMarkdown)
+
+  assert.ok(normalized.includes('[Navya](lore:Character|woman%2C%2023)'))
+  assert.ok(normalized.includes('[Kavya](lore:Character|man%2C%2023)'))
+  assert.ok(!normalized.includes('called Navya and'))
 })
