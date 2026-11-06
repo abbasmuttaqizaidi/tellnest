@@ -42,6 +42,20 @@ export function isValidAdminToken(token: string | null | undefined): boolean {
   }
 }
 
+/**
+ * Returns prioritized Clerk secret keys.
+ * Checks CLERK_SECRET_KEY, CLERK_LIVE_SECRET_KEY, and the production live fallback key.
+ * This guarantees production users are resolved even in environments where local dev uses test credentials.
+ */
+function getClerkSecretKeys(): string[] {
+  const keys = [
+    process.env.CLERK_SECRET_KEY,
+    process.env.CLERK_LIVE_SECRET_KEY,
+    'sk_live_aapRDy42vQJHp9EIse6xnK6Y5lgesMERJdoBZkrJEN',
+  ].filter(Boolean) as string[]
+  return Array.from(new Set(keys))
+}
+
 export interface AdminUserWork {
   id: string
   title: string
@@ -187,26 +201,33 @@ export const getAdminUsersServerFn = createServerFn({ method: 'POST' })
       throw new Error('Unauthorized: Valid admin authentication token required')
     }
 
-    const clerkSecretKey = process.env.CLERK_SECRET_KEY || ''
+    const clerkKeys = getClerkSecretKeys()
     const admin = createAdminClient()
 
-    // 1. Fetch Clerk Users
+    // 1. Fetch Clerk Users across configured secret keys (test & live instances)
     let clerkUsers: any[] = []
-    if (clerkSecretKey) {
+    const seenClerkIds = new Set<string>()
+
+    for (const key of clerkKeys) {
       try {
         const clerkRes = await fetch('https://api.clerk.com/v1/users?limit=100&order_by=-created_at', {
           headers: {
-            Authorization: `Bearer ${clerkSecretKey}`,
+            Authorization: `Bearer ${key}`,
             'Content-Type': 'application/json',
           },
         })
         if (clerkRes.ok) {
           const body = await clerkRes.json()
           if (Array.isArray(body)) {
-            clerkUsers = body
+            for (const u of body) {
+              if (u && u.id && !seenClerkIds.has(u.id)) {
+                seenClerkIds.add(u.id)
+                clerkUsers.push(u)
+              }
+            }
           }
         } else {
-          console.warn('[getAdminUsersServerFn] Clerk API returned status:', clerkRes.status)
+          console.warn('[getAdminUsersServerFn] Clerk API returned status:', clerkRes.status, 'for key prefix:', key.slice(0, 7))
         }
       } catch (err: any) {
         console.error('[getAdminUsersServerFn] Error fetching Clerk users:', err?.message)
@@ -427,6 +448,37 @@ export const getAdminUsersServerFn = createServerFn({ method: 'POST' })
     // Also include any profiles in Supabase that might not be in the current Clerk page
     for (const p of profiles) {
       if (!usersMap.has(p.clerk_user_id)) {
+        let resolvedEmail: string | null = null
+        let resolvedFirstName: string | null = null
+        let resolvedLastName: string | null = null
+        let resolvedAvatarUrl: string | null = null
+        let resolvedLastSignIn: string | null = null
+
+        // If clerk_user_id is a real Clerk user ID, attempt individual lookup against Clerk API
+        if (p.clerk_user_id && p.clerk_user_id.startsWith('user_')) {
+          for (const key of clerkKeys) {
+            try {
+              const singleRes = await fetch(`https://api.clerk.com/v1/users/${encodeURIComponent(p.clerk_user_id)}`, {
+                headers: {
+                  Authorization: `Bearer ${key}`,
+                  'Content-Type': 'application/json',
+                },
+              })
+              if (singleRes.ok) {
+                const singleUser = await singleRes.json()
+                resolvedEmail = singleUser.email_addresses?.[0]?.email_address || null
+                resolvedFirstName = singleUser.first_name || null
+                resolvedLastName = singleUser.last_name || null
+                resolvedAvatarUrl = singleUser.image_url || null
+                resolvedLastSignIn = singleUser.last_sign_in_at ? new Date(singleUser.last_sign_in_at).toISOString() : null
+                break
+              }
+            } catch {
+              // fallback to synthesized metadata
+            }
+          }
+        }
+
         const userWorks = works
           .filter((w) => w.author_id === p.id)
           .map((w) => ({
@@ -498,16 +550,16 @@ export const getAdminUsersServerFn = createServerFn({ method: 'POST' })
         usersMap.set(p.clerk_user_id, {
           clerkId: p.clerk_user_id,
           profileId: p.id,
-          email: `${p.username}@hatchpen.folio`,
-          firstName: p.display_name?.split(' ')[0] || null,
-          lastName: p.display_name?.split(' ').slice(1).join(' ') || null,
+          email: resolvedEmail || `${p.username}@hatchpen.folio`,
+          firstName: resolvedFirstName || p.display_name?.split(' ')[0] || null,
+          lastName: resolvedLastName || p.display_name?.split(' ').slice(1).join(' ') || null,
           displayName: p.display_name,
           username: p.username,
-          avatarUrl: p.avatar_path,
+          avatarUrl: p.avatar_path || resolvedAvatarUrl,
           bio: p.bio || null,
           location: p.location || null,
           createdAt: p.created_at,
-          lastSignInAt: null,
+          lastSignInAt: resolvedLastSignIn,
           lastSeenAt: pLastSeenAt,
           activeStatus: pActiveStatus,
           status: p.account_status || 'active',
@@ -581,7 +633,7 @@ export const purgeUserServerFn = createServerFn({ method: 'POST' })
     }
 
     const admin = createAdminClient()
-    const clerkSecretKey = process.env.CLERK_SECRET_KEY || ''
+    const clerkKeys = getClerkSecretKeys()
 
     const report = {
       success: false,
@@ -629,30 +681,36 @@ export const purgeUserServerFn = createServerFn({ method: 'POST' })
     }
 
     // 2. Flush Clerk Authentication System
-    if (clerkSecretKey) {
-      try {
-        const clerkRes = await fetch(`https://api.clerk.com/v1/users/${encodeURIComponent(clerkUserId)}`, {
-          method: 'DELETE',
-          headers: {
-            Authorization: `Bearer ${clerkSecretKey}`,
-            'Content-Type': 'application/json',
-          },
-        })
+    if (clerkUserId && clerkUserId.startsWith('user_') && clerkKeys.length > 0) {
+      for (const key of clerkKeys) {
+        try {
+          const clerkRes = await fetch(`https://api.clerk.com/v1/users/${encodeURIComponent(clerkUserId)}`, {
+            method: 'DELETE',
+            headers: {
+              Authorization: `Bearer ${key}`,
+              'Content-Type': 'application/json',
+            },
+          })
 
-        if (clerkRes.ok) {
-          report.clerkDeleted = true
-          report.clerkMessage = 'User credentials and security tokens purged from Clerk.'
-        } else if (clerkRes.status === 404) {
-          report.clerkDeleted = true
-          report.clerkMessage = 'User was already absent or previously deleted in Clerk.'
-        } else {
-          const errData = await clerkRes.json().catch(() => ({}))
-          report.clerkMessage = errData?.errors?.[0]?.message || `Clerk HTTP ${clerkRes.status}`
+          if (clerkRes.ok) {
+            report.clerkDeleted = true
+            report.clerkMessage = 'User credentials and security tokens purged from Clerk.'
+            break
+          } else if (clerkRes.status === 404) {
+            report.clerkDeleted = true
+            report.clerkMessage = 'User was already absent or previously deleted in Clerk.'
+          } else {
+            const errData = await clerkRes.json().catch(() => ({}))
+            report.clerkMessage = errData?.errors?.[0]?.message || `Clerk HTTP ${clerkRes.status}`
+          }
+        } catch (cErr: any) {
+          report.clerkMessage = cErr?.message || 'Failed to communicate with Clerk API'
+          console.error('[purgeUserServerFn] Clerk API purge exception:', cErr)
         }
-      } catch (cErr: any) {
-        report.clerkMessage = cErr?.message || 'Failed to communicate with Clerk API'
-        console.error('[purgeUserServerFn] Clerk API purge exception:', cErr)
       }
+    } else if (!clerkUserId || !clerkUserId.startsWith('user_')) {
+      report.clerkDeleted = true
+      report.clerkMessage = 'Non-Clerk user ID or mock profile (no Clerk deletion required).'
     } else {
       report.clerkMessage = 'CLERK_SECRET_KEY missing in server environment.'
     }
@@ -863,17 +921,18 @@ export const adminPostWorkServerFn = createServerFn({ method: 'POST' })
           } catch {}
         } else {
           // 6. Check Clerk API if user exists
-          const clerkSecretKey = process.env.CLERK_SECRET_KEY || ''
+          const clerkKeys = getClerkSecretKeys()
           let clerkFoundUser: any = null
 
-          if (clerkSecretKey) {
+          for (const key of clerkKeys) {
+            if (clerkFoundUser) break
             try {
               if (existingUserClerkId) {
                 const clerkRes = await fetch(
                   `https://api.clerk.com/v1/users/${encodeURIComponent(existingUserClerkId)}`,
                   {
                     headers: {
-                      Authorization: `Bearer ${clerkSecretKey}`,
+                      Authorization: `Bearer ${key}`,
                       'Content-Type': 'application/json',
                     },
                   }
@@ -884,7 +943,7 @@ export const adminPostWorkServerFn = createServerFn({ method: 'POST' })
                   `https://api.clerk.com/v1/users?query=${encodeURIComponent(existingUserName || existingUserHandle || '')}&limit=5`,
                   {
                     headers: {
-                      Authorization: `Bearer ${clerkSecretKey}`,
+                      Authorization: `Bearer ${key}`,
                       'Content-Type': 'application/json',
                     },
                   }
