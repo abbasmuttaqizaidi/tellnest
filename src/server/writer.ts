@@ -1269,6 +1269,101 @@ export const deleteWriterChapterServerFn = createServerFn({ method: 'POST' })
     return executeDeleteWriterChapter(data)
   })
 
+export interface DeleteWriterWorkPayload {
+  workId: string
+  clerkUserId?: string
+}
+
+/**
+ * Core business logic to permanently delete a manuscript and cascade all dependent records
+ */
+export async function executeDeleteWriterWork(
+  data: DeleteWriterWorkPayload,
+  adminClient?: any,
+  authResolver?: () => Promise<{ userId: string | null } | null>
+) {
+  if (!data.workId?.trim()) throw new Error('Work ID is required')
+
+  const admin = adminClient || createAdminClient()
+
+  // 1. Verify caller authentication
+  if (!data.clerkUserId) {
+    throw new Error('User authentication required')
+  }
+  const verifiedUserId = await authenticateWriterRequest(data.clerkUserId, authResolver)
+
+  // 2. Resolve author profile
+  const profile = await resolveUserProfile(admin, verifiedUserId)
+
+  // 3. Resolve work UUID and fetch work details
+  let workUuid = data.workId.trim()
+  const isWorkUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(workUuid)
+  let workRow: any = null
+
+  if (isWorkUuid) {
+    const { data: row } = await admin
+      .from('works')
+      .select('id, title, slug, author_id')
+      .eq('id', workUuid)
+      .maybeSingle()
+    workRow = row
+  } else {
+    const { data: row } = await admin
+      .from('works')
+      .select('id, title, slug, author_id')
+      .eq('slug', workUuid.toLowerCase())
+      .maybeSingle()
+    workRow = row
+    if (workRow?.id) workUuid = workRow.id
+  }
+
+  if (!workRow) {
+    throw new Error('Manuscript not found')
+  }
+
+  // 4. Verify ownership
+  if (workRow.author_id !== profile.id) {
+    throw new Error('Unauthorized: You can only delete your own manuscripts.')
+  }
+
+  // 5. Delete the work row (ON DELETE CASCADE handles chapters, acts, bookmarks, progress, etc.)
+  const { error: delErr } = await admin
+    .from('works')
+    .delete()
+    .eq('id', workUuid)
+    .eq('author_id', profile.id)
+
+  if (delErr) {
+    console.error('[deleteWriterWorkServerFn] Error deleting manuscript:', delErr.message)
+    throw new Error(`Failed to delete manuscript: ${delErr.message}`)
+  }
+
+  // 6. Invalidate public caches
+  clearPublicWorkCache(workUuid)
+  if (workRow.slug) {
+    clearPublicWorkCache(workRow.slug)
+  }
+
+  return {
+    success: true,
+    deletedWorkId: workUuid,
+    deletedTitle: workRow.title,
+  }
+}
+
+/**
+ * 5.2 Delete a Manuscript safely from PostgreSQL with author ownership verification
+ */
+export const deleteWriterWorkServerFn = createServerFn({ method: 'POST' })
+  .validator((params: DeleteWriterWorkPayload) => {
+    if (!params.workId?.trim()) throw new Error('Work ID is required')
+    if (!params.clerkUserId?.trim()) throw new Error('User authentication required')
+    return params
+  })
+  .handler(async ({ data }) => {
+    return executeDeleteWriterWork(data)
+  })
+
 export interface CreateWriterActPayload {
   workId: string
   title: string

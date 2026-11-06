@@ -57,7 +57,6 @@ function getClerkSecretKeys(): string[] {
   const keys = [
     process.env.CLERK_SECRET_KEY,
     process.env.CLERK_LIVE_SECRET_KEY,
-    'sk_live_aapRDy42vQJHp9EIse6xnK6Y5lgesMERJdoBZkrJEN',
   ].filter(Boolean) as string[]
   return Array.from(new Set(keys))
 }

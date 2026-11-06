@@ -40,6 +40,7 @@ import {
   Image as ImageIcon,
   X,
   Sparkles,
+  AlertTriangle,
 } from 'lucide-react'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { generateMeta } from '../lib/seo'
@@ -57,6 +58,7 @@ import {
   updateWriterActServerFn,
   deleteWriterActServerFn,
   deleteWriterChapterServerFn,
+  deleteWriterWorkServerFn,
   updateWriterWorkPublicationServerFn,
   updateWriterWorkCoverServerFn,
   updateWriterWorkMetadataServerFn,
@@ -875,6 +877,32 @@ function WorkManagementPage() {
     }
   }
 
+  // Delete Entire Manuscript State & Handler
+  const [deleteWorkModalOpen, setDeleteWorkModalOpen] = useState(false)
+  const [isDeletingWork, setIsDeletingWork] = useState(false)
+
+  const handleDeleteManuscript = async () => {
+    if (!user?.id || !work?.id) return
+    try {
+      setIsDeletingWork(true)
+      await deleteWriterWorkServerFn({
+        data: {
+          workId: work.id,
+          clerkUserId: user.id,
+        },
+      })
+      await reloadWriterWorksFromDb()
+      showToast(`Manuscript "${work.title}" permanently deleted.`)
+      navigate({ to: '/write' })
+    } catch (err: any) {
+      console.error('[handleDeleteManuscript] Error:', err)
+      showToast(err?.message || 'Failed to delete manuscript')
+    } finally {
+      setIsDeletingWork(false)
+      setDeleteWorkModalOpen(false)
+    }
+  }
+
   const handleToggleStatus = async (chapterId: string) => {
     const targetChapter = chapters.find((c) => c.id === chapterId)
     if (!targetChapter) return
@@ -1204,6 +1232,17 @@ function WorkManagementPage() {
               <BarChart3 className="h-3.5 w-3.5 text-black dark:text-white" />
               <span className="hidden sm:inline">Analytics</span>
             </Link>
+
+            {/* Delete Manuscript Button */}
+            <button
+              type="button"
+              onClick={() => setDeleteWorkModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/5 hover:bg-red-500/15 text-red-600 dark:text-red-400 px-3 py-2 text-xs font-medium transition-colors cursor-pointer shadow-2xs"
+              title="Permanently delete this manuscript"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Delete</span>
+            </button>
 
             {/* Add Button with Popup Dropdown */}
             <div className="relative" ref={addDropdownRef}>
@@ -1875,6 +1914,27 @@ function WorkManagementPage() {
             )}
           </div>
         )}
+
+        {/* Danger Zone: Delete Manuscript */}
+        <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-8">
+          <div className="space-y-1">
+            <h3 className="font-serif text-sm font-semibold text-red-600 dark:text-red-400 flex items-center gap-2">
+              <Trash2 className="h-4 w-4" />
+              <span>Danger Zone: Delete Manuscript</span>
+            </h3>
+            <p className="text-xs text-[var(--ink-secondary)]">
+              Permanently delete this manuscript, including all acts, chapters, reader progress, and statistics. This action is irreversible.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setDeleteWorkModalOpen(true)}
+            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer shrink-0"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            <span>Delete Manuscript</span>
+          </button>
+        </div>
 
       </div>
 
@@ -2812,6 +2872,61 @@ function WorkManagementPage() {
             await handleUpdateChapterContent(activeLoreChapter.id, newContent)
           }}
         />
+      )}
+
+      {/* Delete Entire Manuscript Confirmation Modal */}
+      {deleteWorkModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3.5">
+              <div className="p-2.5 rounded-xl bg-red-500/10 text-red-600 shrink-0">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="font-serif text-lg font-semibold text-[var(--ink-primary)]">
+                  Delete Manuscript?
+                </h3>
+                <p className="text-xs text-[var(--ink-muted)] mt-1">
+                  Are you sure you want to permanently delete <span className="font-semibold text-[var(--ink-primary)] font-serif">"{work.title}"</span>?
+                </p>
+              </div>
+            </div>
+
+            {/* Warning Banner */}
+            <div className="rounded-xl border border-red-500/30 bg-red-500/10 dark:bg-red-950/20 p-3.5 flex items-start gap-3 text-xs">
+              <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-semibold text-red-700 dark:text-red-300">
+                  This action cannot be undone
+                </p>
+                <p className="text-[11px] leading-relaxed text-[var(--ink-secondary)]">
+                  This will permanently delete this manuscript, all {chapters.length} chapter(s), {acts.length} act(s), lore hyperlinks, comments, bookmarks, and reader analytics.
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border-subtle)]">
+              <button
+                type="button"
+                disabled={isDeletingWork}
+                onClick={() => setDeleteWorkModalOpen(false)}
+                className="px-4 py-2 rounded-lg text-xs font-medium text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingWork}
+                onClick={handleDeleteManuscript}
+                className="rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-700 shadow-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {isDeletingWork && <span className="h-3.5 w-3.5 rounded-full border-2 border-white border-t-transparent animate-spin shrink-0" />}
+                <span>{isDeletingWork ? 'Deleting...' : 'Permanently Delete'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

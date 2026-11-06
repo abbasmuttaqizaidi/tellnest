@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useState, useMemo } from 'react'
+import { useUser } from '@clerk/react'
 import { useApp } from '../context/AppContext'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { generateMeta } from '../lib/seo'
@@ -9,7 +10,10 @@ import {
   Search,
   X,
   BookOpen,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react'
+import { deleteWriterWorkServerFn } from '../server/writer'
 
 export const Route = createFileRoute('/write/')({
   head: () =>
@@ -30,10 +34,34 @@ export const Route = createFileRoute('/write/')({
 })
 
 function WriterStudioPage() {
-  const { writerWorks, isWriterWorksLoading, allWorks } = useApp()
+  const { writerWorks, isWriterWorksLoading, allWorks, showToast, reloadWriterWorksFromDb } = useApp()
+  const { user } = useUser()
 
   const [filterTab, setFilterTab] = useState<'all' | 'published' | 'draft'>('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [deleteWorkTarget, setDeleteWorkTarget] = useState<any | null>(null)
+  const [isDeletingWork, setIsDeletingWork] = useState(false)
+
+  const handleConfirmDeleteWork = async () => {
+    if (!user?.id || !deleteWorkTarget?.id) return
+    try {
+      setIsDeletingWork(true)
+      await deleteWriterWorkServerFn({
+        data: {
+          workId: deleteWorkTarget.id,
+          clerkUserId: user.id,
+        },
+      })
+      await reloadWriterWorksFromDb()
+      showToast(`Manuscript "${deleteWorkTarget.title}" permanently deleted.`)
+      setDeleteWorkTarget(null)
+    } catch (err: any) {
+      console.error('[handleConfirmDeleteWork] Error:', err)
+      showToast(err?.message || 'Failed to delete manuscript')
+    } finally {
+      setIsDeletingWork(false)
+    }
+  }
 
   const publishedWorksCount = useMemo(
     () => writerWorks.filter((w) => w.status === 'Published').length,
@@ -323,6 +351,15 @@ function WriterStudioPage() {
                       >
                         Write
                       </Link>
+
+                      <button
+                        type="button"
+                        onClick={() => setDeleteWorkTarget(work)}
+                        className="p-1.5 rounded-lg text-[var(--ink-muted)] hover:text-red-600 hover:bg-red-500/10 transition-colors cursor-pointer shrink-0"
+                        title="Delete Story"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -331,6 +368,61 @@ function WriterStudioPage() {
           </div>
         )}
       </main>
+
+      {/* Delete Story Confirmation Modal */}
+      {deleteWorkTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3.5">
+              <div className="p-2.5 rounded-xl bg-red-500/10 text-red-600 shrink-0">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="font-serif text-lg font-semibold text-[var(--ink-primary)]">
+                  Delete Manuscript?
+                </h3>
+                <p className="text-xs text-[var(--ink-muted)] mt-1">
+                  Are you sure you want to permanently delete <span className="font-semibold text-[var(--ink-primary)] font-serif">"{deleteWorkTarget.title}"</span>?
+                </p>
+              </div>
+            </div>
+
+            {/* Warning Banner */}
+            <div className="rounded-xl border border-red-500/30 bg-red-500/10 dark:bg-red-950/20 p-3.5 flex items-start gap-3 text-xs">
+              <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-semibold text-red-700 dark:text-red-300">
+                  This action cannot be undone
+                </p>
+                <p className="text-[11px] leading-relaxed text-[var(--ink-secondary)]">
+                  This will permanently delete this manuscript, all its chapters, acts, reader comments, bookmarks, and statistics.
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border-subtle)]">
+              <button
+                type="button"
+                disabled={isDeletingWork}
+                onClick={() => setDeleteWorkTarget(null)}
+                className="px-4 py-2 rounded-lg text-xs font-medium text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingWork}
+                onClick={handleConfirmDeleteWork}
+                className="rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-700 shadow-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {isDeletingWork && <span className="h-3.5 w-3.5 rounded-full border-2 border-white border-t-transparent animate-spin shrink-0" />}
+                <span>{isDeletingWork ? 'Deleting...' : 'Permanently Delete'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
