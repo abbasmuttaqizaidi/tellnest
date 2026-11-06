@@ -1,6 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import { createAdminClient } from '../lib/supabase/server.ts'
 import crypto from 'node:crypto'
+import { clearPublicWorkCache } from './works.ts'
 import {
   linkAllOccurrences,
   unlinkAllOccurrences,
@@ -1443,6 +1444,9 @@ export const adminPostChapterServerFn = createServerFn({ method: 'POST' })
 
     const localChapterId = supabaseChapterId || `admin-ch-${Date.now()}-${assignedChapterNumber}`
 
+    // Invalidate public work server-side cache
+    clearPublicWorkCache(data.workId)
+
     return {
       success: true,
       message: `Part ${assignedChapterNumber} "${data.title}" successfully added to manuscript`,
@@ -1565,6 +1569,9 @@ export const adminUpdateChapterServerFn = createServerFn({ method: 'POST' })
       console.error('[adminUpdateChapter] Exception updating chapter:', err?.message)
       throw new Error(err?.message || 'Failed to update chapter')
     }
+
+    // Invalidate public work server-side cache
+    clearPublicWorkCache(data.workId)
 
     return {
       success: true,
@@ -1837,6 +1844,12 @@ export async function executeAdminDeleteChapter(
     .from('works')
     .update(workUpdatePayload)
     .eq('id', workUuid)
+
+  // Invalidate public work server-side cache
+  clearPublicWorkCache(workUuid)
+  if (currentWork?.slug) {
+    clearPublicWorkCache(currentWork.slug)
+  }
 
   return {
     success: true,

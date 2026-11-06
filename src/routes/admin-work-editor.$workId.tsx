@@ -58,6 +58,7 @@ import { SavesAdjustmentModal } from '../components/SavesAdjustmentModal'
 import { formatViewCount, formatHeartCount } from '../lib/utils'
 
 import { getPublicWorkServerFn } from '../server/works'
+import { getWriterWorkDetailsServerFn } from '../server/writer'
 
 const ADMIN_TOKEN_KEY = 'hatchpen_admin_session_token'
 const LEGACY_ADMIN_TOKEN_KEY = 'tellnest_admin_session_token'
@@ -65,11 +66,18 @@ const LEGACY_ADMIN_TOKEN_KEY = 'tellnest_admin_session_token'
 export const Route = createFileRoute('/admin-work-editor/$workId')({
   loader: async ({ params }) => {
     try {
-      const dbWork = await getPublicWorkServerFn({ data: params.workId })
-      return { loadedWork: dbWork }
-    } catch {
-      return { loadedWork: null }
+      const dbWork = await getWriterWorkDetailsServerFn({ data: { workId: params.workId } })
+      if (dbWork) return { loadedWork: dbWork }
+    } catch (e) {
+      console.warn('[admin-work-editor] Loader error fetching writer details:', e)
     }
+
+    try {
+      const publicDbWork = await getPublicWorkServerFn({ data: params.workId })
+      if (publicDbWork) return { loadedWork: publicDbWork }
+    } catch {}
+
+    return { loadedWork: null }
   },
   head: () =>
     generateMeta({
@@ -124,16 +132,17 @@ function AdminWorkEditorPage() {
   // Local work override for instantaneous UI updates after edits
   const [localWorkOverride, setLocalWorkOverride] = useState<Work | null>(null)
 
-  // Clear local override when loaderData refreshes from the server
+  // Synchronize local override when loaderData refreshes from the server
   useEffect(() => {
     if (loaderData?.loadedWork) {
-      setLocalWorkOverride(null)
+      setLocalWorkOverride(loaderData.loadedWork as any)
     }
   }, [loaderData?.loadedWork])
 
   // 2. Resolve Work target (localWorkOverride first, then loaderData, then context, then mock/allWorks)
   const work = useMemo(() => {
     if (localWorkOverride) return localWorkOverride
+    if (loaderData?.loadedWork) return loaderData.loadedWork as any
     const fromAllWorks = allWorks.find(
       (w) =>
         w.id === workId ||
@@ -141,7 +150,7 @@ function AdminWorkEditorPage() {
         (w.slug && w.slug.toLowerCase() === workId.toLowerCase()) ||
         w.title.toLowerCase().replace(/[^a-z0-9]+/g, '-') === workId.toLowerCase()
     )
-    return loaderData?.loadedWork || fromAllWorks || getWorkById(workId)
+    return fromAllWorks || getWorkById(workId)
   }, [localWorkOverride, loaderData?.loadedWork, workId, getWorkById, allWorks])
 
   // Track initial hydration to avoid resetting form while user is typing
@@ -616,7 +625,14 @@ function AdminWorkEditorPage() {
         reloadWorksFromDb()
         showToast(`Chapter "${chTitleInput.trim()}" successfully updated!`)
 
-        // 4. Invalidate TanStack router cache to re-pull fresh DB data into route loader
+        // 4. Invalidate and re-pull fresh DB data
+        try {
+          const fresh = await getWriterWorkDetailsServerFn({ data: { workId: work.id } })
+          if (fresh) {
+            setLocalWorkOverride(fresh as any)
+            updateWork(work.id, fresh as any)
+          }
+        } catch {}
         await router.invalidate()
       } else {
         // --- CREATE MODE ---
@@ -675,6 +691,14 @@ function AdminWorkEditorPage() {
         loadActsFromDb(adminToken)
         reloadWorksFromDb()
         showToast(res.message || `Chapter ${chNumberInput} added to Act ${targetActForChapter.number}!`)
+
+        try {
+          const fresh = await getWriterWorkDetailsServerFn({ data: { workId: work.id } })
+          if (fresh) {
+            setLocalWorkOverride(fresh as any)
+            updateWork(work.id, fresh as any)
+          }
+        } catch {}
         await router.invalidate()
       }
     } catch (err: any) {
@@ -697,24 +721,24 @@ function AdminWorkEditorPage() {
         },
       })
 
-      // 1. Optimistically update localWorkOverride
-      setLocalWorkOverride((prev) => {
-        const base = prev || work
-        if (!base) return null
-        const updatedChapters = (base.chapters || []).filter((ch) => ch.id !== chapterToDelete.id)
-        const updatedActs = (base.acts || []).map((act) => ({
-          ...act,
-          chapters: (act.chapters || []).filter((ch) => ch.id !== chapterToDelete.id),
-        }))
-        return {
-          ...base,
-          chapterCount: res.publishedCount,
-          publicationStatus: res.workRevertedToDraft ? 'draft' : base.publicationStatus,
-          visibility: res.workRevertedToDraft ? 'draft' : base.visibility,
-          chapters: updatedChapters,
-          acts: updatedActs,
-        }
-      })
+      // 1. Optimistically update localWorkOverride and AppContext
+      const updatedChapters = (work.chapters || []).filter((ch) => ch.id !== chapterToDelete.id)
+      const updatedActs = computedActs.map((act) => ({
+        ...act,
+        chapters: (act.chapters || []).filter((ch) => ch.id !== chapterToDelete.id),
+      }))
+
+      const updatedWorkData: Work = {
+        ...work,
+        chapterCount: res.publishedCount,
+        publicationStatus: res.workRevertedToDraft ? 'draft' : work.publicationStatus,
+        visibility: res.workRevertedToDraft ? 'draft' : work.visibility,
+        chapters: updatedChapters,
+        acts: updatedActs,
+      }
+
+      setLocalWorkOverride(updatedWorkData)
+      updateWork(work.id, updatedWorkData)
 
       // If edit modal was open for this chapter, close it
       if (editingChapterId === chapterToDelete.id) {
@@ -725,8 +749,19 @@ function AdminWorkEditorPage() {
       const deletedTitle = chapterToDelete.title
       setChapterToDelete(null)
 
-      // 2. Background sync
-      loadActsFromDb(adminToken)
+      // 2. Fetch fresh DB state directly without depending on stale caches
+      try {
+        const fresh = await getWriterWorkDetailsServerFn({ data: { workId: work.id } })
+        if (fresh) {
+          setLocalWorkOverride(fresh as any)
+          updateWork(work.id, fresh as any)
+        }
+      } catch (fErr) {
+        console.warn('[handleConfirmDeleteChapter] Fresh lookup fallback:', fErr)
+      }
+
+      // 3. Sync acts and invalidate router
+      await loadActsFromDb(adminToken)
       reloadWorksFromDb()
       await router.invalidate()
 
