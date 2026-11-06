@@ -813,6 +813,7 @@ export async function executeSaveWriterChapter(data: SaveWriterChapterPayload, a
 
     // 2. Check if chapter exists by ID (UUID check)
     const isChapterUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.chapterId)
+    let isChapterIndexable = false
 
     if (isChapterUuid) {
       // Optimistic concurrency check: if client provided expectedUpdatedAt and did not force overwrite,
@@ -873,8 +874,10 @@ export async function executeSaveWriterChapter(data: SaveWriterChapterPayload, a
             (parentWork.publication_status || '').toLowerCase() === 'published' &&
             parentWork.is_indexable === true
 
-          updateData.is_indexable = Boolean(isParentEligible)
+          isChapterIndexable = Boolean(isParentEligible)
+          updateData.is_indexable = isChapterIndexable
         } else {
+          isChapterIndexable = false
           updateData.is_indexable = false
         }
       }
@@ -970,7 +973,7 @@ export async function executeSaveWriterChapter(data: SaveWriterChapterPayload, a
         .eq('id', workUuid)
 
       // Automated Search Engine Indexing & Ping Automation for newly published chapters
-      if (status === 'published' && updateData.is_indexable) {
+      if (status === 'published' && isChapterIndexable) {
         const { data: parentWorkRow } = await admin
           .from('works')
           .select('slug, genre, author_id, profiles!works_author_id_fkey(username)')

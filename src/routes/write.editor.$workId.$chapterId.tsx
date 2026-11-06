@@ -15,7 +15,6 @@ import {
   RefreshCw,
   Plus,
   X,
-  Globe,
 } from 'lucide-react'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { generateMeta } from '../lib/seo'
@@ -1187,12 +1186,9 @@ function ChapterEditorPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-150">
           <div className="w-full max-w-md rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-3">
-              <div className="flex items-center gap-2.5 text-[var(--ink-primary)]">
-                <Globe className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <h3 className="font-serif text-lg font-bold text-[var(--ink-primary)]">
-                  Publish Chapter & Manuscript
-                </h3>
-              </div>
+              <h3 className="font-serif text-lg font-bold text-[var(--ink-primary)]">
+                Publish Chapter & Manuscript
+              </h3>
               <button
                 type="button"
                 onClick={() => !isPublishingBoth && setPublishManuscriptModalOpen(false)}
@@ -1255,10 +1251,7 @@ function ChapterEditorPage() {
                     <span>Publishing Chapter & Manuscript...</span>
                   </>
                 ) : (
-                  <>
-                    <Globe className="h-3.5 w-3.5" />
-                    <span>Publish Chapter and Manuscript</span>
-                  </>
+                  <span>Publish Chapter and Manuscript</span>
                 )}
               </button>
 
