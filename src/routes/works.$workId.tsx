@@ -39,6 +39,7 @@ import WorkCard from '../components/WorkCard'
 import defaultBookCover from '../assets/default-book-cover.webp'
 import { FormattedSynopsis } from '../components/FormattedSynopsis'
 import { WorkDetailsSkeleton } from '../components/WorkDetailsSkeleton'
+import { getCleanChapterSnippet } from '../lib/lore/loreParser'
 
 const clientStoryCache = new Map<string, { work: any; timestamp: number }>()
 const CLIENT_STORY_CACHE_TTL_MS = 120_000 // 2 minutes in-memory client cache
@@ -1114,7 +1115,7 @@ function WorkDetailPage() {
               content: (
                 <div className="space-y-3 pt-2">
                   <p className="text-xs text-[var(--ink-secondary)] leading-relaxed">
-                    {(chapter.content || '').slice(0, 220)}...
+                    {getCleanChapterSnippet(chapter.content || '', 220)}
                   </p>
                   <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 pt-2 border-t border-[var(--border-subtle)]/50">
                     <div className="flex items-center gap-2 font-mono text-[11px] text-[var(--ink-muted)] whitespace-nowrap">

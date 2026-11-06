@@ -10,6 +10,8 @@ import {
   buildLorePayload,
   fixedEncodeURIComponent,
   normalizeLoreLinks,
+  stripLoreToPlainText,
+  getCleanChapterSnippet,
 } from '../src/lib/lore/loreParser.ts'
 
 test('parseLorePayload correctly separates entityType and description', () => {
@@ -207,4 +209,28 @@ Navya didint know that he can get pass through the bridge but when [Kavya](lore:
   assert.ok(normalized.includes('[Navya](lore:Character|woman%2C%2023)'))
   assert.ok(normalized.includes('[Kavya](lore:Character|man%2C%2023)'))
   assert.ok(!normalized.includes('called Navya and'))
+})
+
+test('stripLoreToPlainText cleanly extracts plain text from markdown & wiki lore links', () => {
+  const text = 'Hello [Navya](lore:Character%7CLead%20Actress) and [[Kavya|Character|Protagonist]].'
+  const plain = stripLoreToPlainText(text)
+  assert.equal(plain, 'Hello Navya and Kavya.')
+})
+
+test('getCleanChapterSnippet handles TOC cards with multiple lore notes and truncated lore links', () => {
+  const input = `this is the first chapter.
+
+[Navya](lore:Character%7CLead%20Actress) is the main character of the story.
+
+But [Navya](lore:Character%7CLead%20Actress) may [not be](lore:Character|Test)
+
+However there [could](lore:Charact`
+
+  const snippet = getCleanChapterSnippet(input, 220)
+  assert.ok(!snippet.includes('lore:'))
+  assert.ok(!snippet.includes('%7C'))
+  assert.ok(!snippet.includes('['))
+  assert.ok(!snippet.includes(']'))
+  assert.ok(snippet.includes('Navya is the main character'))
+  assert.ok(snippet.includes('may not be However there could'))
 })

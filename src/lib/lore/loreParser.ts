@@ -322,3 +322,61 @@ export function unlinkAllOccurrences(
 
   return { newMarkdown: result, countUnlinked }
 }
+
+/**
+ * Strips all lore annotations from markdown, leaving only plain display text.
+ * E.g. "[Navya](lore:Character%7CLead%20Actress)" -> "Navya"
+ * and "[[Navya|Character|Lead Actress]]" -> "Navya"
+ */
+export function stripLoreToPlainText(text: string): string {
+  if (!text) return ''
+  return text
+    .replace(/\\*\[([^\]]+)\\*\]\(lore:[^)]*(?:\)|$)/g, '$1')
+    .replace(/\[\[([^|\]]+)(?:\|[^\]]*)?\]\]/g, '$1')
+}
+
+/**
+ * Strips lore links, markdown formatting, HTML tags, and trims down to a clean plain text snippet.
+ * Ideal for Table of Contents, chapter cards, search previews, and RSS feeds.
+ */
+export function getCleanChapterSnippet(content: string, maxLength: number = 220): string {
+  if (!content) return ''
+
+  const clean = content
+    // Remove HTML tags
+    .replace(/<[^>]*>?/gm, '')
+    // Replace lore links (handles both fully formed and end-of-string truncated links)
+    .replace(/\\*\[([^\]]+)\\*\]\(lore:[^)]*(?:\)|$)/g, '$1')
+    // Replace wiki lore links
+    .replace(/\[\[([^|\]]+)(?:\|[^\]]*)?\]\]/g, '$1')
+    // Replace standard markdown links [Text](URL) -> Text
+    .replace(/\[([^\]]+)\]\([^)]*(?:\)|$)/g, '$1')
+    // Remove images ![Alt](URL) -> empty
+    .replace(/!\[([^\]]*)\]\([^)]*(?:\)|$)/g, '')
+    // Remove scene breaks (--- or ***)
+    .replace(/^(\*{3,}|-{3,}|_{3,})$/gm, '')
+    // Remove headings (# Heading -> Heading)
+    .replace(/^#{1,6}\s+/gm, '')
+    // Remove blockquotes (> quote -> quote)
+    .replace(/^>\s*/gm, '')
+    // Remove bold/italics
+    .replace(/(\*\*|__)(.*?)\1/g, '$2')
+    .replace(/(\*|_)(.*?)\1/g, '$2')
+    .replace(/~~(.*?)~~/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    // Remove loose backslashes
+    .replace(/\\+/g, '')
+    // Collapse all whitespace into single spaces
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  if (clean.length <= maxLength) {
+    return clean
+  }
+
+  // Slice at maxLength and try to break at last space for natural word boundary
+  const sliced = clean.slice(0, maxLength)
+  const lastSpace = sliced.lastIndexOf(' ')
+  const safeSnippet = lastSpace > maxLength * 0.7 ? sliced.slice(0, lastSpace) : sliced
+  return `${safeSnippet}...`
+}

@@ -2,6 +2,7 @@ import React from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { Badge, Button } from '../../design-system'
 import type { WriterWorkSummary, Work, Chapter } from '../../data/mockData'
+import { getCleanChapterSnippet } from '../../lib/lore/loreParser'
 
 interface DraftingDeskProps {
   activeWork: WriterWorkSummary | null
@@ -60,9 +61,9 @@ export const DraftingDesk: React.FC<DraftingDeskProps> = ({
   const isDraftChapter = activeChapter?.status === 'draft' || activeWork.status === 'Draft'
 
   const snippet = activeChapter?.content
-    ? activeChapter.content.replace(/<[^>]*>?/gm, '').trim().slice(0, 160) + '...'
+    ? getCleanChapterSnippet(activeChapter.content, 160)
     : activeWork.chapters?.[0]?.content
-    ? activeWork.chapters[0].content.replace(/<[^>]*>?/gm, '').trim().slice(0, 160) + '...'
+    ? getCleanChapterSnippet(activeWork.chapters[0].content, 160)
     : 'Silence hangs upon the unfinished lines. Return to the page and let the scene unfold...'
 
   return (
