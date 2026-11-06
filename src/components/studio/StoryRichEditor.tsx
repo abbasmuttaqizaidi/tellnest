@@ -851,34 +851,21 @@ export function StoryRichEditor({
             {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
           </button>
 
-          {/* Manual Save Button - Single Source of Truth for Persisting Draft */}
+          {/* Manual Save Button - Always enabled, white bg with black border */}
           <button
             type="button"
             onClick={onManualSave}
-            disabled={autosaveStatus === 'saving'}
-            className={`inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-mono font-medium transition-all shadow-2xs ${
-              autosaveStatus === 'dirty'
-                ? 'bg-amber-600 hover:bg-amber-700 text-white border border-amber-600 font-semibold cursor-pointer animate-in fade-in duration-150'
-                : autosaveStatus === 'saving'
-                ? 'bg-[var(--bg-subtle)] text-[var(--ink-muted)] border border-[var(--border-subtle)] cursor-wait opacity-80'
-                : 'border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:border-[var(--border-strong)] cursor-pointer'
-            }`}
+            className="inline-flex items-center justify-center gap-1.5 rounded px-3 py-1.5 text-xs font-semibold shadow-xs transition-all bg-white text-black border border-black hover:bg-neutral-50 active:bg-neutral-100 cursor-pointer select-none"
             title="Save Chapter (Cmd+S / Ctrl+S)"
           >
             {autosaveStatus === 'saving' ? (
-              <span className="h-3 w-3 rounded-full border-2 border-current border-t-transparent animate-spin shrink-0" />
-            ) : autosaveStatus === 'dirty' ? (
-              <span className="h-2 w-2 rounded-full bg-white animate-pulse shrink-0" />
+              <>
+                <span className="h-3 w-3 rounded-full border-2 border-black border-t-transparent animate-spin shrink-0" />
+                <span>Saving...</span>
+              </>
             ) : (
-              <CheckCircle2 className="h-3 w-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span>Save</span>
             )}
-            <span>
-              {autosaveStatus === 'saving'
-                ? 'Saving...'
-                : autosaveStatus === 'dirty'
-                ? 'Save Changes'
-                : 'Saved'}
-            </span>
           </button>
 
           {/* Publish Button - Always enabled so authors can publish directly */}
