@@ -285,6 +285,7 @@ function formatInlineMarkdown(text: string): React.ReactNode {
   const cleanText = text
     .replace(/\\+\[([^\]]+)\\+\]\((lore:[^)]+)\)/g, '[$1]($2)')
     .replace(/\\+\[\\+\[([^\]]+)\\+\]\\+\]/g, '[[$1]]')
+    .replace(/\\+\{([^}]+)\\+\}/g, '{$1}')
     .replace(/\\+[ \t]*(?=\r?\n|$)/g, '')
 
   // Regex matches:

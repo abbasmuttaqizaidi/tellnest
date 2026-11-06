@@ -17,6 +17,7 @@ import {
   extractLoreEntities,
   countEntityMentions,
   linkAllOccurrences,
+  linkSingleOccurrence,
   unlinkAllOccurrences,
   type LoreEntity,
 } from '../../lib/lore/loreParser'
@@ -92,20 +93,21 @@ export function StoryLoreModal({
       description: trimmedDesc,
     }
 
-    // Link occurrences in content
-    const { newMarkdown, countReplaced } = linkAllOccurrences(content, newEntity)
+    // Link occurrences in content (apply to all occurrences or single occurrence based on checkbox)
+    const { newMarkdown, countReplaced } = applyToAll
+      ? linkAllOccurrences(content, newEntity)
+      : linkSingleOccurrence(content, newEntity)
 
     if (countReplaced > 0) {
       onUpdateContent(newMarkdown)
       showToast(`Linked ${countReplaced} occurrence${countReplaced > 1 ? 's' : ''} of "${trimmedName}"`)
+      // Reset form on success
+      setName('')
+      setDescription('')
     } else {
-      // If none found (e.g. spelling variation), append a tag or notify
-      showToast(`Saved lore note for "${trimmedName}"`)
+      // Clear feedback when word is not found in chapter prose
+      showToast(`"${trimmedName}" chapter text mein nahi mila. Pehle ise chapter text mein likhein.`)
     }
-
-    // Reset form
-    setName('')
-    setDescription('')
   }
 
   // Handle Link All for a specific entity

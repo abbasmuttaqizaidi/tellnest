@@ -802,6 +802,7 @@ export async function executeSaveWriterChapter(data: SaveWriterChapterPayload, a
       ? data.content!
           .replace(/\\+\[([^\]]+)\\+\]\((lore:[^)]+)\)/g, '[$1]($2)')
           .replace(/\\+\[\\+\[([^\]]+)\\+\]\\+\]/g, '[[$1]]')
+          .replace(/\\+\{([^}]+)\\+\}/g, '{$1}')
           .replace(/\\+[ \t]*(?=\r?\n|$)/g, '')
       : undefined
     const wordCount = cleanContent !== undefined ? cleanContent.trim().split(/\s+/).filter(Boolean).length : undefined

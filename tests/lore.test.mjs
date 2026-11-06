@@ -5,7 +5,10 @@ import {
   extractLoreEntities,
   countEntityMentions,
   linkAllOccurrences,
+  linkSingleOccurrence,
   unlinkAllOccurrences,
+  buildLorePayload,
+  fixedEncodeURIComponent,
 } from '../src/lib/lore/loreParser.ts'
 
 test('parseLorePayload correctly separates entityType and description', () => {
@@ -21,38 +24,45 @@ test('parseLorePayload correctly separates entityType and description', () => {
   const res3 = parseLorePayload('An ancient magical artifact')
   assert.equal(res3.entityType, 'LORE')
   assert.equal(res3.description, 'An ancient magical artifact')
+
+  // Supports encoded payload with parentheses and special chars
+  const encoded = 'Character|' + fixedEncodeURIComponent('Male, 23 (Prince of Camelot) — "The Brave"')
+  const res4 = parseLorePayload(encoded)
+  assert.equal(res4.entityType, 'Character')
+  assert.equal(res4.description, 'Male, 23 (Prince of Camelot) — "The Brave"')
 })
 
 test('extractLoreEntities parses both markdown and wiki-style lore tags', () => {
   const markdown = `
-    In the court of [Arthur](lore:Character|King of Camelot), legends were born.
-    Later, [Camelot](lore:Location|The legendary castle) stood tall.
+    In the court of [Arthur](lore:Character|King%20of%20Camelot), legends were born.
+    Later, [Camelot](lore:Location|The%20legendary%20castle) stood tall.
     Another friend [[Merlin|Wizard|Court sorcerer]] watched over.
-    And a repeat mention of [Arthur](lore:Character|King of Camelot).
+    And a repeat mention of [Arthur](lore:Character|King%20of%20Camelot).
   `
   const entities = extractLoreEntities(markdown)
   assert.equal(entities.length, 3)
 
-  const arthur = entities.find((e) => e.name.toLowerCase() === 'arthur')
+  const arthur = entities.find((e) => e.name === 'Arthur')
   assert.ok(arthur)
   assert.equal(arthur.entityType, 'Character')
   assert.equal(arthur.description, 'King of Camelot')
 
-  const camelot = entities.find((e) => e.name.toLowerCase() === 'camelot')
+  const camelot = entities.find((e) => e.name === 'Camelot')
   assert.ok(camelot)
   assert.equal(camelot.entityType, 'Location')
 
-  const merlin = entities.find((e) => e.name.toLowerCase() === 'merlin')
+  const merlin = entities.find((e) => e.name === 'Merlin')
   assert.ok(merlin)
   assert.equal(merlin.description, 'Court sorcerer')
 })
 
-test('countEntityMentions counts linked and unlinked occurrences accurately', () => {
+test('countEntityMentions counts linked and unlinked occurrences accurately (exact case)', () => {
   const markdown = `
     [Arthur](lore:Character|King) was brave.
     Arthur went into the forest.
     Later, Arthur drew the sword.
     Someone said: "Long live Arthur!"
+    Lower-case arthur should NOT match because exact case is preserved.
   `
   const counts = countEntityMentions(markdown, 'Arthur')
   assert.equal(counts.linkedCount, 1)
@@ -66,6 +76,7 @@ test('linkAllOccurrences replaces unlinked mentions without corrupting existing 
     In the code block: \`Arthur\` should be ignored.
     Also, don't link inside a regular link: [Visit Arthur's town](https://example.com).
     Arthur smiled.
+    Lowercase arthur remains unchanged per exact case requirement.
   `
   const entity = {
     name: 'Arthur',
@@ -75,10 +86,62 @@ test('linkAllOccurrences replaces unlinked mentions without corrupting existing 
 
   const { newMarkdown, countReplaced } = linkAllOccurrences(markdown, entity)
   assert.equal(countReplaced, 2)
-  assert.ok(newMarkdown.includes('[Arthur](lore:Character|King of Camelot) then called his men.'))
-  assert.ok(newMarkdown.includes('[Arthur](lore:Character|King of Camelot) smiled.'))
+  assert.ok(newMarkdown.includes('[Arthur](lore:Character|King%20of%20Camelot) then called his men.'))
+  assert.ok(newMarkdown.includes('[Arthur](lore:Character|King%20of%20Camelot) smiled.'))
   assert.ok(newMarkdown.includes('`Arthur` should be ignored.'))
   assert.ok(newMarkdown.includes("[Visit Arthur's town](https://example.com)"))
+  assert.ok(newMarkdown.includes('Lowercase arthur remains unchanged'))
+})
+
+test('supports multiple words lore entities', () => {
+  const markdown = 'The Lord Commander stepped forward. The Lord Commander spoke.'
+  const entity = {
+    name: 'Lord Commander',
+    entityType: 'Character',
+    description: 'Supreme Commander of the Guard',
+  }
+
+  const { newMarkdown, countReplaced } = linkAllOccurrences(markdown, entity)
+  assert.equal(countReplaced, 2)
+  assert.ok(newMarkdown.includes('[Lord Commander](lore:Character|Supreme%20Commander%20of%20the%20Guard)'))
+
+  const extracted = extractLoreEntities(newMarkdown)
+  assert.equal(extracted.length, 1)
+  assert.equal(extracted[0].name, 'Lord Commander')
+  assert.equal(extracted[0].description, 'Supreme Commander of the Guard')
+})
+
+test('supports non-ASCII and Devanagari lore entities', () => {
+  const markdown = 'यहाँ विशाखा आई थी। विशाखा ने बात की। विशाखापुर अलग जगह है।'
+  const entity = {
+    name: 'विशाखा',
+    entityType: 'Character',
+    description: 'मुख्य नायिका',
+  }
+
+  const { newMarkdown, countReplaced } = linkAllOccurrences(markdown, entity)
+  assert.equal(countReplaced, 2)
+  assert.ok(newMarkdown.includes('[विशाखा]'))
+  assert.ok(newMarkdown.includes('विशाखापुर अलग जगह है')) // Substring not replaced
+
+  const extracted = extractLoreEntities(newMarkdown)
+  assert.equal(extracted.length, 1)
+  assert.equal(extracted[0].name, 'विशाखा')
+  assert.equal(extracted[0].description, 'मुख्य नायिका')
+})
+
+test('linkSingleOccurrence replaces only one occurrence when applyToAll is false', () => {
+  const markdown = 'Arthur walked in. Arthur sat down. Arthur left.'
+  const entity = {
+    name: 'Arthur',
+    entityType: 'Character',
+    description: 'King of Camelot',
+  }
+
+  const { newMarkdown, countReplaced } = linkSingleOccurrence(markdown, entity)
+  assert.equal(countReplaced, 1)
+  assert.ok(newMarkdown.startsWith('[Arthur](lore:Character|King%20of%20Camelot) walked in.'))
+  assert.ok(newMarkdown.includes('Arthur sat down. Arthur left.'))
 })
 
 test('unlinkAllOccurrences cleanly strips lore links back to plain text', () => {
@@ -120,7 +183,7 @@ test('admin multi-chapter lore linking workflow', () => {
 
   assert.equal(totalLinked, 2)
   assert.equal(updatedChapters, 2)
-  assert.ok(updated[0].content.includes('[Arthur](lore:Character|The legendary protagonist)'))
-  assert.ok(updated[1].content.includes('[Arthur](lore:Character|The legendary protagonist)'))
+  assert.ok(updated[0].content.includes('[Arthur](lore:Character|The%20legendary%20protagonist)'))
+  assert.ok(updated[1].content.includes('[Arthur](lore:Character|The%20legendary%20protagonist)'))
   assert.equal(updated[2].content, chapters[2].content)
 })

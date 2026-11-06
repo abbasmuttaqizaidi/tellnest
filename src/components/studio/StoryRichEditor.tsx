@@ -78,7 +78,11 @@ export interface StoryRichEditorProps {
 // Markdown parser helpers for Live Reader Preview
 function formatInlineMarkdown(text: string): React.ReactNode {
   // Strip any trailing backslashes before newlines or end of line (markdown hard-break artifacts)
-  const cleanText = text.replace(/\\+[ \t]*(?=\r?\n|$)/g, '')
+  const cleanText = text
+    .replace(/\\+\[([^\]]+)\\+\]\((lore:[^)]+)\)/g, '[$1]($2)')
+    .replace(/\\+\[\\+\[([^\]]+)\\+\]\\+\]/g, '[[$1]]')
+    .replace(/\\+\{([^}]+)\\+\}/g, '{$1}')
+    .replace(/\\+[ \t]*(?=\r?\n|$)/g, '')
   const regex = /(\[\[[^|\]]+\|[^\]]+\]\]|\[[^\]]+\]\([^)]+\)|\*\*[^*]+\*\*|__[^_]+__|(?<!\*)\*[^*]+\*(?!\*)|(?<!_)_[^_]+_(?!_)|~~[^~]+~~|`[^`]+`)/g
   const parts = cleanText.split(regex)
   if (parts.length === 1) return cleanText
@@ -391,11 +395,12 @@ export function StoryRichEditor({
     onUpdate: ({ editor }) => {
       // Serialize to clean markdown using tiptap-markdown
       const rawMd = (editor.storage as any)?.markdown?.getMarkdown?.() || editor.getHTML()
-      // Robust sanitize: unescape any lore link brackets and NEVER allow trailing backslashes before newlines in stored prose
+      // Robust sanitize: unescape any lore link brackets, braces, and NEVER allow trailing backslashes before newlines in stored prose
       const cleanMd = typeof rawMd === 'string'
         ? rawMd
             .replace(/\\+\[([^\]]+)\\+\]\((lore:[^)]+)\)/g, '[$1]($2)')
             .replace(/\\+\[\\+\[([^\]]+)\\+\]\\+\]/g, '[[$1]]')
+            .replace(/\\+\{([^}]+)\\+\}/g, '{$1}')
             .replace(/\\+[ \t]*(?=\r?\n|$)/g, '')
         : rawMd
       onChange(cleanMd)
@@ -1311,7 +1316,14 @@ export function StoryRichEditor({
         onUpdateContent={(newMd) => {
           onChange(newMd)
           if (editor) {
+            const { from, to } = editor.state.selection
             editor.commands.setContent(newMd, { emitUpdate: false })
+            try {
+              const maxPos = editor.state.doc.content.size
+              const safeFrom = Math.min(from, maxPos)
+              const safeTo = Math.min(to, maxPos)
+              editor.commands.setTextSelection({ from: safeFrom, to: safeTo })
+            } catch (e) {}
           }
         }}
         initialSelectedText={loreSelectedText}
