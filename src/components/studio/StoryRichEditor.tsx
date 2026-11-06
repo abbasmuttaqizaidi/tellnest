@@ -881,20 +881,20 @@ export function StoryRichEditor({
             </span>
           </button>
 
-          {/* Publish Button - Disabled until chapter is saved */}
+          {/* Publish Button - Always enabled so authors can publish directly */}
           {onPublish && (
             <button
               type="button"
               onClick={onPublish}
-              disabled={autosaveStatus !== 'saved'}
+              disabled={autosaveStatus === 'saving'}
               title={
-                autosaveStatus !== 'saved'
-                  ? 'Save chapter changes before publishing'
-                  : 'Publish chapter to manuscript'
+                autosaveStatus === 'saving'
+                  ? 'Saving changes...'
+                  : 'Publish chapter'
               }
               className={`rounded px-3 py-1.5 text-xs font-semibold shadow-xs transition-all ${
-                autosaveStatus !== 'saved'
-                  ? 'bg-[var(--bg-subtle)] text-[var(--ink-faint)] border border-[var(--border-subtle)] cursor-not-allowed opacity-50 select-none'
+                autosaveStatus === 'saving'
+                  ? 'bg-[var(--bg-subtle)] text-[var(--ink-faint)] border border-[var(--border-subtle)] cursor-not-allowed opacity-60 select-none'
                   : 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] hover:opacity-90 cursor-pointer'
               }`}
             >

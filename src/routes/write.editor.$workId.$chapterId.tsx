@@ -15,10 +15,16 @@ import {
   RefreshCw,
   Plus,
   X,
+  Globe,
 } from 'lucide-react'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { generateMeta } from '../lib/seo'
-import { getWriterWorkDetailsServerFn, saveWriterChapterServerFn, createWriterChapterServerFn } from '../server/writer'
+import {
+  getWriterWorkDetailsServerFn,
+  saveWriterChapterServerFn,
+  createWriterChapterServerFn,
+  updateWriterWorkPublicationServerFn,
+} from '../server/writer'
 import { getPublicWorkServerFn } from '../server/works'
 import { getWorkSlug } from '../data/mockData'
 import { StoryRichEditor } from '../components/studio/StoryRichEditor'
@@ -177,7 +183,13 @@ function ChapterEditorPage() {
   } | null>(null)
   const [publishActModalOpen, setPublishActModalOpen] = useState(false)
   const [selectedPublishActId, setSelectedPublishActId] = useState<string>('')
+  const [publishManuscriptModalOpen, setPublishManuscriptModalOpen] = useState(false)
+  const [isPublishingBoth, setIsPublishingBoth] = useState(false)
   const isSavingRef = useRef(false)
+
+  const isManuscriptPublished = useMemo(() => {
+    return ((work?.publicationStatus || (work as any)?.publication_status || '').toLowerCase() === 'published')
+  }, [work?.publicationStatus, (work as any)?.publication_status])
 
   // Native inter-tab presence tracking via BroadcastChannel (Same Browser, Multiple Tabs)
   useEffect(() => {
@@ -644,13 +656,8 @@ function ChapterEditorPage() {
     if (isSavingRef.current) return
     if (!work || !currentChapter) return
 
-    const activeChapterId = persistedChapterIdRef.current || currentChapter.id
+    let activeChapterId = persistedChapterIdRef.current || currentChapter.id
     const isChapterUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(activeChapterId)
-
-    if (!isChapterUuid || activeChapterId === 'new') {
-      showToast('Please save your chapter changes before publishing.')
-      return
-    }
 
     isSavingRef.current = true
     setAutosaveStatus('saving')
@@ -658,6 +665,32 @@ function ChapterEditorPage() {
     const curContent = latestStateRef.current.content
     const curSubtitle = latestStateRef.current.subtitle
     const curActId = chosenActId !== undefined ? chosenActId : (actId || targetActIdFromSearch || null)
+
+    // If chapter is brand new, persist it to DB first
+    if (!isChapterUuid || activeChapterId === 'new') {
+      try {
+        const createRes = await createWriterChapterServerFn({
+          data: {
+            workId: String(work.id),
+            title: String(curTitle || 'Chapter'),
+            content: String(curContent || ''),
+            subtitle: curSubtitle ? String(curSubtitle) : undefined,
+            actId: curActId || undefined,
+            bannerImage: bannerImage ? String(bannerImage).trim() : undefined,
+          },
+        })
+        activeChapterId = createRes.id
+        persistedChapterIdRef.current = activeChapterId
+        setPersistedChapterId(activeChapterId)
+      } catch (createErr: any) {
+        console.error('[executePublish] Error creating new chapter:', createErr)
+        isSavingRef.current = false
+        setAutosaveStatus('dirty')
+        showToast('Failed to create chapter before publishing')
+        return
+      }
+    }
+
     latestStateRef.current.status = 'published'
 
     updateChapterContent(work.id, activeChapterId, curTitle, curContent, 'published', bannerImage)
@@ -708,32 +741,141 @@ function ChapterEditorPage() {
     }
   }
 
-  const handlePublish = async () => {
-    if (autosaveStatus !== 'saved') {
-      showToast('Please save your chapter changes before publishing.')
-      return
-    }
+  const executePublishBoth = async (chosenActId: string | null) => {
     if (isSavingRef.current) return
     if (!work || !currentChapter) return
 
-    const activeChapterId = persistedChapterIdRef.current || currentChapter.id
+    setIsPublishingBoth(true)
+    isSavingRef.current = true
+    setAutosaveStatus('saving')
+
+    if (chosenActId) {
+      setActId(chosenActId)
+      latestStateRef.current.actId = chosenActId
+    }
+
+    let activeChapterId = persistedChapterIdRef.current || currentChapter.id
     const isChapterUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(activeChapterId)
 
-    if (!isChapterUuid || activeChapterId === 'new') {
-      showToast('Please save your chapter changes before publishing.')
-      return
+    try {
+      const curTitle = latestStateRef.current.title
+      const curContent = latestStateRef.current.content
+      const curSubtitle = latestStateRef.current.subtitle
+      const curActId = chosenActId !== undefined ? chosenActId : (actId || targetActIdFromSearch || null)
+
+      // Step 1: Ensure chapter is persisted to DB
+      if (!isChapterUuid || activeChapterId === 'new') {
+        const createRes = await createWriterChapterServerFn({
+          data: {
+            workId: String(work.id),
+            title: String(curTitle || 'Chapter'),
+            content: String(curContent || ''),
+            subtitle: curSubtitle ? String(curSubtitle) : undefined,
+            actId: curActId || undefined,
+            bannerImage: bannerImage ? String(bannerImage).trim() : undefined,
+          },
+        })
+        activeChapterId = createRes.id
+        persistedChapterIdRef.current = activeChapterId
+        setPersistedChapterId(activeChapterId)
+      }
+
+      // Step 2: Publish Chapter in database (DB constraint requires >= 1 published chapter)
+      latestStateRef.current.status = 'published'
+      updateChapterContent(work.id, activeChapterId, curTitle, curContent, 'published', bannerImage)
+      if (Array.isArray(work.chapters)) {
+        const found = work.chapters.find((c: any) => c.id === activeChapterId)
+        if (found) {
+          found.status = 'published'
+          found.title = curTitle
+          found.subtitle = curSubtitle
+          found.actId = curActId
+          found.bannerImage = bannerImage || undefined
+          found.banner_image_path = bannerImage || undefined
+        }
+      }
+
+      await saveWriterChapterServerFn({
+        data: JSON.parse(JSON.stringify({
+          workId: String(work.id),
+          chapterId: String(activeChapterId),
+          title: String(curTitle || ''),
+          subtitle: String(curSubtitle || ''),
+          content: String(curContent || ''),
+          status: 'published' as const,
+          actId: curActId ? String(curActId) : null,
+          bannerImage: bannerImage ? String(bannerImage).trim() : null,
+          expectedUpdatedAt: loadedUpdatedAt ? String(loadedUpdatedAt) : new Date().toISOString(),
+          force: true,
+        })),
+      })
+
+      // Step 3: Publish Manuscript to public readers
+      await updateWriterWorkPublicationServerFn({
+        data: {
+          workId: String(work.id),
+          publicationStatus: 'published',
+          visibility: 'public',
+          status: (work.status || 'ongoing').toLowerCase() as any,
+        },
+      })
+
+      // Synchronize in-memory work state
+      work.publicationStatus = 'Published'
+      ;(work as any).publication_status = 'published'
+      work.visibility = 'Public'
+
+      setPublishManuscriptModalOpen(false)
+      setAutosaveStatus('saved')
+      showToast('Chapter and Manuscript published successfully!')
+      setIsNavigating(true)
+      navigate({ to: '/write/manage/$workId', params: { workId: work.id } })
+    } catch (e: any) {
+      console.warn('[executePublishBoth] Error:', e)
+      if (e?.message && e.message.includes('Seroval')) {
+        work.publicationStatus = 'Published'
+        ;(work as any).publication_status = 'published'
+        work.visibility = 'Public'
+        setPublishManuscriptModalOpen(false)
+        setAutosaveStatus('saved')
+        showToast('Chapter and Manuscript published successfully!')
+        setIsNavigating(true)
+        navigate({ to: '/write/manage/$workId', params: { workId: work.id } })
+        return
+      }
+      setAutosaveStatus('saved')
+      showToast(e?.message || 'Failed to publish chapter and manuscript')
+    } finally {
+      setIsPublishingBoth(false)
+      isSavingRef.current = false
     }
+  }
+
+  const handlePublish = async () => {
+    if (isSavingRef.current) return
+    if (!work || !currentChapter) return
 
     const currentEffectiveActId = actId || targetActIdFromSearch || null
     const hasActs = Array.isArray(work.acts) && work.acts.length > 0
 
-    // Option A: If story is divided into acts, but this chapter has no act assigned, prompt author with modal
+    // Case 1: Manuscript is in Draft / Unpublished
+    if (!isManuscriptPublished) {
+      if (hasActs && !currentEffectiveActId) {
+        setSelectedPublishActId(work.acts[0]?.id || '')
+      }
+      setPublishManuscriptModalOpen(true)
+      return
+    }
+
+    // Case 2: Manuscript is ALREADY Published
+    // If story has acts and no act assigned yet, prompt author to choose act
     if (hasActs && !currentEffectiveActId) {
       setSelectedPublishActId(work.acts[0]?.id || '')
       setPublishActModalOpen(true)
       return
     }
 
+    // Directly publish chapter
     await executePublish(currentEffectiveActId)
   }
 
@@ -1035,6 +1177,99 @@ function ChapterEditorPage() {
                   <span>Overwrite Server</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Publish Manuscript Modal: Prompt to publish draft manuscript alongside chapter */}
+      {publishManuscriptModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-3">
+              <div className="flex items-center gap-2.5 text-[var(--ink-primary)]">
+                <Globe className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <h3 className="font-serif text-lg font-bold text-[var(--ink-primary)]">
+                  Publish Chapter & Manuscript
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => !isPublishingBoth && setPublishManuscriptModalOpen(false)}
+                disabled={isPublishingBoth}
+                className="p-1 rounded-md text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="rounded-lg bg-[var(--bg-subtle)] p-3 border border-[var(--border-subtle)] space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-mono text-[var(--ink-muted)] uppercase tracking-wider">Manuscript Status</span>
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                  Draft
+                </span>
+              </div>
+              <div className="font-medium text-xs text-[var(--ink-primary)] truncate">
+                {work.title}
+              </div>
+            </div>
+
+            <p className="text-xs text-[var(--ink-secondary)] leading-relaxed font-sans">
+              Aapki manuscript abhi <strong>Draft</strong> state mein hai. Is chapter ko readers tak live karne ke liye manuscript aur chapter dono ko ek saath publish karein.
+            </p>
+
+            {/* If story has acts and chapter has no act assigned yet, allow selecting act right here */}
+            {Array.isArray(work.acts) && work.acts.length > 0 && !actId && !targetActIdFromSearch && (
+              <div className="space-y-1.5 pt-1">
+                <label className="block text-[11px] font-mono font-medium text-[var(--ink-muted)] uppercase tracking-wider">
+                  Assign to Dramatic Act (Optional):
+                </label>
+                <select
+                  value={selectedPublishActId}
+                  onChange={(e) => setSelectedPublishActId(e.target.value)}
+                  disabled={isPublishingBoth}
+                  className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2 text-xs font-mono text-[var(--ink-primary)] focus:outline-none focus:border-[var(--ink-primary)] cursor-pointer"
+                >
+                  <option value="">No Act (Standalone Chapter)</option>
+                  {(work.acts || []).map((act: any) => (
+                    <option key={act.id} value={act.id}>
+                      Act {act.number}: {act.title || `Act ${act.number}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => executePublishBoth(selectedPublishActId || null)}
+                disabled={isPublishingBoth}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--ink-primary)] text-[var(--accent-contrast)] hover:opacity-90 px-4 py-2.5 text-xs font-semibold shadow-xs transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isPublishingBoth ? (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    <span>Publishing Chapter & Manuscript...</span>
+                  </>
+                ) : (
+                  <>
+                    <Globe className="h-3.5 w-3.5" />
+                    <span>Publish Chapter and Manuscript</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPublishManuscriptModalOpen(false)}
+                disabled={isPublishingBoth}
+                className="w-full text-center text-xs text-[var(--ink-muted)] hover:text-[var(--ink-primary)] pt-1 cursor-pointer disabled:opacity-50"
+              >
+                Keep as Draft (Cancel)
+              </button>
             </div>
           </div>
         </div>

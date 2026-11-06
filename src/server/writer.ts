@@ -5,6 +5,7 @@ import type { Database } from '../lib/supabase/types.ts'
 import type { Chapter } from '../data/mockData'
 import { notifySearchEngines } from './indexing.ts'
 import { slugify } from '../lib/taxonomy.ts'
+import { clearPublicWorkCache } from './works.ts'
 
 /**
  * Helper to resolve or auto-provision a profile row for the authenticated Clerk user.
@@ -995,6 +996,8 @@ export async function executeSaveWriterChapter(data: SaveWriterChapterPayload, a
       }
     }
 
+  clearPublicWorkCache(workUuid)
+
   return JSON.parse(JSON.stringify({
     success: true,
     conflict: false,
@@ -1611,6 +1614,11 @@ export async function executeWriterWorkPublication(
     void notifySearchEngines(urlsToPing).catch((pingErr: any) => {
       console.warn('[executeWriterWorkPublication] Non-blocking indexing ping notice:', pingErr?.message)
     })
+  }
+
+  clearPublicWorkCache(workUuid)
+  if (updatedWork?.slug) {
+    clearPublicWorkCache(updatedWork.slug)
   }
 
   return {
