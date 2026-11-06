@@ -316,50 +316,55 @@ export function StoryLoreModal({
                 {entitiesWithStats.map((ent) => (
                   <div
                     key={ent.name.toLowerCase()}
-                    className="py-1.5 px-2.5 rounded-lg bg-[var(--bg-canvas)] border border-[var(--border-subtle)] flex items-center justify-between gap-3 hover:border-[var(--border-strong)] transition-colors text-xs"
+                    className="py-1.5 px-2.5 rounded-lg bg-[var(--bg-canvas)] border border-[var(--border-subtle)] hover:border-[var(--border-strong)] transition-colors space-y-0.5"
                   >
-                    <div className="min-w-0 flex-1 flex items-center gap-2">
-                      <span className="font-serif font-bold text-xs text-[var(--ink-primary)] shrink-0">
-                        {ent.name}
-                      </span>
-                      <span className="text-[9px] font-mono uppercase font-semibold px-1.5 py-0.2 rounded bg-[var(--bg-surface)] text-[var(--ink-muted)] border border-[var(--border-subtle)] shrink-0">
-                        {ent.entityType}
-                      </span>
-                      <span className="text-[11px] text-[var(--ink-secondary)] truncate">
-                        {ent.description}
-                      </span>
-                    </div>
+                    {/* Top Row: Name, Type Badge, and Actions */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="font-serif font-bold text-xs text-[var(--ink-primary)] truncate">
+                          {ent.name}
+                        </span>
+                        <span className="text-[9px] font-mono uppercase font-semibold px-1 py-0.2 rounded bg-[var(--bg-surface)] text-[var(--ink-muted)] border border-[var(--border-subtle)] shrink-0">
+                          {ent.entityType}
+                        </span>
+                      </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-[10px] text-[var(--ink-muted)] font-mono">
-                        {ent.linkedCount} linked
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-[10px] text-[var(--ink-muted)] font-mono">
+                          {ent.linkedCount} linked
+                          {ent.unlinkedCount > 0 && (
+                            <span className="text-amber-600 dark:text-amber-400 font-semibold ml-1">
+                              • {ent.unlinkedCount} unlinked
+                            </span>
+                          )}
+                        </span>
+
                         {ent.unlinkedCount > 0 && (
-                          <span className="text-amber-600 dark:text-amber-400 font-semibold ml-1">
-                            • {ent.unlinkedCount} unlinked
-                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleLinkSpecific(ent)}
+                            className="px-1.5 py-0.2 rounded text-[10px] font-medium bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] border border-[var(--border-subtle)] transition-colors cursor-pointer flex items-center gap-0.5"
+                            title="Link all occurrences"
+                          >
+                            <LinkIcon className="h-2.5 w-2.5" />
+                            <span>Link</span>
+                          </button>
                         )}
-                      </span>
-
-                      {ent.unlinkedCount > 0 && (
                         <button
                           type="button"
-                          onClick={() => handleLinkSpecific(ent)}
-                          className="px-2 py-0.5 rounded text-[10px] font-medium bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] border border-[var(--border-subtle)] transition-colors cursor-pointer flex items-center gap-1"
-                          title="Link all occurrences"
+                          onClick={() => handleUnlink(ent.name)}
+                          className="p-0.5 rounded text-[var(--ink-muted)] hover:text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer"
+                          title="Unlink all mentions in this chapter"
                         >
-                          <LinkIcon className="h-2.5 w-2.5" />
-                          <span>Link</span>
+                          <Unlink className="h-3 w-3" />
                         </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => handleUnlink(ent.name)}
-                        className="p-1 rounded text-[var(--ink-muted)] hover:text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer"
-                        title="Unlink all mentions in this chapter"
-                      >
-                        <Unlink className="h-3 w-3" />
-                      </button>
+                      </div>
                     </div>
+
+                    {/* Next Line: Description */}
+                    <p className="text-[11px] text-[var(--ink-secondary)] leading-snug break-words">
+                      {ent.description}
+                    </p>
                   </div>
                 ))}
               </div>
