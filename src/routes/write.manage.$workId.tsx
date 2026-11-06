@@ -38,7 +38,8 @@ import {
   Camera,
   Search,
   Image as ImageIcon,
-  X
+  X,
+  Sparkles,
 } from 'lucide-react'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { generateMeta } from '../lib/seo'
@@ -46,6 +47,8 @@ import { getWorkSlug } from '../data/mockData'
 import { CloudinaryImageUpload } from '../components/CloudinaryImageUpload'
 import defaultBookCover from '../assets/default-book-cover.webp'
 import { FormattedSynopsis } from '../components/FormattedSynopsis'
+import { extractLoreEntities } from '../lib/lore/loreParser'
+import { StoryLoreModal } from '../components/studio/StoryLoreModal'
 import {
   getWriterWorkDetailsServerFn,
   saveWriterChapterServerFn,
@@ -174,6 +177,7 @@ function WorkManagementPage() {
     showToast,
     reloadWriterWorksFromDb,
     updateWork,
+    updateChapterContent,
   } = useApp()
   const { user } = useUser()
   const navigate = useNavigate()
@@ -186,6 +190,7 @@ function WorkManagementPage() {
 
   // Edit Story / Manuscript Metadata Modal State
   const [editStoryModalOpen, setEditStoryModalOpen] = useState(false)
+  const [activeLoreChapter, setActiveLoreChapter] = useState<any | null>(null)
   const [editTitle, setEditTitle] = useState(work?.title || '')
   const [editSubtitle, setEditSubtitle] = useState(work?.subtitle || '')
   const [editDescription, setEditDescription] = useState(work?.synopsis || work?.description || '')
@@ -916,6 +921,36 @@ function WorkManagementPage() {
     showToast('Chapters ordered chronologically')
   }
 
+  const handleUpdateChapterContent = async (chapterId: string, newContent: string) => {
+    const targetChapter = chapters.find((c) => c.id === chapterId)
+    if (!targetChapter || !work) return
+
+    setChapters((prev) =>
+      prev.map((c) => (c.id === chapterId ? { ...c, content: newContent } : c))
+    )
+    if (activeLoreChapter && activeLoreChapter.id === chapterId) {
+      setActiveLoreChapter({ ...activeLoreChapter, content: newContent })
+    }
+    updateChapterContent(work.id, chapterId, targetChapter.title, newContent, targetChapter.status)
+
+    try {
+      await saveWriterChapterServerFn({
+        data: {
+          workId: work.id,
+          chapterId,
+          title: targetChapter.title,
+          content: newContent,
+          status: targetChapter.status,
+          force: true,
+        },
+      })
+      showToast('Chapter links updated successfully!')
+    } catch (err: any) {
+      console.error('[handleUpdateChapterContent] Error saving updated links:', err)
+      showToast('Failed to save updated links')
+    }
+  }
+
   // Calculate total manuscript word count across all chapters
   const totalWordCount = useMemo(() => {
     return chapters.reduce((acc, c) => acc + (c.wordCount ?? (c as any).word_count ?? 0), 0)
@@ -1501,6 +1536,27 @@ function WorkManagementPage() {
                               {ch.status}
                             </button>
 
+                            {/* Chapter Links / Lore Notes Pill */}
+                            {(() => {
+                              const loreEntities = extractLoreEntities(ch.content || '')
+                              const linksCount = loreEntities.length
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveLoreChapter(ch)}
+                                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 font-mono text-[10px] font-semibold transition-all cursor-pointer ${
+                                    linksCount > 0
+                                      ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/20 shadow-2xs'
+                                      : 'bg-[var(--bg-canvas)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)] border border-[var(--border-subtle)] hover:border-[var(--border-strong)]'
+                                  }`}
+                                  title="Manage Lore Notes & Hyperlinks for this chapter"
+                                >
+                                  <Sparkles className="h-2.5 w-2.5 text-amber-600 dark:text-amber-400" />
+                                  <span>Links{linksCount > 0 ? ` (${linksCount})` : ''}</span>
+                                </button>
+                              )
+                            })()}
+
                             {/* Edit Button */}
                             <Link
                               to="/write/editor/$workId/$chapterId"
@@ -1624,6 +1680,27 @@ function WorkManagementPage() {
                           >
                             {ch.status}
                           </button>
+
+                          {/* Chapter Links / Lore Notes Pill */}
+                          {(() => {
+                            const loreEntities = extractLoreEntities(ch.content || '')
+                            const linksCount = loreEntities.length
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => setActiveLoreChapter(ch)}
+                                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 font-mono text-[10px] font-semibold transition-all cursor-pointer ${
+                                  linksCount > 0
+                                    ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/20 shadow-2xs'
+                                    : 'bg-[var(--bg-canvas)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)] border border-[var(--border-subtle)] hover:border-[var(--border-strong)]'
+                                }`}
+                                title="Manage Lore Notes & Hyperlinks for this chapter"
+                              >
+                                <Sparkles className="h-2.5 w-2.5 text-amber-600 dark:text-amber-400" />
+                                <span>Links{linksCount > 0 ? ` (${linksCount})` : ''}</span>
+                              </button>
+                            )
+                          })()}
 
                           <Link
                             to="/write/editor/$workId/$chapterId"
@@ -1756,6 +1833,27 @@ function WorkManagementPage() {
                       >
                         {ch.status}
                       </button>
+
+                      {/* Chapter Links / Lore Notes Pill */}
+                      {(() => {
+                        const loreEntities = extractLoreEntities(ch.content || '')
+                        const linksCount = loreEntities.length
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => setActiveLoreChapter(ch)}
+                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 font-mono text-[10px] font-semibold transition-all cursor-pointer ${
+                              linksCount > 0
+                                ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/20 shadow-2xs'
+                                : 'bg-[var(--bg-canvas)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)] border border-[var(--border-subtle)] hover:border-[var(--border-strong)]'
+                            }`}
+                            title="Manage Lore Notes & Hyperlinks for this chapter"
+                          >
+                            <Sparkles className="h-2.5 w-2.5 text-amber-600 dark:text-amber-400" />
+                            <span>Links{linksCount > 0 ? ` (${linksCount})` : ''}</span>
+                          </button>
+                        )
+                      })()}
 
                       {/* Edit Button */}
                       <Link
@@ -2717,6 +2815,18 @@ function WorkManagementPage() {
             <span className="font-semibold">Opening Chapter Editor...</span>
           </div>
         </div>
+      )}
+
+      {/* Chapter Lore Notes & Hyperlinks Manager Modal */}
+      {activeLoreChapter && (
+        <StoryLoreModal
+          isOpen={Boolean(activeLoreChapter)}
+          onClose={() => setActiveLoreChapter(null)}
+          content={activeLoreChapter.content || ''}
+          onUpdateContent={async (newContent) => {
+            await handleUpdateChapterContent(activeLoreChapter.id, newContent)
+          }}
+        />
       )}
 
     </div>
