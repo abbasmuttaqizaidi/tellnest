@@ -180,7 +180,8 @@ export function StoryLoreModal({
   // Handle Save / Link single entity
   const handleSaveEntity = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
-    const trimmedName = name.trim()
+    // Strip accidental square brackets to preserve markdown link integrity
+    const trimmedName = name.replace(/[\[\]]/g, '').trim()
     const trimmedDesc = description.trim()
     if (!trimmedName || !trimmedDesc || isSaving) return
 
@@ -287,7 +288,11 @@ export function StoryLoreModal({
     let current = content
     let totalLinked = 0
 
-    for (const ent of chapterEntities) {
+    // Sort descending by name length so longer multi-word entities (e.g. "Arthur Pendragon")
+    // link before shorter sub-entities (e.g. "Arthur") without partial link corruption
+    const sortedEntities = [...chapterEntities].sort((a, b) => b.name.length - a.name.length)
+
+    for (const ent of sortedEntities) {
       const { newMarkdown, countReplaced } = linkAllOccurrences(current, ent)
       current = newMarkdown
       totalLinked += countReplaced

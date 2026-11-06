@@ -2234,21 +2234,42 @@ export async function executeSaveStoryLoreEntity(
 
   let savedEntityId: string | undefined
   try {
-    const { data: upserted } = await admin
+    // Check if an entity with this name (case-insensitive) already exists in story bible
+    const { data: existingEnt } = await admin
       .from('story_lore_entities')
-      .upsert(
-        {
-          work_id: workUuid,
+      .select('id')
+      .eq('work_id', workUuid)
+      .ilike('name', entityName)
+      .maybeSingle()
+
+    if (existingEnt?.id) {
+      await admin
+        .from('story_lore_entities')
+        .update({
           name: entityName,
           entity_type: entityType,
           description: entityDescription,
           updated_at: nowIso,
-        },
-        { onConflict: 'work_id,name' }
-      )
-      .select('id')
-      .maybeSingle()
-    if (upserted?.id) savedEntityId = upserted.id
+        })
+        .eq('id', existingEnt.id)
+      savedEntityId = existingEnt.id
+    } else {
+      const { data: upserted } = await admin
+        .from('story_lore_entities')
+        .upsert(
+          {
+            work_id: workUuid,
+            name: entityName,
+            entity_type: entityType,
+            description: entityDescription,
+            updated_at: nowIso,
+          },
+          { onConflict: 'work_id,name' }
+        )
+        .select('id')
+        .maybeSingle()
+      if (upserted?.id) savedEntityId = upserted.id
+    }
   } catch {
     // Continue if table not yet migrated
   }
@@ -2289,7 +2310,10 @@ export async function executeSaveStoryLoreEntity(
         }
       }
     }
-  } else if (data.linkCurrentChapterId) {
+  } else if (
+    data.linkCurrentChapterId &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.linkCurrentChapterId)
+  ) {
     const { data: curCh } = await admin
       .from('chapters')
       .select('id, content')

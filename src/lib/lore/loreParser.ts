@@ -144,9 +144,10 @@ export function extractLoreEntities(markdown: string): LoreEntity[] {
 
 /**
  * Escapes regex special characters in a string.
+ * Normalizes straight and curly apostrophes to match either format.
  */
 function escapeRegExp(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/['’]/g, "['’]")
 }
 
 /**

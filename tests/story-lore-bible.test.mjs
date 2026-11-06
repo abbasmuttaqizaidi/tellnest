@@ -7,6 +7,10 @@ import {
   executeBulkUnlinkStoryLore,
   executeDeleteStoryLoreEntity,
 } from '../src/server/writer.ts'
+import {
+  linkAllOccurrences,
+  countEntityMentions,
+} from '../src/lib/lore/loreParser.ts'
 
 const mockAuthResolver = async () => ({ userId: 'user_author123' })
 
@@ -134,6 +138,7 @@ test('Story Lore Bible: Save upserts entity and optionally links across chapters
       }
       if (table === 'story_lore_entities') {
         return {
+          select: () => createQueryMock(null),
           upsert: (data) => {
             upsertedRow = data
             return {
@@ -425,4 +430,92 @@ test('Admin Story Lore: Validates admin authentication and required fields', asy
     },
     { message: /Entity name is required/ }
   )
+})
+
+test('Edge Case: Curly vs straight apostrophes match seamlessly', () => {
+  const entity = {
+    name: "D'Artagnan",
+    entityType: 'Character',
+    description: 'Heroic musketeer',
+  }
+
+  // Text contains smart curly apostrophe ’ (U+2019)
+  const textWithCurly = 'Then D’Artagnan drew his blade.'
+  const counts = countEntityMentions(textWithCurly, "D'Artagnan")
+  assert.equal(counts.unlinkedCount, 1)
+
+  const { newMarkdown, countReplaced } = linkAllOccurrences(textWithCurly, entity)
+  assert.equal(countReplaced, 1)
+  assert.ok(newMarkdown.includes('[D’Artagnan](lore:Character|Heroic%20musketeer)'))
+})
+
+test('Edge Case: Multi-word entity length sorting prevents substring shadowing', () => {
+  const entLong = {
+    name: 'Arthur Pendragon',
+    entityType: 'Character',
+    description: 'High King',
+  }
+  const entShort = {
+    name: 'Arthur',
+    entityType: 'Character',
+    description: 'King',
+  }
+
+  const text = 'Arthur Pendragon sat with Arthur in the hall.'
+
+  // When sorted descending by length:
+  const sorted = [entShort, entLong].sort((a, b) => b.name.length - a.name.length)
+  let result = text
+  for (const ent of sorted) {
+    const { newMarkdown } = linkAllOccurrences(result, ent)
+    result = newMarkdown
+  }
+
+  // Both should be cleanly linked without corrupting "Arthur Pendragon" into "[Arthur] Pendragon"
+  assert.ok(result.includes('[Arthur Pendragon](lore:Character|High%20King)'))
+  assert.ok(result.includes('[Arthur](lore:Character|King)'))
+  assert.ok(!result.includes('[Arthur](lore:Character|King) Pendragon'))
+})
+
+test('Edge Case: Unpersisted chapter ID "new" does not crash backend', async () => {
+  const fakeAdmin = {
+    from(table) {
+      if (table === 'profiles') {
+        return { select: () => createQueryMock({ id: 'prof-1', clerk_user_id: 'user_author123' }) }
+      }
+      if (table === 'works') {
+        return { select: () => createQueryMock({ id: '00000000-0000-0000-0000-000000000001', author_id: 'prof-1' }) }
+      }
+      if (table === 'story_lore_entities') {
+        return {
+          select: () => createQueryMock(null),
+          upsert: (data) => ({ select: () => createQueryMock({ id: 'lore-1', ...data }) }),
+        }
+      }
+      if (table === 'chapters') {
+        return {
+          select: () => {
+            throw new Error('Should not query chapters table with "new" id!')
+          },
+        }
+      }
+      throw new Error(`Unexpected table: ${table}`)
+    },
+  }
+
+  // Should succeed gracefully and skip DB query for non-UUID "new"
+  const res = await executeSaveStoryLoreEntity(
+    {
+      workId: '00000000-0000-0000-0000-000000000001',
+      clerkUserId: 'user_author123',
+      name: 'Karna',
+      entityType: 'Character',
+      description: 'Warrior',
+      linkCurrentChapterId: 'new',
+    },
+    fakeAdmin,
+    mockAuthResolver
+  )
+
+  assert.equal(res.success, true)
 })
