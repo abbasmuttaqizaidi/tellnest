@@ -151,7 +151,7 @@ export function LoreGlossaryTrigger({
               transform: coords.placeAbove ? 'translateY(-100%)' : 'none',
               width: '240px',
             }}
-            className="z-[9999] pointer-events-auto animate-in fade-in zoom-in-95 duration-150 rounded-lg p-2.5 bg-[var(--bg-surface)] text-[var(--ink-primary)] border border-[var(--border-subtle)] shadow-xl text-left"
+            className="z-[9999] pointer-events-auto animate-in fade-in zoom-in-95 duration-150 rounded-lg p-2.5 bg-[var(--bg-surface)] text-[var(--ink-primary)] border border-[var(--border-subtle)] shadow-xl text-left max-h-64 overflow-y-auto"
           >
             {/* Entity Type */}
             <div className="text-[10px] uppercase font-mono font-bold tracking-wider text-black dark:text-white select-none">

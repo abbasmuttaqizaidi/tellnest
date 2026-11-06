@@ -224,7 +224,7 @@ export function linkAllOccurrences(
   const parts = markdown.split(tokenRegex)
 
   const processed = parts.map((part) => {
-    // If it's a protected block, leave untouched
+    // If it's a protected block (code block, inline code, HTML tag, or existing link), leave untouched
     if (
       part.startsWith('```') ||
       (part.startsWith('`') && part.endsWith('`')) ||
