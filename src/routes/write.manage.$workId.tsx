@@ -1536,26 +1536,21 @@ function WorkManagementPage() {
                               {ch.status}
                             </button>
 
-                            {/* Chapter Links / Lore Notes Pill */}
-                            {(() => {
-                              const loreEntities = extractLoreEntities(ch.content || '')
-                              const linksCount = loreEntities.length
-                              return (
-                                <button
-                                  type="button"
-                                  onClick={() => setActiveLoreChapter(ch)}
-                                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 font-mono text-[10px] font-semibold transition-all cursor-pointer ${
-                                    linksCount > 0
-                                      ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/20 shadow-2xs'
-                                      : 'bg-[var(--bg-canvas)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)] border border-[var(--border-subtle)] hover:border-[var(--border-strong)]'
-                                  }`}
-                                  title="Manage Lore Notes & Hyperlinks for this chapter"
-                                >
-                                  <Sparkles className="h-2.5 w-2.5 text-amber-600 dark:text-amber-400" />
-                                  <span>Links{linksCount > 0 ? ` (${linksCount})` : ''}</span>
-                                </button>
-                              )
-                            })()}
+                            {/* Links Button */}
+                            <button
+                              type="button"
+                              onClick={() => setActiveLoreChapter(ch)}
+                              className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-canvas)] hover:border-[var(--border-strong)] px-2.5 py-1 text-xs font-medium text-[var(--ink-primary)] shadow-2xs transition-colors cursor-pointer inline-flex items-center gap-1"
+                              title="Manage Lore Notes & Hyperlinks for this Chapter"
+                            >
+                              <span>Links</span>
+                              {(() => {
+                                const count = extractLoreEntities(ch.content || '').length
+                                return count > 0 ? (
+                                  <span className="text-[10px] font-mono text-[var(--ink-muted)]">({count})</span>
+                                ) : null
+                              })()}
+                            </button>
 
                             {/* Edit Button */}
                             <Link
@@ -1681,26 +1676,21 @@ function WorkManagementPage() {
                             {ch.status}
                           </button>
 
-                          {/* Chapter Links / Lore Notes Pill */}
-                          {(() => {
-                            const loreEntities = extractLoreEntities(ch.content || '')
-                            const linksCount = loreEntities.length
-                            return (
-                              <button
-                                type="button"
-                                onClick={() => setActiveLoreChapter(ch)}
-                                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 font-mono text-[10px] font-semibold transition-all cursor-pointer ${
-                                  linksCount > 0
-                                    ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/20 shadow-2xs'
-                                    : 'bg-[var(--bg-canvas)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)] border border-[var(--border-subtle)] hover:border-[var(--border-strong)]'
-                                }`}
-                                title="Manage Lore Notes & Hyperlinks for this chapter"
-                              >
-                                <Sparkles className="h-2.5 w-2.5 text-amber-600 dark:text-amber-400" />
-                                <span>Links{linksCount > 0 ? ` (${linksCount})` : ''}</span>
-                              </button>
-                            )
-                          })()}
+                          {/* Links Button */}
+                          <button
+                            type="button"
+                            onClick={() => setActiveLoreChapter(ch)}
+                            className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-canvas)] hover:border-[var(--border-strong)] px-2.5 py-1 text-xs font-medium text-[var(--ink-primary)] shadow-2xs transition-colors cursor-pointer inline-flex items-center gap-1"
+                            title="Manage Lore Notes & Hyperlinks for this Chapter"
+                          >
+                            <span>Links</span>
+                            {(() => {
+                              const count = extractLoreEntities(ch.content || '').length
+                              return count > 0 ? (
+                                <span className="text-[10px] font-mono text-[var(--ink-muted)]">({count})</span>
+                              ) : null
+                            })()}
+                          </button>
 
                           <Link
                             to="/write/editor/$workId/$chapterId"
@@ -1834,26 +1824,21 @@ function WorkManagementPage() {
                         {ch.status}
                       </button>
 
-                      {/* Chapter Links / Lore Notes Pill */}
-                      {(() => {
-                        const loreEntities = extractLoreEntities(ch.content || '')
-                        const linksCount = loreEntities.length
-                        return (
-                          <button
-                            type="button"
-                            onClick={() => setActiveLoreChapter(ch)}
-                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 font-mono text-[10px] font-semibold transition-all cursor-pointer ${
-                              linksCount > 0
-                                ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/20 shadow-2xs'
-                                : 'bg-[var(--bg-canvas)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)] border border-[var(--border-subtle)] hover:border-[var(--border-strong)]'
-                            }`}
-                            title="Manage Lore Notes & Hyperlinks for this chapter"
-                          >
-                            <Sparkles className="h-2.5 w-2.5 text-amber-600 dark:text-amber-400" />
-                            <span>Links{linksCount > 0 ? ` (${linksCount})` : ''}</span>
-                          </button>
-                        )
-                      })()}
+                      {/* Links Button */}
+                      <button
+                        type="button"
+                        onClick={() => setActiveLoreChapter(ch)}
+                        className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-canvas)] hover:border-[var(--border-strong)] px-2.5 py-1 text-xs font-medium text-[var(--ink-primary)] shadow-2xs transition-colors cursor-pointer inline-flex items-center gap-1"
+                        title="Manage Lore Notes & Hyperlinks for this Chapter"
+                      >
+                        <span>Links</span>
+                        {(() => {
+                          const count = extractLoreEntities(ch.content || '').length
+                          return count > 0 ? (
+                            <span className="text-[10px] font-mono text-[var(--ink-muted)]">({count})</span>
+                          ) : null
+                        })()}
+                      </button>
 
                       {/* Edit Button */}
                       <Link
