@@ -57,6 +57,7 @@ export interface StoryRichEditorProps {
   onPublish?: () => void
   workTitle?: string
   workId?: string
+  chapterId?: string
   chapterNumber?: number
   actName?: string
   acts?: Array<{ id: string; number: number; title: string }>
@@ -278,6 +279,7 @@ export function StoryRichEditor({
   onPublish,
   workTitle,
   workId,
+  chapterId,
   chapterNumber,
   actName,
   acts,
@@ -1310,6 +1312,8 @@ export function StoryRichEditor({
         isOpen={isLoreModalOpen}
         onClose={() => setIsLoreModalOpen(false)}
         content={content}
+        workId={workId}
+        chapterId={chapterId}
         onUpdateContent={(newMd) => {
           const normalized = normalizeLoreLinks(newMd)
           onChange(normalized)

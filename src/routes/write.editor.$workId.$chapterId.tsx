@@ -1171,6 +1171,7 @@ function ChapterEditorPage() {
           onPublish={handlePublish}
           workTitle={work.title}
           workId={work.id}
+          chapterId={currentChapter.id}
           chapterNumber={currentChapter.number}
           actName={actName}
           acts={work.acts || []}

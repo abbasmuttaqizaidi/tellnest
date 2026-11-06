@@ -13,6 +13,19 @@ export interface LoreEntity {
   description: string
 }
 
+export interface StoryLoreEntity extends LoreEntity {
+  id?: string
+  workId?: string
+  createdAt?: string
+  updatedAt?: string
+  totalOccurrencesInStory?: number
+  chaptersCount?: number
+  chapterCount?: number
+  mentionCount?: number
+  linkedCount?: number
+  unlinkedCount?: number
+}
+
 export interface ParsedLoreToken {
   type: 'lore'
   text: string

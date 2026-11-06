@@ -19,6 +19,7 @@ import {
   ChevronDown,
   Eye,
   BarChart3,
+  BookOpen,
   Settings,
   MoreVertical,
   CheckCircle2,
@@ -192,6 +193,7 @@ function WorkManagementPage() {
 
   // Edit Story / Manuscript Metadata Modal State
   const [editStoryModalOpen, setEditStoryModalOpen] = useState(false)
+  const [loreBibleModalOpen, setLoreBibleModalOpen] = useState(false)
   const [activeLoreChapter, setActiveLoreChapter] = useState<any | null>(null)
   const [editTitle, setEditTitle] = useState(work?.title || '')
   const [editSubtitle, setEditSubtitle] = useState(work?.subtitle || '')
@@ -1221,6 +1223,17 @@ function WorkManagementPage() {
             >
               <Settings className="h-3.5 w-3.5 text-black dark:text-white" />
               <span>Visibility</span>
+            </button>
+
+            {/* Story Lore Bible */}
+            <button
+              type="button"
+              onClick={() => setLoreBibleModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2 text-xs font-medium text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:border-[var(--border-strong)] transition-colors cursor-pointer shadow-2xs"
+              title="Manage manuscript-wide characters, world lore, and interactive footnotes"
+            >
+              <BookOpen className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+              <span>Lore Bible</span>
             </button>
 
             {/* Analytics */}
@@ -2862,12 +2875,24 @@ function WorkManagementPage() {
         </div>
       )}
 
+      {/* Manuscript Lore Bible Modal */}
+      {loreBibleModalOpen && work && (
+        <StoryLoreModal
+          isOpen={loreBibleModalOpen}
+          onClose={() => setLoreBibleModalOpen(false)}
+          workId={work.id}
+          initialTab="bible"
+        />
+      )}
+
       {/* Chapter Lore Notes & Hyperlinks Manager Modal */}
       {activeLoreChapter && (
         <StoryLoreModal
           isOpen={Boolean(activeLoreChapter)}
           onClose={() => setActiveLoreChapter(null)}
           content={activeLoreChapter.content || ''}
+          workId={work?.id}
+          chapterId={activeLoreChapter.id}
           onUpdateContent={async (newContent) => {
             await handleUpdateChapterContent(activeLoreChapter.id, newContent)
           }}

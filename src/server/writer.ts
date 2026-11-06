@@ -6,6 +6,14 @@ import type { Chapter } from '../data/mockData'
 import { notifySearchEngines } from './indexing.ts'
 import { slugify } from '../lib/taxonomy.ts'
 import { clearPublicWorkCache } from './works.ts'
+import {
+  extractLoreEntities,
+  countEntityMentions,
+  linkAllOccurrences,
+  unlinkAllOccurrences,
+  type LoreEntity,
+  type StoryLoreEntity,
+} from '../lib/lore/loreParser.ts'
 
 /**
  * Helper to resolve or auto-provision a profile row for the authenticated Clerk user.
@@ -2043,4 +2051,613 @@ export const updateWriterWorkMetadataServerFn = createServerFn({ method: 'POST' 
   })
   .handler(async ({ data }) => {
     return executeSaveWriterWorkMetadata(data)
+  })
+
+// ============================================================================
+// 12. STORY LORE BIBLE & MANUSCRIPT-WIDE GLOSSARY
+// ============================================================================
+
+export interface GetStoryLoreBiblePayload {
+  workId: string
+  currentChapterId?: string
+}
+
+export async function executeGetStoryLoreBible(
+  data: GetStoryLoreBiblePayload,
+  adminClient?: any
+) {
+  if (!data.workId?.trim()) throw new Error('Work ID is required')
+  const admin = adminClient || createAdminClient()
+
+  let workUuid = data.workId.trim()
+  const isWorkUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(workUuid)
+  if (!isWorkUuid) {
+    const { data: wRow } = await admin.from('works').select('id').eq('slug', workUuid.toLowerCase()).maybeSingle()
+    if (wRow?.id) workUuid = wRow.id
+  }
+
+  // Fetch all chapters
+  const { data: chapters } = await admin
+    .from('chapters')
+    .select('id, title, chapter_number, content')
+    .eq('work_id', workUuid)
+    .order('chapter_number', { ascending: true })
+
+  const allChapters = chapters || []
+
+  // Query story_lore_entities table with graceful fallback
+  let dbEntities: any[] = []
+  try {
+    const { data: rows, error } = await admin
+      .from('story_lore_entities')
+      .select('*')
+      .eq('work_id', workUuid)
+      .order('name', { ascending: true })
+    if (!error && Array.isArray(rows)) {
+      dbEntities = rows
+    }
+  } catch {
+    // Table not migrated yet
+  }
+
+  const entityMap = new Map<string, StoryLoreEntity>()
+
+  for (const row of dbEntities) {
+    entityMap.set(row.name.toLowerCase(), {
+      id: row.id,
+      workId: row.work_id,
+      name: row.name,
+      entityType: row.entity_type,
+      description: row.description,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      totalOccurrencesInStory: 0,
+      chaptersCount: 0,
+      linkedCount: 0,
+      unlinkedCount: 0,
+    })
+  }
+
+  // Auto-discover legacy lore from all chapters
+  for (const ch of allChapters) {
+    const extracted = extractLoreEntities(ch.content || '')
+    for (const ent of extracted) {
+      const key = ent.name.toLowerCase()
+      if (!entityMap.has(key)) {
+        entityMap.set(key, {
+          workId: workUuid,
+          name: ent.name,
+          entityType: ent.entityType,
+          description: ent.description,
+          totalOccurrencesInStory: 0,
+          chaptersCount: 0,
+          linkedCount: 0,
+          unlinkedCount: 0,
+        })
+      }
+    }
+  }
+
+  const entitiesList = Array.from(entityMap.values())
+  const currentCh = data.currentChapterId
+    ? allChapters.find((c: any) => c.id === data.currentChapterId)
+    : null
+
+  for (const ent of entitiesList) {
+    let totalStoryMentions = 0
+    let chaptersWithMentions = 0
+
+    for (const ch of allChapters) {
+      const stats = countEntityMentions(ch.content || '', ent.name)
+      const totalInChapter = stats.linkedCount + stats.unlinkedCount
+      if (totalInChapter > 0) {
+        chaptersWithMentions++
+        totalStoryMentions += totalInChapter
+      }
+    }
+
+    ent.totalOccurrencesInStory = totalStoryMentions
+    ent.chaptersCount = chaptersWithMentions
+    ent.mentionCount = totalStoryMentions
+    ent.chapterCount = chaptersWithMentions
+
+    if (currentCh) {
+      const curStats = countEntityMentions(currentCh.content || '', ent.name)
+      ent.linkedCount = curStats.linkedCount
+      ent.unlinkedCount = curStats.unlinkedCount
+    }
+  }
+
+  return {
+    entities: entitiesList,
+    totalChaptersCount: allChapters.length,
+  }
+}
+
+export const getStoryLoreBibleServerFn = createServerFn({ method: 'GET' })
+  .validator((params: GetStoryLoreBiblePayload) => {
+    if (!params.workId?.trim()) throw new Error('Work ID is required')
+    return params
+  })
+  .handler(async ({ data }) => {
+    return executeGetStoryLoreBible(data)
+  })
+
+export interface SaveStoryLoreEntityPayload {
+  workId: string
+  clerkUserId?: string
+  name: string
+  entityType: string
+  description: string
+  linkCurrentChapterId?: string
+  applyToAllChapters?: boolean
+}
+
+export async function executeSaveStoryLoreEntity(
+  data: SaveStoryLoreEntityPayload,
+  adminClient?: any,
+  authResolver?: () => Promise<{ userId: string | null } | null>
+) {
+  if (!data.workId?.trim()) throw new Error('Work ID is required')
+  if (!data.name?.trim()) throw new Error('Entity name is required')
+  if (!data.description?.trim()) throw new Error('Tooltip description is required')
+
+  const admin = adminClient || createAdminClient()
+
+  if (!data.clerkUserId) {
+    throw new Error('User authentication required')
+  }
+  const verifiedUserId = await authenticateWriterRequest(data.clerkUserId, authResolver)
+  const profile = await resolveUserProfile(admin, verifiedUserId)
+
+  let workUuid = data.workId.trim()
+  const isWorkUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(workUuid)
+  let workRow: any = null
+
+  if (isWorkUuid) {
+    const { data: row } = await admin.from('works').select('id, title, slug, author_id').eq('id', workUuid).maybeSingle()
+    workRow = row
+  } else {
+    const { data: row } = await admin.from('works').select('id, title, slug, author_id').eq('slug', workUuid.toLowerCase()).maybeSingle()
+    workRow = row
+    if (workRow?.id) workUuid = workRow.id
+  }
+
+  if (!workRow || workRow.author_id !== profile.id) {
+    throw new Error('Unauthorized: You can only manage lore for your own manuscripts.')
+  }
+
+  const entityName = data.name.trim()
+  const entityType = data.entityType || 'Character'
+  const entityDescription = data.description.trim()
+  const nowIso = new Date().toISOString()
+
+  let savedEntityId: string | undefined
+  try {
+    const { data: upserted } = await admin
+      .from('story_lore_entities')
+      .upsert(
+        {
+          work_id: workUuid,
+          name: entityName,
+          entity_type: entityType,
+          description: entityDescription,
+          updated_at: nowIso,
+        },
+        { onConflict: 'work_id,name' }
+      )
+      .select('id')
+      .maybeSingle()
+    if (upserted?.id) savedEntityId = upserted.id
+  } catch {
+    // Continue if table not yet migrated
+  }
+
+  let updatedChaptersCount = 0
+  let totalMentionsLinked = 0
+
+  if (data.applyToAllChapters) {
+    const { data: chapters } = await admin
+      .from('chapters')
+      .select('id, content')
+      .eq('work_id', workUuid)
+
+    if (chapters && chapters.length > 0) {
+      for (const ch of chapters) {
+        const { newMarkdown, countReplaced } = linkAllOccurrences(ch.content || '', {
+          name: entityName,
+          entityType,
+          description: entityDescription,
+        })
+        if (countReplaced > 0) {
+          const cleanContent = newMarkdown.replace(/\\+[ \t]*(?=\r?\n|$)/g, '').trim()
+          const wordCount = cleanContent.split(/\s+/).filter(Boolean).length
+          const readingTime = Math.max(1, Math.ceil(wordCount / 220))
+
+          await admin
+            .from('chapters')
+            .update({
+              content: cleanContent,
+              word_count: wordCount,
+              reading_time_minutes: readingTime,
+              updated_at: nowIso,
+            })
+            .eq('id', ch.id)
+
+          updatedChaptersCount++
+          totalMentionsLinked += countReplaced
+        }
+      }
+    }
+  } else if (data.linkCurrentChapterId) {
+    const { data: curCh } = await admin
+      .from('chapters')
+      .select('id, content')
+      .eq('id', data.linkCurrentChapterId)
+      .eq('work_id', workUuid)
+      .maybeSingle()
+
+    if (curCh) {
+      const { newMarkdown, countReplaced } = linkAllOccurrences(curCh.content || '', {
+        name: entityName,
+        entityType,
+        description: entityDescription,
+      })
+      if (countReplaced > 0) {
+        const cleanContent = newMarkdown.replace(/\\+[ \t]*(?=\r?\n|$)/g, '').trim()
+        const wordCount = cleanContent.split(/\s+/).filter(Boolean).length
+        const readingTime = Math.max(1, Math.ceil(wordCount / 220))
+
+        await admin
+          .from('chapters')
+          .update({
+            content: cleanContent,
+            word_count: wordCount,
+            reading_time_minutes: readingTime,
+            updated_at: nowIso,
+          })
+          .eq('id', curCh.id)
+
+        updatedChaptersCount = 1
+        totalMentionsLinked = countReplaced
+      }
+    }
+  }
+
+  clearPublicWorkCache(workUuid)
+  if (workRow.slug) clearPublicWorkCache(workRow.slug)
+
+  return {
+    success: true,
+    entity: {
+      id: savedEntityId,
+      workId: workUuid,
+      name: entityName,
+      entityType,
+      description: entityDescription,
+    },
+    updatedChaptersCount,
+    chaptersUpdated: updatedChaptersCount,
+    totalMentionsLinked,
+    totalLinked: totalMentionsLinked,
+  }
+}
+
+export const saveStoryLoreEntityServerFn = createServerFn({ method: 'POST' })
+  .validator((params: SaveStoryLoreEntityPayload) => {
+    if (!params.workId?.trim()) throw new Error('Work ID is required')
+    if (!params.name?.trim()) throw new Error('Entity name is required')
+    if (!params.description?.trim()) throw new Error('Tooltip description is required')
+    if (!params.clerkUserId?.trim()) throw new Error('User authentication required')
+    return params
+  })
+  .handler(async ({ data }) => {
+    return executeSaveStoryLoreEntity(data)
+  })
+
+export interface BulkLinkStoryLorePayload {
+  workId: string
+  clerkUserId?: string
+  entityName: string
+  chapterIds?: string[]
+}
+
+export async function executeBulkLinkStoryLore(
+  data: BulkLinkStoryLorePayload,
+  adminClient?: any,
+  authResolver?: () => Promise<{ userId: string | null } | null>
+) {
+  if (!data.workId?.trim()) throw new Error('Work ID is required')
+  if (!data.entityName?.trim()) throw new Error('Entity name is required')
+
+  const admin = adminClient || createAdminClient()
+  if (!data.clerkUserId) throw new Error('User authentication required')
+  const verifiedUserId = await authenticateWriterRequest(data.clerkUserId, authResolver)
+  const profile = await resolveUserProfile(admin, verifiedUserId)
+
+  let workUuid = data.workId.trim()
+  const isWorkUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(workUuid)
+  let workRow: any = null
+
+  if (isWorkUuid) {
+    const { data: row } = await admin.from('works').select('id, title, slug, author_id').eq('id', workUuid).maybeSingle()
+    workRow = row
+  } else {
+    const { data: row } = await admin.from('works').select('id, title, slug, author_id').eq('slug', workUuid.toLowerCase()).maybeSingle()
+    workRow = row
+    if (workRow?.id) workUuid = workRow.id
+  }
+
+  if (!workRow || workRow.author_id !== profile.id) {
+    throw new Error('Unauthorized: You can only manage lore for your own manuscripts.')
+  }
+
+  // Find entity definition from table or chapters
+  let entityType = 'Character'
+  let description = ''
+
+  try {
+    const { data: entRow } = await admin
+      .from('story_lore_entities')
+      .select('*')
+      .eq('work_id', workUuid)
+      .ilike('name', data.entityName.trim())
+      .maybeSingle()
+    if (entRow) {
+      entityType = entRow.entity_type
+      description = entRow.description
+    }
+  } catch {
+    // Table not migrated
+  }
+
+  let query = admin.from('chapters').select('id, content').eq('work_id', workUuid)
+  if (data.chapterIds && data.chapterIds.length > 0) {
+    query = query.in('id', data.chapterIds)
+  }
+
+  const { data: chapters } = await query
+  const nowIso = new Date().toISOString()
+  let updatedChaptersCount = 0
+  let totalMentionsLinked = 0
+
+  if (!description && chapters) {
+    for (const ch of chapters) {
+      const extracted = extractLoreEntities(ch.content || '')
+      const found = extracted.find((e) => e.name.toLowerCase() === data.entityName.trim().toLowerCase())
+      if (found) {
+        entityType = found.entityType
+        description = found.description
+        break
+      }
+    }
+  }
+
+  if (!description) {
+    description = data.entityName.trim()
+  }
+
+  if (chapters && chapters.length > 0) {
+    for (const ch of chapters) {
+      const { newMarkdown, countReplaced } = linkAllOccurrences(ch.content || '', {
+        name: data.entityName.trim(),
+        entityType,
+        description,
+      })
+      if (countReplaced > 0) {
+        const cleanContent = newMarkdown.replace(/\\+[ \t]*(?=\r?\n|$)/g, '').trim()
+        const wordCount = cleanContent.split(/\s+/).filter(Boolean).length
+        const readingTime = Math.max(1, Math.ceil(wordCount / 220))
+
+        await admin
+          .from('chapters')
+          .update({
+            content: cleanContent,
+            word_count: wordCount,
+            reading_time_minutes: readingTime,
+            updated_at: nowIso,
+          })
+          .eq('id', ch.id)
+
+        updatedChaptersCount++
+        totalMentionsLinked += countReplaced
+      }
+    }
+  }
+
+  clearPublicWorkCache(workUuid)
+  if (workRow.slug) clearPublicWorkCache(workRow.slug)
+
+  return {
+    success: true,
+    updatedChaptersCount,
+    chaptersUpdated: updatedChaptersCount,
+    totalMentionsLinked,
+    totalLinked: totalMentionsLinked,
+    entityName: data.entityName.trim(),
+  }
+}
+
+export const bulkLinkStoryLoreServerFn = createServerFn({ method: 'POST' })
+  .validator((params: BulkLinkStoryLorePayload) => {
+    if (!params.workId?.trim()) throw new Error('Work ID is required')
+    if (!params.entityName?.trim()) throw new Error('Entity name is required')
+    if (!params.clerkUserId?.trim()) throw new Error('User authentication required')
+    return params
+  })
+  .handler(async ({ data }) => {
+    return executeBulkLinkStoryLore(data)
+  })
+
+export interface BulkUnlinkStoryLorePayload {
+  workId: string
+  clerkUserId?: string
+  entityName: string
+  chapterIds?: string[]
+}
+
+export async function executeBulkUnlinkStoryLore(
+  data: BulkUnlinkStoryLorePayload,
+  adminClient?: any,
+  authResolver?: () => Promise<{ userId: string | null } | null>
+) {
+  if (!data.workId?.trim()) throw new Error('Work ID is required')
+  if (!data.entityName?.trim()) throw new Error('Entity name is required')
+
+  const admin = adminClient || createAdminClient()
+  if (!data.clerkUserId) throw new Error('User authentication required')
+  const verifiedUserId = await authenticateWriterRequest(data.clerkUserId, authResolver)
+  const profile = await resolveUserProfile(admin, verifiedUserId)
+
+  let workUuid = data.workId.trim()
+  const isWorkUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(workUuid)
+  let workRow: any = null
+
+  if (isWorkUuid) {
+    const { data: row } = await admin.from('works').select('id, title, slug, author_id').eq('id', workUuid).maybeSingle()
+    workRow = row
+  } else {
+    const { data: row } = await admin.from('works').select('id, title, slug, author_id').eq('slug', workUuid.toLowerCase()).maybeSingle()
+    workRow = row
+    if (workRow?.id) workUuid = workRow.id
+  }
+
+  if (!workRow || workRow.author_id !== profile.id) {
+    throw new Error('Unauthorized: You can only manage lore for your own manuscripts.')
+  }
+
+  let query = admin.from('chapters').select('id, content').eq('work_id', workUuid)
+  if (data.chapterIds && data.chapterIds.length > 0) {
+    query = query.in('id', data.chapterIds)
+  }
+
+  const { data: chapters } = await query
+  const nowIso = new Date().toISOString()
+  let updatedChaptersCount = 0
+  let totalMentionsUnlinked = 0
+
+  if (chapters && chapters.length > 0) {
+    for (const ch of chapters) {
+      const { newMarkdown, countUnlinked } = unlinkAllOccurrences(ch.content || '', data.entityName.trim())
+      if (countUnlinked > 0) {
+        const cleanContent = newMarkdown.replace(/\\+[ \t]*(?=\r?\n|$)/g, '').trim()
+        const wordCount = cleanContent.split(/\s+/).filter(Boolean).length
+        const readingTime = Math.max(1, Math.ceil(wordCount / 220))
+
+        await admin
+          .from('chapters')
+          .update({
+            content: cleanContent,
+            word_count: wordCount,
+            reading_time_minutes: readingTime,
+            updated_at: nowIso,
+          })
+          .eq('id', ch.id)
+
+        updatedChaptersCount++
+        totalMentionsUnlinked += countUnlinked
+      }
+    }
+  }
+
+  clearPublicWorkCache(workUuid)
+  if (workRow.slug) clearPublicWorkCache(workRow.slug)
+
+  return {
+    success: true,
+    updatedChaptersCount,
+    chaptersUpdated: updatedChaptersCount,
+    totalMentionsUnlinked,
+    totalUnlinked: totalMentionsUnlinked,
+    entityName: data.entityName.trim(),
+  }
+}
+
+export const bulkUnlinkStoryLoreServerFn = createServerFn({ method: 'POST' })
+  .validator((params: BulkUnlinkStoryLorePayload) => {
+    if (!params.workId?.trim()) throw new Error('Work ID is required')
+    if (!params.entityName?.trim()) throw new Error('Entity name is required')
+    if (!params.clerkUserId?.trim()) throw new Error('User authentication required')
+    return params
+  })
+  .handler(async ({ data }) => {
+    return executeBulkUnlinkStoryLore(data)
+  })
+
+export interface DeleteStoryLoreEntityPayload {
+  workId: string
+  clerkUserId?: string
+  entityName: string
+  unlinkEverywhere?: boolean
+}
+
+export async function executeDeleteStoryLoreEntity(
+  data: DeleteStoryLoreEntityPayload,
+  adminClient?: any,
+  authResolver?: () => Promise<{ userId: string | null } | null>
+) {
+  if (!data.workId?.trim()) throw new Error('Work ID is required')
+  if (!data.entityName?.trim()) throw new Error('Entity name is required')
+
+  const admin = adminClient || createAdminClient()
+  if (!data.clerkUserId) throw new Error('User authentication required')
+  const verifiedUserId = await authenticateWriterRequest(data.clerkUserId, authResolver)
+  const profile = await resolveUserProfile(admin, verifiedUserId)
+
+  let workUuid = data.workId.trim()
+  const isWorkUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(workUuid)
+  let workRow: any = null
+
+  if (isWorkUuid) {
+    const { data: row } = await admin.from('works').select('id, title, slug, author_id').eq('id', workUuid).maybeSingle()
+    workRow = row
+  } else {
+    const { data: row } = await admin.from('works').select('id, title, slug, author_id').eq('slug', workUuid.toLowerCase()).maybeSingle()
+    workRow = row
+    if (workRow?.id) workUuid = workRow.id
+  }
+
+  if (!workRow || workRow.author_id !== profile.id) {
+    throw new Error('Unauthorized: You can only manage lore for your own manuscripts.')
+  }
+
+  try {
+    await admin
+      .from('story_lore_entities')
+      .delete()
+      .eq('work_id', workUuid)
+      .ilike('name', data.entityName.trim())
+  } catch {
+    // Table not yet migrated
+  }
+
+  let unlinkedCount = 0
+  if (data.unlinkEverywhere) {
+    const unlinkRes = await executeBulkUnlinkStoryLore(
+      {
+        workId: workUuid,
+        clerkUserId: data.clerkUserId,
+        entityName: data.entityName.trim(),
+      },
+      admin,
+      authResolver
+    )
+    unlinkedCount = unlinkRes?.totalMentionsUnlinked || 0
+  }
+
+  clearPublicWorkCache(workUuid)
+  if (workRow.slug) clearPublicWorkCache(workRow.slug)
+
+  return { success: true, deletedName: data.entityName.trim(), unlinkedCount }
+}
+
+export const deleteStoryLoreEntityServerFn = createServerFn({ method: 'POST' })
+  .validator((params: DeleteStoryLoreEntityPayload) => {
+    if (!params.workId?.trim()) throw new Error('Work ID is required')
+    if (!params.entityName?.trim()) throw new Error('Entity name is required')
+    if (!params.clerkUserId?.trim()) throw new Error('User authentication required')
+    return params
+  })
+  .handler(async ({ data }) => {
+    return executeDeleteStoryLoreEntity(data)
   })
