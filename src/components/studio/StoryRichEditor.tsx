@@ -979,25 +979,15 @@ export function StoryRichEditor({
           </button>
           <button
             type="button"
-            onClick={insertSceneBreak}
-            className="px-1.5 py-0.5 rounded text-[10px] font-mono text-amber-600 dark:text-amber-400 hover:bg-[var(--bg-subtle)]"
-            title="✦ ✦ ✦ Scene Break"
-          >
-            ✦ Break
-          </button>
-          <span className="h-3 w-px bg-[var(--border-subtle)]" />
-          <button
-            type="button"
             onClick={() => {
               const selected = editor ? editor.state.doc.textBetween(editor.state.selection.from, editor.state.selection.to) : ''
               setLoreSelectedText(selected)
               setIsLoreModalOpen(true)
             }}
-            className="px-2 py-0.5 rounded text-[11px] font-medium bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 border border-amber-500/30 flex items-center gap-1 transition-colors cursor-pointer"
+            className="px-3 py-1 rounded-full text-xs font-medium bg-black text-white hover:bg-neutral-800 border border-black transition-colors cursor-pointer select-none shadow-2xs ml-1"
             title="Annotate this character or location with a reader footnote"
           >
-            <Sparkles className="h-3 w-3 text-amber-600 dark:text-amber-400" />
-            <span>Lore Note</span>
+            Lore Note
           </button>
         </div>
       )}
