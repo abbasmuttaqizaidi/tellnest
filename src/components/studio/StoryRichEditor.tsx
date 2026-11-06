@@ -352,8 +352,10 @@ export function StoryRichEditor({
       Link.configure({
         openOnClick: false,
         autolink: false,
+        validate: () => true,
+        protocols: ['http', 'https', 'mailto', 'tel', 'lore'],
         HTMLAttributes: {
-          class: 'story-lore-link font-inherit text-inherit underline decoration-dotted decoration-[var(--ink-muted)] underline-offset-4',
+          class: 'story-lore-link font-inherit text-inherit underline underline-offset-4',
         },
       }),
       Placeholder.configure({
@@ -388,8 +390,13 @@ export function StoryRichEditor({
     onUpdate: ({ editor }) => {
       // Serialize to clean markdown using tiptap-markdown
       const rawMd = (editor.storage as any)?.markdown?.getMarkdown?.() || editor.getHTML()
-      // Robust sanitize: NEVER allow trailing backslashes before newlines in stored prose
-      const cleanMd = typeof rawMd === 'string' ? rawMd.replace(/\\+[ \t]*(?=\r?\n|$)/g, '') : rawMd
+      // Robust sanitize: unescape any lore link brackets and NEVER allow trailing backslashes before newlines in stored prose
+      const cleanMd = typeof rawMd === 'string'
+        ? rawMd
+            .replace(/\\+\[([^\]]+)\\+\]\((lore:[^)]+)\)/g, '[$1]($2)')
+            .replace(/\\+\[\\+\[([^\]]+)\\+\]\\+\]/g, '[[$1]]')
+            .replace(/\\+[ \t]*(?=\r?\n|$)/g, '')
+        : rawMd
       onChange(cleanMd)
     },
     onSelectionUpdate: ({ editor }) => {

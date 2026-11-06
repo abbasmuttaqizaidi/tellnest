@@ -797,8 +797,13 @@ export async function executeSaveWriterChapter(data: SaveWriterChapterPayload, a
   const admin = adminClient || createAdminClient()
     const nowIso = new Date().toISOString()
     const hasContent = typeof data.content === 'string'
-    // Robust server-side sanitization: strip any markdown hard-break trailing backslashes
-    const cleanContent = hasContent ? data.content!.replace(/\\+[ \t]*(?=\r?\n|$)/g, '') : undefined
+    // Robust server-side sanitization: unescape any lore link brackets and strip markdown hard-break trailing backslashes
+    const cleanContent = hasContent
+      ? data.content!
+          .replace(/\\+\[([^\]]+)\\+\]\((lore:[^)]+)\)/g, '[$1]($2)')
+          .replace(/\\+\[\\+\[([^\]]+)\\+\]\\+\]/g, '[[$1]]')
+          .replace(/\\+[ \t]*(?=\r?\n|$)/g, '')
+      : undefined
     const wordCount = cleanContent !== undefined ? cleanContent.trim().split(/\s+/).filter(Boolean).length : undefined
     const readingTime = wordCount !== undefined ? Math.max(1, Math.ceil(wordCount / 220)) : undefined
     const status = data.status

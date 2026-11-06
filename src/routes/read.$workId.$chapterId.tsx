@@ -279,8 +279,11 @@ export const Route = createFileRoute('/read/$workId/$chapterId')({
 })
 
 function formatInlineMarkdown(text: string): React.ReactNode {
-  // Strip any trailing backslashes before newlines or end of line (markdown hard-break artifacts)
-  const cleanText = text.replace(/\\+[ \t]*(?=\r?\n|$)/g, '')
+  // Strip any escaped markdown brackets for lore/wiki links and trailing backslashes before newlines
+  const cleanText = text
+    .replace(/\\+\[([^\]]+)\\+\]\((lore:[^)]+)\)/g, '[$1]($2)')
+    .replace(/\\+\[\\+\[([^\]]+)\\+\]\\+\]/g, '[[$1]]')
+    .replace(/\\+[ \t]*(?=\r?\n|$)/g, '')
 
   // Regex matches:
   // 1. Wiki Lore Link ([[Text|Type|Description]] or [[Text|Description]])

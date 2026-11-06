@@ -127,7 +127,7 @@ export function LoreGlossaryTrigger({
         onClick={handleToggle}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        className="inline font-inherit text-inherit underline decoration-dotted decoration-[var(--ink-muted)] underline-offset-4 decoration-1 hover:decoration-[var(--ink-primary)] hover:text-[var(--ink-primary)] transition-colors cursor-pointer select-text bg-transparent border-none p-0 m-0"
+        className="inline font-inherit text-inherit underline underline-offset-4 decoration-1 hover:text-[var(--ink-primary)] transition-colors cursor-pointer select-text bg-transparent border-none p-0 m-0"
         aria-label={`${text} (${displayType}) - ${description}`}
         aria-expanded={isOpen}
       >
