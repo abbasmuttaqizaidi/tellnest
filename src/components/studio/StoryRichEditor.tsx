@@ -31,6 +31,7 @@ import {
   Sparkles,
   BookOpen,
   Tag,
+  Link2,
 } from 'lucide-react'
 import Link from '@tiptap/extension-link'
 import { ChapterDiffViewer } from './ChapterDiffViewer'
@@ -692,37 +693,6 @@ export function StoryRichEditor({
             </button>
           </div>
 
-          {/* Characters & Story Lore */}
-          <div className="flex items-center rounded-lg bg-[var(--bg-canvas)] p-0.5 border border-[var(--border-subtle)]">
-            <button
-              type="button"
-              onClick={() => {
-                const selected = editor ? editor.state.doc.textBetween(editor.state.selection.from, editor.state.selection.to) : ''
-                setLoreSelectedText(selected)
-                setIsLoreModalOpen(true)
-              }}
-              className={`px-2 py-1 rounded text-xs transition-colors flex items-center gap-1.5 cursor-pointer ${
-                totalUnlinkedLoreMentions > 0
-                  ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 font-semibold border border-amber-500/30'
-                  : definedLoreEntities.length > 0
-                  ? 'bg-[var(--bg-surface)] text-[var(--ink-primary)] font-medium'
-                  : 'hover:bg-[var(--bg-surface)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
-              }`}
-              title="Characters & Lore Notes (interactive footnotes for readers)"
-            >
-              <Sparkles className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-              <span className="font-serif text-[11px]">Lore</span>
-              {definedLoreEntities.length > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-[var(--bg-surface)] border border-[var(--border-subtle)]">
-                  {definedLoreEntities.length}
-                </span>
-              )}
-              {totalUnlinkedLoreMentions > 0 && (
-                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-              )}
-            </button>
-          </div>
-
           {/* Undo / Redo */}
           <div className="hidden sm:flex items-center rounded-lg bg-[var(--bg-canvas)] p-0.5 border border-[var(--border-subtle)]">
             <button
@@ -825,6 +795,29 @@ export function StoryRichEditor({
               </div>
             )}
           </div>
+
+          {/* Links & Lores Button - Positioned to the right of the "T" Icon, styled black */}
+          <button
+            type="button"
+            onClick={() => {
+              const selected = editor ? editor.state.doc.textBetween(editor.state.selection.from, editor.state.selection.to) : ''
+              setLoreSelectedText(selected)
+              setIsLoreModalOpen(true)
+            }}
+            className="px-2.5 py-1.5 rounded text-xs font-mono font-medium transition-all inline-flex items-center gap-1.5 cursor-pointer bg-black text-white hover:bg-neutral-800 border border-black shadow-2xs select-none shrink-0"
+            title="Characters, Lore Notes & Hyperlinks for readers"
+          >
+            <Link2 className="h-3.5 w-3.5 text-white" />
+            <span className="font-semibold text-xs">Links & Lores</span>
+            {definedLoreEntities.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-white/20 text-white">
+                {definedLoreEntities.length}
+              </span>
+            )}
+            {totalUnlinkedLoreMentions > 0 && (
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+            )}
+          </button>
         </div>
 
         {/* Right: View Mode, Fullscreen, Save */}
