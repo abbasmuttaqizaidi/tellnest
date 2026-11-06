@@ -91,3 +91,36 @@ test('unlinkAllOccurrences cleanly strips lore links back to plain text', () => 
   assert.equal(c2, 1)
   assert.equal(res2, 'Hail Arthur and Merlin!')
 })
+
+test('admin multi-chapter lore linking workflow', () => {
+  const chapters = [
+    { id: 'ch-1', content: 'Chapter 1 begins with Arthur walking in Camelot.' },
+    { id: 'ch-2', content: 'Chapter 2 continues. Arthur met Merlin.' },
+    { id: 'ch-3', content: 'Chapter 3 concludes. No mentions here.' },
+  ]
+
+  const entity = {
+    name: 'Arthur',
+    entityType: 'Character',
+    description: 'The legendary protagonist',
+  }
+
+  let totalLinked = 0
+  let updatedChapters = 0
+
+  const updated = chapters.map((ch) => {
+    const { newMarkdown, countReplaced } = linkAllOccurrences(ch.content, entity)
+    if (countReplaced > 0) {
+      totalLinked += countReplaced
+      updatedChapters++
+      return { ...ch, content: newMarkdown }
+    }
+    return ch
+  })
+
+  assert.equal(totalLinked, 2)
+  assert.equal(updatedChapters, 2)
+  assert.ok(updated[0].content.includes('[Arthur](lore:Character|The legendary protagonist)'))
+  assert.ok(updated[1].content.includes('[Arthur](lore:Character|The legendary protagonist)'))
+  assert.equal(updated[2].content, chapters[2].content)
+})

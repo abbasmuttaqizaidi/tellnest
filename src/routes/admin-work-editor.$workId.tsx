@@ -11,9 +11,17 @@ import {
   adminDeleteChapterServerFn,
   getAdminWorkActsAnalyticsServerFn,
   getAdminUsersServerFn,
+  adminBulkLinkLoreServerFn,
+  adminBulkUnlinkLoreServerFn,
   type WorkActAnalytics,
   type AdminUser,
 } from '../server/admin'
+import { StoryLoreModal } from '../components/studio/StoryLoreModal'
+import {
+  extractLoreEntities,
+  countEntityMentions,
+  type LoreEntity,
+} from '../lib/lore/loreParser'
 import { Badge, Button } from '../design-system'
 import { UnisexAvatar } from '../components/UnisexAvatar'
 import {
@@ -159,8 +167,8 @@ function AdminWorkEditorPage() {
   const [selectedAuthorId, setSelectedAuthorId] = useState<string>(work?.author.id || '')
   const [availableAuthors, setAvailableAuthors] = useState<AdminUser[]>([])
 
-  // Tab Navigation: 'details' | 'acts' | 'chapters'
-  const [activeTab, setActiveTab] = useState<'details' | 'acts' | 'chapters'>('details')
+  // Tab Navigation: 'details' | 'acts' | 'chapters' | 'lore'
+  const [activeTab, setActiveTab] = useState<'details' | 'acts' | 'chapters' | 'lore'>('details')
 
   // Save State
   const [isSavingDetails, setIsSavingDetails] = useState(false)
@@ -193,6 +201,7 @@ function AdminWorkEditorPage() {
   const [isCoverUploading, setIsCoverUploading] = useState(false)
   const [chContentInput, setChContentInput] = useState('')
   const [isSubmittingChapter, setIsSubmittingChapter] = useState(false)
+  const [showChLoreModal, setShowChLoreModal] = useState(false)
 
   // 6. DB Acts breakdown state
   const [dbActs, setDbActs] = useState<WorkActAnalytics[]>([])
@@ -204,6 +213,12 @@ function AdminWorkEditorPage() {
   // 7. Delete Chapter Modal State
   const [chapterToDelete, setChapterToDelete] = useState<{ id: string; title: string; number?: number } | null>(null)
   const [isDeletingChapter, setIsDeletingChapter] = useState(false)
+
+  // 8. Story Lore Management State
+  const [newLoreName, setNewLoreName] = useState('')
+  const [newLoreType, setNewLoreType] = useState<'Character' | 'Location' | 'Lore'>('Character')
+  const [newLoreDesc, setNewLoreDesc] = useState('')
+  const [isLinkingLore, setIsLinkingLore] = useState(false)
 
   // Sync state ONLY on initial load of this manuscript or when work ID changes, NOT on every background re-fetch while editing
   useEffect(() => {
@@ -724,9 +739,82 @@ function AdminWorkEditorPage() {
       }
     } catch (err: any) {
       console.error('[AdminWorkEditorPage] Delete chapter error:', err)
-      showToast(err?.message || 'Failed to delete chapter')
+      showToast(err?.message || 'Failed to delete chapter', 'error')
     } finally {
       setIsDeletingChapter(false)
+    }
+  }
+
+  // All chapters combined text to extract story-wide lore entities
+  const storyLoreEntities = useMemo(() => {
+    if (!work?.chapters) return []
+    const combinedContent = work.chapters.map((c) => c.content || '').join('\n\n')
+    return extractLoreEntities(combinedContent)
+  }, [work?.chapters])
+
+  // Admin Bulk Link Lore across all chapters in this story
+  const handleAdminBulkLinkLore = async (entity: LoreEntity) => {
+    if (!adminToken) {
+      showToast('Admin session expired. Please re-authenticate.', 'error')
+      return
+    }
+    setIsLinkingLore(true)
+    try {
+      const res = await adminBulkLinkLoreServerFn({
+        data: {
+          adminToken,
+          workId: work.id,
+          entity,
+        },
+      })
+      if (res?.success) {
+        showToast(
+          `Linked ${res.totalMentionsLinked} mention${res.totalMentionsLinked !== 1 ? 's' : ''} of "${entity.name}" across ${res.updatedChaptersCount} chapter${res.updatedChaptersCount !== 1 ? 's' : ''}!`,
+          'success'
+        )
+        // Refresh DB data
+        await loadActsFromDb(adminToken)
+        try {
+          const dbWork = await getPublicWorkServerFn({ data: work.id })
+          if (dbWork) setLocalWorkOverride(dbWork)
+        } catch {}
+        await reloadWorksFromDb()
+      }
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to bulk link lore across chapters', 'error')
+    } finally {
+      setIsLinkingLore(false)
+    }
+  }
+
+  // Admin Bulk Unlink Lore across all chapters in this story
+  const handleAdminBulkUnlinkLore = async (entityName: string) => {
+    if (!adminToken) return
+    setIsLinkingLore(true)
+    try {
+      const res = await adminBulkUnlinkLoreServerFn({
+        data: {
+          adminToken,
+          workId: work.id,
+          entityName,
+        },
+      })
+      if (res?.success) {
+        showToast(
+          `Unlinked ${res.totalMentionsUnlinked} mention${res.totalMentionsUnlinked !== 1 ? 's' : ''} of "${entityName}" across ${res.updatedChaptersCount} chapter${res.updatedChaptersCount !== 1 ? 's' : ''}.`,
+          'success'
+        )
+        await loadActsFromDb(adminToken)
+        try {
+          const dbWork = await getPublicWorkServerFn({ data: work.id })
+          if (dbWork) setLocalWorkOverride(dbWork)
+        } catch {}
+        await reloadWorksFromDb()
+      }
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to unlink lore across chapters', 'error')
+    } finally {
+      setIsLinkingLore(false)
     }
   }
 
@@ -981,6 +1069,18 @@ function AdminWorkEditorPage() {
           >
             <FileText className="h-3.5 w-3.5" />
             <span>All Chapters ({work.chapters?.length || 0})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('lore')}
+            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-mono font-medium border-b-2 transition-all cursor-pointer ${
+              activeTab === 'lore'
+                ? 'border-[var(--ink-primary)] text-[var(--ink-primary)] font-bold'
+                : 'border-transparent text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
+            }`}
+          >
+            <Sparkles className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+            <span>Story Lore & Characters</span>
           </button>
         </div>
       </section>
@@ -1544,6 +1644,265 @@ function AdminWorkEditorPage() {
         </section>
       )}
 
+      {/* TAB 4: STORY LORE & CHARACTERS MANAGER */}
+      {activeTab === 'lore' && (
+        <section className="space-y-6 animate-in fade-in duration-150">
+          {/* Header Banner */}
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-canvas)] p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                <h3 className="font-serif text-lg font-bold text-[var(--ink-primary)]">
+                  Characters, Locations & Story Lore Codex
+                </h3>
+              </div>
+              <p className="text-xs text-[var(--ink-muted)] mt-1 max-w-xl">
+                Define story entities once, then link them across all {work.chapters?.length || 0} chapters with one click. Readers see interactive tooltips when tapping names in prose.
+              </p>
+            </div>
+            {storyLoreEntities.length > 0 && (
+              <span className="self-start sm:self-auto px-3 py-1 rounded-full text-xs font-mono font-medium bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--ink-primary)]">
+                {storyLoreEntities.length} Entit{storyLoreEntities.length !== 1 ? 'ies' : 'y'} Defined
+              </span>
+            )}
+          </div>
+
+          {/* Add New Entity Form */}
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault()
+              if (!newLoreName.trim() || !newLoreDesc.trim()) return
+              const ent: LoreEntity = {
+                name: newLoreName.trim(),
+                entityType: newLoreType,
+                description: newLoreDesc.trim(),
+              }
+              await handleAdminBulkLinkLore(ent)
+              setNewLoreName('')
+              setNewLoreDesc('')
+            }}
+            className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5 space-y-4"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-[var(--ink-muted)] font-mono">
+                Add & Link Story Entity
+              </span>
+              <div className="flex items-center gap-1">
+                {(['Character', 'Location', 'Lore'] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setNewLoreType(t)}
+                    className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                      newLoreType === t
+                        ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)]'
+                        : 'text-[var(--ink-muted)] hover:bg-[var(--bg-subtle)]'
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[11px] font-mono text-[var(--ink-secondary)] mb-1">
+                  Name / Term <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Arthur Pendragon, Camelot"
+                  value={newLoreName}
+                  onChange={(e) => setNewLoreName(e.target.value)}
+                  className="w-full px-3 py-2 text-xs rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] text-[var(--ink-primary)] focus:outline-none focus:border-[var(--ink-primary)] font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-mono text-[var(--ink-secondary)] mb-1">
+                  Tooltip Description <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Male, 23 — protagonist and rightful heir"
+                  value={newLoreDesc}
+                  onChange={(e) => setNewLoreDesc(e.target.value)}
+                  className="w-full px-3 py-2 text-xs rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] text-[var(--ink-primary)] focus:outline-none focus:border-[var(--ink-primary)] font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-[var(--border-subtle)]">
+              <p className="text-[11px] text-[var(--ink-muted)]">
+                Clicking save will automatically scan all chapters and link mentions.
+              </p>
+              <Button
+                variant="primary"
+                size="sm"
+                type="submit"
+                isLoading={isLinkingLore}
+                disabled={!newLoreName.trim() || !newLoreDesc.trim()}
+                leftIcon={<Sparkles className="h-3.5 w-3.5" />}
+              >
+                Save & Link Across All Chapters
+              </Button>
+            </div>
+          </form>
+
+          {/* List of Defined Lore Entities */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--ink-muted)] font-mono">
+              Defined Characters & Terms in this Manuscript ({storyLoreEntities.length})
+            </h4>
+
+            {storyLoreEntities.length === 0 ? (
+              <div className="p-8 text-center rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-canvas)]/40">
+                <BookOpen className="h-8 w-8 text-[var(--ink-muted)] mx-auto mb-2 opacity-50" />
+                <p className="text-sm font-serif font-bold text-[var(--ink-primary)]">
+                  No characters or lore linked yet
+                </p>
+                <p className="text-xs text-[var(--ink-muted)] mt-1 max-w-sm mx-auto">
+                  Use the form above to define character details once, and the admin engine will hyperlink all occurrences across every chapter.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {storyLoreEntities.map((ent) => {
+                  const combinedContent = (work.chapters || []).map((c) => c.content || '').join('\n\n')
+                  const stats = countEntityMentions(combinedContent, ent.name)
+                  return (
+                    <div
+                      key={ent.name.toLowerCase()}
+                      className="p-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] flex flex-col justify-between gap-3 hover:border-[var(--border-strong)] transition-colors"
+                    >
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-serif font-bold text-sm text-[var(--ink-primary)]">
+                            {ent.name}
+                          </span>
+                          <span className="text-[9px] font-mono uppercase tracking-wider font-semibold px-2 py-0.5 rounded bg-[var(--bg-canvas)] text-[var(--ink-muted)] border border-[var(--border-subtle)]">
+                            {ent.entityType}
+                          </span>
+                        </div>
+                        <p className="text-xs text-[var(--ink-secondary)] leading-relaxed">
+                          {ent.description}
+                        </p>
+                        <div className="text-[11px] font-mono text-[var(--ink-muted)] pt-1">
+                          {stats.linkedCount} linked
+                          {stats.unlinkedCount > 0 && (
+                            <span className="text-amber-600 dark:text-amber-400 font-semibold ml-1.5">
+                              • {stats.unlinkedCount} unlinked
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2 border-t border-[var(--border-subtle)]">
+                        {stats.unlinkedCount > 0 ? (
+                          <button
+                            type="button"
+                            disabled={isLinkingLore}
+                            onClick={() => handleAdminBulkLinkLore(ent)}
+                            className="px-2.5 py-1 rounded text-xs font-medium bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 border border-amber-500/30 flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            <Sparkles className="h-3 w-3" />
+                            <span>Link All Chapters ({stats.unlinkedCount})</span>
+                          </button>
+                        ) : (
+                          <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                            <CheckCircle2 className="h-3 w-3" /> Fully linked
+                          </span>
+                        )}
+
+                        <button
+                          type="button"
+                          disabled={isLinkingLore}
+                          onClick={() => handleAdminBulkUnlinkLore(ent.name)}
+                          className="text-[11px] font-mono text-[var(--ink-muted)] hover:text-red-500 transition-colors cursor-pointer"
+                          title="Unlink all mentions across the story"
+                        >
+                          Unlink All
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Chapters Lore Audit Table */}
+          <div className="space-y-3 pt-2">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--ink-muted)] font-mono">
+              Per-Chapter Lore Status & Linking
+            </h4>
+
+            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-[var(--border-subtle)] bg-[var(--bg-canvas)] text-[var(--ink-muted)] font-mono text-[11px]">
+                    <th className="py-2.5 px-4 font-normal">#</th>
+                    <th className="py-2.5 px-4 font-normal">Chapter</th>
+                    <th className="py-2.5 px-4 font-normal">Words</th>
+                    <th className="py-2.5 px-4 font-normal">Lore Status</th>
+                    <th className="py-2.5 px-4 font-normal text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--border-subtle)]">
+                  {(work.chapters || []).map((ch, idx) => {
+                    const chEntities = extractLoreEntities(ch.content || '')
+                    return (
+                      <tr key={ch.id} className="hover:bg-[var(--bg-canvas)]/50 transition-colors">
+                        <td className="py-3 px-4 font-mono text-[var(--ink-muted)]">
+                          {ch.chapterNumber || idx + 1}
+                        </td>
+                        <td className="py-3 px-4 font-serif font-bold text-[var(--ink-primary)]">
+                          {ch.title || `Chapter ${ch.chapterNumber || idx + 1}`}
+                        </td>
+                        <td className="py-3 px-4 font-mono text-[var(--ink-secondary)]">
+                          {(ch.content || '').split(/\s+/).filter(Boolean).length.toLocaleString()}
+                        </td>
+                        <td className="py-3 px-4 font-mono text-[11px]">
+                          {chEntities.length > 0 ? (
+                            <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                              {chEntities.length} entit{chEntities.length !== 1 ? 'ies' : 'y'} active
+                            </span>
+                          ) : (
+                            <span className="text-[var(--ink-faint)]">0 entities linked</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingChapterId(ch.id)
+                              setChNumberInput(ch.chapterNumber || idx + 1)
+                              setChTitleInput(ch.title || '')
+                              setChSubtitleInput(ch.subtitle || '')
+                              setChContentInput(ch.content || '')
+                              setChStatusInput(ch.status === 'draft' ? 'draft' : 'published')
+                              setChBannerInput(ch.bannerImagePath || '')
+                              setChapterModalMode('edit')
+                              setShowChapterModal(true)
+                            }}
+                            className="px-2.5 py-1 rounded-md text-[11px] font-mono font-medium border border-[var(--border-subtle)] bg-[var(--bg-canvas)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] transition-colors cursor-pointer"
+                          >
+                            Edit & Link Chapter
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* MODAL: ADD / EDIT ACT */}
       {showActModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
@@ -1728,11 +2087,22 @@ function AdminWorkEditorPage() {
                   <label className="block text-[11px] font-mono text-[var(--ink-secondary)]">
                     Manuscript Text <span className="text-rose-500">*</span>
                   </label>
-                  {chContentInput.trim() && (
-                    <span className="text-[10px] font-mono text-[var(--ink-faint)]">
-                      {chContentInput.trim().split(/\s+/).filter(Boolean).length} words
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowChLoreModal(true)}
+                      className="px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 border border-amber-500/30 flex items-center gap-1 transition-colors cursor-pointer"
+                      title="Manage interactive footnotes and character links for this chapter"
+                    >
+                      <Sparkles className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                      <span>Lore & Footnotes</span>
+                    </button>
+                    {chContentInput.trim() && (
+                      <span className="text-[10px] font-mono text-[var(--ink-faint)]">
+                        {chContentInput.trim().split(/\s+/).filter(Boolean).length} words
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <textarea
                   required
@@ -1789,6 +2159,16 @@ function AdminWorkEditorPage() {
           </div>
         </div>
       )}
+
+      {/* Chapter Lore Modal */}
+      <StoryLoreModal
+        isOpen={showChLoreModal}
+        onClose={() => setShowChLoreModal(false)}
+        content={chContentInput}
+        onUpdateContent={(newContent) => {
+          setChContentInput(newContent)
+        }}
+      />
 
       {/* MODAL: 3-LAYER VIEWS BREAKDOWN WITH ADMIN INCREMENT / DECREMENT */}
       <ViewsBreakdownModal

@@ -1,6 +1,11 @@
 import { createServerFn } from '@tanstack/react-start'
 import { createAdminClient } from '../lib/supabase/server.ts'
 import crypto from 'node:crypto'
+import {
+  linkAllOccurrences,
+  unlinkAllOccurrences,
+  type LoreEntity,
+} from '../lib/lore/loreParser.ts'
 
 const ADMIN_SECRET =
   (typeof process !== 'undefined' && (process.env.ADMIN_SECRET_KEY || process.env.ADMIN_PASSWORD)) ||
@@ -1568,6 +1573,165 @@ export const adminUpdateChapterServerFn = createServerFn({ method: 'POST' })
       wordCount,
       readTimeMinutes: readingTime,
       updatedAt: nowIso,
+    }
+  })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Admin Lore & Characters: Bulk Link and Unlink across any story's chapters
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface AdminBulkLinkLorePayload {
+  adminToken: string
+  workId: string
+  entity: LoreEntity
+  chapterIds?: string[]
+}
+
+export const adminBulkLinkLoreServerFn = createServerFn({ method: 'POST' })
+  .validator((params: AdminBulkLinkLorePayload) => {
+    if (!params.adminToken) throw new Error('Admin authorization token is required')
+    if (!params.workId?.trim()) throw new Error('Work ID is required')
+    if (!params.entity?.name?.trim()) throw new Error('Entity name is required')
+    if (!params.entity?.description?.trim()) throw new Error('Entity description is required')
+    return params
+  })
+  .handler(async ({ data }: { data: AdminBulkLinkLorePayload }) => {
+    if (!isValidAdminToken(data.adminToken)) {
+      throw new Error('Unauthorized: Invalid administration key')
+    }
+
+    const admin = createAdminClient()
+    const { workId, entity, chapterIds } = data
+
+    // Resolve work UUID
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(workId)
+    let targetWorkUuid = workId
+    if (!isUuid) {
+      const { data: wRow } = await admin.from('works').select('id').eq('slug', workId).maybeSingle()
+      if (wRow?.id) targetWorkUuid = wRow.id
+    }
+
+    // Query chapters for this work
+    let query = admin.from('chapters').select('id, title, chapter_number, content').eq('work_id', targetWorkUuid)
+    if (chapterIds && chapterIds.length > 0) {
+      query = query.in('id', chapterIds)
+    }
+
+    const { data: chapters, error: chErr } = await query
+    if (chErr) throw new Error(chErr.message)
+    if (!chapters || chapters.length === 0) {
+      return { success: true, updatedChaptersCount: 0, totalMentionsLinked: 0, entityName: entity.name }
+    }
+
+    let updatedChaptersCount = 0
+    let totalMentionsLinked = 0
+
+    for (const ch of chapters) {
+      const rawContent = ch.content || ''
+      const { newMarkdown, countReplaced } = linkAllOccurrences(rawContent, entity)
+      if (countReplaced > 0) {
+        const cleanContent = newMarkdown.replace(/\\+[ \t]*(?=\r?\n|$)/g, '').trim()
+        const wordCount = cleanContent.split(/\s+/).filter(Boolean).length
+        const readingTime = Math.max(1, Math.ceil(wordCount / 220))
+
+        const { error: upErr } = await admin
+          .from('chapters')
+          .update({
+            content: cleanContent,
+            word_count: wordCount,
+            reading_time_minutes: readingTime,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', ch.id)
+
+        if (!upErr) {
+          updatedChaptersCount++
+          totalMentionsLinked += countReplaced
+        }
+      }
+    }
+
+    return {
+      success: true,
+      updatedChaptersCount,
+      totalMentionsLinked,
+      entityName: entity.name,
+    }
+  })
+
+export interface AdminBulkUnlinkLorePayload {
+  adminToken: string
+  workId: string
+  entityName: string
+  chapterIds?: string[]
+}
+
+export const adminBulkUnlinkLoreServerFn = createServerFn({ method: 'POST' })
+  .validator((params: AdminBulkUnlinkLorePayload) => {
+    if (!params.adminToken) throw new Error('Admin authorization token is required')
+    if (!params.workId?.trim()) throw new Error('Work ID is required')
+    if (!params.entityName?.trim()) throw new Error('Entity name is required')
+    return params
+  })
+  .handler(async ({ data }: { data: AdminBulkUnlinkLorePayload }) => {
+    if (!isValidAdminToken(data.adminToken)) {
+      throw new Error('Unauthorized: Invalid administration key')
+    }
+
+    const admin = createAdminClient()
+    const { workId, entityName, chapterIds } = data
+
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(workId)
+    let targetWorkUuid = workId
+    if (!isUuid) {
+      const { data: wRow } = await admin.from('works').select('id').eq('slug', workId).maybeSingle()
+      if (wRow?.id) targetWorkUuid = wRow.id
+    }
+
+    let query = admin.from('chapters').select('id, title, chapter_number, content').eq('work_id', targetWorkUuid)
+    if (chapterIds && chapterIds.length > 0) {
+      query = query.in('id', chapterIds)
+    }
+
+    const { data: chapters, error: chErr } = await query
+    if (chErr) throw new Error(chErr.message)
+    if (!chapters || chapters.length === 0) {
+      return { success: true, updatedChaptersCount: 0, totalMentionsUnlinked: 0, entityName }
+    }
+
+    let updatedChaptersCount = 0
+    let totalMentionsUnlinked = 0
+
+    for (const ch of chapters) {
+      const rawContent = ch.content || ''
+      const { newMarkdown, countUnlinked } = unlinkAllOccurrences(rawContent, entityName)
+      if (countUnlinked > 0) {
+        const cleanContent = newMarkdown.replace(/\\+[ \t]*(?=\r?\n|$)/g, '').trim()
+        const wordCount = cleanContent.split(/\s+/).filter(Boolean).length
+        const readingTime = Math.max(1, Math.ceil(wordCount / 220))
+
+        const { error: upErr } = await admin
+          .from('chapters')
+          .update({
+            content: cleanContent,
+            word_count: wordCount,
+            reading_time_minutes: readingTime,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', ch.id)
+
+        if (!upErr) {
+          updatedChaptersCount++
+          totalMentionsUnlinked += countUnlinked
+        }
+      }
+    }
+
+    return {
+      success: true,
+      updatedChaptersCount,
+      totalMentionsUnlinked,
+      entityName,
     }
   })
 
