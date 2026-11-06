@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate, useRouter } from '@tanstack/react-router'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import EmptyState from '../components/EmptyState'
@@ -72,6 +72,8 @@ function ChapterEditorPage() {
   const loaderData = Route.useLoaderData()
   const { getWorkById, updateChapterContent, showToast } = useApp()
   const navigate = useNavigate()
+  const router = useRouter()
+  const broadcastChannelRef = useRef<BroadcastChannel | null>(null)
 
   const work = loaderData?.work || getWorkById(workId)
   const targetActIdFromSearch = search?.actId
@@ -196,6 +198,7 @@ function ChapterEditorPage() {
 
     const channelName = `hatchpen_tab_${work.id}_${currentChapter.id}`
     const channel = new BroadcastChannel(channelName)
+    broadcastChannelRef.current = channel
     const myTabId = Math.random().toString(36).substring(2, 9)
 
     // Announce my presence to any existing tabs
@@ -224,6 +227,9 @@ function ChapterEditorPage() {
         channel.postMessage({ type: 'CLOSED', tabId: myTabId })
         channel.removeEventListener('message', handleMessage)
         channel.close()
+        if (broadcastChannelRef.current === channel) {
+          broadcastChannelRef.current = null
+        }
       } catch (err) {}
     }
   }, [work?.id, currentChapter?.id])
@@ -590,6 +596,19 @@ function ChapterEditorPage() {
           bannerImage: currentBanner,
         })
         showToast('Chapter saved to database')
+
+        // Real-time inter-tab notification so preview tabs update immediately without manual reload
+        broadcastChannelRef.current?.postMessage({
+          type: 'CHAPTER_SAVED',
+          workId: work.id,
+          chapterId: currentChapter.id,
+          title: currentTitle,
+          subtitle: currentSubtitle,
+          content: currentContent,
+          banner: currentBanner,
+          updatedAt: res?.updatedAt || new Date().toISOString(),
+        })
+        void router.invalidate()
       } catch (e: any) {
         console.error('[handleManualSave] Save error:', e)
         // Check if error is TanStack dev-runner Seroval serialization quirk
@@ -605,6 +624,18 @@ function ChapterEditorPage() {
             bannerImage: currentBanner,
           })
           showToast('Chapter saved to database')
+
+          broadcastChannelRef.current?.postMessage({
+            type: 'CHAPTER_SAVED',
+            workId: work.id,
+            chapterId: currentChapter.id,
+            title: currentTitle,
+            subtitle: currentSubtitle,
+            content: currentContent,
+            banner: currentBanner,
+            updatedAt: new Date().toISOString(),
+          })
+          void router.invalidate()
           return
         }
         setAutosaveStatus('dirty')
@@ -721,6 +752,17 @@ function ChapterEditorPage() {
         })),
       })
       setAutosaveStatus('saved')
+      broadcastChannelRef.current?.postMessage({
+        type: 'CHAPTER_SAVED',
+        workId: work.id,
+        chapterId: activeChapterId,
+        title: curTitle,
+        subtitle: curSubtitle,
+        content: curContent,
+        banner: bannerImage,
+        updatedAt: new Date().toISOString(),
+      })
+      void router.invalidate()
       showToast('Chapter published to manuscript!')
       setIsNavigating(true)
       navigate({ to: '/write/manage/$workId', params: { workId: work.id } })
@@ -728,6 +770,17 @@ function ChapterEditorPage() {
       console.warn('[handlePublish] Error:', e)
       if (e?.message && e.message.includes('Seroval')) {
         setAutosaveStatus('saved')
+        broadcastChannelRef.current?.postMessage({
+          type: 'CHAPTER_SAVED',
+          workId: work.id,
+          chapterId: activeChapterId,
+          title: curTitle,
+          subtitle: curSubtitle,
+          content: curContent,
+          banner: bannerImage,
+          updatedAt: new Date().toISOString(),
+        })
+        void router.invalidate()
         showToast('Chapter published to manuscript!')
         setIsNavigating(true)
         navigate({ to: '/write/manage/$workId', params: { workId: work.id } })
@@ -826,6 +879,17 @@ function ChapterEditorPage() {
 
       setPublishManuscriptModalOpen(false)
       setAutosaveStatus('saved')
+      broadcastChannelRef.current?.postMessage({
+        type: 'CHAPTER_SAVED',
+        workId: work.id,
+        chapterId: activeChapterId,
+        title: curTitle,
+        subtitle: curSubtitle,
+        content: curContent,
+        banner: bannerImage,
+        updatedAt: new Date().toISOString(),
+      })
+      void router.invalidate()
       showToast('Chapter and Manuscript published successfully!')
       setIsNavigating(true)
       navigate({ to: '/write/manage/$workId', params: { workId: work.id } })
@@ -837,6 +901,17 @@ function ChapterEditorPage() {
         work.visibility = 'Public'
         setPublishManuscriptModalOpen(false)
         setAutosaveStatus('saved')
+        broadcastChannelRef.current?.postMessage({
+          type: 'CHAPTER_SAVED',
+          workId: work.id,
+          chapterId: activeChapterId,
+          title: curTitle,
+          subtitle: curSubtitle,
+          content: curContent,
+          banner: bannerImage,
+          updatedAt: new Date().toISOString(),
+        })
+        void router.invalidate()
         showToast('Chapter and Manuscript published successfully!')
         setIsNavigating(true)
         navigate({ to: '/write/manage/$workId', params: { workId: work.id } })

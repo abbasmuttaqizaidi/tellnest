@@ -29,6 +29,13 @@ export function clearPublicWorkCache(idOrSlug?: string) {
   if (idOrSlug) {
     const clean = idOrSlug.trim().toLowerCase()
     publicWorkCache.delete(clean)
+    for (const [key, entry] of publicWorkCache.entries()) {
+      const dataId = entry.data?.id ? String(entry.data.id).toLowerCase() : null
+      const dataSlug = entry.data?.slug ? String(entry.data.slug).toLowerCase() : null
+      if (key === clean || dataId === clean || dataSlug === clean) {
+        publicWorkCache.delete(key)
+      }
+    }
   } else {
     publicWorkCache.clear()
   }

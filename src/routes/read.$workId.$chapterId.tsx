@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate, notFound } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate, useRouter, notFound } from '@tanstack/react-router'
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import ReaderSettingsModal from '../components/ReaderSettingsModal'
@@ -51,6 +51,8 @@ import { LoreGlossaryTrigger } from '../components/reader/LoreGlossaryTrigger'
 import { parseLorePayload } from '../lib/lore/loreParser'
 
 export const Route = createFileRoute('/read/$workId/$chapterId')({
+  staleTime: 0,
+  gcTime: 0,
   pendingMs: 0,
   pendingComponent: ReaderSkeleton,
   loader: async ({ params }) => {
@@ -444,6 +446,7 @@ function ReaderPage() {
   const { workId, chapterId } = Route.useParams()
   const loaderData = Route.useLoaderData()
   const navigate = useNavigate()
+  const router = useRouter()
   const {
     user,
     getWorkById,
@@ -552,6 +555,46 @@ function ReaderPage() {
   useEffect(() => {
     hasPromptedChapter1Ref.current = false
   }, [work?.id])
+
+  // Real-time inter-tab sync with Writer Studio:
+  // When an author edits prose in editor tab and clicks Save, immediately re-run route loader
+  useEffect(() => {
+    if (!work?.id || !chapter?.id || typeof window === 'undefined' || !('BroadcastChannel' in window)) return
+
+    const channelName = `hatchpen_tab_${work.id}_${chapter.id}`
+    const channel = new BroadcastChannel(channelName)
+
+    const handleMessage = (e: MessageEvent) => {
+      const msg = e.data
+      if (!msg) return
+      if (msg.type === 'CHAPTER_SAVED') {
+        void router.invalidate()
+      }
+    }
+
+    channel.addEventListener('message', handleMessage)
+    return () => {
+      channel.removeEventListener('message', handleMessage)
+      channel.close()
+    }
+  }, [work?.id, chapter?.id, router])
+
+  // Window Focus / Tab Visibility Sync:
+  // When switching back to reader/preview tab, re-validate if it's the author's story
+  useEffect(() => {
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible' && work?.id && isOwnWork(work.id)) {
+        void router.invalidate()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus)
+    window.addEventListener('focus', handleVisibilityOrFocus)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus)
+      window.removeEventListener('focus', handleVisibilityOrFocus)
+    }
+  }, [router, work?.id, isOwnWork])
 
   useEffect(() => {
     // Only apply to confirmed public (unauthenticated) readers once auth state, work, and chapter are loaded
