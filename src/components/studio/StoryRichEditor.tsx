@@ -282,6 +282,21 @@ export function StoryRichEditor({
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [viewMode, setViewMode] = useState<'write' | 'split' | 'preview'>('write')
   const [diffOpen, setDiffOpen] = useState(false)
+
+  const hasChanges = autosaveStatus === 'dirty' || Boolean(
+    savedSnapshot && (
+      (savedSnapshot.title !== undefined && savedSnapshot.title !== title) ||
+      (savedSnapshot.subtitle !== undefined && savedSnapshot.subtitle !== subtitle) ||
+      (savedSnapshot.content !== undefined && savedSnapshot.content !== content) ||
+      (savedSnapshot.bannerImage !== undefined && savedSnapshot.bannerImage !== bannerImage)
+    )
+  )
+
+  useEffect(() => {
+    if (!hasChanges && diffOpen) {
+      setDiffOpen(false)
+    }
+  }, [hasChanges, diffOpen])
   const [isBannerModalOpen, setIsBannerModalOpen] = useState(false)
   const [fontFamily, setFontFamily] = useState<'serif' | 'sans' | 'mono'>('serif')
   const [fontSize, setFontSize] = useState<'sm' | 'base' | 'lg' | 'xl'>('lg')
@@ -822,18 +837,27 @@ export function StoryRichEditor({
             <span>Preview</span>
           </button>
 
-          {/* Review Changes Panel Toggle Button */}
+          {/* Review Changes Panel Toggle Button - Enabled only when there are unsaved changes */}
           <button
             type="button"
-            onClick={() => setDiffOpen(!diffOpen)}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-mono transition-colors border cursor-pointer ${
-              diffOpen
-                ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] border-[var(--ink-primary)] font-semibold shadow-2xs'
-                : 'bg-[var(--bg-canvas)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)] border-[var(--border-subtle)] hover:border-[var(--border-strong)]'
+            onClick={() => hasChanges && setDiffOpen(!diffOpen)}
+            disabled={!hasChanges}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-mono transition-all border select-none ${
+              !hasChanges
+                ? 'bg-[var(--bg-subtle)] text-[var(--ink-faint)] border-[var(--border-subtle)] cursor-not-allowed opacity-50'
+                : diffOpen
+                ? 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] border-[var(--ink-primary)] font-semibold shadow-2xs cursor-pointer'
+                : 'bg-[var(--bg-canvas)] text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] border-[var(--border-strong)] font-semibold shadow-2xs cursor-pointer'
             }`}
-            title={diffOpen ? 'Close Changes Panel' : 'Review Unsaved Changes'}
+            title={
+              !hasChanges
+                ? 'No unsaved changes'
+                : diffOpen
+                ? 'Close Changes Panel'
+                : 'Review Unsaved Changes'
+            }
           >
-            <GitCompare className="h-3.5 w-3.5" />
+            <GitCompare className={`h-3.5 w-3.5 ${hasChanges ? 'text-amber-600 dark:text-amber-400' : 'text-[var(--ink-faint)]'}`} />
             <span>Changes</span>
           </button>
 
