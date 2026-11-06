@@ -1006,9 +1006,6 @@ export async function executeSaveWriterChapter(data: SaveWriterChapterPayload, a
     }
 
   clearPublicWorkCache(workUuid)
-  if ((parentWorkRow as any)?.slug) {
-    clearPublicWorkCache((parentWorkRow as any).slug)
-  }
 
   return JSON.parse(JSON.stringify({
     success: true,
@@ -1629,9 +1626,6 @@ export async function executeWriterWorkPublication(
   }
 
   clearPublicWorkCache(workUuid)
-  if ((parentWorkRow as any)?.slug) {
-    clearPublicWorkCache((parentWorkRow as any).slug)
-  }
   if (updatedWork?.slug) {
     clearPublicWorkCache(updatedWork.slug)
   }
