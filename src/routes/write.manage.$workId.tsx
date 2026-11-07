@@ -1201,7 +1201,7 @@ function WorkManagementPage() {
             </div>
           </div>
 
-          {/* Right: Streamlined Action Cluster (Publish, Delete, Add + 3-dots Menu) */}
+          {/* Right: Streamlined Action Cluster (Publish, Lores, Add + 3-dots Menu) */}
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-[var(--border-subtle)]">
             {/* 1. Publish Button */}
             {publicationStatus === 'Draft' ? (
@@ -1235,15 +1235,15 @@ function WorkManagementPage() {
               </button>
             )}
 
-            {/* 2. Delete Button */}
+            {/* 2. Lores Button (Replaces Delete) */}
             <button
               type="button"
-              onClick={() => setDeleteWorkModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/5 hover:bg-red-500/15 text-red-600 dark:text-red-400 px-3.5 py-2 text-xs font-medium transition-colors cursor-pointer shadow-2xs"
-              title="Permanently delete this manuscript"
+              onClick={() => setLoreBibleModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-canvas)] hover:bg-[var(--bg-subtle)] px-3.5 py-2 text-xs font-semibold text-[var(--ink-primary)] shadow-2xs transition-colors cursor-pointer"
+              title="Manage manuscript characters, world lore, and interactive footnotes"
             >
-              <Trash2 className="h-3.5 w-3.5" />
-              <span>Delete</span>
+              <BookOpen className="h-4 w-4 text-black dark:text-white" />
+              <span>Lores</span>
             </button>
 
             {/* 3. Add Button with Popup Dropdown (+ Chapter / + Act) */}
@@ -1332,21 +1332,6 @@ function WorkManagementPage() {
                     <span>Visibility Settings</span>
                   </button>
 
-                  {/* Story Lore Bible */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMoreMenuOpen(false)
-                      setLoreBibleModalOpen(true)
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors text-left cursor-pointer"
-                  >
-                    <BookOpen className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                    <span>Story Lore Bible</span>
-                  </button>
-
-                  <div className="my-1 border-t border-[var(--border-subtle)]" />
-
                   {/* Analytics */}
                   <Link
                     to="/write/analytics/$workId"
@@ -1357,6 +1342,21 @@ function WorkManagementPage() {
                     <BarChart3 className="h-4 w-4 text-black dark:text-white shrink-0" />
                     <span>Analytics</span>
                   </Link>
+
+                  <div className="my-1 border-t border-[var(--border-subtle)]" />
+
+                  {/* Delete Manuscript */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMoreMenuOpen(false)
+                      setDeleteWorkModalOpen(true)
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-500/10 transition-colors text-left cursor-pointer"
+                  >
+                    <Trash2 className="h-4 w-4 shrink-0" />
+                    <span>Delete Manuscript</span>
+                  </button>
                 </div>
               )}
             </div>
