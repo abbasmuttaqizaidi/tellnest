@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react'
+import { useUser } from '@clerk/react'
 import {
   X,
   Search,
@@ -11,6 +12,7 @@ import {
   FileSpreadsheet,
   Check,
   BookOpen,
+  ChevronDown,
 } from 'lucide-react'
 import { StoryLoreCsvModal } from './StoryLoreCsvModal'
 import {
@@ -26,6 +28,7 @@ import {
   bulkLinkStoryLoreServerFn,
   bulkUnlinkStoryLoreServerFn,
   deleteStoryLoreEntityServerFn,
+  saveUserLoreTypeServerFn,
 } from '../../server/writer'
 
 export interface StoryLoreModalProps {
@@ -39,7 +42,7 @@ export interface StoryLoreModalProps {
   initialTab?: 'chapter' | 'bible'
 }
 
-type EntityType = 'Character' | 'Location' | 'Lore'
+const DEFAULT_LORE_TYPES = ['Character', 'Location', 'Lore']
 
 export function StoryLoreModal({
   isOpen,
@@ -50,20 +53,27 @@ export function StoryLoreModal({
   workId,
   chapterId,
 }: StoryLoreModalProps) {
+  const { user } = useUser()
   const hasChapterContext = Boolean(onUpdateContent)
 
   // Bible entities state
   const [bibleEntities, setBibleEntities] = useState<StoryLoreEntity[]>([])
+  const [availableTypes, setAvailableTypes] = useState<string[]>(DEFAULT_LORE_TYPES)
   const [isLoading, setIsLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedTypeFilter, setSelectedTypeFilter] = useState<'ALL' | EntityType>('ALL')
+  const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>('ALL')
 
   // Form states (Add-first approach: always ready at top)
   const [editingName, setEditingName] = useState<string | null>(null)
   const [name, setName] = useState(initialSelectedText)
-  const [entityType, setEntityType] = useState<EntityType>('Character')
+  const [entityType, setEntityType] = useState<string>('Character')
   const [description, setDescription] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+
+  // Combobox dropdown state
+  const [isComboboxOpen, setIsComboboxOpen] = useState(false)
+  const [comboboxInput, setComboboxInput] = useState('')
+  const comboboxRef = useRef<HTMLDivElement>(null)
 
   // CSV modal & status feedback
   const [isCsvModalOpen, setIsCsvModalOpen] = useState(false)
@@ -78,14 +88,19 @@ export function StoryLoreModal({
     setTimeout(() => setToastMessage(null), 3500)
   }
 
-  // Load lore entities from backend
+  // Load lore entities & available lore types from backend
   const loadEntities = useCallback(async () => {
     if (!workId) return
     setIsLoading(true)
     try {
       const res = await getStoryLoreBibleServerFn({ data: { workId } })
-      if (res && Array.isArray(res.entities)) {
-        setBibleEntities(res.entities)
+      if (res) {
+        if (Array.isArray(res.entities)) {
+          setBibleEntities(res.entities)
+        }
+        if (Array.isArray(res.loreTypes) && res.loreTypes.length > 0) {
+          setAvailableTypes(res.loreTypes)
+        }
       }
     } catch (err) {
       console.error('[StoryLoreModal] Failed to load lore entities:', err)
@@ -94,10 +109,25 @@ export function StoryLoreModal({
     }
   }, [workId])
 
+  // Close combobox on click outside
+  useEffect(() => {
+    if (!isComboboxOpen) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (comboboxRef.current && !comboboxRef.current.contains(e.target as Node)) {
+        setIsComboboxOpen(false)
+        setComboboxInput('')
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isComboboxOpen])
+
   // Reset & initialize
   useEffect(() => {
     if (isOpen) {
       setToastMessage(null)
+      setIsComboboxOpen(false)
+      setComboboxInput('')
       if (initialSelectedText) {
         setName(initialSelectedText.trim())
         setEditingName(null)
@@ -119,15 +149,62 @@ export function StoryLoreModal({
     setEntityType('Character')
     setDescription('')
     setEditingName(null)
+    setIsComboboxOpen(false)
+    setComboboxInput('')
     setTimeout(() => nameInputRef.current?.focus(), 50)
   }
 
   const handleEditClick = (ent: StoryLoreEntity) => {
     setEditingName(ent.name)
     setName(ent.name)
-    setEntityType((ent.type as EntityType) || 'Character')
+    setEntityType(ent.type || 'Character')
     setDescription(ent.description)
     setTimeout(() => descInputRef.current?.focus(), 50)
+  }
+
+  // Type selection & custom type creation
+  const handleSelectType = (selected: string) => {
+    setEntityType(selected)
+    setIsComboboxOpen(false)
+    setComboboxInput('')
+  }
+
+  const handleAddNewType = async (rawInput: string) => {
+    const clean = rawInput.trim()
+    if (!clean) return
+
+    // Clean title casing (e.g. "villain" -> "Villain", "magic weapon" -> "Magic Weapon")
+    const formatted = clean
+      .split(/\s+/)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ')
+
+    const existingMatch = availableTypes.find(
+      (t) => t.toLowerCase() === formatted.toLowerCase()
+    )
+    const finalType = existingMatch || formatted
+
+    setEntityType(finalType)
+    setIsComboboxOpen(false)
+    setComboboxInput('')
+
+    if (!existingMatch) {
+      setAvailableTypes((prev) => [...prev, finalType])
+      if (workId) {
+        try {
+          await saveUserLoreTypeServerFn({
+            data: {
+              workId,
+              loreType: finalType,
+              clerkUserId: user?.id,
+            },
+          })
+          showToast(`Saved "${finalType}" to your lore types`)
+        } catch (err) {
+          console.warn('[StoryLoreModal] Failed to persist lore type:', err)
+        }
+      }
+    }
   }
 
   // Save or update lore
@@ -146,6 +223,7 @@ export function StoryLoreModal({
           entityType,
           entityDescription: trimmedDesc,
           linkToAllChapters: true,
+          clerkUserId: user?.id,
         },
       })
 
@@ -184,6 +262,7 @@ export function StoryLoreModal({
           entityName: ent.name,
           entityType: ent.type,
           entityDescription: ent.description,
+          clerkUserId: user?.id,
         },
       })
 
@@ -215,6 +294,7 @@ export function StoryLoreModal({
         data: {
           workId,
           entityName: entName,
+          clerkUserId: user?.id,
         },
       })
 
@@ -243,6 +323,7 @@ export function StoryLoreModal({
         data: {
           workId,
           entityName: entName,
+          clerkUserId: user?.id,
         },
       })
 
@@ -263,7 +344,14 @@ export function StoryLoreModal({
     }
   }
 
-  // Filtered list
+  // Filtered combobox suggestions
+  const filteredComboboxTypes = useMemo(() => {
+    const q = comboboxInput.trim().toLowerCase()
+    if (!q) return availableTypes
+    return availableTypes.filter((t) => t.toLowerCase().includes(q))
+  }, [availableTypes, comboboxInput])
+
+  // Filtered lore list
   const filteredEntities = useMemo(() => {
     const q = searchQuery.toLowerCase().trim()
     return bibleEntities.filter((ent) => {
@@ -273,7 +361,7 @@ export function StoryLoreModal({
         ent.description.toLowerCase().includes(q)
       const matchesType =
         selectedTypeFilter === 'ALL' ||
-        ent.type.toUpperCase() === selectedTypeFilter.toUpperCase()
+        ent.type?.toLowerCase() === selectedTypeFilter.toLowerCase()
       return matchesSearch && matchesType
     })
   }, [bibleEntities, searchQuery, selectedTypeFilter])
@@ -341,22 +429,85 @@ export function StoryLoreModal({
                   {editingName ? `Edit Lore Note: "${editingName}"` : 'Quick Add Lore'}
                 </span>
 
-                {/* Type Selection Pills */}
-                <div className="flex items-center gap-1">
-                  {(['Character', 'Location', 'Lore'] as const).map((t) => (
+                {/* Combobox: Type selector + custom type creation */}
+                <div className="relative" ref={comboboxRef}>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-medium text-[var(--ink-muted)]">Type:</span>
                     <button
-                      key={t}
                       type="button"
-                      onClick={() => setEntityType(t)}
-                      className={`px-2.5 py-0.5 text-[11px] rounded-lg font-medium transition cursor-pointer ${
-                        entityType === t
-                          ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-2xs'
-                          : 'bg-[var(--bg-surface)] text-[var(--ink-secondary)] border border-[var(--border-subtle)] hover:border-zinc-400'
-                      }`}
+                      onClick={() => setIsComboboxOpen((prev) => !prev)}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg font-medium border border-zinc-200 dark:border-zinc-700 bg-[var(--bg-canvas)] text-[var(--ink-primary)] hover:border-zinc-400 dark:hover:border-zinc-500 transition shadow-2xs cursor-pointer"
+                      title="Choose or type a new lore type"
                     >
-                      {t}
+                      <span className="font-semibold">{entityType}</span>
+                      <ChevronDown className="w-3.5 h-3.5 text-[var(--ink-muted)]" />
                     </button>
-                  ))}
+                  </div>
+
+                  {/* Dropdown Menu */}
+                  {isComboboxOpen && (
+                    <div className="absolute right-0 top-full mt-1.5 w-56 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-[var(--bg-canvas)] shadow-xl z-30 p-1.5 space-y-1 animate-in fade-in zoom-in-95 duration-100">
+                      {/* Search / Custom Type Input */}
+                      <div className="relative">
+                        <input
+                          type="text"
+                          autoFocus
+                          placeholder="Search or add type..."
+                          value={comboboxInput}
+                          onChange={(e) => setComboboxInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault()
+                              if (comboboxInput.trim()) {
+                                handleAddNewType(comboboxInput)
+                              }
+                            } else if (e.key === 'Escape') {
+                              setIsComboboxOpen(false)
+                            }
+                          }}
+                          className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-zinc-200 dark:border-zinc-700 bg-[var(--bg-surface)] text-[var(--ink-primary)] placeholder-[var(--ink-muted)] focus:outline-none focus:border-zinc-500"
+                        />
+                      </div>
+
+                      {/* Option to create new custom type if doesn't match existing */}
+                      {comboboxInput.trim() &&
+                        !availableTypes.some(
+                          (t) => t.toLowerCase() === comboboxInput.trim().toLowerCase()
+                        ) && (
+                          <button
+                            type="button"
+                            onClick={() => handleAddNewType(comboboxInput)}
+                            className="w-full text-left px-2.5 py-1.5 text-xs rounded-lg font-medium text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400 shrink-0" />
+                            <span className="truncate">
+                              Add <strong>"{comboboxInput.trim()}"</strong>
+                            </span>
+                          </button>
+                        )}
+
+                      {/* List of existing types */}
+                      <div className="max-h-44 overflow-y-auto space-y-0.5 pt-0.5">
+                        {filteredComboboxTypes.map((t) => (
+                          <button
+                            key={t}
+                            type="button"
+                            onClick={() => handleSelectType(t)}
+                            className={`w-full text-left px-2.5 py-1.5 text-xs rounded-lg font-medium transition flex items-center justify-between cursor-pointer ${
+                              entityType.toLowerCase() === t.toLowerCase()
+                                ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
+                                : 'text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)]'
+                            }`}
+                          >
+                            <span>{t}</span>
+                            {entityType.toLowerCase() === t.toLowerCase() && (
+                              <Check className="w-3.5 h-3.5 shrink-0" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -427,20 +578,20 @@ export function StoryLoreModal({
             {/* 2. RECORDED LORE DIRECTORY: Reference & management below */}
             <div className="space-y-2.5 pt-1">
               <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-[var(--ink-primary)]">
+                <div className="flex items-center gap-2 overflow-x-auto max-w-full">
+                  <span className="text-xs font-semibold text-[var(--ink-primary)] shrink-0">
                     Recorded Lore ({bibleEntities.length})
                   </span>
 
-                  {/* Filter Pills */}
-                  <div className="inline-flex p-0.5 bg-[var(--bg-surface)] rounded-lg border border-[var(--border-subtle)]">
-                    {(['ALL', 'Character', 'Location', 'Lore'] as const).map((t) => (
+                  {/* Filter Pills with dynamic custom types */}
+                  <div className="inline-flex p-0.5 bg-[var(--bg-surface)] rounded-lg border border-[var(--border-subtle)] overflow-x-auto">
+                    {['ALL', ...availableTypes].map((t) => (
                       <button
                         key={t}
                         type="button"
                         onClick={() => setSelectedTypeFilter(t)}
-                        className={`px-2 py-0.5 text-[10px] rounded-md font-medium transition cursor-pointer ${
-                          selectedTypeFilter === t
+                        className={`px-2 py-0.5 text-[10px] rounded-md font-medium transition cursor-pointer whitespace-nowrap ${
+                          selectedTypeFilter.toLowerCase() === t.toLowerCase()
                             ? 'bg-[var(--bg-canvas)] text-[var(--ink-primary)] shadow-2xs'
                             : 'text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
                         }`}
@@ -452,7 +603,7 @@ export function StoryLoreModal({
                 </div>
 
                 {/* Search in existing lore */}
-                <div className="relative w-full sm:w-52">
+                <div className="relative w-full sm:w-48 shrink-0">
                   <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--ink-muted)] pointer-events-none" />
                   <input
                     type="text"
@@ -487,6 +638,10 @@ export function StoryLoreModal({
                       actionLoadingKey === `unlink-${ent.name}` ||
                       actionLoadingKey === `delete-${ent.name}`
 
+                    const isCharacter = ent.type?.toLowerCase() === 'character'
+                    const isLocation = ent.type?.toLowerCase() === 'location'
+                    const isLore = ent.type?.toLowerCase() === 'lore'
+
                     return (
                       <div
                         key={ent.name}
@@ -504,11 +659,13 @@ export function StoryLoreModal({
                             </span>
                             <span
                               className={`px-1.5 py-0.5 text-[10px] font-medium rounded-md ${
-                                ent.type === 'Character'
+                                isCharacter
                                   ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
-                                  : ent.type === 'Location'
+                                  : isLocation
                                   ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                                  : 'bg-purple-500/10 text-purple-600 dark:text-purple-400'
+                                  : isLore
+                                  ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400'
+                                  : 'bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700'
                               }`}
                             >
                               {ent.type}

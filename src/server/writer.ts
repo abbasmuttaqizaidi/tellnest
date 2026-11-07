@@ -2170,8 +2170,56 @@ export async function executeGetStoryLoreBible(
     }
   }
 
+  // Collect all unique lore types from defaults, author preferences, DB entities, and chapter lore
+  const typeMap = new Map<string, string>()
+  const registerType = (t: string) => {
+    const clean = t?.trim()
+    if (!clean) return
+    const key = clean.toLowerCase()
+    if (!typeMap.has(key)) {
+      typeMap.set(key, clean)
+    }
+  }
+
+  registerType('Character')
+  registerType('Location')
+  registerType('Lore')
+
+  try {
+    const { data: workRow } = await admin
+      .from('works')
+      .select('id, author_id')
+      .eq('id', workUuid)
+      .maybeSingle()
+    if (workRow?.author_id) {
+      const { data: authorProfile } = await admin
+        .from('profiles')
+        .select('preferences')
+        .eq('id', workRow.author_id)
+        .maybeSingle()
+      if (authorProfile?.preferences?.lore_types && Array.isArray(authorProfile.preferences.lore_types)) {
+        for (const pt of authorProfile.preferences.lore_types) {
+          if (typeof pt === 'string') registerType(pt)
+        }
+      }
+    }
+  } catch {
+    // Non-fatal if table/profile not available in mock tests
+  }
+
+  for (const row of dbEntities) {
+    if (row.entity_type) registerType(row.entity_type)
+  }
+
+  for (const ent of entitiesList) {
+    if (ent.entityType) registerType(ent.entityType)
+  }
+
+  const loreTypes = Array.from(typeMap.values())
+
   return {
     entities: entitiesList,
+    loreTypes,
     totalChaptersCount: allChapters.length,
   }
 }
@@ -2347,6 +2395,26 @@ export async function executeSaveStoryLoreEntity(
     }
   }
 
+  // Ensure entityType is persisted in author's profile preferences
+  if (profile?.id) {
+    try {
+      const existingPrefs = (profile.preferences && typeof profile.preferences === 'object') ? profile.preferences : {}
+      const currentLoreTypes: string[] = Array.isArray(existingPrefs.lore_types) ? existingPrefs.lore_types : ['Character', 'Location', 'Lore']
+      const exists = currentLoreTypes.some(t => t.toLowerCase() === entityType.toLowerCase())
+      if (!exists) {
+        const updatedTypes = [...currentLoreTypes, entityType]
+        await admin.from('profiles').update({
+          preferences: {
+            ...existingPrefs,
+            lore_types: updatedTypes
+          }
+        }).eq('id', profile.id)
+      }
+    } catch {
+      // Non-fatal if profile update fails
+    }
+  }
+
   clearPublicWorkCache(workUuid)
   if (workRow.slug) clearPublicWorkCache(workRow.slug)
 
@@ -2375,6 +2443,91 @@ export const saveStoryLoreEntityServerFn = createServerFn({ method: 'POST' })
   })
   .handler(async ({ data }) => {
     return executeSaveStoryLoreEntity(data)
+  })
+
+// ============================================================================
+// CUSTOM USER LORE TYPES PERSISTENCE
+// ============================================================================
+
+export interface SaveUserLoreTypePayload {
+  workId: string
+  clerkUserId?: string
+  loreType: string
+}
+
+export async function executeSaveUserLoreType(
+  data: SaveUserLoreTypePayload,
+  adminClient?: any,
+  authResolver?: () => Promise<{ userId: string | null } | null>
+) {
+  if (!data.workId?.trim()) throw new Error('Work ID is required')
+  if (!data.loreType?.trim()) throw new Error('Lore type is required')
+
+  const admin = adminClient || createAdminClient()
+  if (data.clerkUserId !== undefined && !data.clerkUserId) {
+    throw new Error('User authentication required')
+  }
+
+  let profile: any = null
+  if (data.clerkUserId) {
+    const verifiedUserId = await authenticateWriterRequest(data.clerkUserId, authResolver)
+    profile = await resolveUserProfile(admin, verifiedUserId)
+  }
+
+  let workUuid = data.workId.trim()
+  const isWorkUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(workUuid)
+  let workRow: any = null
+  if (isWorkUuid) {
+    const { data: row } = await admin.from('works').select('id, author_id').eq('id', workUuid).maybeSingle()
+    workRow = row
+  } else {
+    const { data: row } = await admin.from('works').select('id, author_id').eq('slug', workUuid.toLowerCase()).maybeSingle()
+    workRow = row
+    if (workRow?.id) workUuid = workRow.id
+  }
+
+  const authorId = profile?.id || workRow?.author_id
+  const newType = data.loreType.trim()
+
+  if (authorId) {
+    try {
+      const { data: authorProfile } = await admin
+        .from('profiles')
+        .select('preferences')
+        .eq('id', authorId)
+        .maybeSingle()
+      const existingPrefs = (authorProfile?.preferences && typeof authorProfile.preferences === 'object') ? authorProfile.preferences : {}
+      const currentLoreTypes: string[] = Array.isArray(existingPrefs.lore_types) ? existingPrefs.lore_types : ['Character', 'Location', 'Lore']
+      const exists = currentLoreTypes.some(t => t.toLowerCase() === newType.toLowerCase())
+
+      if (!exists) {
+        const updatedTypes = [...currentLoreTypes, newType]
+        await admin.from('profiles').update({
+          preferences: {
+            ...existingPrefs,
+            lore_types: updatedTypes
+          }
+        }).eq('id', authorId)
+      }
+    } catch {
+      // Non-fatal
+    }
+  }
+
+  return {
+    success: true,
+    loreType: newType,
+  }
+}
+
+export const saveUserLoreTypeServerFn = createServerFn({ method: 'POST' })
+  .validator((params: SaveUserLoreTypePayload) => {
+    if (!params.workId?.trim()) throw new Error('Work ID is required')
+    if (!params.loreType?.trim()) throw new Error('Lore type is required')
+    return params
+  })
+  .handler(async ({ data }) => {
+    return executeSaveUserLoreType(data)
   })
 
 export interface BulkLinkStoryLorePayload {

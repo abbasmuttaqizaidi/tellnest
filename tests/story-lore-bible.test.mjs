@@ -6,6 +6,7 @@ import {
   executeBulkLinkStoryLore,
   executeBulkUnlinkStoryLore,
   executeDeleteStoryLoreEntity,
+  executeSaveUserLoreType,
 } from '../src/server/writer.ts'
 import {
   linkAllOccurrences,
@@ -518,4 +519,71 @@ test('Edge Case: Unpersisted chapter ID "new" does not crash backend', async () 
   )
 
   assert.equal(res.success, true)
+})
+
+test('Custom Lore Types: Persists new custom type to author profile preferences and returns in loreTypes', async () => {
+  let savedPreferences = null
+  const fakeAdmin = {
+    from(table) {
+      if (table === 'profiles') {
+        return {
+          select: () => createQueryMock({ id: 'prof-1', clerk_user_id: 'user_author123', preferences: { lore_types: ['Character', 'Location', 'Lore'] } }),
+          update: (data) => {
+            savedPreferences = data.preferences
+            return createQueryMock({ id: 'prof-1' })
+          },
+        }
+      }
+      if (table === 'works') {
+        return { select: () => createQueryMock({ id: '00000000-0000-0000-0000-000000000001', author_id: 'prof-1' }) }
+      }
+      if (table === 'story_lore_entities') {
+        return {
+          select: () =>
+            createQueryMock([
+              {
+                id: 'lore-1',
+                work_id: '00000000-0000-0000-0000-000000000001',
+                name: 'Voldemort',
+                entity_type: 'Villain',
+                description: 'Dark Lord',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              },
+            ]),
+        }
+      }
+      if (table === 'chapters') {
+        return {
+          select: () => createQueryMock([]),
+        }
+      }
+      throw new Error(`Unexpected table: ${table}`)
+    },
+  }
+
+  // 1. Test executeSaveUserLoreType
+  const saveTypeRes = await executeSaveUserLoreType(
+    {
+      workId: '00000000-0000-0000-0000-000000000001',
+      clerkUserId: 'user_author123',
+      loreType: 'Villain',
+    },
+    fakeAdmin,
+    mockAuthResolver
+  )
+  assert.equal(saveTypeRes.success, true)
+  assert.equal(saveTypeRes.loreType, 'Villain')
+  assert.ok(savedPreferences?.lore_types?.includes('Villain'))
+
+  // 2. Test executeGetStoryLoreBible returns loreTypes including custom types
+  const bibleRes = await executeGetStoryLoreBible(
+    { workId: '00000000-0000-0000-0000-000000000001' },
+    fakeAdmin
+  )
+  assert.ok(Array.isArray(bibleRes.loreTypes))
+  assert.ok(bibleRes.loreTypes.includes('Character'))
+  assert.ok(bibleRes.loreTypes.includes('Location'))
+  assert.ok(bibleRes.loreTypes.includes('Lore'))
+  assert.ok(bibleRes.loreTypes.includes('Villain'))
 })
