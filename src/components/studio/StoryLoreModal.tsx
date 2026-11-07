@@ -286,7 +286,7 @@ export function StoryLoreModal({
           {/* Header */}
           <div className="px-5 py-3.5 border-b border-[var(--border-subtle)] flex items-center justify-between bg-[var(--bg-surface)]">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600 dark:text-amber-400">
+              <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-900 dark:text-zinc-100">
                 <BookOpen className="w-4 h-4" />
               </div>
               <div>
@@ -340,7 +340,7 @@ export function StoryLoreModal({
                   placeholder="Search lore notes..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--ink-primary)] placeholder-[var(--ink-muted)] focus:outline-none focus:border-amber-500 transition"
+                  className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--ink-primary)] placeholder-[var(--ink-muted)] focus:outline-none focus:border-zinc-500 dark:focus:border-zinc-400 transition"
                 />
               </div>
 
@@ -377,7 +377,7 @@ export function StoryLoreModal({
                   className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-xl transition ${
                     isFormOpen
                       ? 'bg-[var(--bg-subtle)] text-[var(--ink-primary)]'
-                      : 'bg-amber-600 hover:bg-amber-700 text-white shadow-xs'
+                      : 'bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 shadow-xs'
                   }`}
                 >
                   {isFormOpen ? (
@@ -399,10 +399,10 @@ export function StoryLoreModal({
             {isFormOpen && (
               <form
                 onSubmit={handleSave}
-                className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/5 space-y-2.5 animate-in fade-in slide-in-from-top-1 duration-150"
+                className="p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-850/60 space-y-2.5 animate-in fade-in slide-in-from-top-1 duration-150"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
                     {editingName ? `Edit "${editingName}"` : 'New Lore Note'}
                   </span>
                   {/* Type buttons */}
@@ -414,8 +414,8 @@ export function StoryLoreModal({
                         onClick={() => setEntityType(t)}
                         className={`px-2 py-0.5 text-[10px] rounded-md font-semibold transition ${
                           entityType === t
-                            ? 'bg-amber-600 text-white'
-                            : 'bg-[var(--bg-surface)] text-[var(--ink-secondary)] border border-[var(--border-subtle)] hover:border-amber-500/40'
+                            ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
+                            : 'bg-[var(--bg-surface)] text-[var(--ink-secondary)] border border-[var(--border-subtle)] hover:border-zinc-400'
                         }`}
                       >
                         {t}
@@ -432,7 +432,7 @@ export function StoryLoreModal({
                       placeholder="Name (e.g. Aeloria)"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] text-[var(--ink-primary)] focus:outline-none focus:border-amber-500"
+                      className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] text-[var(--ink-primary)] focus:outline-none focus:border-zinc-500 dark:focus:border-zinc-400"
                       required
                     />
                   </div>
@@ -442,7 +442,7 @@ export function StoryLoreModal({
                       placeholder="Tooltip note (e.g. High Priestess of Sunspire)"
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
-                      className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] text-[var(--ink-primary)] focus:outline-none focus:border-amber-500"
+                      className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] text-[var(--ink-primary)] focus:outline-none focus:border-zinc-500 dark:focus:border-zinc-400"
                       required
                     />
                   </div>
@@ -459,7 +459,7 @@ export function StoryLoreModal({
                   <button
                     type="submit"
                     disabled={isSaving || !name.trim() || !description.trim()}
-                    className="inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold rounded-lg bg-amber-600 hover:bg-amber-700 text-white transition disabled:opacity-50"
+                    className="inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold rounded-lg bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 transition disabled:opacity-50"
                   >
                     {isSaving && <Loader2 className="w-3 h-3 animate-spin" />}
                     <span>{editingName ? 'Update' : 'Save & Link'}</span>
@@ -471,7 +471,7 @@ export function StoryLoreModal({
             {/* Lore Cards List */}
             {isLoading ? (
               <div className="py-12 text-center text-[var(--ink-muted)] flex flex-col items-center justify-center gap-2">
-                <Loader2 className="w-5 h-5 animate-spin text-amber-500" />
+                <Loader2 className="w-5 h-5 animate-spin text-zinc-500" />
                 <span className="text-xs">Loading story lore...</span>
               </div>
             ) : filteredEntities.length === 0 ? (
@@ -490,7 +490,7 @@ export function StoryLoreModal({
                       setIsFormOpen(true)
                       setTimeout(() => nameInputRef.current?.focus(), 50)
                     }}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 hover:underline"
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-900 dark:text-zinc-100 underline hover:opacity-80"
                   >
                     <Plus className="w-3 h-3" />
                     <span>Create one now</span>
@@ -509,7 +509,7 @@ export function StoryLoreModal({
                   return (
                     <div
                       key={ent.name}
-                      className="p-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:border-amber-500/40 transition flex items-start sm:items-center justify-between gap-3"
+                      className="p-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:border-zinc-300 dark:hover:border-zinc-600 transition flex items-start sm:items-center justify-between gap-3"
                     >
                       {/* Left: Info */}
                       <div className="space-y-0.5 min-w-0 flex-1">
@@ -537,7 +537,7 @@ export function StoryLoreModal({
                                 </span>
                               )}
                               {mentions.unlinked > 0 && (
-                                <span className="text-amber-600 dark:text-amber-400">
+                                <span className="text-zinc-600 dark:text-zinc-400">
                                   • {mentions.unlinked} unlinked
                                 </span>
                               )}
@@ -557,7 +557,7 @@ export function StoryLoreModal({
                           disabled={isBusy}
                           onClick={() => handleLinkAll(ent)}
                           title="Auto-link mentions across all chapters"
-                          className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-lg border border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/5 hover:bg-amber-500/15 transition disabled:opacity-50"
+                          className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 bg-zinc-100/70 dark:bg-zinc-800/70 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition disabled:opacity-50"
                         >
                           {actionLoadingKey === `link-${ent.name}` ? (
                             <Loader2 className="w-3 h-3 animate-spin" />
@@ -573,7 +573,7 @@ export function StoryLoreModal({
                           disabled={isBusy}
                           onClick={() => handleUnlinkAll(ent.name)}
                           title="Unlink all mentions"
-                          className="p-1 rounded-lg text-[var(--ink-muted)] hover:text-amber-600 hover:bg-[var(--bg-subtle)] transition disabled:opacity-50"
+                          className="p-1 rounded-lg text-[var(--ink-muted)] hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-[var(--bg-subtle)] transition disabled:opacity-50"
                         >
                           {actionLoadingKey === `unlink-${ent.name}` ? (
                             <Loader2 className="w-3 h-3 animate-spin" />

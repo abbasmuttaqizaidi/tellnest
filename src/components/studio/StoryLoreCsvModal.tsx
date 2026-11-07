@@ -227,7 +227,7 @@ export function StoryLoreCsvModal({
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-subtle)] bg-[var(--bg-canvas)]">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+            <div className="p-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-700">
               <FileSpreadsheet className="h-5 w-5" />
             </div>
             <div>
@@ -286,7 +286,7 @@ export function StoryLoreCsvModal({
                 </div>
 
                 <div className="p-3 rounded-xl bg-[var(--bg-canvas)] border border-[var(--border-subtle)]">
-                  <div className="text-xl font-bold font-mono text-amber-600 dark:text-amber-400">
+                  <div className="text-xl font-bold font-mono text-[var(--ink-primary)]">
                     {successResult.chaptersUpdated}
                   </div>
                   <div className="text-[11px] text-[var(--ink-muted)] mt-0.5">Chapters Updated</div>
@@ -310,7 +310,7 @@ export function StoryLoreCsvModal({
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs transition-colors cursor-pointer shadow-sm"
+                  className="px-5 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 font-medium text-xs transition-colors cursor-pointer shadow-sm"
                 >
                   Done & Return to Story Bible
                 </button>
@@ -327,7 +327,7 @@ export function StoryLoreCsvModal({
                 }}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className="group relative border-2 border-dashed border-[var(--border-subtle)] hover:border-amber-500 rounded-2xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all bg-[var(--bg-canvas)]/50 hover:bg-amber-500/[0.02]"
+                className="group relative border-2 border-dashed border-[var(--border-subtle)] hover:border-zinc-400 dark:hover:border-zinc-500 rounded-2xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all bg-[var(--bg-canvas)]/50 hover:bg-zinc-500/[0.03]"
               >
                 <input
                   ref={fileInputRef}
@@ -337,7 +337,7 @@ export function StoryLoreCsvModal({
                   className="hidden"
                 />
 
-                <div className="p-3 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] group-hover:scale-105 group-hover:border-amber-500/50 transition-all shadow-xs text-amber-600 dark:text-amber-400 mb-3">
+                <div className="p-3 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] group-hover:scale-105 group-hover:border-zinc-400 transition-all shadow-xs text-zinc-800 dark:text-zinc-200 mb-3">
                   <UploadCloud className="h-6 w-6" />
                 </div>
 
@@ -359,7 +359,7 @@ export function StoryLoreCsvModal({
               <div className="rounded-xl p-4 bg-[var(--bg-canvas)] border border-[var(--border-subtle)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--ink-primary)]">
-                    <Sparkles className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                    <Sparkles className="h-3.5 w-3.5 text-zinc-700 dark:text-zinc-300" />
                     <span>Need a starting spreadsheet template?</span>
                   </div>
                   <p className="text-[11px] text-[var(--ink-muted)]">
@@ -372,7 +372,7 @@ export function StoryLoreCsvModal({
                   onClick={handleDownloadSample}
                   className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-xs font-medium text-[var(--ink-primary)] transition-colors cursor-pointer shrink-0 shadow-2xs"
                 >
-                  <Download className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                  <Download className="h-3.5 w-3.5 text-zinc-700 dark:text-zinc-300" />
                   <span>Download Sample CSV</span>
                 </button>
               </div>
@@ -380,7 +380,7 @@ export function StoryLoreCsvModal({
               {/* Specification Notice */}
               <div className="space-y-2 text-xs text-[var(--ink-muted)] bg-[var(--bg-surface)] rounded-xl p-3.5 border border-[var(--border-subtle)]">
                 <div className="font-medium text-[var(--ink-primary)] flex items-center gap-1.5 text-[11px] uppercase tracking-wider font-mono">
-                  <HelpCircle className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                  <HelpCircle className="h-3 w-3 text-zinc-700 dark:text-zinc-300" />
                   <span>Import Guidelines</span>
                 </div>
                 <ul className="list-disc list-inside space-y-1 text-[11px] leading-relaxed">
@@ -402,7 +402,7 @@ export function StoryLoreCsvModal({
               {/* Summary Badges & Search Filter */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-2 flex-wrap text-xs">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-800 dark:text-amber-300 font-semibold border border-amber-500/20 font-mono">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-semibold border border-zinc-200 dark:border-zinc-700 font-mono">
                     {editableRows.length} Valid to Import
                   </span>
 
@@ -419,7 +419,7 @@ export function StoryLoreCsvModal({
                   )}
 
                   {parseResult && parseResult.errors.length > 0 && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[11px]">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-[11px] border border-zinc-200 dark:border-zinc-700">
                       {parseResult.errors.length} Format Warning{parseResult.errors.length > 1 ? 's' : ''}
                     </span>
                   )}
@@ -433,7 +433,7 @@ export function StoryLoreCsvModal({
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Filter preview entries..."
-                    className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-[var(--bg-canvas)] border border-[var(--border-subtle)] focus:border-amber-500 focus:outline-none text-[var(--ink-primary)]"
+                    className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-[var(--bg-canvas)] border border-[var(--border-subtle)] focus:border-zinc-500 dark:focus:border-zinc-400 focus:outline-none text-[var(--ink-primary)]"
                   />
                   {searchQuery && (
                     <button
@@ -512,7 +512,7 @@ export function StoryLoreCsvModal({
                     type="checkbox"
                     checked={linkAllChapters}
                     onChange={(e) => setLinkAllChapters(e.target.checked)}
-                    className="h-4 w-4 rounded border-[var(--border-subtle)] text-amber-600 focus:ring-0 cursor-pointer"
+                    className="h-4 w-4 rounded border-[var(--border-subtle)] text-zinc-900 focus:ring-0 cursor-pointer"
                   />
                   <div>
                     <span className="font-medium">Link occurrences across all manuscript chapters</span>
@@ -555,7 +555,7 @@ export function StoryLoreCsvModal({
                 type="button"
                 onClick={() => setShowConfirmModal(true)}
                 disabled={isSubmitting || editableRows.length === 0}
-                className="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs transition-colors cursor-pointer shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+                className="px-5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 font-semibold text-xs transition-colors cursor-pointer shadow-sm flex items-center gap-1.5 disabled:opacity-50"
               >
                 {isSubmitting ? (
                   <>
@@ -583,7 +583,7 @@ export function StoryLoreCsvModal({
         >
           <div className="w-full max-w-md rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+              <div className="p-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-700">
                 <Sparkles className="h-5 w-5" />
               </div>
               <h3 className="text-base font-semibold text-[var(--ink-primary)]">
@@ -615,7 +615,7 @@ export function StoryLoreCsvModal({
                 type="button"
                 onClick={handleExecuteImport}
                 disabled={isSubmitting}
-                className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs transition-colors cursor-pointer shadow-sm flex items-center gap-1.5"
+                className="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 font-semibold text-xs transition-colors cursor-pointer shadow-sm flex items-center gap-1.5"
               >
                 {isSubmitting ? (
                   <>
