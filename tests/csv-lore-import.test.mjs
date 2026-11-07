@@ -262,3 +262,38 @@ test('executeImportStoryLoreCsv executes batch upsert and multi-chapter linking 
   assert.ok(ch1Update.updates.content.includes('[Arthur Pendragon](lore:Character|High%20King%20of%20Camelot)'))
   assert.ok(ch1Update.updates.content.includes('[Camelot](lore:Location|Capital%20City)'))
 })
+
+test('Edge Case: Header cells with whitespace or zero-width spaces parse smoothly', () => {
+  const csv = ' Name , Type , Tooltip \nArthur,Character,King of Camelot'
+  const res = parseLoreCsv(csv)
+  assert.equal(res.success, true)
+  assert.equal(res.rows.length, 1)
+  assert.equal(res.rows[0].name, 'Arthur')
+})
+
+test('Edge Case: Type column containing pipes is sanitized to avoid payload syntax corruption', () => {
+  const csv = 'Name,Type,Tooltip\nLancelot,Knight | Champion,The First Knight of the Round Table'
+  const res = parseLoreCsv(csv)
+  assert.equal(res.success, true)
+  assert.equal(res.rows[0].type, 'Knight / Champion')
+
+  // Linking with this sanitized type produces valid parseable lore link
+  const markdown = 'Sir Lancelot rode forth.'
+  const { newMarkdown } = linkMultipleEntities(markdown, [
+    { name: res.rows[0].name, entityType: res.rows[0].type, description: res.rows[0].tooltip },
+  ])
+  const extracted = extractLoreEntities(newMarkdown)
+  assert.equal(extracted.length, 1)
+  assert.equal(extracted[0].name, 'Lancelot')
+  assert.equal(extracted[0].entityType, 'Knight / Champion')
+  assert.equal(extracted[0].description, 'The First Knight of the Round Table')
+})
+
+test('Edge Case: Cells wrapped in outer quotes or extra brackets are cleanly trimmed', () => {
+  const csv = 'Name,Type,Tooltip\n"[[Guinevere]]",Queen,"""Queen of Camelot"""'
+  const res = parseLoreCsv(csv)
+  assert.equal(res.success, true)
+  assert.equal(res.rows[0].name, 'Guinevere')
+  assert.equal(res.rows[0].tooltip, 'Queen of Camelot')
+})
+

@@ -27,6 +27,7 @@ import {
   linkAllOccurrences,
   linkSingleOccurrence,
   unlinkAllOccurrences,
+  linkMultipleEntities,
   type LoreEntity,
   type StoryLoreEntity,
 } from '../../lib/lore/loreParser'
@@ -987,6 +988,19 @@ export function StoryLoreModal({
           workId={workId}
           onImportSuccess={async (res) => {
             await loadBibleEntities()
+            if (hasChapterContext && onUpdateContent && res.entities && res.entities.length > 0) {
+              const { newMarkdown, totalLinked } = linkMultipleEntities(
+                content,
+                res.entities.map((e) => ({
+                  name: e.name,
+                  entityType: e.type,
+                  description: e.tooltip,
+                }))
+              )
+              if (totalLinked > 0) {
+                await onUpdateContent(newMarkdown)
+              }
+            }
             showToast(
               `Imported ${res.importedCount} lore entities (${res.totalMentionsLinked} mentions linked across ${res.chaptersUpdated} chapters)`
             )

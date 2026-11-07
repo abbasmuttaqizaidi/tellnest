@@ -117,7 +117,7 @@ export function parseLoreCsv(csvText: string): CsvLoreParseResult {
     }
   }
 
-  const headerRow = rawRows[0]
+  const headerRow = rawRows[0].map((c) => c.replace(/^[\uFEFF\u200B]+/, '').trim())
   const nameIdx = headerRow.indexOf('Name')
   const typeIdx = headerRow.indexOf('Type')
   const tooltipIdx = headerRow.indexOf('Tooltip')
@@ -152,9 +152,14 @@ export function parseLoreCsv(csvText: string): CsvLoreParseResult {
       continue // Skip blank lines
     }
 
-    const rawName = (rawCols[nameIdx] || '').replace(/[\[\]]/g, '').trim()
-    const rawType = (rawCols[typeIdx] || '').trim() || 'Character'
-    const rawTooltip = (rawCols[tooltipIdx] || '').trim()
+    const rawName = (rawCols[nameIdx] || '')
+      .replace(/[\[\]]/g, '')
+      .replace(/^["']+|["']+$/g, '')
+      .trim()
+    const rawType = (rawCols[typeIdx] || '').replace(/\|/g, '/').trim() || 'Character'
+    const rawTooltip = (rawCols[tooltipIdx] || '')
+      .replace(/^["']+|["']+$/g, '')
+      .trim()
 
     if (!rawName) {
       errors.push(`Row ${r + 1}: Name cannot be empty.`)

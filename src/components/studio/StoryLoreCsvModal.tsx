@@ -30,6 +30,7 @@ export interface StoryLoreCsvModalProps {
     importedCount: number
     chaptersUpdated: number
     totalMentionsLinked: number
+    entities?: CsvLoreRow[]
   }) => void
 }
 
@@ -199,6 +200,7 @@ export function StoryLoreCsvModal({
             importedCount: res.importedCount,
             chaptersUpdated: res.chaptersUpdated || 0,
             totalMentionsLinked: res.totalMentionsLinked || 0,
+            entities: editableRows,
           })
         }
       } else {
