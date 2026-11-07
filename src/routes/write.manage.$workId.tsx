@@ -444,6 +444,24 @@ function WorkManagementPage() {
     }
   }, [addDropdownOpen])
 
+  // Manuscript More Options Dropdown State (3-dots: Edit Details, Visibility, Lore Bible, Analytics)
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false)
+  const moreMenuRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setMoreMenuOpen(false)
+      }
+    }
+    if (moreMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [moreMenuOpen])
+
   // Act 3-dots Menu & Delete Confirmation State
   const [openActMenuId, setOpenActMenuId] = useState<string | null>(null)
   const [deleteActTarget, setDeleteActTarget] = useState<{ id: string; title: string; chapterCount: number } | null>(null)
@@ -1183,15 +1201,15 @@ function WorkManagementPage() {
             </div>
           </div>
 
-          {/* Right: Streamlined Action Cluster */}
+          {/* Right: Streamlined Action Cluster (Publish, Delete, Add + 3-dots Menu) */}
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-[var(--border-subtle)]">
-            {/* Quick Publish CTA if manuscript is still in Draft */}
-            {publicationStatus === 'Draft' && (
+            {/* 1. Publish Button */}
+            {publicationStatus === 'Draft' ? (
               <button
                 type="button"
                 onClick={handleQuickPublish}
                 disabled={isUpdatingPub || publishedChaptersCount === 0}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 text-xs font-semibold shadow-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 text-xs font-semibold shadow-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 title={
                   publishedChaptersCount === 0
                     ? 'Publish at least 1 chapter before publishing manuscript'
@@ -1201,63 +1219,34 @@ function WorkManagementPage() {
                 <Globe className="h-3.5 w-3.5" />
                 <span>{isUpdatingPub ? 'Publishing...' : 'Publish'}</span>
               </button>
+            ) : (
+              <button
+                type="button"
+                onClick={openPubModal}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-semibold shadow-xs transition-colors cursor-pointer ${
+                  publicationStatus === 'Published'
+                    ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25'
+                    : 'bg-stone-500/15 text-stone-700 dark:text-stone-300 border border-stone-500/30 hover:bg-stone-500/25'
+                }`}
+                title="Manage Publication & Visibility settings"
+              >
+                <Globe className="h-3.5 w-3.5" />
+                <span>{publicationStatus}</span>
+              </button>
             )}
 
-            {/* Edit Manuscript Details */}
-            <button
-              type="button"
-              onClick={openEditStoryModal}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2 text-xs font-medium text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:border-[var(--border-strong)] transition-colors cursor-pointer shadow-2xs"
-              title="Edit manuscript title, synopsis, taxonomy, tags, and settings"
-            >
-              <Edit3 className="h-3.5 w-3.5 text-black dark:text-white" />
-              <span>Edit Details</span>
-            </button>
-
-            {/* Publication & Visibility Settings */}
-            <button
-              type="button"
-              onClick={openPubModal}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2 text-xs font-medium text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:border-[var(--border-strong)] transition-colors cursor-pointer shadow-2xs"
-              title="Configure audience visibility and publication state"
-            >
-              <Settings className="h-3.5 w-3.5 text-black dark:text-white" />
-              <span>Visibility</span>
-            </button>
-
-            {/* Story Lore Bible */}
-            <button
-              type="button"
-              onClick={() => setLoreBibleModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2 text-xs font-medium text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:border-[var(--border-strong)] transition-colors cursor-pointer shadow-2xs"
-              title="Manage manuscript-wide characters, world lore, and interactive footnotes"
-            >
-              <BookOpen className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-              <span>Lore Bible</span>
-            </button>
-
-            {/* Analytics */}
-            <Link
-              to="/write/analytics/$workId"
-              params={{ workId: work.id }}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2 text-xs font-medium text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:border-[var(--border-strong)] transition-colors no-underline shadow-2xs"
-            >
-              <BarChart3 className="h-3.5 w-3.5 text-black dark:text-white" />
-              <span className="hidden sm:inline">Analytics</span>
-            </Link>
-
-            {/* Delete Manuscript Button */}
+            {/* 2. Delete Button */}
             <button
               type="button"
               onClick={() => setDeleteWorkModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/5 hover:bg-red-500/15 text-red-600 dark:text-red-400 px-3 py-2 text-xs font-medium transition-colors cursor-pointer shadow-2xs"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/5 hover:bg-red-500/15 text-red-600 dark:text-red-400 px-3.5 py-2 text-xs font-medium transition-colors cursor-pointer shadow-2xs"
               title="Permanently delete this manuscript"
             >
               <Trash2 className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Delete</span>
+              <span>Delete</span>
             </button>
 
-            {/* Add Button with Popup Dropdown */}
+            {/* 3. Add Button with Popup Dropdown (+ Chapter / + Act) */}
             <div className="relative" ref={addDropdownRef}>
               <button
                 type="button"
@@ -1298,6 +1287,76 @@ function WorkManagementPage() {
                     <Plus className="h-4 w-4 text-black dark:text-white shrink-0" strokeWidth={2.5} />
                     <span className="font-semibold">Act</span>
                   </button>
+                </div>
+              )}
+            </div>
+
+            {/* 4. More Options Dropdown (Vertical 3 Dots) */}
+            <div className="relative" ref={moreMenuRef}>
+              <button
+                type="button"
+                onClick={() => setMoreMenuOpen((prev) => !prev)}
+                className="p-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] transition-colors cursor-pointer shadow-2xs"
+                title="More manuscript options"
+                aria-label="More manuscript options"
+                aria-expanded={moreMenuOpen}
+              >
+                <MoreVertical className="h-4 w-4 text-black dark:text-white" />
+              </button>
+
+              {moreMenuOpen && (
+                <div className="absolute right-0 top-full mt-1.5 w-52 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-1.5 shadow-xl z-30 animate-in fade-in zoom-in-95 duration-100">
+                  {/* Edit Manuscript Details */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMoreMenuOpen(false)
+                      openEditStoryModal()
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors text-left cursor-pointer"
+                  >
+                    <Edit3 className="h-4 w-4 text-black dark:text-white shrink-0" />
+                    <span>Edit Details</span>
+                  </button>
+
+                  {/* Visibility Settings */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMoreMenuOpen(false)
+                      openPubModal()
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors text-left cursor-pointer"
+                  >
+                    <Settings className="h-4 w-4 text-black dark:text-white shrink-0" />
+                    <span>Visibility Settings</span>
+                  </button>
+
+                  {/* Story Lore Bible */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMoreMenuOpen(false)
+                      setLoreBibleModalOpen(true)
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors text-left cursor-pointer"
+                  >
+                    <BookOpen className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                    <span>Story Lore Bible</span>
+                  </button>
+
+                  <div className="my-1 border-t border-[var(--border-subtle)]" />
+
+                  {/* Analytics */}
+                  <Link
+                    to="/write/analytics/$workId"
+                    params={{ workId: work.id }}
+                    onClick={() => setMoreMenuOpen(false)}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors text-left no-underline"
+                  >
+                    <BarChart3 className="h-4 w-4 text-black dark:text-white shrink-0" />
+                    <span>Analytics</span>
+                  </Link>
                 </div>
               )}
             </div>
