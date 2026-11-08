@@ -435,10 +435,10 @@ export function StoryLoreModal({
             </div>
           )}
 
-          {/* Modal Body */}
-          <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4">
-            {/* 1. ADD-FIRST SECTION: Always ready at top */}
-            <div className="shrink-0 p-4 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-850/60 space-y-3">
+          {/* Modal Body: Flex column, pinned quick-add form at top, dedicated scrollable cards list below */}
+          <div className="flex-1 min-h-0 flex flex-col p-5 gap-3.5 overflow-hidden">
+            {/* 1. ADD-FIRST SECTION: Always pinned at top */}
+            <div className="shrink-0 p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-850/60 space-y-2.5">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-[var(--ink-primary)]">
                   {editingName ? `Edit Lore Note: "${editingName}"` : 'Quick Add Lore'}
@@ -590,16 +590,16 @@ export function StoryLoreModal({
               </form>
             </div>
 
-            {/* 2. RECORDED LORE DIRECTORY: Reference & management below */}
-            <div className="space-y-2.5 pt-1">
-              <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center justify-between">
+            {/* 2. RECORDED LORE DIRECTORY: Pinned filters & search, dedicated scrollable cards list */}
+            <div className="flex-1 min-h-0 flex flex-col gap-2 pt-0.5">
+              <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center justify-between shrink-0">
                 <div className="flex items-center gap-2 overflow-x-auto max-w-full">
                   <span className="text-xs font-semibold text-[var(--ink-primary)] shrink-0">
                     Recorded Lore ({bibleEntities.length})
                   </span>
 
                   {/* Filter Pills with dynamic custom types */}
-                  <div className="inline-flex p-0.5 bg-[var(--bg-surface)] rounded-lg border border-[var(--border-subtle)] overflow-x-auto">
+                  <div className="inline-flex p-0.5 bg-[var(--bg-surface)] rounded-lg border border-[var(--border-subtle)] overflow-x-auto shrink-0">
                     {['ALL', ...availableTypes].map((t) => (
                       <button
                         key={t}
@@ -630,14 +630,14 @@ export function StoryLoreModal({
                 </div>
               </div>
 
-              {/* Lore Cards */}
+              {/* Lore Cards: Dedicated internal vertical scroll */}
               {isLoading ? (
-                <div className="py-8 text-center text-[var(--ink-muted)] flex flex-col items-center justify-center gap-2">
+                <div className="flex-1 min-h-0 flex flex-col items-center justify-center py-8 text-center text-[var(--ink-muted)] gap-2">
                   <Loader2 className="w-5 h-5 animate-spin text-zinc-500" />
                   <span className="text-xs">Loading recorded lore...</span>
                 </div>
               ) : filteredEntities.length === 0 ? (
-                <div className="py-8 border border-dashed border-[var(--border-subtle)] rounded-xl text-center space-y-1">
+                <div className="flex-1 min-h-0 flex items-center justify-center p-6 border border-dashed border-[var(--border-subtle)] rounded-xl text-center">
                   <p className="text-xs text-[var(--ink-secondary)]">
                     {searchQuery || selectedTypeFilter !== 'ALL'
                       ? 'No lore notes match your filter.'
@@ -645,7 +645,7 @@ export function StoryLoreModal({
                   </p>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-2">
                   {filteredEntities.map((ent) => {
                     const entName = ent.name || (ent as any).entityName || ''
                     const entType = ent.entityType || (ent as any).type || 'Character'
