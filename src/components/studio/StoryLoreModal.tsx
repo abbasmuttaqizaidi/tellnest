@@ -66,6 +66,15 @@ export function StoryLoreModal({
   const { user } = useUser()
   const hasChapterContext = Boolean(onUpdateContent)
 
+  // Live content tracking to prevent stale closure overwrites when multiple lores are linked sequentially
+  const [activeContent, setActiveContent] = useState(content)
+  const latestContentRef = useRef(content)
+
+  useEffect(() => {
+    setActiveContent(content)
+    latestContentRef.current = content
+  }, [content])
+
   // Bible entities state
   const [bibleEntities, setBibleEntities] = useState<StoryLoreEntity[]>([])
   const [availableTypes, setAvailableTypes] = useState<string[]>(DEFAULT_LORE_TYPES)
@@ -105,9 +114,9 @@ export function StoryLoreModal({
     if (!workId || isSyncing) return
     setIsSyncing(true)
     try {
-      if (hasChapterContext && onUpdateContent && bibleEntities.length > 0) {
+      if (hasChapterContext && onUpdateContent && bibleEntities.length > 0 && latestContentRef.current) {
         const { newMarkdown, totalLinked } = linkMultipleEntities(
-          content,
+          latestContentRef.current,
           bibleEntities.map((e) => ({
             name: e.name,
             entityType: e.entityType,
@@ -115,6 +124,8 @@ export function StoryLoreModal({
           }))
         )
         if (totalLinked > 0) {
+          latestContentRef.current = newMarkdown
+          setActiveContent(newMarkdown)
           await onUpdateContent(newMarkdown)
         }
       }
@@ -297,13 +308,15 @@ export function StoryLoreModal({
       })
 
       // Also link in current editor if editing a chapter
-      if (hasChapterContext && onUpdateContent && content) {
-        const { newMarkdown, countReplaced } = linkAllOccurrences(content, {
+      if (hasChapterContext && onUpdateContent && latestContentRef.current) {
+        const { newMarkdown, countReplaced } = linkAllOccurrences(latestContentRef.current, {
           name: trimmedName,
           entityType,
           description: trimmedDesc,
         })
         if (countReplaced > 0) {
+          latestContentRef.current = newMarkdown
+          setActiveContent(newMarkdown)
           await onUpdateContent(newMarkdown)
         }
       }
@@ -342,12 +355,14 @@ export function StoryLoreModal({
         },
       })
 
-      if (hasChapterContext && onUpdateContent && content) {
-        const { newMarkdown } = linkAllOccurrences(content, {
+      if (hasChapterContext && onUpdateContent && latestContentRef.current) {
+        const { newMarkdown } = linkAllOccurrences(latestContentRef.current, {
           name: entName,
           entityType: entType,
           description: entDesc,
         })
+        latestContentRef.current = newMarkdown
+        setActiveContent(newMarkdown)
         await onUpdateContent(newMarkdown)
       }
 
@@ -375,8 +390,10 @@ export function StoryLoreModal({
         },
       })
 
-      if (hasChapterContext && onUpdateContent && content) {
-        const { newMarkdown } = unlinkAllOccurrences(content, entName)
+      if (hasChapterContext && onUpdateContent && latestContentRef.current) {
+        const { newMarkdown } = unlinkAllOccurrences(latestContentRef.current, entName)
+        latestContentRef.current = newMarkdown
+        setActiveContent(newMarkdown)
         await onUpdateContent(newMarkdown)
       }
 
@@ -406,8 +423,10 @@ export function StoryLoreModal({
         },
       })
 
-      if (hasChapterContext && onUpdateContent && content) {
-        const { newMarkdown } = unlinkAllOccurrences(content, entName)
+      if (hasChapterContext && onUpdateContent && latestContentRef.current) {
+        const { newMarkdown } = unlinkAllOccurrences(latestContentRef.current, entName)
+        latestContentRef.current = newMarkdown
+        setActiveContent(newMarkdown)
         await onUpdateContent(newMarkdown)
       }
 
@@ -750,7 +769,7 @@ export function StoryLoreModal({
                     const entType = ent.entityType || (ent as any).type || 'Character'
                     const entDesc = ent.description || (ent as any).entityDescription || ''
 
-                    const mentions = hasChapterContext && content ? countEntityMentions(content, entName) : null
+                    const mentions = hasChapterContext && activeContent ? countEntityMentions(activeContent, entName) : null
                     const isBusy =
                       actionLoadingKey === `link-${entName}` ||
                       actionLoadingKey === `unlink-${entName}` ||

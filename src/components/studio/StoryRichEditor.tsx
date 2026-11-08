@@ -38,6 +38,7 @@ import { ChapterDiffViewer } from './ChapterDiffViewer'
 import { CloudinaryImageUpload } from '../CloudinaryImageUpload'
 import { LoreGlossaryTrigger } from '../reader/LoreGlossaryTrigger'
 import { StoryLoreModal } from './StoryLoreModal'
+import { useRouter } from '@tanstack/react-router'
 import {
   extractLoreEntities,
   countEntityMentions,
@@ -320,6 +321,7 @@ export function StoryRichEditor({
   const [hasSelection, setHasSelection] = useState(false)
 
   // Story Lore and Footnote Annotations
+  const router = useRouter()
   const [isLoreModalOpen, setIsLoreModalOpen] = useState(false)
   const [loreSelectedText, setLoreSelectedText] = useState('')
   const [bibleEntities, setBibleEntities] = useState<StoryLoreEntity[]>([])
@@ -459,12 +461,16 @@ export function StoryRichEditor({
     if (editor && content !== undefined) {
       if (!editor.isFocused) {
         const currentMd = (editor.storage as any)?.markdown?.getMarkdown?.()
-        if (currentMd !== undefined && currentMd !== content) {
-          // Never flush existing non-empty editor content if an empty string is accidentally passed
-          if (content === '' && editor.getText().trim().length > 0) {
-            return
+        if (currentMd !== undefined) {
+          const normCurrent = currentMd.replace(/%7C/gi, '|').trim()
+          const normContent = (content || '').replace(/%7C/gi, '|').trim()
+          if (normCurrent !== normContent) {
+            // Never flush existing non-empty editor content if an empty string is accidentally passed
+            if (content === '' && editor.getText().trim().length > 0) {
+              return
+            }
+            editor.commands.setContent(content || '', { emitUpdate: false })
           }
-          editor.commands.setContent(content || '', { emitUpdate: false })
         }
       }
     }
@@ -1344,7 +1350,12 @@ export function StoryRichEditor({
       {/* Story Lore & Footnotes Manager Modal */}
       <StoryLoreModal
         isOpen={isLoreModalOpen}
-        onClose={() => setIsLoreModalOpen(false)}
+        onClose={() => {
+          setIsLoreModalOpen(false)
+          try {
+            router.invalidate()
+          } catch (e) {}
+        }}
         content={content}
         workId={workId}
         chapterId={chapterId}

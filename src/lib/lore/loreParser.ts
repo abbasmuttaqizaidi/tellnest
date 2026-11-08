@@ -52,7 +52,7 @@ export function fixedEncodeURIComponent(str: string): string {
  * Builds a valid, URL-safe lore payload: e.g. "lore:Character|EncodedDescription"
  */
 export function buildLorePayload(entity: LoreEntity): string {
-  const entityType = (entity.entityType || 'LORE').trim()
+  const entityType = fixedEncodeURIComponent((entity.entityType || 'LORE').trim())
   const encodedDesc = fixedEncodeURIComponent(entity.description.trim())
   return `lore:${entityType}|${encodedDesc}`
 }

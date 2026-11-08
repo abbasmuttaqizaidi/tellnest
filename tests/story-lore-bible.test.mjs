@@ -879,3 +879,53 @@ test('Audit: linkAllOccurrences and countEntityMentions API robustness', async (
   assert.equal(stats.unlinkedCount, 0)
   assert.equal(stats.unlinked, 0)
 })
+
+test('Multi-Lore Sequential Binding: Linking Entity B accumulates on top of Entity A without wiping it out', async () => {
+  const { linkAllOccurrences, countEntityMentions } = await import('../src/lib/lore/loreParser.ts')
+
+  let currentContent = "Sameer and Mr. D'Souza were discussing the situation with Evan."
+
+  // User links Sameer
+  const step1 = linkAllOccurrences(currentContent, {
+    name: 'Sameer',
+    entityType: 'Character',
+    description: "Evan's neighbour",
+  })
+  assert.equal(step1.countReplaced, 1)
+  currentContent = step1.newMarkdown
+
+  // User immediately links Mr. D'Souza
+  const step2 = linkAllOccurrences(currentContent, {
+    name: "Mr. D'Souza",
+    entityType: 'Character',
+    description: 'Landlord of Apartment 306',
+  })
+  assert.equal(step2.countReplaced, 1)
+  currentContent = step2.newMarkdown
+
+  // User links Evan
+  const step3 = linkAllOccurrences(currentContent, {
+    name: 'Evan',
+    entityType: 'Character',
+    description: 'Protagonist',
+  })
+  assert.equal(step3.countReplaced, 1)
+  currentContent = step3.newMarkdown
+
+  // Verify all 3 are independently and simultaneously linked without corruption
+  const sameerStats = countEntityMentions(currentContent, 'Sameer')
+  const dsouzaStats = countEntityMentions(currentContent, "Mr. D'Souza")
+  const evanStats = countEntityMentions(currentContent, 'Evan')
+
+  assert.equal(sameerStats.linkedCount, 1)
+  assert.equal(sameerStats.unlinkedCount, 0)
+  assert.equal(dsouzaStats.linkedCount, 1)
+  assert.equal(dsouzaStats.unlinkedCount, 0)
+  assert.equal(evanStats.linkedCount, 1)
+  assert.equal(evanStats.unlinkedCount, 0)
+
+  // Verify markdown contains all 3 lore links
+  assert.ok(currentContent.includes('[Sameer](lore:Character|Evan%27s%20neighbour)'))
+  assert.ok(currentContent.includes("[Mr. D'Souza](lore:Character|Landlord%20of%20Apartment%20306)"))
+  assert.ok(currentContent.includes('[Evan](lore:Character|Protagonist)'))
+})
