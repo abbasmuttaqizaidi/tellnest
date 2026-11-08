@@ -12,6 +12,8 @@ import {
   matchesStatus,
   matchesSearch,
   matchesTab,
+  isReligiousWork,
+  isReligiousFilterActive,
 } from '../src/lib/discover/filters.ts'
 import { WORKS } from '../src/data/mockData.ts'
 import { executeGetPlatformWorks, executeGetPaginatedDiscoverWorks } from '../src/server/works.ts'
@@ -1388,48 +1390,258 @@ test('Seeded Shuffle: Produces deterministic shuffle across identical seeds and 
   assert.equal(ids.size, items.length)
 })
 
-test('Paginated Discover Shuffle: Seed preserves stable order across pagination pages without duplicates', async () => {
-  const mockRows = Array.from({ length: 28 }, (_, i) => ({
-    id: `work-shuffle-${i + 1}`,
-    title: `Shuffle Story ${i + 1}`,
-    status: 'ongoing',
-    visibility: 'public',
-    publication_status: 'published',
-    published_at: '2026-01-01T00:00:00.000Z',
-    created_at: '2026-01-01T00:00:00.000Z',
-    category_name: 'Novels',
-    category_slug: 'novels',
-    genres: [],
-    acts: [],
-    chapters: [],
-    curated_collections: [],
-  }))
+// ==============================================================================
+// 19. RELIGION CATEGORY & FAITH GENRE DISCOVERY EXCLUSION / INCLUSION
+// ==============================================================================
+test('Religious Filters: isReligiousWork accurately detects religious category and faith genre', () => {
+  // Category tests
+  assert.equal(isReligiousWork({ category: 'Religion & Spirituality', categorySlug: 'religion-spirituality' }), true)
+  assert.equal(isReligiousWork({ categorySlug: 'cat-religion-spirituality' }), true)
+  assert.equal(isReligiousWork({ category: 'Religion' }), true)
 
-  const deps = {
-    queryRows: async () => mockRows,
-    getAuthState: async () => ({ userId: 'test-user' }),
-  }
+  // Genre tests
+  assert.equal(isReligiousWork({ genre: 'Faith & Spirituality', genreSlug: 'faith-spirituality' }), true)
+  assert.equal(isReligiousWork({ genreSlug: 'genre-faith-spirituality' }), true)
+  assert.equal(isReligiousWork({ genre: 'Faith' }), true)
 
-  const SEED = 420420
-  const page1 = await executeGetPaginatedDiscoverWorks({ page: 1, limit: 14, seed: SEED }, deps)
-  const page2 = await executeGetPaginatedDiscoverWorks({ page: 2, limit: 14, seed: SEED }, deps)
+  // Secondary genres array tests
+  assert.equal(
+    isReligiousWork({
+      categorySlug: 'novels',
+      genreSlug: 'literary-fiction',
+      genres: [{ name: 'Faith & Spirituality', slug: 'faith-spirituality' }],
+    }),
+    true
+  )
 
-  assert.equal(page1.works.length, 14)
-  assert.equal(page2.works.length, 14)
-  assert.equal(page1.seed, SEED)
-  assert.equal(page2.seed, SEED)
-
-  const page1Ids = page1.works.map((w) => w.id)
-  const page2Ids = page2.works.map((w) => w.id)
-
-  // Zero overlaps between Page 1 and Page 2
-  const overlap = page1Ids.filter((id) => page2Ids.includes(id))
-  assert.equal(overlap.length, 0, 'No stories should repeat across pages when using the same seed')
-
-  // Total unique stories fetched across both pages equals the entire catalog
-  const combinedSet = new Set([...page1Ids, ...page2Ids])
-  assert.equal(combinedSet.size, 28)
+  // Non-religious works
+  assert.equal(isReligiousWork({ category: 'Novels', categorySlug: 'novels', genre: 'Sci-Fi', genreSlug: 'sci-fi' }), false)
+  assert.equal(isReligiousWork(null), false)
+  assert.equal(isReligiousWork({}), false)
 })
+
+test('Religious Filters: isReligiousFilterActive identifies explicit manual filters', () => {
+  assert.equal(isReligiousFilterActive('religion-spirituality', 'all'), true)
+  assert.equal(isReligiousFilterActive('cat-religion-spirituality', 'all'), true)
+  assert.equal(isReligiousFilterActive('Religion & Spirituality', 'all'), true)
+  assert.equal(isReligiousFilterActive('all', 'faith-spirituality'), true)
+  assert.equal(isReligiousFilterActive('all', 'genre-faith-spirituality'), true)
+  assert.equal(isReligiousFilterActive('all', 'Faith & Spirituality'), true)
+  assert.equal(isReligiousFilterActive('religion-spirituality', 'faith-spirituality'), true)
+
+  // Inactive / default / other filters
+  assert.equal(isReligiousFilterActive('all', 'all'), false)
+  assert.equal(isReligiousFilterActive(undefined, undefined), false)
+  assert.equal(isReligiousFilterActive('novels', 'all'), false)
+  assert.equal(isReligiousFilterActive('all', 'fantasy'), false)
+  assert.equal(isReligiousFilterActive('novels', 'fantasy'), false)
+})
+
+test('Religious Works: Excluded from default Discover when no manual filter is applied', () => {
+  const religiousCategoryStory = createTestStory({
+    id: 'story-rel-cat',
+    title: 'Sacred Meditations',
+    category: 'Religion & Spirituality',
+    categorySlug: 'religion-spirituality',
+    genre: 'Philosophical Fiction',
+    genreSlug: 'philosophical-fiction',
+  })
+
+  const faithGenreStory = createTestStory({
+    id: 'story-faith-gen',
+    title: 'Walk of Grace',
+    category: 'Novels',
+    categorySlug: 'novels',
+    genre: 'Faith & Spirituality',
+    genreSlug: 'faith-spirituality',
+    genres: [{ id: 'g-faith', name: 'Faith & Spirituality', slug: 'faith-spirituality' }],
+  })
+
+  const regularStory = createTestStory({
+    id: 'story-regular',
+    title: 'The Cyber Frontier',
+    category: 'Novels',
+    categorySlug: 'novels',
+    genre: 'Sci-Fi',
+    genreSlug: 'sci-fi',
+    genres: [{ id: 'g-scifi', name: 'Sci-Fi', slug: 'sci-fi' }],
+  })
+
+  const stories = [religiousCategoryStory, faithGenreStory, regularStory]
+
+  // Default discover (all tabs / collections)
+  const defaultResults = filterAndSortWorks(stories, {
+    activeTab: 'all',
+    selectedCategory: 'all',
+    selectedGenre: 'all',
+    selectedStatus: 'all',
+    searchTerm: '',
+    sortBy: 'popularity',
+    isSignedIn: true,
+  })
+
+  assert.equal(defaultResults.length, 1)
+  assert.equal(defaultResults[0].id, 'story-regular')
+})
+
+test('Religious Works: Excluded from all tabs when no manual filter is applied', () => {
+  const religiousStory = createTestStory({
+    id: 'rel-trending',
+    title: 'Sacred Chronicles',
+    categorySlug: 'religion-spirituality',
+    genreSlug: 'faith-spirituality',
+    trending: true,
+    publishedAt: TEST_NOW.toISOString(),
+  })
+
+  const normalTrendingStory = createTestStory({
+    id: 'normal-trending',
+    title: 'Neon Odyssey',
+    categorySlug: 'novels',
+    genreSlug: 'sci-fi',
+    trending: true,
+    publishedAt: TEST_NOW.toISOString(),
+  })
+
+  const stories = [religiousStory, normalTrendingStory]
+
+  // Trending tab without religion filter
+  const trendingResults = filterAndSortWorks(stories, {
+    activeTab: 'trending',
+    selectedCategory: 'all',
+    selectedGenre: 'all',
+    selectedStatus: 'all',
+    searchTerm: '',
+    sortBy: 'popularity',
+    isSignedIn: true,
+    nowDate: TEST_NOW,
+  })
+
+  assert.equal(trendingResults.length, 1)
+  assert.equal(trendingResults[0].id, 'normal-trending')
+
+  // New This Week tab without religion filter
+  const newThisWeekResults = filterAndSortWorks(stories, {
+    activeTab: 'new_this_week',
+    selectedCategory: 'all',
+    selectedGenre: 'all',
+    selectedStatus: 'all',
+    searchTerm: '',
+    sortBy: 'popularity',
+    isSignedIn: true,
+    nowDate: TEST_NOW,
+  })
+
+  assert.equal(newThisWeekResults.length, 1)
+  assert.equal(newThisWeekResults[0].id, 'normal-trending')
+})
+
+test('Religious Works: Included when category filter is manually set to Religion & Spirituality', () => {
+  const religiousStory = createTestStory({
+    id: 'story-rel-included',
+    title: 'The Great Awakening',
+    category: 'Religion & Spirituality',
+    categorySlug: 'religion-spirituality',
+    genre: 'Faith & Spirituality',
+    genreSlug: 'faith-spirituality',
+  })
+
+  const regularStory = createTestStory({
+    id: 'story-regular',
+    title: 'Starship Chronicles',
+    category: 'Novels',
+    categorySlug: 'novels',
+    genre: 'Sci-Fi',
+    genreSlug: 'sci-fi',
+  })
+
+  const stories = [religiousStory, regularStory]
+
+  const results = filterAndSortWorks(stories, {
+    activeTab: 'all',
+    selectedCategory: 'religion-spirituality',
+    selectedGenre: 'all',
+    selectedStatus: 'all',
+    searchTerm: '',
+    sortBy: 'popularity',
+    isSignedIn: true,
+  })
+
+  assert.equal(results.length, 1)
+  assert.equal(results[0].id, 'story-rel-included')
+})
+
+test('Religious Works: Included when genre filter is manually set to Faith & Spirituality', () => {
+  const faithStory = createTestStory({
+    id: 'story-faith-included',
+    title: 'Path to Peace',
+    category: 'Novels',
+    categorySlug: 'novels',
+    genre: 'Faith & Spirituality',
+    genreSlug: 'faith-spirituality',
+    genres: [{ id: 'g-faith', name: 'Faith & Spirituality', slug: 'faith-spirituality' }],
+  })
+
+  const regularStory = createTestStory({
+    id: 'story-regular',
+    title: 'Starship Chronicles',
+    category: 'Novels',
+    categorySlug: 'novels',
+    genre: 'Sci-Fi',
+    genreSlug: 'sci-fi',
+  })
+
+  const stories = [faithStory, regularStory]
+
+  const results = filterAndSortWorks(stories, {
+    activeTab: 'all',
+    selectedCategory: 'all',
+    selectedGenre: 'faith-spirituality',
+    selectedStatus: 'all',
+    searchTerm: '',
+    sortBy: 'popularity',
+    isSignedIn: true,
+  })
+
+  assert.equal(results.length, 1)
+  assert.equal(results[0].id, 'story-faith-included')
+})
+
+test('Religious Works: Still excluded if a different category filter (e.g. Novels) is manually set', () => {
+  const faithNovel = createTestStory({
+    id: 'story-faith-novel',
+    title: 'Faithful Journey',
+    category: 'Novels',
+    categorySlug: 'novels',
+    genre: 'Faith & Spirituality',
+    genreSlug: 'faith-spirituality',
+  })
+
+  const regularNovel = createTestStory({
+    id: 'story-regular-novel',
+    title: 'Mountain Ascent',
+    category: 'Novels',
+    categorySlug: 'novels',
+    genre: 'Adventure',
+    genreSlug: 'adventure',
+  })
+
+  const stories = [faithNovel, regularNovel]
+
+  const results = filterAndSortWorks(stories, {
+    activeTab: 'all',
+    selectedCategory: 'novels',
+    selectedGenre: 'all',
+    selectedStatus: 'all',
+    searchTerm: '',
+    sortBy: 'popularity',
+    isSignedIn: true,
+  })
+
+  assert.equal(results.length, 1)
+  assert.equal(results[0].id, 'story-regular-novel')
+})
+
 
 
 

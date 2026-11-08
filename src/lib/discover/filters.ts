@@ -122,13 +122,105 @@ export function isWorkNewChaptersThisWeek(work: Work, nowDate: Date = new Date()
 }
 
 /**
+ * Helper to identify whether a work belongs to the Religion & Spirituality category
+ * or the Faith & Spirituality genre.
+ */
+export function isReligiousWork(work: {
+  category?: string | null
+  categorySlug?: string | null
+  genre?: string | null
+  genreSlug?: string | null
+  genres?: Array<{ id?: string; name?: string; slug?: string }> | null
+}): boolean {
+  if (!work) return false
+
+  const catName = (work.category || '').toLowerCase()
+  const catSlug = (work.categorySlug || '').toLowerCase()
+  if (
+    catSlug === 'religion-spirituality' ||
+    catSlug === 'cat-religion-spirituality' ||
+    catSlug.includes('religion') ||
+    catName.includes('religion')
+  ) {
+    return true
+  }
+
+  const genName = (work.genre || '').toLowerCase()
+  const genSlug = (work.genreSlug || '').toLowerCase()
+  if (
+    genSlug === 'faith-spirituality' ||
+    genSlug === 'genre-faith-spirituality' ||
+    genSlug.includes('faith') ||
+    genSlug.includes('religion') ||
+    genName.includes('faith') ||
+    genName.includes('religion')
+  ) {
+    return true
+  }
+
+  if (Array.isArray(work.genres)) {
+    for (const g of work.genres) {
+      const gSlug = (g.slug || '').toLowerCase()
+      const gName = (g.name || '').toLowerCase()
+      if (
+        gSlug === 'faith-spirituality' ||
+        gSlug === 'genre-faith-spirituality' ||
+        gSlug.includes('faith') ||
+        gSlug.includes('religion') ||
+        gName.includes('faith') ||
+        gName.includes('religion')
+      ) {
+        return true
+      }
+    }
+  }
+
+  return false
+}
+
+/**
+ * Checks whether an explicit/manual filter is active for Religion & Spirituality
+ * (category) or Faith & Spirituality (genre).
+ */
+export function isReligiousFilterActive(
+  selectedCategory?: string | null,
+  selectedGenre?: string | null
+): boolean {
+  if (selectedCategory && selectedCategory.toLowerCase() !== 'all') {
+    const cat = selectedCategory.toLowerCase().trim()
+    if (
+      cat === 'religion-spirituality' ||
+      cat === 'cat-religion-spirituality' ||
+      cat.includes('religion')
+    ) {
+      return true
+    }
+  }
+
+  if (selectedGenre && selectedGenre.toLowerCase() !== 'all') {
+    const gen = selectedGenre.toLowerCase().trim()
+    if (
+      gen === 'faith-spirituality' ||
+      gen === 'genre-faith-spirituality' ||
+      gen.includes('faith') ||
+      gen.includes('religion')
+    ) {
+      return true
+    }
+  }
+
+  return false
+}
+
+/**
  * Genre filter check with OR semantics across primary and secondary genres.
  */
 export function matchesGenre(work: Work, selectedGenre: string): boolean {
   if (!selectedGenre || selectedGenre === 'all') return true
-  if (work.genreSlug === selectedGenre) return true
+  const targetSlug = selectedGenre.replace(/^genre-/, '')
+  if (work.genreSlug === selectedGenre || work.genreSlug === targetSlug) return true
   if (Array.isArray(work.genres)) {
-    return work.genres.some((g) => g.slug === selectedGenre)
+    return work.genres.some((g) => g.slug === selectedGenre || g.slug === targetSlug)
   }
   return false
 }
@@ -138,7 +230,8 @@ export function matchesGenre(work: Work, selectedGenre: string): boolean {
  */
 export function matchesCategory(work: Work, selectedCategory: string): boolean {
   if (!selectedCategory || selectedCategory === 'all') return true
-  return work.categorySlug === selectedCategory
+  const targetSlug = selectedCategory.replace(/^cat-/, '')
+  return work.categorySlug === selectedCategory || work.categorySlug === targetSlug
 }
 
 /**
@@ -265,8 +358,12 @@ export function filterAndSortWorks(
     seed,
   } = options
 
+  const isReligiousManual = isReligiousFilterActive(selectedCategory, selectedGenre)
+
   const filtered = works.filter((work) => {
     if (!isPublicPublishedWork(work, nowDate)) return false
+    // Exclude Religion category and Faith genre from Discover unless manually filtered
+    if (!isReligiousManual && isReligiousWork(work)) return false
     if (!matchesTab(work, activeTab, isSignedIn, nowDate)) return false
     if (!matchesCategory(work, selectedCategory)) return false
     if (!matchesGenre(work, selectedGenre)) return false
