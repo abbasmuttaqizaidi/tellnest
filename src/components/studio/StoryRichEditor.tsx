@@ -355,6 +355,7 @@ export function StoryRichEditor({
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
+        link: false,
         heading: {
           levels: [2, 3],
         },
@@ -366,10 +367,11 @@ export function StoryRichEditor({
       Link.configure({
         openOnClick: false,
         autolink: false,
-        validate: () => true,
+        isAllowedUri: () => true,
+        shouldAutoLink: () => false,
         protocols: ['http', 'https', 'mailto', 'tel', 'lore'],
         HTMLAttributes: {
-          class: 'story-lore-link font-inherit text-inherit underline underline-offset-4',
+          class: 'story-lore-link font-inherit text-inherit underline underline-offset-4 decoration-zinc-400 dark:decoration-zinc-500 hover:text-[var(--ink-primary)] cursor-pointer',
         },
       }),
       Placeholder.configure({
