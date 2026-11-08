@@ -287,6 +287,7 @@ export function StoryLoreModal({
         await onUpdateContent(newMarkdown)
       }
 
+      await loadEntities()
       showToast(`Linked across ${res.updatedChaptersCount} chapter(s)`)
     } catch (err: any) {
       showToast(err?.message || 'Failed to link occurrences')
@@ -315,6 +316,7 @@ export function StoryLoreModal({
         await onUpdateContent(newMarkdown)
       }
 
+      await loadEntities()
       showToast(`Unlinked from ${res.updatedChaptersCount} chapter(s)`)
     } catch (err: any) {
       showToast(err?.message || 'Failed to unlink occurrences')
@@ -659,6 +661,9 @@ export function StoryLoreModal({
                     const isLocation = entType.toLowerCase() === 'location'
                     const isLore = entType.toLowerCase() === 'lore'
 
+                    const chaptersCount = ent.chaptersCount ?? ent.chapterCount ?? 0
+                    const totalMentions = ent.totalOccurrencesInStory ?? ent.mentionCount ?? 0
+
                     return (
                       <div
                         key={entName}
@@ -669,7 +674,7 @@ export function StoryLoreModal({
                         }`}
                       >
                         {/* Info */}
-                        <div className="space-y-0.5 min-w-0 flex-1">
+                        <div className="space-y-1 min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-semibold text-xs text-[var(--ink-primary)]">
                               {entName}
@@ -688,16 +693,29 @@ export function StoryLoreModal({
                               {entType}
                             </span>
 
-                            {mentions && (
-                              <span className="text-[10px] text-[var(--ink-muted)]">
+                            {/* Manuscript Presence */}
+                            <span className="text-[10px] text-[var(--ink-muted)]">
+                              {chaptersCount > 0 ? (
+                                <span>
+                                  {chaptersCount} {chaptersCount === 1 ? 'chapter' : 'chapters'}
+                                  {totalMentions > 0 && ` (${totalMentions} ${totalMentions === 1 ? 'mention' : 'mentions'})`}
+                                </span>
+                              ) : (
+                                <span>0 chapters</span>
+                              )}
+                            </span>
+
+                            {/* Current Chapter Status (shown when modal is open inside a chapter editor) */}
+                            {hasChapterContext && mentions && (
+                              <span className="text-[10px] flex items-center gap-1.5 font-medium">
                                 {mentions.linkedCount > 0 && (
-                                  <span className="text-emerald-600 dark:text-emerald-400 mr-1.5">
-                                    ✓ {mentions.linkedCount} linked in chapter
+                                  <span className="text-emerald-600 dark:text-emerald-400">
+                                    ✓ {mentions.linkedCount} linked in this chapter
                                   </span>
                                 )}
                                 {mentions.unlinkedCount > 0 && (
                                   <span className="text-zinc-600 dark:text-zinc-400">
-                                    • {mentions.unlinkedCount} unlinked
+                                    • {mentions.unlinkedCount} unlinked in this chapter
                                   </span>
                                 )}
                               </span>
