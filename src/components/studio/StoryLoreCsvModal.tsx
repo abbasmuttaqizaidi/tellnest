@@ -345,7 +345,7 @@ export function StoryLoreCsvModal({
                   Click to browse or drop your CSV file here
                 </h3>
                 <p className="text-xs text-[var(--ink-muted)] mt-1 max-w-sm">
-                  Upload a standard spreadsheet with columns <span className="font-mono font-medium text-[var(--ink-primary)]">Name</span>, <span className="font-mono font-medium text-[var(--ink-primary)]">Type</span>, and <span className="font-mono font-medium text-[var(--ink-primary)]">Tooltip</span>.
+                  Upload a standard spreadsheet with columns <span className="font-mono font-medium text-[var(--ink-primary)]">Name</span>, <span className="font-mono font-medium text-[var(--ink-primary)]">Type</span>, and <span className="font-mono font-medium text-[var(--ink-primary)]">Tooltip</span> (or <span className="font-mono font-medium text-[var(--ink-primary)]">Description</span>).
                 </p>
 
                 <div className="mt-4 flex items-center gap-2">

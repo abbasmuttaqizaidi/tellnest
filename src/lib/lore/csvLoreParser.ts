@@ -117,15 +117,24 @@ export function parseLoreCsv(csvText: string): CsvLoreParseResult {
     }
   }
 
-  const headerRow = rawRows[0].map((c) => c.replace(/^[\uFEFF\u200B]+/, '').trim())
-  const nameIdx = headerRow.indexOf('Name')
-  const typeIdx = headerRow.indexOf('Type')
-  const tooltipIdx = headerRow.indexOf('Tooltip')
+  const cleanHeaders = rawRows[0].map((c) => c.replace(/^[\uFEFF\u200B]+/, '').trim())
+  const lowerHeaders = cleanHeaders.map((c) => c.toLowerCase())
+
+  // Flexible header resolution (supports common synonyms and case-insensitive headers)
+  const nameIdx = lowerHeaders.findIndex((h) =>
+    ['name', 'entity', 'entity name', 'entity_name', 'character', 'title'].includes(h)
+  )
+  const typeIdx = lowerHeaders.findIndex((h) =>
+    ['type', 'entity type', 'entity_type', 'category', 'role', 'tag'].includes(h)
+  )
+  const tooltipIdx = lowerHeaders.findIndex((h) =>
+    ['tooltip', 'description', 'desc', 'summary', 'bio', 'details', 'notes', 'note', 'about'].includes(h)
+  )
 
   const missingHeaders: string[] = []
   if (nameIdx === -1) missingHeaders.push('Name')
   if (typeIdx === -1) missingHeaders.push('Type')
-  if (tooltipIdx === -1) missingHeaders.push('Tooltip')
+  if (tooltipIdx === -1) missingHeaders.push('Tooltip (or Description)')
 
   if (missingHeaders.length > 0) {
     return {
@@ -136,7 +145,7 @@ export function parseLoreCsv(csvText: string): CsvLoreParseResult {
       totalRawRows: Math.max(0, rawRows.length - 1),
       totalRows: Math.max(0, rawRows.length - 1),
       errors: [
-        `Invalid CSV headers. Missing required columns: ${missingHeaders.join(', ')}. Strict headers required: "Name", "Type", "Tooltip" (case-sensitive).`,
+        `Invalid CSV headers. Missing required columns: ${missingHeaders.join(', ')}. Expected column headers: "Name", "Type", and "Tooltip" (or "Description").`,
       ],
     }
   }

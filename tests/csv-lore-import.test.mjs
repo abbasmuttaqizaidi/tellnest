@@ -25,14 +25,30 @@ test('RFC 4180 tokenizer handles quotes, commas, escaped quotes, multiline and U
   assert.equal(rows[2][2], 'A grim place with\nmultiple shadows.')
 })
 
-test('parseLoreCsv validates strict case-sensitive headers: Name, Type, Tooltip', () => {
-  // Missing Tooltip
-  const invalidHeaders1 = 'name,type,tooltip\nArthur,Character,King'
+test('parseLoreCsv validates headers flexibly: supports Description as Tooltip, case-insensitivity, and any column order', () => {
+  // Truly missing headers (Foo, Bar, Baz)
+  const invalidHeaders1 = 'Foo,Bar,Baz\nArthur,Character,King'
   const res1 = parseLoreCsv(invalidHeaders1)
   assert.equal(res1.success, false)
   assert.match(res1.errors[0], /Missing required columns/)
 
-  // Exact headers
+  // Case-insensitive (name, type, tooltip)
+  const lowerCsv = 'name,type,tooltip\nArthur,Character,King of Camelot'
+  const resLower = parseLoreCsv(lowerCsv)
+  assert.equal(resLower.success, true)
+  assert.equal(resLower.rows.length, 1)
+  assert.equal(resLower.rows[0].name, 'Arthur')
+
+  // Real world export: Type,Name,Description (Description synonym + different column order)
+  const userExport = 'Type,Name,Description\nCharacter,Evan,Protagonist; tenant of Apartment 306.'
+  const resUser = parseLoreCsv(userExport)
+  assert.equal(resUser.success, true)
+  assert.equal(resUser.rows.length, 1)
+  assert.equal(resUser.rows[0].name, 'Evan')
+  assert.equal(resUser.rows[0].type, 'Character')
+  assert.equal(resUser.rows[0].tooltip, 'Protagonist; tenant of Apartment 306.')
+
+  // Exact headers (Name, Type, Tooltip)
   const validCsv = 'Name,Type,Tooltip\nArthur,Character,King of Camelot'
   const res2 = parseLoreCsv(validCsv)
   assert.equal(res2.success, true)
