@@ -43,7 +43,9 @@ import {
   countEntityMentions,
   parseLorePayload,
   normalizeLoreLinks,
+  type StoryLoreEntity,
 } from '../../lib/lore/loreParser'
+import { getStoryLoreBibleServerFn } from '../../server/writer'
 
 export interface StoryRichEditorProps {
   title: string
@@ -320,11 +322,41 @@ export function StoryRichEditor({
   // Story Lore and Footnote Annotations
   const [isLoreModalOpen, setIsLoreModalOpen] = useState(false)
   const [loreSelectedText, setLoreSelectedText] = useState('')
+  const [bibleEntities, setBibleEntities] = useState<StoryLoreEntity[]>([])
 
+  // Load Lore Bible entities from backend whenever workId changes or modal closes
+  useEffect(() => {
+    if (!workId) return
+    let cancelled = false
+    getStoryLoreBibleServerFn({ data: { workId } })
+      .then((res) => {
+        if (!cancelled && res?.entities && Array.isArray(res.entities)) {
+          setBibleEntities(res.entities)
+        }
+      })
+      .catch((err) => console.warn('[StoryRichEditor] Failed to fetch story lore bible:', err))
+    return () => {
+      cancelled = true
+    }
+  }, [workId, isLoreModalOpen])
+
+  // Merge Lore Bible entities with any ad-hoc inline lore links in current prose
   const definedLoreEntities = useMemo(() => {
-    return extractLoreEntities(content || '')
-  }, [content])
+    const inline = extractLoreEntities(content || '')
+    const map = new Map<string, StoryLoreEntity>()
+    for (const b of bibleEntities) {
+      map.set(b.name.toLowerCase().trim(), b)
+    }
+    for (const i of inline) {
+      const key = i.name.toLowerCase().trim()
+      if (!map.has(key)) {
+        map.set(key, i)
+      }
+    }
+    return Array.from(map.values())
+  }, [bibleEntities, content])
 
+  // Count unlinked mentions across all registered lore entities in this chapter
   const totalUnlinkedLoreMentions = useMemo(() => {
     return definedLoreEntities.reduce((sum, e) => {
       const stats = countEntityMentions(content || '', e.name)

@@ -112,6 +112,11 @@ test('Story Lore Bible: Get returns merged lore from DB entities and chapter tex
   assert.equal(arthur.entityType, 'Character')
   assert.equal(arthur.description, 'King of Camelot')
   assert.equal(arthur.chapterCount, 2) // mentions in both ch-1 and ch-2
+  assert.equal(arthur.chaptersCount, 1) // ONLY 1 chapter where Arthur is actually linked!
+  assert.equal(arthur.linkedChaptersCount, 1)
+  assert.equal(arthur.unlinkedChaptersCount, 1)
+  assert.equal(arthur.totalLinkedCount, 1)
+  assert.equal(arthur.totalUnlinkedCount, 1)
   assert.equal(arthur.mentionCount, 2)
 
   const camelot = res.entities.find((e) => e.name === 'Camelot')
