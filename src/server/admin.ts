@@ -5,8 +5,10 @@ import { clearPublicWorkCache } from './works.ts'
 import {
   linkAllOccurrences,
   unlinkAllOccurrences,
+  linkMultipleEntities,
   type LoreEntity,
 } from '../lib/lore/loreParser.ts'
+import { parseLoreCsv } from '../lib/lore/csvLoreParser.ts'
 
 const ADMIN_SECRET =
   (typeof process !== 'undefined' && (process.env.ADMIN_SECRET_KEY || process.env.ADMIN_PASSWORD)) ||
@@ -1826,6 +1828,141 @@ export const adminDeleteLoreEntityServerFn = createServerFn({ method: 'POST' })
   })
   .handler(async ({ data }: { data: AdminDeleteLoreEntityPayload }) => {
     return executeAdminDeleteLoreEntity(data)
+  })
+
+export interface AdminImportStoryLoreCsvPayload {
+  adminToken: string
+  workId: string
+  csvText: string
+  linkAllChapters?: boolean
+}
+
+export async function executeAdminImportStoryLoreCsv(
+  data: AdminImportStoryLoreCsvPayload,
+  adminClient?: any
+) {
+  if (!data.adminToken) throw new Error('Admin authorization token is required')
+  if (!isValidAdminToken(data.adminToken)) {
+    throw new Error('Unauthorized: Invalid administration key')
+  }
+  if (!data.workId?.trim()) throw new Error('Work ID is required')
+  if (!data.csvText || typeof data.csvText !== 'string' || !data.csvText.trim()) {
+    throw new Error('CSV text content is required')
+  }
+
+  const admin = adminClient || createAdminClient()
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.workId.trim())
+  let targetWorkUuid = data.workId.trim()
+  if (!isUuid) {
+    const { data: wRow } = await admin.from('works').select('id').eq('slug', targetWorkUuid.toLowerCase()).maybeSingle()
+    if (wRow?.id) targetWorkUuid = wRow.id
+  }
+
+  const parseResult = parseLoreCsv(data.csvText)
+  if (parseResult.errors.length > 0 && parseResult.validRows.length === 0) {
+    throw new Error(`Invalid CSV format: ${parseResult.errors[0]}`)
+  }
+  if (parseResult.validRows.length === 0) {
+    throw new Error('No valid entity rows found in the CSV file.')
+  }
+
+  const nowIso = new Date().toISOString()
+  const uniqueByNameMap = new Map<
+    string,
+    { work_id: string; name: string; entity_type: string; description: string; updated_at: string }
+  >()
+
+  for (const row of parseResult.validRows) {
+    const key = row.name.trim().toLowerCase()
+    uniqueByNameMap.set(key, {
+      work_id: targetWorkUuid,
+      name: row.name.trim(),
+      entity_type: row.type || 'Character',
+      description: row.tooltip.trim(),
+      updated_at: nowIso,
+    })
+  }
+
+  const rowsToUpsert = Array.from(uniqueByNameMap.values())
+
+  try {
+    const CHUNK_SIZE = 100
+    for (let i = 0; i < rowsToUpsert.length; i += CHUNK_SIZE) {
+      const chunk = rowsToUpsert.slice(i, i + CHUNK_SIZE)
+      const { error: chunkErr } = await admin.from('story_lore_entities').upsert(chunk, { onConflict: 'work_id,name' })
+      if (chunkErr) {
+        console.error('[executeAdminImportStoryLoreCsv] Upsert chunk error:', chunkErr)
+      }
+    }
+  } catch (err: any) {
+    console.warn('[executeAdminImportStoryLoreCsv] story_lore_entities table upsert notice:', err?.message)
+  }
+
+  let chaptersUpdated = 0
+  let totalMentionsLinked = 0
+
+  if (data.linkAllChapters) {
+    const { data: chapters } = await admin
+      .from('chapters')
+      .select('id, content')
+      .eq('work_id', targetWorkUuid)
+
+    if (chapters && chapters.length > 0) {
+      const entitiesToLink: LoreEntity[] = rowsToUpsert.map((r) => ({
+        name: r.name,
+        entityType: r.entity_type,
+        description: r.description,
+      }))
+
+      for (const ch of chapters) {
+        const rawContent = ch.content || ''
+        const { newMarkdown, totalLinked } = linkMultipleEntities(rawContent, entitiesToLink)
+
+        if (totalLinked > 0) {
+          const cleanContent = newMarkdown.replace(/\\+[ \t]*(?=\r?\n|$)/g, '').trim()
+          const wordCount = cleanContent.split(/\s+/).filter(Boolean).length
+          const readingTime = Math.max(1, Math.ceil(wordCount / 220))
+
+          const { error: chUpdateErr } = await admin
+            .from('chapters')
+            .update({
+              content: cleanContent,
+              word_count: wordCount,
+              reading_time_minutes: readingTime,
+              updated_at: nowIso,
+            })
+            .eq('id', ch.id)
+
+          if (!chUpdateErr) {
+            chaptersUpdated++
+            totalMentionsLinked += totalLinked
+          }
+        }
+      }
+    }
+  }
+
+  clearPublicWorkCache(targetWorkUuid)
+
+  return {
+    success: true,
+    importedCount: rowsToUpsert.length,
+    duplicateCount: parseResult.duplicateCount,
+    chaptersUpdated,
+    totalMentionsLinked,
+    entities: parseResult.validRows,
+  }
+}
+
+export const adminImportStoryLoreCsvServerFn = createServerFn({ method: 'POST' })
+  .validator((params: AdminImportStoryLoreCsvPayload) => {
+    if (!params.adminToken) throw new Error('Admin authorization token is required')
+    if (!params.workId?.trim()) throw new Error('Work ID is required')
+    if (!params.csvText?.trim()) throw new Error('CSV text is required')
+    return params
+  })
+  .handler(async ({ data }: { data: AdminImportStoryLoreCsvPayload }) => {
+    return executeAdminImportStoryLoreCsv(data)
   })
 
 /**

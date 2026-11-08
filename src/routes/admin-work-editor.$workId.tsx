@@ -19,6 +19,7 @@ import {
 } from '../server/admin'
 import { getStoryLoreBibleServerFn } from '../server/writer'
 import { StoryLoreModal } from '../components/studio/StoryLoreModal'
+import { StoryLoreCsvModal } from '../components/studio/StoryLoreCsvModal'
 import {
   extractLoreEntities,
   countEntityMentions,
@@ -50,6 +51,7 @@ import {
   Bookmark,
   UserCheck,
   Trash2,
+  FileSpreadsheet,
 } from 'lucide-react'
 import { generateMeta } from '../lib/seo'
 import { getWorkSlug, type Work, type Act, type Chapter } from '../data/mockData'
@@ -231,6 +233,7 @@ function AdminWorkEditorPage() {
   const [newLoreDesc, setNewLoreDesc] = useState('')
   const [isLinkingLore, setIsLinkingLore] = useState(false)
   const [dbLoreEntities, setDbLoreEntities] = useState<LoreEntity[]>([])
+  const [showAdminCsvModal, setShowAdminCsvModal] = useState(false)
 
   const loadLoreBibleFromDb = useCallback(async () => {
     if (!work?.id) return
@@ -1767,11 +1770,22 @@ function AdminWorkEditorPage() {
                 Define story entities once, then link them across all {work.chapters?.length || 0} chapters with one click. Readers see interactive tooltips when tapping names in prose.
               </p>
             </div>
-            {storyLoreEntities.length > 0 && (
-              <span className="self-start sm:self-auto px-3 py-1 rounded-full text-xs font-mono font-medium bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--ink-primary)]">
-                {storyLoreEntities.length} Entit{storyLoreEntities.length !== 1 ? 'ies' : 'y'} Defined
-              </span>
-            )}
+            <div className="flex items-center gap-2.5 self-start sm:self-auto shrink-0">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                leftIcon={<FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />}
+                onClick={() => setShowAdminCsvModal(true)}
+              >
+                Import Lores
+              </Button>
+              {storyLoreEntities.length > 0 && (
+                <span className="px-3 py-1 rounded-full text-xs font-mono font-medium bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--ink-primary)]">
+                  {storyLoreEntities.length} Entit{storyLoreEntities.length !== 1 ? 'ies' : 'y'} Defined
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Add New Entity Form */}
@@ -2285,10 +2299,28 @@ function AdminWorkEditorPage() {
         onClose={() => setShowChLoreModal(false)}
         content={chContentInput}
         workId={work?.id}
+        adminToken={adminToken || undefined}
         onUpdateContent={(newContent) => {
           setChContentInput(newContent)
         }}
       />
+
+      {/* Admin Bulk Lore Import Modal */}
+      {work?.id && (
+        <StoryLoreCsvModal
+          isOpen={showAdminCsvModal}
+          onClose={() => setShowAdminCsvModal(false)}
+          workId={work.id}
+          adminToken={adminToken || undefined}
+          onImportSuccess={async (res) => {
+            await loadLoreBibleFromDb()
+            await router.invalidate()
+            showToast(
+              `Imported ${res.importedCount} lore entities (${res.totalMentionsLinked} mentions linked across ${res.chaptersUpdated} chapters)!`
+            )
+          }}
+        />
+      )}
 
       {/* MODAL: 3-LAYER VIEWS BREAKDOWN WITH ADMIN INCREMENT / DECREMENT */}
       <ViewsBreakdownModal

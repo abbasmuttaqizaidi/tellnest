@@ -433,6 +433,91 @@ test('Admin Story Lore: Validates admin authentication and required fields', asy
   )
 })
 
+test('Admin Bulk Lore Import: Allows admin to import CSV and link entities across any manuscript', async () => {
+  const { executeAdminImportStoryLoreCsv, generateAdminToken } = await import('../src/server/admin.ts')
+  const { token: validToken } = generateAdminToken()
+
+  const mockWorkId = '00000000-0000-0000-0000-000000000099'
+  const upsertedEntities = []
+  const updatedChapters = []
+
+  const mockAdminClient = {
+    from(table) {
+      if (table === 'works') {
+        return {
+          select() {
+            return {
+              eq() {
+                return {
+                  maybeSingle: async () => ({
+                    data: { id: mockWorkId, title: 'The Royal Tale', slug: 'the-royal-tale' },
+                  }),
+                }
+              },
+            }
+          },
+        }
+      }
+      if (table === 'story_lore_entities') {
+        return {
+          upsert: async (rows) => {
+            upsertedEntities.push(...rows)
+            return { error: null }
+          },
+        }
+      }
+      if (table === 'chapters') {
+        return {
+          select() {
+            return {
+              eq(col, val) {
+                return Promise.resolve({
+                  data: [
+                    { id: 'ch-1', title: 'Chapter 1', content: 'Evan walked into Morrow House and met Sameer.' },
+                    { id: 'ch-2', title: 'Chapter 2', content: 'Quiet morning.' },
+                  ],
+                })
+              },
+            }
+          },
+          update(updates) {
+            return {
+              eq(col, val) {
+                updatedChapters.push({ id: val, updates })
+                return Promise.resolve({ error: null })
+              },
+            }
+          },
+        }
+      }
+      throw new Error(`Unexpected table: ${table}`)
+    },
+  }
+
+  const csv = [
+    'Type,Name,Description',
+    'Character,Evan,Protagonist; tenant of Apartment 306.',
+    'Character,Sameer,Resident of Apartment 305.',
+    'Location,Morrow House,Old apartment building.',
+  ].join('\n')
+
+  const res = await executeAdminImportStoryLoreCsv(
+    {
+      adminToken: validToken,
+      workId: mockWorkId,
+      csvText: csv,
+      linkAllChapters: true,
+    },
+    mockAdminClient
+  )
+
+  assert.equal(res.success, true)
+  assert.equal(res.importedCount, 3)
+  assert.equal(res.chaptersUpdated, 1) // ch-1 has mentions of Evan, Sameer, Morrow House
+  assert.equal(res.totalMentionsLinked, 3)
+  assert.equal(upsertedEntities.length, 3)
+})
+
 test('Edge Case: Curly vs straight apostrophes match seamlessly', () => {
   const entity = {
     name: "D'Artagnan",

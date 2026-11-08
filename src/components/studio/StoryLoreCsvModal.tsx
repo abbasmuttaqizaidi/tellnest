@@ -21,11 +21,13 @@ import {
   type CsvLoreParseResult,
 } from '../../lib/lore/csvLoreParser'
 import { importStoryLoreCsvServerFn } from '../../server/writer'
+import { adminImportStoryLoreCsvServerFn } from '../../server/admin'
 
 export interface StoryLoreCsvModalProps {
   isOpen: boolean
   onClose: () => void
   workId: string
+  adminToken?: string
   onImportSuccess?: (result: {
     importedCount: number
     chaptersUpdated: number
@@ -38,6 +40,7 @@ export function StoryLoreCsvModal({
   isOpen,
   onClose,
   workId,
+  adminToken,
   onImportSuccess,
 }: StoryLoreCsvModalProps) {
   const { user } = useUser()
@@ -179,14 +182,32 @@ export function StoryLoreCsvModal({
         ),
       ].join('\n')
 
-      const res = await importStoryLoreCsvServerFn({
-        data: {
-          workId,
-          clerkUserId: user?.id,
-          csvText: approvedCsv,
-          linkAllChapters,
-        },
-      })
+      if (!adminToken && !user?.id) {
+        setErrorMessage('User authentication required. Please sign in or use an authorized admin session.')
+        setIsSubmitting(false)
+        return
+      }
+
+      let res: any
+      if (adminToken) {
+        res = await adminImportStoryLoreCsvServerFn({
+          data: {
+            adminToken,
+            workId,
+            csvText: approvedCsv,
+            linkAllChapters,
+          },
+        })
+      } else {
+        res = await importStoryLoreCsvServerFn({
+          data: {
+            workId,
+            clerkUserId: user?.id,
+            csvText: approvedCsv,
+            linkAllChapters,
+          },
+        })
+      }
 
       if (res?.success) {
         setSuccessResult({

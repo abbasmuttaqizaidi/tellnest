@@ -40,6 +40,7 @@ export interface StoryLoreModalProps {
   workId?: string
   chapterId?: string
   initialTab?: 'chapter' | 'bible'
+  adminToken?: string
 }
 
 const DEFAULT_LORE_TYPES = ['Character', 'Location', 'Lore']
@@ -52,6 +53,7 @@ export function StoryLoreModal({
   initialSelectedText = '',
   workId,
   chapterId,
+  adminToken,
 }: StoryLoreModalProps) {
   const { user } = useUser()
   const hasChapterContext = Boolean(onUpdateContent)
@@ -800,6 +802,7 @@ export function StoryLoreModal({
           isOpen={isCsvModalOpen}
           onClose={() => setIsCsvModalOpen(false)}
           workId={workId}
+          adminToken={adminToken}
           onImportSuccess={async (res) => {
             await loadEntities()
             if (hasChapterContext && onUpdateContent && res.entities && res.entities.length > 0) {
