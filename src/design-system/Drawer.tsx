@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'motion/react'
 import { X } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { SPRINGS } from './tokens'
+import { useScrollLock } from '../lib/scrollLock'
 
 export interface DrawerProps {
   isOpen: boolean
@@ -40,19 +41,8 @@ export const Drawer: React.FC<DrawerProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, onClose])
 
-  // Lock background scroll when drawer is open
-  useEffect(() => {
-    if (isOpen) {
-      const originalBodyOverflow = document.body.style.overflow
-      const originalHtmlOverflow = document.documentElement.style.overflow
-      document.body.style.overflow = 'hidden'
-      document.documentElement.style.overflow = 'hidden'
-      return () => {
-        document.body.style.overflow = originalBodyOverflow
-        document.documentElement.style.overflow = originalHtmlOverflow
-      }
-    }
-  }, [isOpen])
+  // Lock background scroll with scrollbar compensation to eliminate layout shift
+  useScrollLock(isOpen)
 
   const initialAnimation = {
     right: { x: '100%' },

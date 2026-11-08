@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Trophy, X, Users, Heart, ArrowRight, Loader2 } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 import { getActiveContestServerFn, type ContestPublicPageData } from '../server/contests'
+import { useScrollLock } from '../lib/scrollLock'
 
 export interface ContestDetailsModalProps {
   isOpen: boolean
@@ -27,18 +28,8 @@ export function ContestDetailsModal({ isOpen, onClose, initialData }: ContestDet
     setMounted(true)
   }, [])
 
-  // Lock background scroll on mobile and desktop while modal is open
-  useEffect(() => {
-    if (!isOpen) return
-    const originalBodyOverflow = document.body.style.overflow
-    const originalHtmlOverflow = document.documentElement.style.overflow
-    document.body.style.overflow = 'hidden'
-    document.documentElement.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = originalBodyOverflow
-      document.documentElement.style.overflow = originalHtmlOverflow
-    }
-  }, [isOpen])
+  // Lock background scroll with scrollbar compensation to eliminate layout shift
+  useScrollLock(isOpen)
 
   // Fetch active contest details when modal opens if not already loaded
   useEffect(() => {

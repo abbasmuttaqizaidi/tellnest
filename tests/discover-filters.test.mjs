@@ -1320,15 +1320,15 @@ test('SQL & Application Parity: Published story with null published_at preserves
   assert.ok(appMapped[0].collection.includes('editor_picks'))
 })
 
-test('Paginated Discover: executeGetPaginatedDiscoverWorks enforces limit 14 and all-status default', async () => {
+test('Paginated Discover: executeGetPaginatedDiscoverWorks enforces limit 12 and all-status default', async () => {
   // Generate 30 mock works with mix of ongoing and completed
   const mockRows = Array.from({ length: 30 }, (_, i) => ({
-    id: `work-page-${i + 1}`,
+    id: `work-page-${String(i + 1).padStart(2, '0')}`,
     title: `Serialized Story ${i + 1}`,
     status: i % 2 === 0 ? 'completed' : 'ongoing',
     visibility: 'public',
     publication_status: 'published',
-    published_at: '2026-01-01T00:00:00.000Z',
+    published_at: `2026-01-${String((i % 28) + 1).padStart(2, '0')}T00:00:00.000Z`,
     created_at: '2026-01-01T00:00:00.000Z',
     category_name: 'Novels',
     category_slug: 'novels',
@@ -1343,11 +1343,11 @@ test('Paginated Discover: executeGetPaginatedDiscoverWorks enforces limit 14 and
     getAuthState: async () => ({ userId: 'test-user' }),
   }
 
-  // Page 1 (default limit 14, default status all)
+  // Page 1 (default limit 12, default status all)
   const resPage1 = await executeGetPaginatedDiscoverWorks({ page: 1 }, deps)
-  assert.equal(resPage1.pageSize, 14)
+  assert.equal(resPage1.pageSize, 12)
   assert.equal(resPage1.page, 1)
-  assert.equal(resPage1.works.length, 14)
+  assert.equal(resPage1.works.length, 12)
   assert.equal(resPage1.totalCount, 30)
   assert.equal(resPage1.totalPages, 3)
   assert.equal(resPage1.hasNextPage, true)
@@ -1356,19 +1356,40 @@ test('Paginated Discover: executeGetPaginatedDiscoverWorks enforces limit 14 and
   assert.ok(resPage1.works.some((w) => w.status === 'Ongoing'))
   assert.ok(resPage1.works.some((w) => w.status === 'Completed'))
 
-  // Page 2
+  // Page 2 (12 works)
   const resPage2 = await executeGetPaginatedDiscoverWorks({ page: 2 }, deps)
-  assert.equal(resPage2.works.length, 14)
+  assert.equal(resPage2.works.length, 12)
   assert.equal(resPage2.page, 2)
   assert.equal(resPage2.hasNextPage, true)
   assert.equal(resPage2.hasPrevPage, true)
 
-  // Page 3 (remaining 2 works)
+  // Page 3 (remaining 6 works: 30 - 24 = 6)
   const resPage3 = await executeGetPaginatedDiscoverWorks({ page: 3 }, deps)
-  assert.equal(resPage3.works.length, 2)
+  assert.equal(resPage3.works.length, 6)
   assert.equal(resPage3.page, 3)
   assert.equal(resPage3.hasNextPage, false)
   assert.equal(resPage3.hasPrevPage, true)
+
+  // Invariant: Zero duplicates across pages
+  const p1Ids = new Set(resPage1.works.map((w) => w.id))
+  const p2Ids = new Set(resPage2.works.map((w) => w.id))
+  const p3Ids = new Set(resPage3.works.map((w) => w.id))
+
+  for (const id of p2Ids) {
+    assert.equal(p1Ids.has(id), false, `Work ${id} on Page 2 must NEVER appear on Page 1`)
+  }
+  for (const id of p3Ids) {
+    assert.equal(p1Ids.has(id), false, `Work ${id} on Page 3 must NEVER appear on Page 1`)
+    assert.equal(p2Ids.has(id), false, `Work ${id} on Page 3 must NEVER appear on Page 2`)
+  }
+
+  // Invariant: Successive identical calls produce 100% stable deterministic order
+  const resPage1Repeat = await executeGetPaginatedDiscoverWorks({ page: 1 }, deps)
+  assert.deepEqual(
+    resPage1Repeat.works.map((w) => w.id),
+    resPage1.works.map((w) => w.id),
+    'Repeated calls must yield identical deterministic story order without jumping'
+  )
 })
 
 test('Seeded Shuffle: Produces deterministic shuffle across identical seeds and changes order on different seeds', () => {

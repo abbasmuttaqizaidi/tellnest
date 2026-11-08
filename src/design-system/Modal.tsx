@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react'
 import { X } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { SPRINGS } from './tokens'
+import { useScrollLock } from '../lib/scrollLock'
 
 export interface ModalProps {
   isOpen: boolean
@@ -41,17 +42,14 @@ export const Modal: React.FC<ModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, onClose, closeOnBackdropClick])
 
-  // Lock background scroll on both desktop (html + body + wheel) and mobile
+  // Lock background scroll with scrollbar compensation to eliminate layout shift:
+  // sets document.body.style.overflow = 'hidden' and document.documentElement.style.overflow = 'hidden'
+  useScrollLock(isOpen)
+
+  // Prevent background wheel and touch scrolling on desktop and mobile outside scrollable modal
   useEffect(() => {
     if (!isOpen) return
 
-    const originalBodyOverflow = document.body.style.overflow
-    const originalHtmlOverflow = document.documentElement.style.overflow
-
-    document.body.style.overflow = 'hidden'
-    document.documentElement.style.overflow = 'hidden'
-
-    // Prevent background wheel and touch scrolling on desktop and mobile outside scrollable modal
     const preventBackdropScroll = (e: WheelEvent | TouchEvent) => {
       const target = e.target as HTMLElement | null
       if (target?.closest('.modal-scrollable-content')) {
@@ -64,8 +62,6 @@ export const Modal: React.FC<ModalProps> = ({
     window.addEventListener('touchmove', preventBackdropScroll, { passive: false })
 
     return () => {
-      document.body.style.overflow = originalBodyOverflow
-      document.documentElement.style.overflow = originalHtmlOverflow
       window.removeEventListener('wheel', preventBackdropScroll)
       window.removeEventListener('touchmove', preventBackdropScroll)
     }

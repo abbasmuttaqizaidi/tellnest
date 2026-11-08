@@ -4,6 +4,7 @@ import { X, Loader2 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { HatchpenLogo } from './HatchpenLogo'
 import { markClientSessionActive } from '../lib/authSession'
+import { useScrollLock } from '../lib/scrollLock'
 
 export function AuthModal() {
   const {
@@ -36,18 +37,8 @@ export function AuthModal() {
     }
   }, [isSignedIn, isAuthModalOpen, closeAuthModal])
 
-  // Prevent background scrolling when modal is open
-  useEffect(() => {
-    if (!isAuthModalOpen) return
-    const originalBodyOverflow = document.body.style.overflow
-    const originalHtmlOverflow = document.documentElement.style.overflow
-    document.body.style.overflow = 'hidden'
-    document.documentElement.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = originalBodyOverflow
-      document.documentElement.style.overflow = originalHtmlOverflow
-    }
-  }, [isAuthModalOpen])
+  // Prevent background scrolling without layout shift
+  useScrollLock(isAuthModalOpen)
 
   // Handle escape key (disabled when auth is mandatory/compulsory)
   useEffect(() => {

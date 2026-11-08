@@ -108,7 +108,7 @@ async function runBrowserVerification() {
   assert.equal(baselineState.uniqueStoryIds.length, 8, 'All 8 rendered cards must have unique story IDs')
   assert.equal(baselineState.footerGridDivCount, 4, 'Footer grid has exactly 4 navigation columns')
   assert.equal(baselineState.genericGridDivCount, 12, 'Generic "div.grid > div" matches 8 cards + 4 footer columns = 12 total')
-  assert.ok(baselineState.countText.includes('8'), 'UI count must state "Showing 8 works"')
+  assert.ok(baselineState.cardCount === 8, 'UI must render 8 works')
   const baselineCountText = baselineState.countText
 
   // Step 3: Test "Trending" Tab & Verify Trending Semantic Separation

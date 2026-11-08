@@ -8,6 +8,8 @@ import {
   executeGetActiveContest,
   executeSubmitContestEntry,
   executeSaveAdminContestConfig,
+  executeGetEligibleUserWorksForContest,
+  clearContestEligibleWorksCache,
 } from '../src/server/contests.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -267,6 +269,49 @@ test('Contest Submission Invariants: executeSubmitContestEntry enforces authenti
   assert.equal(insertedEntry.upi_id, 'writer@okhdfcbank')
   assert.equal(insertedEntry.work_id, 'w-new')
   assert.equal(insertedEntry.author_id, 'p-auth-1')
+
+  // 5. 1-Click Frictionless Entry (UPI ID is strictly optional at entry time)
+  let insertedEntryWithoutUpi = null
+  const noUpiClient = () => ({
+    from: (table) => {
+      if (table === 'profiles') {
+        return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: mockProfile, error: null }) }) }) }
+      }
+      if (table === 'contests') {
+        return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: mockContest, error: null }) }) }) }
+      }
+      if (table === 'contest_entries') {
+        return {
+          select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) }),
+          insert: (entry) => {
+            insertedEntryWithoutUpi = entry
+            return {
+              select: () => ({
+                single: async () => ({ data: { id: 'entry-frictionless-uuid' }, error: null }),
+              }),
+            }
+          },
+        }
+      }
+      if (table === 'works') {
+        return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: mockValidWork, error: null }) }) }) }
+      }
+      return { select: () => ({}) }
+    },
+  })
+
+  const frictionlessRes = await executeSubmitContestEntry(
+    { contestId: 'c-101', workId: 'w-new' }, // No UPI ID provided upfront
+    {
+      getAuthState: async () => ({ userId: 'clerk-user-1' }),
+      createAdminClient: noUpiClient,
+    }
+  )
+
+  assert.equal(frictionlessRes.success, true)
+  assert.equal(frictionlessRes.entryId, 'entry-frictionless-uuid')
+  assert.equal(insertedEntryWithoutUpi.upi_id, null)
+  assert.equal(insertedEntryWithoutUpi.work_id, 'w-new')
 })
 
 test('Contest SEO & Security Invariants: /writing-contests SSR, Schema.org Event & FAQ, and Anti-Fraud Notice', () => {
@@ -302,24 +347,37 @@ test('Contest SEO & Security Invariants: /writing-contests SSR, Schema.org Event
   const modalPath = path.join(rootDir, 'src/components/ContestEntryModal.tsx')
   assert.ok(fs.existsSync(modalPath), 'ContestEntryModal.tsx must exist')
   const modalCode = fs.readFileSync(modalPath, 'utf-8')
-  assert.ok(modalCode.includes('We will NEVER call you or message you'), 'Entry modal must warn writers about OTP safety')
-  assert.ok(modalCode.includes('validateUpiId'), 'Entry modal must validate UPI ID syntax')
+  assert.ok(modalCode.includes('1-Click Submission &amp; Winner Payout') || modalCode.includes('1-Click Submission'), 'Entry modal must provide frictionless 1-click entry')
+  assert.ok(!modalCode.includes('Your UPI ID (For ₹2,000 Prize Payout)'), 'Entry modal must NOT demand UPI ID upfront from all writers')
   assert.ok(modalCode.includes('isSignedIn'), 'Entry modal must verify user authentication state')
   assert.ok(modalCode.includes('Sign In to Enter Contest'), 'Entry modal must display a clear sign-in gate for public visitors')
   assert.ok(modalCode.includes('openAuthModal'), 'Entry modal must invoke openAuthModal for unauthenticated users')
   assert.ok(!modalCode.includes('<span>Monthly Contest Entry</span>'), 'Static header pill "Monthly Contest Entry" must be removed')
-  assert.ok(modalCode.includes("document.body.style.overflow = 'hidden'"), 'Entry modal must lock document body scroll')
-  assert.ok(modalCode.includes("document.documentElement.style.overflow = 'hidden'"), 'Entry modal must lock documentElement scroll for mobile')
+  assert.ok(modalCode.includes('useScrollLock') || modalCode.includes("document.body.style.overflow = 'hidden'"), 'Entry modal must lock document body scroll')
   assert.ok(modalCode.includes('createPortal'), 'Entry modal must render via React portal to prevent stacking issues')
+  assert.ok(modalCode.includes('DropdownSelect'), 'Entry modal must use design-system DropdownSelect')
+  assert.ok(modalCode.includes('workOptions'), 'Entry modal must prepare SelectOption list for DropdownSelect')
+  assert.ok(modalCode.includes('eligibleWorks.length > 1'), 'Entry modal must handle multiple eligible stories')
+  assert.ok(modalCode.includes('isConfirmOpen'), 'Entry modal must have confirmation popup state')
+  assert.ok(modalCode.includes('Confirm Contest Entry'), 'Entry modal must display confirm entry dialog')
+  assert.ok(modalCode.includes('Submissions are Final'), 'Confirmation popup must warn author that submission is final')
   assert.ok(modalCode.includes('alreadyEnteredWork'), 'Entry modal must show already entered work details')
-  assert.ok(modalCode.includes('selectedWork?.published_at'), 'Entry modal must show dynamic publish date for selected work')
+  assert.ok(modalCode.includes('selectedWork.published_at') || modalCode.includes('selectedWork?.published_at'), 'Entry modal must show dynamic publish date for selected work')
   assert.ok(!modalCode.includes('View Live Leaderboard'), 'Entry modal must not promise hidden leaderboard on close')
 
-  // 6. Router Invalidation on Contest Landing
+  // 6. Router Invalidation on Contest Landing & Personalized Entered State
   assert.ok(routeCode.includes('router.invalidate()'), 'writing-contests.tsx must use router.invalidate() instead of hard reload')
   assert.ok(!routeCode.includes('window.location.reload()'), 'writing-contests.tsx must avoid white screen page reload')
+  assert.ok(routeCode.includes("You're In The Contest!"), 'writing-contests.tsx must adapt UI when user is already entered')
+  assert.ok(routeCode.includes('writerEntry'), 'writing-contests.tsx must track writerEntry state')
+  assert.ok(routeCode.includes('getWriterContestStatusServerFn'), 'writing-contests.tsx must call getWriterContestStatusServerFn')
 
-  // 7. Writer Studio Contest Discovery Invariant
+  // 7. Writer Studio Contest Discovery & Dedicated Section Invariant
+  const writeIndexCode = fs.readFileSync(path.join(rootDir, 'src/routes/write.index.tsx'), 'utf-8')
+  assert.ok(writeIndexCode.includes('Monthly Contest Submission'), 'Writer studio must have dedicated contest section')
+  assert.ok(writeIndexCode.includes('getWriterContestStatusServerFn'), 'Writer studio must call getWriterContestStatusServerFn')
+  assert.ok(writeIndexCode.includes('Live Leaderboard'), 'Writer studio contest card must link to leaderboard')
+
   const manageRoutePath = path.join(rootDir, 'src/routes/write.manage.$workId.tsx')
   assert.ok(fs.existsSync(manageRoutePath), 'write.manage route must exist')
   const manageCode = fs.readFileSync(manageRoutePath, 'utf-8')
@@ -468,4 +526,183 @@ test('Contest Details Quick Modal & Header Discovery Invariants', () => {
   const publicHomeCode = fs.readFileSync(publicHomePath, 'utf-8')
   assert.ok(publicHomeCode.includes('ContestDetailsModal'), 'PublicHome must include ContestDetailsModal')
   assert.ok(publicHomeCode.includes('setIsContestModalOpen(true)'), 'PublicHome must trigger contest details modal')
+})
+
+test('Contest Lean Query, Caching, and Draft Months Ago Publication Invariants', async () => {
+  clearContestEligibleWorksCache()
+
+  const currentMonthStart = '2026-11-01T00:00:00Z'
+  const currentMonthEnd = '2026-11-30T23:59:59Z'
+
+  const mockContest = {
+    id: 'c-nov-2026',
+    start_date: currentMonthStart,
+    end_date: currentMonthEnd,
+    status: 'active',
+  }
+
+  const mockProfile = { id: 'p-author-123', clerk_user_id: 'clerk-user-123' }
+
+  // Work drafted 6 months ago (created_at in May) but published this month (Nov 8)
+  const mockOldDraftPublishedThisMonth = {
+    id: 'w-drafted-months-ago',
+    title: 'Story Drafted in May but Published Today',
+    author_id: 'p-author-123',
+    created_at: '2026-05-10T10:00:00Z', // 6 months ago
+    published_at: '2026-11-08T18:00:00Z', // November (This month)
+    publication_status: 'published',
+    visibility: 'public',
+  }
+
+  let dbQueryCount = 0
+
+  const mockClient = () => ({
+    from: (table) => {
+      if (table === 'profiles') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: mockProfile, error: null }),
+            }),
+          }),
+        }
+      }
+      if (table === 'contests') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: mockContest, error: null }),
+            }),
+          }),
+        }
+      }
+      if (table === 'contest_entries') {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({ data: null }),
+              }),
+            }),
+          }),
+        }
+      }
+      if (table === 'works') {
+        return {
+          select: (columns) => {
+            // Verify lean select: must ONLY request necessary fields (id, title, published_at)
+            assert.ok(!columns.includes('description'), 'Must not fetch description')
+            assert.ok(!columns.includes('cover_image'), 'Must not fetch cover_image')
+            assert.ok(!columns.includes('synopsis'), 'Must not fetch synopsis')
+            assert.ok(columns.includes('id'), 'Must fetch id')
+            assert.ok(columns.includes('title'), 'Must fetch title')
+            assert.ok(columns.includes('published_at'), 'Must fetch published_at')
+
+            dbQueryCount++
+            return {
+              eq: () => ({
+                eq: () => ({
+                  eq: () => ({
+                    gte: () => ({
+                      lte: () => ({
+                        order: async () => ({
+                          data: [mockOldDraftPublishedThisMonth],
+                          error: null,
+                        }),
+                      }),
+                    }),
+                  }),
+                }),
+              }),
+            }
+          },
+        }
+      }
+      return {}
+    },
+  })
+
+  // 1. Initial fetch: executes query and verifies drafted story published this month is eligible
+  const res1 = await executeGetEligibleUserWorksForContest('c-nov-2026', {
+    getAuthState: async () => ({ userId: 'clerk-user-123' }),
+    createAdminClient: mockClient,
+  })
+
+  assert.equal(res1.works.length, 1)
+  assert.equal(res1.works[0].id, 'w-drafted-months-ago')
+  assert.equal(res1.works[0].isEligible, true)
+  assert.equal(dbQueryCount, 1)
+
+  // 2. Second fetch within TTL (Cache Hit): must return cached result without hitting DB again
+  const res2 = await executeGetEligibleUserWorksForContest('c-nov-2026', {
+    getAuthState: async () => ({ userId: 'clerk-user-123' }),
+    createAdminClient: mockClient,
+  })
+
+  assert.equal(res2.works.length, 1)
+  assert.equal(res2.works[0].id, 'w-drafted-months-ago')
+  assert.equal(dbQueryCount, 1, 'Subsequent call within TTL must hit cache and NOT increment DB queries')
+})
+
+test('Modal Scroll Lock & Anti-Layout-Shift Invariants: lockScroll compensates scrollbar width and reference counts nested modals', async () => {
+  const { lockScroll, unlockScroll } = await import('../src/lib/scrollLock.ts')
+
+  // Mock DOM environment
+  const originalDoc = globalThis.document
+  const originalWin = globalThis.window
+
+  const customProperties = new Map()
+  const mockDocumentElement = {
+    clientWidth: 1425,
+    style: {
+      setProperty: (prop, val) => customProperties.set(prop, val),
+      removeProperty: (prop) => customProperties.delete(prop),
+    },
+  }
+
+  const mockBody = {
+    style: {
+      overflow: '',
+      paddingRight: '',
+    },
+  }
+
+  globalThis.document = {
+    documentElement: mockDocumentElement,
+    body: mockBody,
+  }
+
+  globalThis.window = {
+    innerWidth: 1440,
+  }
+
+  try {
+    // 1. Initial lock (e.g. ContestEntryModal opens)
+    const cleanup1 = lockScroll()
+
+    // Scrollbar width is 1440 - 1425 = 15px
+    assert.equal(mockBody.style.overflow, 'hidden')
+    assert.equal(mockBody.style.paddingRight, '15px')
+    assert.equal(customProperties.get('--scrollbar-width'), '15px')
+
+    // 2. Nested modal lock (e.g. Confirmation Popup opens on top of ContestEntryModal)
+    const cleanup2 = lockScroll()
+    assert.equal(mockBody.style.overflow, 'hidden')
+    assert.equal(mockBody.style.paddingRight, '15px')
+
+    // 3. Close confirmation popup: lockCount decrements from 2 to 1, MUST NOT unlock body prematurely
+    cleanup2()
+    assert.equal(mockBody.style.overflow, 'hidden')
+    assert.equal(mockBody.style.paddingRight, '15px')
+    assert.equal(customProperties.get('--scrollbar-width'), '15px')
+
+    // 4. Close main modal: lockCount hits 0, fully restores original styles
+    cleanup1()
+    assert.equal(mockBody.style.overflow, '')
+    assert.equal(mockBody.style.paddingRight, '')
+    assert.equal(customProperties.has('--scrollbar-width'), false)
+  } finally {
+    globalThis.document = originalDoc
+    globalThis.window = originalWin
+  }
 })

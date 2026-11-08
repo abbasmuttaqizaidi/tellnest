@@ -13,34 +13,46 @@ import {
   Lock,
   Loader2,
   Heart,
+  AlertTriangle,
 } from 'lucide-react'
 import {
   getEligibleUserWorksForContestServerFn,
   submitContestEntryServerFn,
-  validateUpiId,
   type ContestInfo,
 } from '../server/contests'
 import { Link } from '@tanstack/react-router'
 import { useApp } from '../context/AppContext'
+import { DropdownSelect, type SelectOption } from '../design-system'
+import { useScrollLock } from '../lib/scrollLock'
 
 interface ContestEntryModalProps {
   isOpen: boolean
   onClose: () => void
   contest: ContestInfo
   onSuccess?: () => void
+  initialEnteredWork?: any | null
 }
 
-export function ContestEntryModal({ isOpen, onClose, contest, onSuccess }: ContestEntryModalProps) {
+export function ContestEntryModal({
+  isOpen,
+  onClose,
+  contest,
+  onSuccess,
+  initialEnteredWork,
+}: ContestEntryModalProps) {
   const { isSignedIn, isUserLoaded, openAuthModal } = useApp()
   const [mounted, setMounted] = useState(false)
-  const [loadingWorks, setLoadingWorks] = useState(true)
+  const [loadingWorks, setLoadingWorks] = useState(!initialEnteredWork)
   const [works, setWorks] = useState<any[]>([])
-  const [alreadyEnteredWorkId, setAlreadyEnteredWorkId] = useState<string | null>(null)
-  const [alreadyEnteredWork, setAlreadyEnteredWork] = useState<{ id: string; title: string; slug?: string; like_count: number } | null>(null)
+  const [alreadyEnteredWorkId, setAlreadyEnteredWorkId] = useState<string | null>(
+    initialEnteredWork?.workId || initialEnteredWork?.id || null
+  )
+  const [alreadyEnteredWork, setAlreadyEnteredWork] = useState<{ id: string; title: string; slug?: string; like_count: number } | null>(
+    initialEnteredWork || null
+  )
   const [selectedWorkId, setSelectedWorkId] = useState<string>('')
-  const [upiId, setUpiId] = useState<string>('')
-  const [upiTouched, setUpiTouched] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
@@ -48,18 +60,8 @@ export function ContestEntryModal({ isOpen, onClose, contest, onSuccess }: Conte
     setMounted(true)
   }, [])
 
-  // Lock background scroll on mobile and desktop while modal is open
-  useEffect(() => {
-    if (!isOpen) return
-    const originalBodyOverflow = document.body.style.overflow
-    const originalHtmlOverflow = document.documentElement.style.overflow
-    document.body.style.overflow = 'hidden'
-    document.documentElement.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = originalBodyOverflow
-      document.documentElement.style.overflow = originalHtmlOverflow
-    }
-  }, [isOpen])
+  // Lock background scroll with scrollbar compensation to eliminate layout shift
+  useScrollLock(isOpen)
 
   // Close on Escape key
   useEffect(() => {
@@ -75,11 +77,17 @@ export function ContestEntryModal({ isOpen, onClose, contest, onSuccess }: Conte
   useEffect(() => {
     if (!isOpen) {
       setSelectedWorkId('')
-      setUpiId('')
-      setUpiTouched(false)
       setErrorMessage(null)
       setSuccessMessage(null)
-      setAlreadyEnteredWork(null)
+      setIsConfirmOpen(false)
+      return
+    }
+
+    // If author's entry is already known from parent page, display it immediately without network request
+    if (initialEnteredWork) {
+      setAlreadyEnteredWorkId(initialEnteredWork.workId || initialEnteredWork.id || null)
+      setAlreadyEnteredWork(initialEnteredWork)
+      setLoadingWorks(false)
       return
     }
 
@@ -109,16 +117,21 @@ export function ContestEntryModal({ isOpen, onClose, contest, onSuccess }: Conte
     }
 
     loadEligibleWorks()
-  }, [isOpen, contest.id, isUserLoaded, isSignedIn])
+  }, [isOpen, contest.id, isUserLoaded, isSignedIn, initialEnteredWork])
 
   if (!mounted || typeof document === 'undefined') return null
 
-  const isUpiValid = validateUpiId(upiId)
   const eligibleWorks = works.filter((w) => w.isEligible)
   const hasEligibleWorks = eligibleWorks.length > 0
   const selectedWork = eligibleWorks.find((w) => w.id === selectedWorkId) || eligibleWorks[0]
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const workOptions: SelectOption[] = eligibleWorks.map((w) => ({
+    id: w.id,
+    label: w.title,
+    description: `Published ${new Date(w.published_at || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
+  }))
+
+  const handleOpenConfirm = (e: React.FormEvent) => {
     e.preventDefault()
     setErrorMessage(null)
 
@@ -127,19 +140,17 @@ export function ContestEntryModal({ isOpen, onClose, contest, onSuccess }: Conte
       return
     }
 
-    if (!isUpiValid) {
-      setUpiTouched(true)
-      setErrorMessage('Please provide a valid UPI ID (e.g. name@okhdfcbank or 9876543210@upi).')
-      return
-    }
+    setIsConfirmOpen(true)
+  }
 
+  const handleFinalSubmit = async () => {
     setIsSubmitting(true)
+    setIsConfirmOpen(false)
     try {
       const res = await submitContestEntryServerFn({
         data: {
           contestId: contest.id,
           workId: selectedWorkId,
-          upiId: upiId.trim(),
         },
       })
 
@@ -281,9 +292,6 @@ export function ContestEntryModal({ isOpen, onClose, contest, onSuccess }: Conte
             </div>
           ) : alreadyEnteredWorkId ? (
             <div className="py-6 sm:py-8 text-center space-y-4">
-              <div className="w-12 h-12 rounded-full bg-amber-500/10 text-amber-600 mx-auto flex items-center justify-center">
-                <Trophy className="w-6 h-6" />
-              </div>
               <div className="space-y-1.5">
                 <h4 className="font-serif text-lg font-bold text-[var(--ink-primary)]">
                   You Have Already Entered This Month
@@ -319,12 +327,19 @@ export function ContestEntryModal({ isOpen, onClose, contest, onSuccess }: Conte
               </div>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-5 pt-4">
+            <form onSubmit={handleOpenConfirm} className="space-y-5 pt-4">
               {/* Manuscript Selector */}
               <div className="space-y-2">
-                <label className="block text-xs font-semibold text-[var(--ink-primary)]">
-                  Select Your Manuscript (Must be published this month)
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-semibold text-[var(--ink-primary)]">
+                    Select Your Manuscript (Must be published this month)
+                  </label>
+                  {eligibleWorks.length > 1 && (
+                    <span className="text-[10px] font-mono text-[var(--ink-muted)]">
+                      {eligibleWorks.length} eligible stories
+                    </span>
+                  )}
+                </div>
 
                 {loadingWorks ? (
                   <div className="flex items-center gap-2 p-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] text-xs text-[var(--ink-muted)]">
@@ -355,70 +370,43 @@ export function ContestEntryModal({ isOpen, onClose, contest, onSuccess }: Conte
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    <select
+                    <DropdownSelect
+                      options={workOptions}
                       value={selectedWorkId}
-                      onChange={(e) => setSelectedWorkId(e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] text-xs font-medium text-[var(--ink-primary)] focus:outline-hidden focus:border-[var(--ink-primary)]"
-                    >
-                      {eligibleWorks.map((w) => (
-                        <option key={w.id} value={w.id}>
-                          {w.title} ({w.category || 'General'})
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-[11px] text-[var(--ink-muted)]">
-                      Eligible: Published on {new Date(selectedWork?.published_at || Date.now()).toLocaleDateString()}
-                    </p>
+                      onChange={(val) => setSelectedWorkId(val)}
+                      size="sm"
+                      placeholder="Select an eligible manuscript..."
+                      className="w-full text-xs [&_button]:py-2.5 [&_button]:rounded-xl"
+                    />
+
+                    {selectedWork && (
+                      <div className="p-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] flex items-center justify-between text-xs">
+                        <div className="space-y-0.5 truncate pr-2">
+                          <span className="font-semibold text-[var(--ink-primary)] truncate block">
+                            {selectedWork.title}
+                          </span>
+                          <span className="text-[11px] text-[var(--ink-muted)] font-mono block">
+                            Published {new Date(selectedWork.published_at || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </span>
+                        </div>
+                        <span className="shrink-0 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-mono font-medium">
+                          Eligible
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
 
-              {/* UPI ID Field */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="block text-xs font-semibold text-[var(--ink-primary)]">
-                    Your UPI ID (For ₹2,000 Prize Payout)
-                  </label>
-                  <span className="text-[10px] font-mono text-[var(--ink-tertiary)]">
-                    e.g. name@okhdfcbank
-                  </span>
+              {/* Frictionless 1-Click Entry & Payout Note */}
+              <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] p-3.5 space-y-2 text-xs">
+                <div className="flex items-center gap-2 font-semibold text-[var(--ink-primary)]">
+                  <Trophy className="w-4 h-4 shrink-0 text-[var(--ink-primary)]" />
+                  <span>1-Click Submission &amp; Winner Payout</span>
                 </div>
-                <input
-                  type="text"
-                  placeholder="yourname@bank or mobile@upi"
-                  value={upiId}
-                  onChange={(e) => {
-                    setUpiId(e.target.value)
-                    setUpiTouched(true)
-                  }}
-                  className={`w-full px-3 py-2.5 rounded-xl border font-mono text-xs text-[var(--ink-primary)] bg-[var(--bg-subtle)] focus:outline-hidden ${
-                    upiTouched && !isUpiValid
-                      ? 'border-red-500 focus:border-red-500'
-                      : 'border-[var(--border-strong)] focus:border-[var(--ink-primary)]'
-                  }`}
-                />
-                {upiTouched && !isUpiValid && (
-                  <p className="text-[11px] text-red-500 font-medium">
-                    Please enter a valid UPI address (e.g. user@oksbi, mobile@paytm).
-                  </p>
-                )}
-              </div>
-
-              {/* Security & Anti-Fraud Disclaimer Box */}
-              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 space-y-2 text-xs">
-                <div className="flex items-center gap-2 font-semibold text-emerald-700 dark:text-emerald-400">
-                  <ShieldAlert className="w-4 h-4 shrink-0" />
-                  <span>Important Security Notice</span>
-                </div>
-                <ul className="space-y-1 text-[11px] text-[var(--ink-muted)] list-disc pl-4 font-sans leading-relaxed">
-                  <li>
-                    <strong>We will NEVER call you or message you</strong> asking for any OTP, PIN, password, or bank card details.
-                  </li>
-                  <li>
-                    We <strong>ONLY require your public UPI ID</strong> to transfer the ₹2,000 cash prize directly if your story receives the maximum reader likes.
-                  </li>
-                  <li>Your UPI ID is strictly encrypted and never shown publicly on your profile or story.</li>
-                </ul>
+                <p className="text-[11px] text-[var(--ink-muted)] leading-relaxed font-sans">
+                  No payment details or bank accounts required to enter. If your story receives the highest reader likes by month-end, we will reach out directly on your account to transfer the ₹{contest.prize_inr.toLocaleString()} cash prize via UPI.
+                </p>
               </div>
 
               {errorMessage && (
@@ -439,7 +427,7 @@ export function ContestEntryModal({ isOpen, onClose, contest, onSuccess }: Conte
                 </button>
                 <button
                   type="submit"
-                  disabled={!hasEligibleWorks || !isUpiValid || isSubmitting}
+                  disabled={!hasEligibleWorks || isSubmitting}
                   className="px-5 py-2.5 rounded-xl bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-xs font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all inline-flex items-center gap-2 shadow-xs cursor-pointer"
                 >
                   {isSubmitting ? (
@@ -449,14 +437,101 @@ export function ContestEntryModal({ isOpen, onClose, contest, onSuccess }: Conte
                     </>
                   ) : (
                     <>
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>Confirm & Enter Contest</span>
+                      <span>Enter Contest</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
                     </>
                   )}
                 </button>
               </div>
             </form>
           )}
+
+          {/* Irreversible Submission Confirmation Popup */}
+          <AnimatePresence>
+            {isConfirmOpen && (
+              <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-4">
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setIsConfirmOpen(false)}
+                  className="fixed inset-0 bg-black/75 backdrop-blur-xs"
+                />
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                  transition={{ duration: 0.15, ease: 'easeOut' }}
+                  className="relative w-full max-w-md rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-strong)] p-5 sm:p-6 shadow-2xl text-[var(--ink-primary)] z-10 space-y-4"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                      <AlertTriangle className="w-5 h-5 stroke-[2]" />
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="font-serif text-lg font-bold text-[var(--ink-primary)]">
+                        Confirm Contest Entry
+                      </h4>
+                      <p className="text-xs text-[var(--ink-muted)]">
+                        Please confirm your manuscript selection before submitting.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] space-y-1 text-xs">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-tertiary)] block">
+                      Selected Manuscript
+                    </span>
+                    <p className="font-serif font-bold text-sm text-[var(--ink-primary)] truncate">
+                      {selectedWork?.title}
+                    </p>
+                    <p className="text-[11px] text-[var(--ink-muted)] font-mono">
+                      Published {new Date(selectedWork?.published_at || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </p>
+                  </div>
+
+                  {/* Important Finality Warning */}
+                  <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs text-amber-800 dark:text-amber-300 space-y-1">
+                    <p className="font-semibold text-xs flex items-center gap-1.5">
+                      <span>⚠️ Submissions are Final &amp; Irreversible</span>
+                    </p>
+                    <p className="text-[11px] leading-relaxed">
+                      Once submitted, your entry is final and cannot be changed, swapped, or withdrawn for another manuscript this month. Only 1 story is allowed per author.
+                    </p>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="pt-2 flex items-center justify-end gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setIsConfirmOpen(false)}
+                      className="px-4 py-2 rounded-xl text-xs font-medium text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+                    >
+                      Go Back / Change
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleFinalSubmit}
+                      disabled={isSubmitting}
+                      className="px-5 py-2.5 rounded-xl bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-all inline-flex items-center gap-2 shadow-xs cursor-pointer"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Entering...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Confirm &amp; Enter Contest</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
         </motion.div>
       </div>
     )}

@@ -3,6 +3,7 @@ import { motion, AnimatePresence, useDragControls } from 'framer-motion'
 import { X } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { SPRINGS } from './tokens'
+import { useScrollLock } from '../lib/scrollLock'
 
 export interface BottomSheetProps {
   isOpen: boolean
@@ -64,15 +65,8 @@ export function BottomSheet({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, onClose])
 
-  // Lock body scroll while sheet is open on mobile
-  useEffect(() => {
-    if (!isOpen) return
-    const originalOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = originalOverflow
-    }
-  }, [isOpen])
+  // Lock body scroll with scrollbar compensation to eliminate layout shift
+  useScrollLock(isOpen)
 
   return (
     <AnimatePresence>

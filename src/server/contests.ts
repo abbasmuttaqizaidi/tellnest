@@ -55,13 +55,29 @@ export interface ContestPublicPageData {
 export interface SubmitContestEntryPayload {
   contestId: string
   workId: string
-  upiId: string
+  upiId?: string | null
 }
 
 export interface ContestDependencies {
   createAdminClient?: () => SupabaseClient<any>
   getAuthState?: () => Promise<{ userId: string | null } | null>
   verifyAdminToken?: (token: string) => boolean
+}
+
+// Fast in-memory cache for author's eligible contest works: keyed by `${profileId}:${contestId}`
+const eligibleWorksCache = new Map<string, { data: any; timestamp: number }>()
+const ELIGIBLE_WORKS_CACHE_TTL_MS = 30_000 // 30 seconds TTL
+
+export function clearContestEligibleWorksCache(profileId?: string, contestId?: string) {
+  if (profileId && contestId) {
+    eligibleWorksCache.delete(`${profileId}:${contestId}`)
+  } else if (profileId) {
+    for (const key of eligibleWorksCache.keys()) {
+      if (key.startsWith(`${profileId}:`)) eligibleWorksCache.delete(key)
+    }
+  } else {
+    eligibleWorksCache.clear()
+  }
 }
 
 // UPI ID strict syntax regex (e.g. name@okhdfcbank, mobile@upi, username@axl)
@@ -132,7 +148,7 @@ export async function executeGetActiveContest(
     const { data: entries, error: entriesErr } = await client
       .from('contest_entries')
       .select(
-        'id, work_id, submitted_at, status, works:work_id(id, title, slug, cover_image, genre, category, synopsis, like_count, published_at, visibility, publication_status, profiles:author_id(id, username, full_name, avatar_url))'
+        'id, work_id, submitted_at, status, works:work_id(id, title, slug, cover_image_path, like_count, published_at, visibility, publication_status, profiles:author_id(id, username, display_name, avatar_path))'
       )
       .eq('contest_id', activeContest.id)
       .eq('status', 'accepted')
@@ -163,17 +179,17 @@ export async function executeGetActiveContest(
             id: w.id,
             title: w.title,
             slug: w.slug || w.id,
-            cover_image: w.cover_image,
+            cover_image: w.cover_image_path || w.cover_image,
             genre: w.genre,
             category: w.category,
-            synopsis: w.synopsis,
+            synopsis: w.description || w.synopsis,
             like_count: Number(w.like_count || 0),
             published_at: w.published_at,
             author: {
               id: authorProfile.id || '',
               username: authorProfile.username || 'author',
-              name: authorProfile.full_name || authorProfile.username || 'HatchPen Author',
-              avatar_url: authorProfile.avatar_url,
+              name: authorProfile.display_name || authorProfile.full_name || authorProfile.username || 'HatchPen Author',
+              avatar_url: authorProfile.avatar_path || authorProfile.avatar_url,
             },
           },
         }
@@ -218,20 +234,21 @@ export async function executeSubmitContestEntry(
     return { success: false, message: 'You must be signed in to enter the contest.' }
   }
 
-  // 2. Validate UPI ID
-  const cleanUpi = (payload.upiId || '').trim()
-  if (!validateUpiId(cleanUpi)) {
+  // 2. Validate UPI ID only if explicitly provided (UPI is optional at entry, collected from winner)
+  const rawUpi = payload.upiId ? String(payload.upiId).trim() : ''
+  if (rawUpi && !validateUpiId(rawUpi)) {
     return {
       success: false,
       message: 'Please provide a valid UPI ID (e.g. yourname@okhdfcbank or 9876543210@upi).',
     }
   }
+  const cleanUpi = rawUpi || null
 
   // 3. Resolve user profile
   const { data: profile, error: profErr } = await client
     .from('profiles')
     .select('id, username')
-    .eq('clerk_id', clerkUserId)
+    .eq('clerk_user_id', clerkUserId)
     .maybeSingle()
 
   if (profErr || !profile) {
@@ -239,13 +256,24 @@ export async function executeSubmitContestEntry(
   }
 
   // 4. Resolve Contest
-  const { data: contest, error: contestErr } = await client
+  let { data: contest, error: contestErr } = await client
     .from('contests')
     .select('*')
     .eq('id', payload.contestId)
     .maybeSingle()
 
-  if (contestErr || !contest) {
+  if (!contest) {
+    const { data: activeContest } = await client
+      .from('contests')
+      .select('*')
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    contest = activeContest
+  }
+
+  if (!contest) {
     return { success: false, message: 'Active contest not found or submissions are closed.' }
   }
 
@@ -271,7 +299,7 @@ export async function executeSubmitContestEntry(
   // 6. Resolve Work & Verify Eligibility
   const { data: work, error: workErr } = await client
     .from('works')
-    .select('id, title, author_id, publication_status, visibility, published_at, category')
+    .select('id, title, author_id, publication_status, visibility, published_at, category_id, categories:category_id (name)')
     .eq('id', payload.workId)
     .maybeSingle()
 
@@ -301,7 +329,8 @@ export async function executeSubmitContestEntry(
 
   // Category restriction check
   if (contest.category_restriction && contest.category_restriction !== 'all') {
-    const workCat = (work.category || '').toLowerCase()
+    const categoryName = (work as any)?.categories?.name || (work as any)?.category || ''
+    const workCat = categoryName.toLowerCase()
     const reqCat = contest.category_restriction.toLowerCase()
     if (!workCat.includes(reqCat)) {
       return {
@@ -311,22 +340,39 @@ export async function executeSubmitContestEntry(
     }
   }
 
-  // 7. Save Entry with UPI ID
-  const { data: inserted, error: insertErr } = await client
+  // 7. Save Entry (UPI is optional at entry time, collected strictly from winner)
+  let insertPayload: any = {
+    contest_id: contest.id,
+    work_id: work.id,
+    author_id: profile.id,
+    upi_id: cleanUpi,
+    status: 'accepted',
+  }
+
+  let { data: inserted, error: insertErr } = await client
     .from('contest_entries')
-    .insert({
-      contest_id: contest.id,
-      work_id: work.id,
-      author_id: profile.id,
-      upi_id: cleanUpi,
-      status: 'accepted',
-    })
+    .insert(insertPayload)
     .select('id')
     .single()
+
+  // Defensive fallback if live database table has not yet applied the nullable upi_id migration
+  if (insertErr && (insertErr.message?.toLowerCase().includes('upi_id') || insertErr.message?.includes('not-null'))) {
+    insertPayload.upi_id = 'pending_winner_payout'
+    const fallbackRes = await client
+      .from('contest_entries')
+      .insert(insertPayload)
+      .select('id')
+      .single()
+    inserted = fallbackRes.data
+    insertErr = fallbackRes.error
+  }
 
   if (insertErr || !inserted) {
     return { success: false, message: insertErr?.message || 'Failed to submit contest entry. Please try again.' }
   }
+
+  // Invalidate cached eligible works for this author so subsequent calls reflect the new entry immediately
+  clearContestEligibleWorksCache(profile.id, contest.id)
 
   return {
     success: true,
@@ -353,20 +399,39 @@ export async function executeGetEligibleUserWorksForContest(
   const { data: profile } = await client
     .from('profiles')
     .select('id')
-    .eq('clerk_id', clerkUserId)
+    .eq('clerk_user_id', clerkUserId)
     .maybeSingle()
 
   if (!profile) return { works: [], alreadyEnteredWorkId: null }
 
-  const { data: contest } = await client
+  let { data: contest } = await client
     .from('contests')
     .select('id, start_date, end_date, category_restriction')
     .eq('id', contestId)
     .maybeSingle()
 
+  if (!contest) {
+    const { data: activeContest } = await client
+      .from('contests')
+      .select('id, start_date, end_date, category_restriction')
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    contest = activeContest
+  }
+
   if (!contest) return { works: [], alreadyEnteredWorkId: null }
 
-  // Check if author already entered a work
+  // 1. Check in-memory cache
+  const cacheKey = `${profile.id}:${contest.id}`
+  const cached = eligibleWorksCache.get(cacheKey)
+  if (cached && Date.now() - cached.timestamp < ELIGIBLE_WORKS_CACHE_TTL_MS) {
+    return cached.data
+  }
+
+  // 2. Check if author already entered a work
   const { data: existingEntry } = await client
     .from('contest_entries')
     .select('work_id, works:work_id(id, title, slug, like_count)')
@@ -383,43 +448,131 @@ export async function executeGetEligibleUserWorksForContest(
       }
     : null
 
-  const contestStart = new Date(contest.start_date).getTime()
-  const contestEnd = new Date(contest.end_date).getTime()
-
+  // 3. Lean query: Select strictly necessary fields (id, title, published_at) filtered directly by publication window
   const { data: userWorks } = await client
     .from('works')
-    .select('id, title, category, published_at, publication_status, visibility')
+    .select('id, title, published_at')
     .eq('author_id', profile.id)
+    .eq('publication_status', 'published')
+    .eq('visibility', 'public')
+    .gte('published_at', contest.start_date)
+    .lte('published_at', contest.end_date)
     .order('published_at', { ascending: false })
 
-  const worksList = (userWorks || []).map((w: any) => {
-    const isPub = (w.publication_status || '').toLowerCase() === 'published' && (w.visibility || '').toLowerCase() === 'public'
-    const pubDate = w.published_at ? new Date(w.published_at).getTime() : 0
-    const inDateRange = pubDate >= contestStart && pubDate <= contestEnd
+  const worksList = (userWorks || []).map((w: any) => ({
+    id: w.id,
+    title: w.title,
+    published_at: w.published_at,
+    isEligible: true,
+  }))
 
-    let isEligible = isPub && inDateRange
-    let reason: string | undefined
-
-    if (!isPub) {
-      reason = 'Not publicly published'
-    } else if (!inDateRange) {
-      reason = 'Published outside current contest month'
-    }
-
-    return {
-      id: w.id,
-      title: w.title,
-      category: w.category,
-      published_at: w.published_at,
-      isEligible,
-      reason,
-    }
-  })
-
-  return {
+  const responseData = {
     works: worksList,
     alreadyEnteredWorkId: existingEntry?.work_id || null,
     alreadyEnteredWork: enteredWork,
+  }
+
+  // Cache response for 30 seconds
+  eligibleWorksCache.set(cacheKey, { data: responseData, timestamp: Date.now() })
+
+  return responseData
+}
+
+/**
+ * Dedicated Writer Status: Fetches the logged-in writer's active monthly contest submission
+ * and count of eligible manuscripts so they can review entry details in their studio.
+ */
+export async function executeGetWriterContestStatus(
+  deps: ContestDependencies = {}
+): Promise<{
+  contest: ContestInfo | null
+  entry: {
+    id: string
+    workId: string
+    title: string
+    slug: string
+    like_count: number
+    submitted_at: string
+    status: string
+    cover_image_path?: string | null
+    published_at?: string
+  } | null
+  hasEligibleUnsubmittedWorks: boolean
+  eligibleWorksCount: number
+}> {
+  const getClient = deps.createAdminClient || createAdminClient
+  const client = getClient()
+
+  const authFn = deps.getAuthState || (async () => await auth())
+  const authState = await authFn()
+  const clerkUserId = authState?.userId
+  if (!clerkUserId) {
+    return { contest: null, entry: null, hasEligibleUnsubmittedWorks: false, eligibleWorksCount: 0 }
+  }
+
+  const { data: profile } = await client
+    .from('profiles')
+    .select('id')
+    .eq('clerk_user_id', clerkUserId)
+    .maybeSingle()
+
+  if (!profile) {
+    return { contest: null, entry: null, hasEligibleUnsubmittedWorks: false, eligibleWorksCount: 0 }
+  }
+
+  // Active contest in DB or current month fallback
+  const { data: contestData } = await client
+    .from('contests')
+    .select('*')
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const contest: ContestInfo | null = contestData || null
+  if (!contest) {
+    return { contest: null, entry: null, hasEligibleUnsubmittedWorks: false, eligibleWorksCount: 0 }
+  }
+
+  // Check if author entered a work this month
+  const { data: existingEntry } = await client
+    .from('contest_entries')
+    .select('id, work_id, submitted_at, status, works:work_id(id, title, slug, like_count, published_at, cover_image_path)')
+    .eq('contest_id', contest.id)
+    .eq('author_id', profile.id)
+    .maybeSingle()
+
+  const entryData = existingEntry?.works
+    ? {
+        id: existingEntry.id,
+        workId: existingEntry.work_id,
+        title: (existingEntry.works as any).title,
+        slug: (existingEntry.works as any).slug,
+        like_count: Number((existingEntry.works as any).like_count || 0),
+        submitted_at: existingEntry.submitted_at,
+        status: existingEntry.status,
+        cover_image_path: (existingEntry.works as any).cover_image_path,
+        published_at: (existingEntry.works as any).published_at,
+      }
+    : null
+
+  // Count eligible published works this month
+  const { count: eligibleCount } = await client
+    .from('works')
+    .select('id', { count: 'exact', head: true })
+    .eq('author_id', profile.id)
+    .eq('publication_status', 'published')
+    .eq('visibility', 'public')
+    .gte('published_at', contest.start_date)
+    .lte('published_at', contest.end_date)
+
+  const count = Number(eligibleCount || 0)
+
+  return {
+    contest,
+    entry: entryData,
+    hasEligibleUnsubmittedWorks: !entryData && count > 0,
+    eligibleWorksCount: count,
   }
 }
 
@@ -450,7 +603,7 @@ export async function executeGetAdminContestOverview(
   const { data: entries } = await client
     .from('contest_entries')
     .select(
-      'id, upi_id, submitted_at, status, author:author_id(id, username, full_name, email), work:work_id(id, title, slug, like_count, published_at, category)'
+      'id, upi_id, submitted_at, status, author:author_id(id, username, display_name), work:work_id(id, title, slug, like_count, published_at)'
     )
     .eq('contest_id', contest.id)
     .order('submitted_at', { ascending: false })
@@ -570,6 +723,11 @@ export const getEligibleUserWorksForContestServerFn = createServerFn({ method: '
   .validator((contestId: string) => String(contestId || ''))
   .handler(async ({ data }) => {
     return await executeGetEligibleUserWorksForContest(data)
+  })
+
+export const getWriterContestStatusServerFn = createServerFn({ method: 'GET' })
+  .handler(async () => {
+    return await executeGetWriterContestStatus()
   })
 
 export const getAdminContestOverviewServerFn = createServerFn({ method: 'POST' })

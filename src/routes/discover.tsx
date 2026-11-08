@@ -28,18 +28,7 @@ export interface DiscoverLoaderData {
   taxonomy?: TaxonomyResponse | null
 }
 
-const PAGE_SIZE = 14
-
-// In-memory client seed: Persists across SPA client route transitions, resets on browser page reload (F5 / full reload)
-let clientDiscoverSeed: number = Math.floor(Math.random() * 1_000_000) + 1
-
-export function getClientDiscoverSeed(): number {
-  return clientDiscoverSeed
-}
-
-export function setClientDiscoverSeed(seed: number) {
-  clientDiscoverSeed = seed
-}
+const PAGE_SIZE = 12
 
 function DiscoverPageSkeleton() {
   return (
@@ -97,10 +86,6 @@ export const Route = createFileRoute('/discover')({
   }),
   loader: async ({ deps }): Promise<DiscoverLoaderData> => {
     try {
-      const activeSeed = typeof window !== 'undefined'
-        ? clientDiscoverSeed
-        : Math.floor(Math.random() * 1_000_000) + 1
-
       const [paginated, taxonomy] = await Promise.all([
         getPaginatedDiscoverWorksServerFn({
           data: {
@@ -111,15 +96,10 @@ export const Route = createFileRoute('/discover')({
             search: deps.q || '',
             page: deps.page || 1,
             limit: PAGE_SIZE,
-            seed: activeSeed,
           },
         }),
         getTaxonomyServerFn().catch(() => null),
       ])
-
-      if (typeof window !== 'undefined' && paginated?.seed) {
-        clientDiscoverSeed = paginated.seed
-      }
 
       return {
         paginatedWorks: paginated,
@@ -197,13 +177,6 @@ function DiscoverPage() {
   const currentPage = routeSearch.page || 1
   const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages)
   const activeSearchQuery = routeSearch.q || ''
-
-  // Synchronize in-memory client seed with the active feed response
-  useEffect(() => {
-    if (paginatedData?.seed) {
-      clientDiscoverSeed = paginatedData.seed
-    }
-  }, [paginatedData?.seed])
 
   // Loading state: Skeleton triggers on HTTP router transition or clerk initial hydration
   const isLoading = isTransitioning || !isLoaded
@@ -1010,23 +983,18 @@ function DiscoverPage() {
 
       {/* Results Header, Works Grid (max 14 per page), and Pagination */}
       {(() => {
-        const startIndex = totalWorks > 0 ? (safeCurrentPage - 1) * PAGE_SIZE + 1 : 0
-        const endIndex = Math.min(safeCurrentPage * PAGE_SIZE, totalWorks)
-
         return (
           <>
-            <div className="flex items-center justify-between pt-1">
-              <span className="font-mono text-xs text-[var(--ink-muted)]">
-                {isLoading ? (
-                  <span className="inline-block h-4 w-32 bg-[var(--bg-subtle)] rounded animate-pulse" />
-                ) : (
-                  <>
-                    Showing <strong>{totalWorks > 0 ? `${startIndex}–${endIndex}` : '0'}</strong> of <strong>{totalWorks}</strong> works
-                  </>
-                )}
-              </span>
+            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/70 px-3 py-2 sm:px-4 sm:py-2 flex items-center justify-between gap-3 min-h-[38px]">
+              <div className="flex items-center gap-2 min-w-0">
+                <p className="text-[11px] sm:text-xs text-[var(--ink-muted)] truncate leading-none">
+                  <span className="font-semibold text-[var(--ink-primary)]">Curated for your interests</span>
+                  <span className="hidden sm:inline"> — stories hand-picked to match your reading preferences.</span>
+                  <span className="sm:hidden"> — matched to your reading taste.</span>
+                </p>
+              </div>
               {!isLoading && totalPages > 1 && (
-                <span className="font-mono text-xs text-[var(--ink-muted)]">
+                <span className="font-mono text-[10px] sm:text-xs text-[var(--ink-muted)] shrink-0">
                   Page <strong>{safeCurrentPage}</strong> of <strong>{totalPages}</strong>
                 </span>
               )}

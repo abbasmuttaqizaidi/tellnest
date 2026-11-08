@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { useUser } from '@clerk/react'
 import {
   Trophy,
   Sparkles,
@@ -18,7 +19,11 @@ import {
   Users,
 } from 'lucide-react'
 import { generateMeta } from '../lib/seo'
-import { getActiveContestServerFn, type ContestPublicPageData } from '../server/contests'
+import {
+  getActiveContestServerFn,
+  getWriterContestStatusServerFn,
+  type ContestPublicPageData,
+} from '../server/contests'
 import { ContestEntryModal } from '../components/ContestEntryModal'
 import { formatHeartCount } from '../lib/utils'
 
@@ -191,12 +196,33 @@ export const Route = createFileRoute('/writing-contests')({
 
 function WritingContestsPage() {
   const router = useRouter()
+  const { user, isLoaded, isSignedIn } = useUser()
   const loaderData = Route.useLoaderData()
   const contest = loaderData?.contest
   const leaderboard = loaderData?.leaderboard || []
   const totalContestants =
     loaderData?.totalContestants ?? (leaderboard.length || 0) + (contest?.participant_boost_count || 0)
   const [isEntryModalOpen, setIsEntryModalOpen] = useState(false)
+  const [writerEntry, setWriterEntry] = useState<any | null>(null)
+
+  const loadWriterStatus = async () => {
+    if (!isLoaded || !isSignedIn || !user?.id) return
+    try {
+      const res = await getWriterContestStatusServerFn()
+      setWriterEntry(res?.entry || null)
+    } catch (err) {
+      console.warn('[WritingContests] Failed to load writer contest status:', err)
+    }
+  }
+
+  useEffect(() => {
+    // Strictly skip firing contest check APIs for public or unauthenticated visitors
+    if (!isLoaded || !isSignedIn || !user?.id) {
+      setWriterEntry(null)
+      return
+    }
+    loadWriterStatus()
+  }, [isLoaded, isSignedIn, user?.id])
 
   // Calculate days remaining in contest month
   const daysLeft = useMemo(() => {
@@ -284,24 +310,81 @@ function WritingContestsPage() {
             </div>
           </div>
 
-          {/* Call to Actions */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2.5 sm:gap-3 pt-2 sm:pt-3">
-            <button
-              onClick={() => setIsEntryModalOpen(true)}
-              className="w-full sm:w-auto px-5 py-3 rounded-xl bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-xs sm:text-sm font-semibold hover:opacity-90 transition-opacity inline-flex items-center justify-center gap-2 shadow-xs cursor-pointer"
-            >
-              <Trophy className="w-4 h-4 shrink-0" />
-              <span>Enter Contest With Your Story</span>
-            </button>
+          {/* Call to Actions / Already Entered Banner */}
+          {writerEntry ? (
+            <div className="pt-3 max-w-lg mx-auto w-full">
+              <div className="p-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 text-left space-y-3 shadow-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                      <CheckCircle2 className="w-4 h-4" />
+                    </span>
+                    <div>
+                      <span className="text-xs font-bold text-[var(--ink-primary)] block">
+                        You're In The Contest!
+                      </span>
+                      <span className="text-[10px] text-[var(--ink-muted)] font-mono">
+                        Active submission for {formattedMonth}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-mono font-semibold">
+                    Competing
+                  </span>
+                </div>
 
-            <Link
-              to="/write/new"
-              className="w-full sm:w-auto px-5 py-3 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] text-[var(--ink-primary)] text-xs sm:text-sm font-semibold hover:bg-[var(--bg-surface)] transition-colors no-underline inline-flex items-center justify-center gap-2"
-            >
-              <BookOpen className="w-4 h-4 shrink-0" />
-              <span>Start Writing New Story</span>
-            </Link>
-          </div>
+                <div className="p-3 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] space-y-1">
+                  <span className="text-[9px] font-mono uppercase tracking-wider text-[var(--ink-tertiary)] block">
+                    Your Participating Manuscript
+                  </span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-serif font-bold text-xs sm:text-sm text-[var(--ink-primary)] truncate">
+                      {writerEntry.title}
+                    </span>
+                    <div className="flex items-center gap-1 font-mono text-xs font-bold text-[var(--ink-primary)] shrink-0">
+                      <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500" />
+                      <span>{writerEntry.like_count.toLocaleString()} likes</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsEntryModalOpen(true)}
+                    className="flex-1 px-3 py-2 rounded-xl bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-xs font-semibold hover:opacity-90 transition-opacity text-center cursor-pointer shadow-xs"
+                  >
+                    View Entry Details
+                  </button>
+                  <Link
+                    to="/write/manage/$workId"
+                    params={{ workId: writerEntry.workId }}
+                    className="flex-1 px-3 py-2 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] text-[var(--ink-primary)] text-xs font-semibold hover:bg-[var(--bg-surface)] transition-colors text-center no-underline"
+                  >
+                    Manage Manuscript
+                  </Link>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2.5 sm:gap-3 pt-2 sm:pt-3">
+              <button
+                onClick={() => setIsEntryModalOpen(true)}
+                className="w-full sm:w-auto px-5 py-3 rounded-xl bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-xs sm:text-sm font-semibold hover:opacity-90 transition-opacity inline-flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+              >
+                <Trophy className="w-4 h-4 shrink-0" />
+                <span>Enter Contest With Your Story</span>
+              </button>
+
+              <Link
+                to="/write/new"
+                className="w-full sm:w-auto px-5 py-3 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] text-[var(--ink-primary)] text-xs sm:text-sm font-semibold hover:bg-[var(--bg-surface)] transition-colors no-underline inline-flex items-center justify-center gap-2"
+              >
+                <BookOpen className="w-4 h-4 shrink-0" />
+                <span>Start Writing New Story</span>
+              </Link>
+            </div>
+          )}
         </div>
       </section>
 
@@ -326,13 +409,20 @@ function WritingContestsPage() {
         </p>
 
         <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2.5 sm:gap-3 max-w-md mx-auto">
-          <button
-            onClick={() => setIsEntryModalOpen(true)}
-            className="w-full sm:w-auto px-6 py-3 rounded-xl bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-xs sm:text-sm font-semibold hover:opacity-90 transition-opacity inline-flex items-center justify-center gap-2 shadow-xs cursor-pointer"
-          >
-            <Trophy className="w-4 h-4 shrink-0" />
-            <span>Submit Your Story Now</span>
-          </button>
+          {writerEntry ? (
+            <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs font-semibold">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+              <span>You are actively competing with "{writerEntry.title}"</span>
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsEntryModalOpen(true)}
+              className="w-full sm:w-auto px-6 py-3 rounded-xl bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-xs sm:text-sm font-semibold hover:opacity-90 transition-opacity inline-flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+            >
+              <Trophy className="w-4 h-4 shrink-0" />
+              <span>Submit Your Story Now</span>
+            </button>
+          )}
         </div>
       </section>
 
@@ -555,9 +645,11 @@ function WritingContestsPage() {
           isOpen={isEntryModalOpen}
           onClose={() => setIsEntryModalOpen(false)}
           contest={contest}
+          initialEnteredWork={writerEntry}
           onSuccess={async () => {
             // Smoothly refresh data without white-screen page reload
             await router.invalidate()
+            await loadWriterStatus()
           }}
         />
       )}

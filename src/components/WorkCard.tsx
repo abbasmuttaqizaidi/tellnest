@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from '@tanstack/react-router'
-import { Bookmark, BookOpen, Clock, Star } from 'lucide-react'
+import { Bookmark, BookOpen, Clock } from 'lucide-react'
 import type { Work } from '../data/mockData'
 import { formatWorkActivitySummary, getWorkSlug } from '../data/mockData'
 import { useApp } from '../context/AppContext'
@@ -237,9 +237,8 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
           <span className="font-mono text-[10px] uppercase tracking-wider">
             {work.category}
           </span>
-          <span className="flex items-center gap-1 font-mono text-[10px]">
-            <Star className="h-3 w-3 fill-current text-[var(--ink-primary)]" />
-            {work.ratingScore.toFixed(1)}
+          <span className="font-mono text-[10px] text-[var(--ink-muted)]">
+            {work.publishedChaptersCount} {work.publishedChaptersCount === 1 ? 'Ch' : 'Chs'}
           </span>
         </div>
 
@@ -280,12 +279,10 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
           <span className="truncate text-[var(--ink-secondary)] font-medium text-[10px] sm:text-[11px]">{authorDisplayName}</span>
         </Link>
 
-        <div className="flex items-center gap-1 sm:gap-1.5 font-mono text-[9px] sm:text-[10px] text-[var(--ink-faint)] shrink-0 whitespace-nowrap">
+        <div className="flex items-center font-mono text-[9px] sm:text-[10px] text-[var(--ink-faint)] shrink-0 whitespace-nowrap">
           <span title={`${formatViewCount(work.totalReads, false)} Reads`}>
-            {formatViewCount(work.totalReads, true)}
+            {formatViewCount(work.totalReads, true)} Reads
           </span>
-          <span>•</span>
-          <span>{work.publishedChaptersCount} chs</span>
         </div>
       </div>
     </div>

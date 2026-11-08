@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useUser } from '@clerk/react'
 import { useApp } from '../context/AppContext'
 import { ProtectedRoute } from '../components/ProtectedRoute'
@@ -12,8 +12,13 @@ import {
   BookOpen,
   Trash2,
   AlertTriangle,
+  Trophy,
+  Heart,
+  ArrowRight,
 } from 'lucide-react'
 import { deleteWriterWorkServerFn } from '../server/writer'
+import { getWriterContestStatusServerFn } from '../server/contests'
+import { ContestEntryModal } from '../components/ContestEntryModal'
 
 export const Route = createFileRoute('/write/')({
   head: () =>
@@ -35,12 +40,30 @@ export const Route = createFileRoute('/write/')({
 
 function WriterStudioPage() {
   const { writerWorks, isWriterWorksLoading, allWorks, showToast, reloadWriterWorksFromDb } = useApp()
-  const { user } = useUser()
+  const { user, isLoaded, isSignedIn } = useUser()
 
   const [filterTab, setFilterTab] = useState<'all' | 'published' | 'draft'>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [deleteWorkTarget, setDeleteWorkTarget] = useState<any | null>(null)
   const [isDeletingWork, setIsDeletingWork] = useState(false)
+  const [contestStatus, setContestStatus] = useState<any | null>(null)
+  const [isContestModalOpen, setIsContestModalOpen] = useState(false)
+
+  const loadContestStatus = async () => {
+    if (!isLoaded || !isSignedIn || !user?.id) return
+    try {
+      const status = await getWriterContestStatusServerFn()
+      setContestStatus(status)
+    } catch (err) {
+      console.warn('[WriterStudio] Failed to load contest status:', err)
+    }
+  }
+
+  useEffect(() => {
+    if (isLoaded && isSignedIn && user?.id) {
+      loadContestStatus()
+    }
+  }, [isLoaded, isSignedIn, user?.id])
 
   const handleConfirmDeleteWork = async () => {
     if (!user?.id || !deleteWorkTarget?.id) return
@@ -124,6 +147,116 @@ function WriterStudioPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        {/* Dedicated Monthly Contest Section (Active Entry) */}
+        {contestStatus?.entry && contestStatus.contest && (
+          <div className="rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-4 sm:p-5 shadow-xs space-y-3.5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-[var(--border-subtle)]">
+              <div className="flex items-start sm:items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 shrink-0">
+                  <Trophy className="w-5 h-5 stroke-[2]" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="font-serif text-base font-bold text-[var(--ink-primary)]">
+                      Monthly Contest Submission
+                    </h2>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-mono font-semibold">
+                      Active in Competition
+                    </span>
+                  </div>
+                  <p className="text-xs text-[var(--ink-muted)]">
+                    {contestStatus.contest.title} • ₹{contestStatus.contest.prize_inr.toLocaleString()} Cash Prize
+                  </p>
+                </div>
+              </div>
+
+              <Link
+                to="/writing-contests"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-xs font-semibold hover:opacity-90 transition-opacity no-underline shrink-0 shadow-xs"
+              >
+                <span>Live Leaderboard</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="p-3.5 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-subtle)] space-y-1">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-tertiary)] block">
+                  Participating Manuscript
+                </span>
+                <Link
+                  to={`/write/manage/${contestStatus.entry.workId}`}
+                  className="font-serif font-bold text-sm text-[var(--ink-primary)] hover:underline truncate block no-underline"
+                >
+                  {contestStatus.entry.title}
+                </Link>
+                <span className="text-[11px] text-[var(--ink-muted)] font-mono block">
+                  Submitted {new Date(contestStatus.entry.submitted_at).toLocaleDateString()}
+                </span>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-subtle)] space-y-1">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-tertiary)] block">
+                  Reader Likes Collected
+                </span>
+                <div className="flex items-center gap-1.5 font-bold text-base text-[var(--ink-primary)]">
+                  <Heart className="w-4 h-4 fill-rose-500 text-rose-500" />
+                  <span>{contestStatus.entry.like_count.toLocaleString()}</span>
+                </div>
+                <span className="text-[10px] text-[var(--ink-muted)] block">
+                  Maximum reader likes wins ₹{contestStatus.contest.prize_inr.toLocaleString()}
+                </span>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-subtle)] space-y-1">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-tertiary)] block">
+                  Contest Status &amp; Timeline
+                </span>
+                <p className="font-semibold text-xs text-[var(--ink-primary)]">
+                  {new Date(contestStatus.contest.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – {new Date(contestStatus.contest.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </p>
+                <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium block">
+                  Submission locked (1 entry per author)
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Contest Eligible Opportunity Banner (If writer has eligible stories but hasn't entered yet) */}
+        {!contestStatus?.entry && contestStatus?.hasEligibleUnsubmittedWorks && contestStatus.contest && (
+          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 shrink-0">
+                <Trophy className="w-5 h-5" />
+              </div>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <h2 className="font-serif text-sm font-bold text-[var(--ink-primary)]">
+                    You have an eligible manuscript for this month’s contest!
+                  </h2>
+                  <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[10px] font-mono font-semibold">
+                    {contestStatus.eligibleWorksCount} Eligible
+                  </span>
+                </div>
+                <p className="text-xs text-[var(--ink-muted)]">
+                  ₹{contestStatus.contest.prize_inr.toLocaleString()} Cash Prize • 100% Free Entry • Reader likes decide the winner
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsContestModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-xs font-semibold hover:opacity-90 transition-opacity shrink-0 cursor-pointer shadow-xs"
+            >
+              <Trophy className="w-3.5 h-3.5" />
+              <span>Enter Monthly Contest</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
         {/* Full-Width Tabs with Right-Aligned Search (Matching /write/manage pattern) */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border-subtle)]">
           {/* Tabs */}
@@ -422,6 +555,18 @@ function WriterStudioPage() {
             </div>
           </div>
         </div>
+      )}
+      {/* Contest Entry Modal */}
+      {contestStatus?.contest && (
+        <ContestEntryModal
+          isOpen={isContestModalOpen}
+          onClose={() => setIsContestModalOpen(false)}
+          contest={contestStatus.contest}
+          initialEnteredWork={contestStatus?.entry}
+          onSuccess={async () => {
+            await loadContestStatus()
+          }}
+        />
       )}
     </div>
   )

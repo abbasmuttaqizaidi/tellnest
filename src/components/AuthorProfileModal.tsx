@@ -7,6 +7,7 @@ import { UnisexAvatar } from './UnisexAvatar'
 import { formatViewCount } from '../lib/utils'
 import { OptimizedImage } from './OptimizedImage'
 import defaultBookCover from '../assets/default-book-cover.webp'
+import { useScrollLock } from '../lib/scrollLock'
 import {
   X,
   UserCheck,
@@ -59,15 +60,8 @@ export function AuthorProfileModal({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, onClose])
 
-  // Prevent background scrolling while modal/drawer is open
-  useEffect(() => {
-    if (!isOpen) return
-    const origOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = origOverflow
-    }
-  }, [isOpen])
+  // Prevent background scrolling without layout shift
+  useScrollLock(isOpen)
 
   const isFollowing = useMemo(() => {
     if (!author?.id) return false

@@ -4576,24 +4576,32 @@ function SecretAdminPanelPage() {
                               </td>
                               <td className="py-2.5 px-3 font-mono">
                                 <div className="flex items-center gap-1.5">
-                                  <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-semibold text-[11px] select-all">
-                                    {entry.upi_id}
-                                  </span>
-                                  <button
-                                    onClick={() => {
-                                      navigator.clipboard.writeText(entry.upi_id)
-                                      setCopiedId(entry.id)
-                                      setTimeout(() => setCopiedId(null), 2000)
-                                    }}
-                                    className="p-1 rounded hover:bg-[var(--bg-subtle)] text-[var(--ink-muted)] transition-colors cursor-pointer"
-                                    title="Copy UPI ID"
-                                  >
-                                    {copiedId === entry.id ? (
-                                      <Check className="h-3 w-3 text-emerald-600" />
-                                    ) : (
-                                      <Copy className="h-3 w-3" />
-                                    )}
-                                  </button>
+                                  {entry.upi_id && entry.upi_id !== 'pending_winner_payout' ? (
+                                    <>
+                                      <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-semibold text-[11px] select-all">
+                                        {entry.upi_id}
+                                      </span>
+                                      <button
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(entry.upi_id)
+                                          setCopiedId(entry.id)
+                                          setTimeout(() => setCopiedId(null), 2000)
+                                        }}
+                                        className="p-1 rounded hover:bg-[var(--bg-subtle)] text-[var(--ink-muted)] transition-colors cursor-pointer"
+                                        title="Copy UPI ID"
+                                      >
+                                        {copiedId === entry.id ? (
+                                          <Check className="h-3 w-3 text-emerald-600" />
+                                        ) : (
+                                          <Copy className="h-3 w-3" />
+                                        )}
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded bg-[var(--bg-subtle)] text-[var(--ink-muted)] border border-[var(--border-subtle)] text-[11px]">
+                                      Pending Winner Payout
+                                    </span>
+                                  )}
                                 </div>
                               </td>
                               <td className="py-2.5 px-3 text-right font-mono font-bold text-[var(--ink-primary)]">

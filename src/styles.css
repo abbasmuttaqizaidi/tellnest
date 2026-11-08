@@ -20,6 +20,7 @@
 }
 
 :root {
+  --scrollbar-width: 0px;
   /* Pure White Canvas */
   --bg-canvas: #ffffff;
   --bg-surface: #ffffff;
@@ -171,6 +172,12 @@ body {
 html {
   overflow-x: clip;
   scroll-behavior: smooth;
+  scrollbar-gutter: stable;
+}
+
+/* Prevent layout shift on fixed header elements when scroll is locked */
+header[class*="fixed"] {
+  padding-right: var(--scrollbar-width, 0px);
 }
 
 body {

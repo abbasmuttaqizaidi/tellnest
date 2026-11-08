@@ -522,7 +522,7 @@ export async function executeGetPaginatedDiscoverWorks(
     seed,
   })
 
-  const pageSize = Math.min(Math.max(1, params.limit || 14), 50)
+  const pageSize = Math.min(Math.max(1, params.limit || 12), 50)
   const totalCount = filtered.length
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
   const requestedPage = Math.max(1, params.page || 1)
@@ -544,13 +544,13 @@ export async function executeGetPaginatedDiscoverWorks(
 
 /**
  * Server Function: Get paginated discovery feed with full filtering and deterministic order.
- * Fetches exactly 14 manuscripts per page by default.
+ * Fetches exactly 12 manuscripts per page by default (divisible by 2, 3, and 4 columns).
  */
 export const getPaginatedDiscoverWorksServerFn = createServerFn({ method: 'GET' })
   .validator((params?: PaginatedDiscoverParams) => {
     return {
       page: Math.max(1, Number(params?.page) || 1),
-      limit: Math.min(Math.max(1, Number(params?.limit) || 14), 50),
+      limit: Math.min(Math.max(1, Number(params?.limit) || 12), 50),
       tab: params?.tab,
       category: params?.category,
       genre: params?.genre,
@@ -569,7 +569,7 @@ export const getPaginatedDiscoverWorksServerFn = createServerFn({ method: 'GET' 
  */
 export const getDiscoverWorksServerFn = createServerFn({ method: 'GET' })
   .validator((params?: { categoryId?: string; status?: WorkStatus; limit?: number; offset?: number }) => {
-    const limit = Math.min(Math.max(1, params?.limit || 14), 50)
+    const limit = Math.min(Math.max(1, params?.limit || 12), 50)
     const offset = Math.max(0, params?.offset || 0)
     return {
       categoryId: params?.categoryId,
