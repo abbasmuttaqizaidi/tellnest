@@ -929,3 +929,94 @@ test('Multi-Lore Sequential Binding: Linking Entity B accumulates on top of Enti
   assert.ok(currentContent.includes("[Mr. D'Souza](lore:Character|Landlord%20of%20Apartment%20306)"))
   assert.ok(currentContent.includes('[Evan](lore:Character|Protagonist)'))
 })
+
+test('Lore Client Cache: Stores, retrieves, and invalidates Story Lore Bible seamlessly', async () => {
+  const {
+    getClientLoreBibleCache,
+    setClientLoreBibleCache,
+    invalidateClientLoreBibleCache,
+  } = await import('../src/lib/lore/loreClientCache.ts')
+
+  const testWorkId = 'work-cache-test-123'
+
+  // Initially empty
+  assert.equal(getClientLoreBibleCache(testWorkId), null)
+
+  // Store in cache
+  setClientLoreBibleCache(testWorkId, {
+    entities: [{ name: 'Sameer', entityType: 'Character', description: 'Friend' }],
+    loreTypes: ['Character', 'Location'],
+    totalChaptersCount: 3,
+  })
+
+  const cached = getClientLoreBibleCache(testWorkId)
+  assert.ok(cached !== null)
+  assert.equal(cached.entities.length, 1)
+  assert.equal(cached.entities[0].name, 'Sameer')
+  assert.equal(cached.totalChaptersCount, 3)
+
+  // Invalidate
+  invalidateClientLoreBibleCache(testWorkId)
+  assert.equal(getClientLoreBibleCache(testWorkId), null)
+})
+
+test('Mentions Tab Filter: Distinguishes lores with unlinked appearances from unmentioned or fully-linked lores', async () => {
+  const entities = [
+    {
+      name: 'Sameer',
+      entityType: 'Character',
+      description: 'Friend',
+      linkedChaptersCount: 2,
+      totalUnlinkedCount: 1, // Appeared unlinked in Ch 3 -> Should match Mentions
+    },
+    {
+      name: "Mr. D'Souza",
+      entityType: 'Character',
+      description: 'Landlord',
+      linkedChaptersCount: 1,
+      totalUnlinkedCount: 1, // Appeared unlinked in Ch 3 -> Should match Mentions
+    },
+    {
+      name: 'Apartment 305',
+      entityType: 'Location',
+      description: 'Flat',
+      linkedChaptersCount: 0,
+      totalUnlinkedCount: 0, // Recorded in Bible, NEVER appeared in chapter text -> Should NOT match Mentions
+    },
+    {
+      name: 'Hermione',
+      entityType: 'Character',
+      description: 'Wizard',
+      linkedChaptersCount: 1,
+      totalUnlinkedCount: 0, // Fully linked everywhere it appeared -> Should NOT match Mentions
+    },
+  ]
+
+  // Filter for 'mentions': lores that appeared in some chapter but are not yet linked there
+  const filterByTab = (tab) => {
+    return entities.filter((ent) => {
+      const linkedChapters = Number(ent.linkedChaptersCount || 0)
+      const totalUnlinked = Number(ent.totalUnlinkedCount || 0)
+      const isLinked = linkedChapters > 0
+
+      if (tab === 'all') return true
+      if (tab === 'linked') return isLinked
+      if (tab === 'unlinked') return !isLinked
+      if (tab === 'mentions') return totalUnlinked > 0
+      return true
+    })
+  }
+
+  const mentionsTabList = filterByTab('mentions')
+  assert.equal(mentionsTabList.length, 2)
+  assert.deepEqual(
+    mentionsTabList.map((e) => e.name),
+    ['Sameer', "Mr. D'Souza"]
+  )
+
+  const linkedTabList = filterByTab('linked')
+  assert.equal(linkedTabList.length, 3) // Sameer, Mr. D'Souza, Hermione
+
+  const unlinkedTabList = filterByTab('unlinked')
+  assert.equal(unlinkedTabList.length, 1) // Apartment 305
+})

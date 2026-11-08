@@ -17,6 +17,11 @@ import {
 import { StoryLoreCsvModal } from './StoryLoreCsvModal'
 import { AnimatedTabs, type TabOption } from '../../design-system'
 import {
+  getClientLoreBibleCache,
+  setClientLoreBibleCache,
+  invalidateClientLoreBibleCache,
+} from '../../lib/lore/loreClientCache'
+import {
   linkAllOccurrences,
   unlinkAllOccurrences,
   linkMultipleEntities,
@@ -51,6 +56,7 @@ const LINK_STATUS_TABS: TabOption[] = [
   { id: 'all', label: 'All' },
   { id: 'linked', label: 'Linked' },
   { id: 'unlinked', label: 'Unlinked' },
+  { id: 'mentions', label: 'Mentions' },
 ]
 
 export function StoryLoreModal({
@@ -81,7 +87,7 @@ export function StoryLoreModal({
   const [isLoading, setIsLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>('Character')
-  const [linkStatusFilter, setLinkStatusFilter] = useState<'all' | 'linked' | 'unlinked'>('all')
+  const [linkStatusFilter, setLinkStatusFilter] = useState<'all' | 'linked' | 'unlinked' | 'mentions'>('all')
 
   // Form states (Add-first approach: always ready at top)
   const [editingName, setEditingName] = useState<string | null>(null)
@@ -147,7 +153,8 @@ export function StoryLoreModal({
         })
       }
 
-      await loadEntities()
+      invalidateClientLoreBibleCache(workId)
+      await loadEntities(true)
       if (res?.totalMentionsLinked > 0) {
         showToast(
           `Synced ${res.totalMentionsLinked} lore mention${res.totalMentionsLinked !== 1 ? 's' : ''} across ${res.updatedChaptersCount} chapter${res.updatedChaptersCount !== 1 ? 's' : ''}!`
@@ -163,26 +170,43 @@ export function StoryLoreModal({
     }
   }
 
-  // Load lore entities & available lore types from backend
-  const loadEntities = useCallback(async () => {
-    if (!workId) return
-    setIsLoading(true)
-    try {
-      const res = await getStoryLoreBibleServerFn({ data: { workId } })
-      if (res) {
-        if (Array.isArray(res.entities)) {
-          setBibleEntities(res.entities)
-        }
-        if (Array.isArray(res.loreTypes) && res.loreTypes.length > 0) {
-          setAvailableTypes(res.loreTypes)
+  // Load lore entities & available lore types from client cache or backend
+  const loadEntities = useCallback(
+    async (force: boolean = false) => {
+      if (!workId) return
+
+      if (!force) {
+        const cached = getClientLoreBibleCache(workId)
+        if (cached) {
+          setBibleEntities(cached.entities)
+          if (cached.loreTypes && cached.loreTypes.length > 0) {
+            setAvailableTypes(cached.loreTypes)
+          }
+          setIsLoading(false)
+          return
         }
       }
-    } catch (err) {
-      console.error('[StoryLoreModal] Failed to load lore entities:', err)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [workId])
+
+      setIsLoading(true)
+      try {
+        const res = await getStoryLoreBibleServerFn({ data: { workId } })
+        if (res) {
+          if (Array.isArray(res.entities)) {
+            setBibleEntities(res.entities)
+          }
+          if (Array.isArray(res.loreTypes) && res.loreTypes.length > 0) {
+            setAvailableTypes(res.loreTypes)
+          }
+          setClientLoreBibleCache(workId, res)
+        }
+      } catch (err) {
+        console.error('[StoryLoreModal] Failed to load lore entities:', err)
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [workId]
+  )
 
   // Close combobox on click outside
   useEffect(() => {
@@ -321,7 +345,8 @@ export function StoryLoreModal({
         }
       }
 
-      await loadEntities()
+      invalidateClientLoreBibleCache(workId)
+      await loadEntities(true)
       showToast(editingName ? `Updated "${trimmedName}"` : `Added "${trimmedName}" to lore`)
       resetForm()
     } catch (err: any) {
@@ -366,7 +391,8 @@ export function StoryLoreModal({
         await onUpdateContent(newMarkdown)
       }
 
-      await loadEntities()
+      invalidateClientLoreBibleCache(workId)
+      await loadEntities(true)
       showToast(`Linked across ${res.updatedChaptersCount} chapter(s)`)
     } catch (err: any) {
       showToast(err?.message || 'Failed to link occurrences')
@@ -397,7 +423,8 @@ export function StoryLoreModal({
         await onUpdateContent(newMarkdown)
       }
 
-      await loadEntities()
+      invalidateClientLoreBibleCache(workId)
+      await loadEntities(true)
       showToast(`Unlinked from ${res.updatedChaptersCount} chapter(s)`)
     } catch (err: any) {
       showToast(err?.message || 'Failed to unlink occurrences')
@@ -430,7 +457,8 @@ export function StoryLoreModal({
         await onUpdateContent(newMarkdown)
       }
 
-      await loadEntities()
+      invalidateClientLoreBibleCache(workId)
+      await loadEntities(true)
       if (editingName === entName) {
         resetForm()
       }
@@ -460,6 +488,11 @@ export function StoryLoreModal({
       const totalUnlinked = Number(ent.totalUnlinkedCount ?? ent.unlinkedCount ?? 0)
       const isLinked = linkedChapters > 0
 
+      // Active chapter mentions for real-time responsiveness
+      const activeStats = hasChapterContext && activeContent ? countEntityMentions(activeContent, entName) : null
+      const hasUnlinkedMentions = totalUnlinked > 0 || Boolean(activeStats && activeStats.unlinkedCount > 0)
+      const hasActiveLinks = isLinked || Boolean(activeStats && activeStats.linkedCount > 0)
+
       const matchesSearch =
         !q ||
         entName.toLowerCase().includes(q) ||
@@ -471,12 +504,13 @@ export function StoryLoreModal({
 
       const matchesLinkStatus =
         linkStatusFilter === 'all' ||
-        (linkStatusFilter === 'linked' && isLinked) ||
-        (linkStatusFilter === 'unlinked' && (!isLinked || totalUnlinked > 0))
+        (linkStatusFilter === 'linked' && hasActiveLinks) ||
+        (linkStatusFilter === 'unlinked' && !hasActiveLinks) ||
+        (linkStatusFilter === 'mentions' && hasUnlinkedMentions)
 
       return matchesSearch && matchesType && matchesLinkStatus
     })
-  }, [bibleEntities, searchQuery, selectedTypeFilter, linkStatusFilter])
+  }, [bibleEntities, searchQuery, selectedTypeFilter, linkStatusFilter, hasChapterContext, activeContent])
 
   if (!isOpen) return null
 
@@ -757,7 +791,9 @@ export function StoryLoreModal({
               ) : filteredEntities.length === 0 ? (
                 <div className="flex-1 min-h-0 flex items-center justify-center p-6 border border-dashed border-[var(--border-subtle)] rounded-xl text-center">
                   <p className="text-xs text-[var(--ink-secondary)]">
-                    {searchQuery || selectedTypeFilter !== 'ALL' || linkStatusFilter !== 'all'
+                    {linkStatusFilter === 'mentions'
+                      ? 'No unlinked mentions found. All mentioned lores are linked!'
+                      : searchQuery || selectedTypeFilter !== 'ALL' || linkStatusFilter !== 'all'
                       ? 'No lore notes match your filter.'
                       : 'No lore notes added yet. Use the form above to add your first character!'}
                   </p>
@@ -930,10 +966,11 @@ export function StoryLoreModal({
           workId={workId}
           adminToken={adminToken}
           onImportSuccess={async (res) => {
-            await loadEntities()
-            if (hasChapterContext && onUpdateContent && res.entities && res.entities.length > 0) {
+            invalidateClientLoreBibleCache(workId)
+            await loadEntities(true)
+            if (hasChapterContext && onUpdateContent && res.entities && res.entities.length > 0 && latestContentRef.current) {
               const { newMarkdown, totalLinked } = linkMultipleEntities(
-                content,
+                latestContentRef.current,
                 res.entities.map((e) => ({
                   name: e.name,
                   entityType: e.type,
@@ -941,6 +978,8 @@ export function StoryLoreModal({
                 }))
               )
               if (totalLinked > 0) {
+                latestContentRef.current = newMarkdown
+                setActiveContent(newMarkdown)
                 await onUpdateContent(newMarkdown)
               }
             }

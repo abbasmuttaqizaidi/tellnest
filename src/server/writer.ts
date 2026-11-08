@@ -1016,6 +1016,8 @@ export async function executeSaveWriterChapter(data: SaveWriterChapterPayload, a
     }
 
   clearPublicWorkCache(workUuid)
+  clearStoryLoreBibleCache(workUuid)
+  clearStoryLoreBibleCache(workUuid)
 
   return JSON.parse(JSON.stringify({
     success: true,
@@ -1350,6 +1352,7 @@ export async function executeDeleteWriterWork(
 
   // 6. Invalidate public caches
   clearPublicWorkCache(workUuid)
+  clearStoryLoreBibleCache(workUuid)
   if (workRow.slug) {
     clearPublicWorkCache(workRow.slug)
   }
@@ -1731,6 +1734,7 @@ export async function executeWriterWorkPublication(
   }
 
   clearPublicWorkCache(workUuid)
+  clearStoryLoreBibleCache(workUuid)
   if (updatedWork?.slug) {
     clearPublicWorkCache(updatedWork.slug)
   }
@@ -2059,6 +2063,25 @@ export const updateWriterWorkMetadataServerFn = createServerFn({ method: 'POST' 
 // 12. STORY LORE BIBLE & MANUSCRIPT-WIDE GLOSSARY
 // ============================================================================
 
+const storyLoreBibleServerCache = new Map<string, { data: any; timestamp: number }>()
+const STORY_LORE_CACHE_TTL_MS = 60_000 // 60 seconds server-side cache
+
+/**
+ * Invalidates server-side Story Lore Bible cache when lores or chapters change
+ */
+export function clearStoryLoreBibleCache(workId?: string) {
+  if (workId) {
+    const clean = workId.trim().toLowerCase()
+    for (const [key] of storyLoreBibleServerCache.entries()) {
+      if (key.includes(clean)) {
+        storyLoreBibleServerCache.delete(key)
+      }
+    }
+  } else {
+    storyLoreBibleServerCache.clear()
+  }
+}
+
 export interface GetStoryLoreBiblePayload {
   workId: string
   currentChapterId?: string
@@ -2076,6 +2099,12 @@ export async function executeGetStoryLoreBible(
   if (!isWorkUuid) {
     const { data: wRow } = await admin.from('works').select('id').eq('slug', workUuid.toLowerCase()).maybeSingle()
     if (wRow?.id) workUuid = wRow.id
+  }
+
+  const cacheKey = `${workUuid}:${data.currentChapterId || ''}`.toLowerCase()
+  const cached = storyLoreBibleServerCache.get(cacheKey)
+  if (cached && Date.now() - cached.timestamp < STORY_LORE_CACHE_TTL_MS) {
+    return JSON.parse(JSON.stringify(cached.data))
   }
 
   // Fetch all chapters
@@ -2236,11 +2265,18 @@ export async function executeGetStoryLoreBible(
 
   const loreTypes = Array.from(typeMap.values())
 
-  return {
+  const result = {
     entities: entitiesList,
     loreTypes,
     totalChaptersCount: allChapters.length,
   }
+
+  storyLoreBibleServerCache.set(cacheKey, {
+    data: result,
+    timestamp: Date.now(),
+  })
+
+  return result
 }
 
 export const getStoryLoreBibleServerFn = createServerFn({ method: 'GET' })
@@ -2441,7 +2477,9 @@ export async function executeSaveStoryLoreEntity(
   }
 
   clearPublicWorkCache(workUuid)
+  clearStoryLoreBibleCache(workUuid)
   if (workRow.slug) clearPublicWorkCache(workRow.slug)
+  clearStoryLoreBibleCache(workUuid)
 
   return {
     success: true,
@@ -2674,7 +2712,9 @@ export async function executeBulkLinkStoryLore(
   }
 
   clearPublicWorkCache(workUuid)
+  clearStoryLoreBibleCache(workUuid)
   if (workRow.slug) clearPublicWorkCache(workRow.slug)
+  clearStoryLoreBibleCache(workUuid)
 
   return {
     success: true,
@@ -2817,6 +2857,7 @@ export async function executeSyncAllStoryLore(
   }
 
   clearPublicWorkCache(workUuid)
+  clearStoryLoreBibleCache(workUuid)
 
   return {
     success: true,
@@ -2909,7 +2950,9 @@ export async function executeBulkUnlinkStoryLore(
   }
 
   clearPublicWorkCache(workUuid)
+  clearStoryLoreBibleCache(workUuid)
   if (workRow.slug) clearPublicWorkCache(workRow.slug)
+  clearStoryLoreBibleCache(workUuid)
 
   return {
     success: true,
@@ -2997,7 +3040,9 @@ export async function executeDeleteStoryLoreEntity(
   }
 
   clearPublicWorkCache(workUuid)
+  clearStoryLoreBibleCache(workUuid)
   if (workRow.slug) clearPublicWorkCache(workRow.slug)
+  clearStoryLoreBibleCache(workUuid)
 
   return { success: true, deletedName: entityName, unlinkedCount }
 }
@@ -3165,7 +3210,9 @@ export async function executeImportStoryLoreCsv(
   }
 
   clearPublicWorkCache(workUuid)
+  clearStoryLoreBibleCache(workUuid)
   if (workRow.slug) clearPublicWorkCache(workRow.slug)
+  clearStoryLoreBibleCache(workUuid)
 
   return {
     success: true,

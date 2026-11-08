@@ -40,6 +40,10 @@ import { LoreGlossaryTrigger } from '../reader/LoreGlossaryTrigger'
 import { StoryLoreModal } from './StoryLoreModal'
 import { useRouter } from '@tanstack/react-router'
 import {
+  getClientLoreBibleCache,
+  setClientLoreBibleCache,
+} from '../../lib/lore/loreClientCache'
+import {
   extractLoreEntities,
   countEntityMentions,
   parseLorePayload,
@@ -326,14 +330,22 @@ export function StoryRichEditor({
   const [loreSelectedText, setLoreSelectedText] = useState('')
   const [bibleEntities, setBibleEntities] = useState<StoryLoreEntity[]>([])
 
-  // Load Lore Bible entities from backend whenever workId changes or modal closes
+  // Load Lore Bible entities from cache or backend whenever workId changes or modal closes
   useEffect(() => {
     if (!workId) return
     let cancelled = false
+
+    const cached = getClientLoreBibleCache(workId)
+    if (cached) {
+      setBibleEntities(cached.entities)
+      return
+    }
+
     getStoryLoreBibleServerFn({ data: { workId } })
       .then((res) => {
         if (!cancelled && res?.entities && Array.isArray(res.entities)) {
           setBibleEntities(res.entities)
+          setClientLoreBibleCache(workId, res)
         }
       })
       .catch((err) => console.warn('[StoryRichEditor] Failed to fetch story lore bible:', err))
