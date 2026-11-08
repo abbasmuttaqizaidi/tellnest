@@ -15,6 +15,7 @@ import {
   RefreshCw,
 } from 'lucide-react'
 import { StoryLoreCsvModal } from './StoryLoreCsvModal'
+import { AnimatedTabs, type TabOption } from '../../design-system'
 import {
   linkAllOccurrences,
   unlinkAllOccurrences,
@@ -46,6 +47,11 @@ export interface StoryLoreModalProps {
 }
 
 const DEFAULT_LORE_TYPES = ['Character', 'Location', 'Lore']
+const LINK_STATUS_TABS: TabOption[] = [
+  { id: 'all', label: 'All' },
+  { id: 'linked', label: 'Linked' },
+  { id: 'unlinked', label: 'Unlinked' },
+]
 
 export function StoryLoreModal({
   isOpen,
@@ -673,25 +679,15 @@ export function StoryLoreModal({
                   </span>
 
                   {/* Filter Switch: Linked / Unlinked */}
-                  <div className="inline-flex p-0.5 bg-[var(--bg-surface)] rounded-lg border border-[var(--border-subtle)] shrink-0">
-                    {(['all', 'linked', 'unlinked'] as const).map((status) => {
-                      const label = status === 'all' ? 'All' : status === 'linked' ? 'Linked' : 'Unlinked'
-                      return (
-                        <button
-                          key={status}
-                          type="button"
-                          onClick={() => setLinkStatusFilter(status)}
-                          className={`px-2.5 py-0.5 text-[10px] rounded-md font-medium transition cursor-pointer whitespace-nowrap capitalize ${
-                            linkStatusFilter === status
-                              ? 'bg-[var(--bg-canvas)] text-[var(--ink-primary)] shadow-2xs font-semibold'
-                              : 'text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      )
-                    })}
-                  </div>
+                  <AnimatedTabs
+                    id="story-lore-link-status"
+                    tabs={LINK_STATUS_TABS}
+                    activeId={linkStatusFilter}
+                    onChange={(id) => setLinkStatusFilter(id as 'all' | 'linked' | 'unlinked')}
+                    variant="pill"
+                    size="sm"
+                    className="shrink-0"
+                  />
                 </div>
 
                 {/* Right Controls: Types Dropdown (default Characters) & Search */}
