@@ -234,13 +234,12 @@ export function StoryLoreModal({
 
       // Also link in current editor if editing a chapter
       if (hasChapterContext && onUpdateContent && content) {
-        const { newMarkdown, replacedCount } = linkAllOccurrences(
-          content,
-          trimmedName,
+        const { newMarkdown, countReplaced } = linkAllOccurrences(content, {
+          name: trimmedName,
           entityType,
-          trimmedDesc
-        )
-        if (replacedCount > 0) {
+          description: trimmedDesc,
+        })
+        if (countReplaced > 0) {
           await onUpdateContent(newMarkdown)
         }
       }
@@ -280,12 +279,11 @@ export function StoryLoreModal({
       })
 
       if (hasChapterContext && onUpdateContent && content) {
-        const { newMarkdown } = linkAllOccurrences(
-          content,
-          entName,
-          entType,
-          entDesc
-        )
+        const { newMarkdown } = linkAllOccurrences(content, {
+          name: entName,
+          entityType: entType,
+          description: entDesc,
+        })
         await onUpdateContent(newMarkdown)
       }
 
@@ -376,7 +374,7 @@ export function StoryLoreModal({
         ent.description.toLowerCase().includes(q)
       const matchesType =
         selectedTypeFilter === 'ALL' ||
-        ent.type?.toLowerCase() === selectedTypeFilter.toLowerCase()
+        (ent.entityType || (ent as any).type)?.toLowerCase() === selectedTypeFilter.toLowerCase()
       return matchesSearch && matchesType
     })
   }, [bibleEntities, searchQuery, selectedTypeFilter])
@@ -692,14 +690,14 @@ export function StoryLoreModal({
 
                             {mentions && (
                               <span className="text-[10px] text-[var(--ink-muted)]">
-                                {mentions.linked > 0 && (
+                                {mentions.linkedCount > 0 && (
                                   <span className="text-emerald-600 dark:text-emerald-400 mr-1.5">
-                                    ✓ {mentions.linked} linked in chapter
+                                    ✓ {mentions.linkedCount} linked in chapter
                                   </span>
                                 )}
-                                {mentions.unlinked > 0 && (
+                                {mentions.unlinkedCount > 0 && (
                                   <span className="text-zinc-600 dark:text-zinc-400">
-                                    • {mentions.unlinked} unlinked
+                                    • {mentions.unlinkedCount} unlinked
                                   </span>
                                 )}
                               </span>

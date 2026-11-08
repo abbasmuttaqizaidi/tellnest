@@ -158,9 +158,9 @@ function escapeRegExp(str: string): string {
 export function countEntityMentions(
   markdown: string,
   entityName: string
-): { linkedCount: number; unlinkedCount: number } {
+): { linkedCount: number; unlinkedCount: number; linked: number; unlinked: number } {
   if (!markdown || !entityName.trim()) {
-    return { linkedCount: 0, unlinkedCount: 0 }
+    return { linkedCount: 0, unlinkedCount: 0, linked: 0, unlinked: 0 }
   }
 
   const trimmed = entityName.trim()
@@ -191,20 +191,37 @@ export function countEntityMentions(
   const unlinkedMatches = sanitized.match(wordBoundaryRegex)
   const unlinkedCount = unlinkedMatches ? unlinkedMatches.length : 0
 
-  return { linkedCount, unlinkedCount }
+  return {
+    linkedCount,
+    unlinkedCount,
+    linked: linkedCount,
+    unlinked: unlinkedCount,
+  }
 }
 
 /**
  * Links ALL unlinked occurrences of an entity name across the chapter prose.
  * Protects code blocks, inline code, HTML tags, and existing links.
  * Preserves exact case matching (no 'i' flag).
+ * Supports both LoreEntity object and positional (name, type, desc) arguments.
  */
 export function linkAllOccurrences(
   markdown: string,
-  entity: LoreEntity
-): { newMarkdown: string; countReplaced: number } {
-  if (!markdown || !entity.name.trim() || !entity.description.trim()) {
-    return { newMarkdown: markdown, countReplaced: 0 }
+  entityOrName: LoreEntity | string,
+  maybeType?: string,
+  maybeDesc?: string
+): { newMarkdown: string; countReplaced: number; replacedCount: number } {
+  const entity: LoreEntity =
+    typeof entityOrName === 'string'
+      ? {
+          name: entityOrName,
+          entityType: maybeType || 'Character',
+          description: maybeDesc || entityOrName,
+        }
+      : entityOrName
+
+  if (!markdown || !entity?.name?.trim() || !entity?.description?.trim()) {
+    return { newMarkdown: markdown, countReplaced: 0, replacedCount: 0 }
   }
 
   const targetName = entity.name.trim()
@@ -250,6 +267,7 @@ export function linkAllOccurrences(
   return {
     newMarkdown: processed.join(''),
     countReplaced,
+    replacedCount: countReplaced,
   }
 }
 
@@ -351,13 +369,25 @@ export function linkMultipleEntities(
 /**
  * Links ONLY the first unlinked occurrence of an entity name across the chapter prose.
  * Used when applyToAll is unchecked.
+ * Supports both LoreEntity object and positional (name, type, desc) arguments.
  */
 export function linkSingleOccurrence(
   markdown: string,
-  entity: LoreEntity
-): { newMarkdown: string; countReplaced: number } {
-  if (!markdown || !entity.name.trim() || !entity.description.trim()) {
-    return { newMarkdown: markdown, countReplaced: 0 }
+  entityOrName: LoreEntity | string,
+  maybeType?: string,
+  maybeDesc?: string
+): { newMarkdown: string; countReplaced: number; replacedCount: number } {
+  const entity: LoreEntity =
+    typeof entityOrName === 'string'
+      ? {
+          name: entityOrName,
+          entityType: maybeType || 'Character',
+          description: maybeDesc || entityOrName,
+        }
+      : entityOrName
+
+  if (!markdown || !entity?.name?.trim() || !entity?.description?.trim()) {
+    return { newMarkdown: markdown, countReplaced: 0, replacedCount: 0 }
   }
 
   const targetName = entity.name.trim()
@@ -397,6 +427,7 @@ export function linkSingleOccurrence(
   return {
     newMarkdown: processed.join(''),
     countReplaced,
+    replacedCount: countReplaced,
   }
 }
 

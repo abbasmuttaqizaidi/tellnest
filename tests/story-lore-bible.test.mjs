@@ -641,3 +641,32 @@ test('Payload Alias Robustness: Accepts both entityName/name and entityDescripti
   assert.equal(savedType, 'Villan')
   assert.equal(savedDesc, 'Iconic antagonist')
 })
+
+test('Audit: linkAllOccurrences and countEntityMentions API robustness', async () => {
+  const { linkAllOccurrences, countEntityMentions } = await import('../src/lib/lore/loreParser.ts')
+
+  const sampleProse = 'Arthur drew Excalibur from the stone. Arthur looked at Merlin.'
+
+  // 1. Invocation with object
+  const objRes = linkAllOccurrences(sampleProse, {
+    name: 'Arthur',
+    entityType: 'Character',
+    description: 'King of the Britons',
+  })
+  assert.equal(objRes.countReplaced, 2)
+  assert.equal(objRes.replacedCount, 2)
+  assert.ok(objRes.newMarkdown.includes('[Arthur](lore:Character|King%20of%20the%20Britons)'))
+
+  // 2. Invocation with positional arguments (as in StoryLoreModal)
+  const posRes = linkAllOccurrences(sampleProse, 'Arthur', 'Character', 'King of the Britons')
+  assert.equal(posRes.countReplaced, 2)
+  assert.equal(posRes.replacedCount, 2)
+  assert.equal(posRes.newMarkdown, objRes.newMarkdown)
+
+  // 3. countEntityMentions alias support
+  const stats = countEntityMentions(objRes.newMarkdown, 'Arthur')
+  assert.equal(stats.linkedCount, 2)
+  assert.equal(stats.linked, 2)
+  assert.equal(stats.unlinkedCount, 0)
+  assert.equal(stats.unlinked, 0)
+})
