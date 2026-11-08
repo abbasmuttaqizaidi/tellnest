@@ -65,7 +65,8 @@ export function StoryLoreModal({
   const [availableTypes, setAvailableTypes] = useState<string[]>(DEFAULT_LORE_TYPES)
   const [isLoading, setIsLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>('ALL')
+  const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>('Character')
+  const [linkStatusFilter, setLinkStatusFilter] = useState<'all' | 'linked' | 'unlinked'>('all')
 
   // Form states (Add-first approach: always ready at top)
   const [editingName, setEditingName] = useState<string | null>(null)
@@ -427,16 +428,29 @@ export function StoryLoreModal({
   const filteredEntities = useMemo(() => {
     const q = searchQuery.toLowerCase().trim()
     return bibleEntities.filter((ent) => {
+      const entName = ent.name || (ent as any).entityName || ''
+      const entDesc = ent.description || (ent as any).entityDescription || ''
+      const entType = ent.entityType || (ent as any).type || 'Character'
+      const chaptersCount = Number(ent.chaptersCount ?? (ent as any).chapterCount ?? 0)
+      const isLinked = chaptersCount > 0
+
       const matchesSearch =
         !q ||
-        ent.name.toLowerCase().includes(q) ||
-        ent.description.toLowerCase().includes(q)
+        entName.toLowerCase().includes(q) ||
+        entDesc.toLowerCase().includes(q)
+
       const matchesType =
         selectedTypeFilter === 'ALL' ||
-        (ent.entityType || (ent as any).type)?.toLowerCase() === selectedTypeFilter.toLowerCase()
-      return matchesSearch && matchesType
+        entType.toLowerCase() === selectedTypeFilter.toLowerCase()
+
+      const matchesLinkStatus =
+        linkStatusFilter === 'all' ||
+        (linkStatusFilter === 'linked' && isLinked) ||
+        (linkStatusFilter === 'unlinked' && !isLinked)
+
+      return matchesSearch && matchesType && matchesLinkStatus
     })
-  }, [bibleEntities, searchQuery, selectedTypeFilter])
+  }, [bibleEntities, searchQuery, selectedTypeFilter, linkStatusFilter])
 
   if (!isOpen) return null
 
@@ -658,35 +672,63 @@ export function StoryLoreModal({
                     Recorded Lore ({bibleEntities.length})
                   </span>
 
-                  {/* Filter Pills with dynamic custom types */}
-                  <div className="inline-flex p-0.5 bg-[var(--bg-surface)] rounded-lg border border-[var(--border-subtle)] overflow-x-auto shrink-0">
-                    {['ALL', ...availableTypes].map((t) => (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => setSelectedTypeFilter(t)}
-                        className={`px-2 py-0.5 text-[10px] rounded-md font-medium transition cursor-pointer whitespace-nowrap ${
-                          selectedTypeFilter.toLowerCase() === t.toLowerCase()
-                            ? 'bg-[var(--bg-canvas)] text-[var(--ink-primary)] shadow-2xs'
-                            : 'text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
-                        }`}
-                      >
-                        {t}
-                      </button>
-                    ))}
+                  {/* Filter Switch: Linked / Unlinked */}
+                  <div className="inline-flex p-0.5 bg-[var(--bg-surface)] rounded-lg border border-[var(--border-subtle)] shrink-0">
+                    {(['all', 'linked', 'unlinked'] as const).map((status) => {
+                      const label = status === 'all' ? 'All' : status === 'linked' ? 'Linked' : 'Unlinked'
+                      return (
+                        <button
+                          key={status}
+                          type="button"
+                          onClick={() => setLinkStatusFilter(status)}
+                          className={`px-2.5 py-0.5 text-[10px] rounded-md font-medium transition cursor-pointer whitespace-nowrap capitalize ${
+                            linkStatusFilter === status
+                              ? 'bg-[var(--bg-canvas)] text-[var(--ink-primary)] shadow-2xs font-semibold'
+                              : 'text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
 
-                {/* Search in existing lore */}
-                <div className="relative w-full sm:w-48 shrink-0">
-                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--ink-muted)] pointer-events-none" />
-                  <input
-                    type="text"
-                    placeholder="Search recorded lore..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-7 pr-2.5 py-1 text-xs rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--ink-primary)] placeholder-[var(--ink-muted)] focus:outline-none focus:border-zinc-500 dark:focus:border-zinc-400 transition"
-                  />
+                {/* Right Controls: Types Dropdown (default Characters) & Search */}
+                <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                  <div className="relative">
+                    <select
+                      value={selectedTypeFilter}
+                      onChange={(e) => setSelectedTypeFilter(e.target.value)}
+                      className="px-2.5 py-1 text-xs rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--ink-primary)] focus:outline-none focus:border-zinc-500 dark:focus:border-zinc-400 transition cursor-pointer appearance-none pr-6 font-medium"
+                      aria-label="Filter lore by type"
+                    >
+                      <option value="Character">Characters</option>
+                      <option value="Location">Locations</option>
+                      <option value="Lore">Lore</option>
+                      {availableTypes
+                        .filter((t) => !['Character', 'Location', 'Lore'].includes(t))
+                        .map((t) => (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        ))}
+                      <option value="ALL">All Types</option>
+                    </select>
+                    <ChevronDown className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 text-[var(--ink-muted)] pointer-events-none" />
+                  </div>
+
+                  {/* Search in existing lore */}
+                  <div className="relative w-full sm:w-44 shrink-0">
+                    <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--ink-muted)] pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="Search recorded lore..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-7 pr-2.5 py-1 text-xs rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--ink-primary)] placeholder-[var(--ink-muted)] focus:outline-none focus:border-zinc-500 dark:focus:border-zinc-400 transition"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -699,7 +741,7 @@ export function StoryLoreModal({
               ) : filteredEntities.length === 0 ? (
                 <div className="flex-1 min-h-0 flex items-center justify-center p-6 border border-dashed border-[var(--border-subtle)] rounded-xl text-center">
                   <p className="text-xs text-[var(--ink-secondary)]">
-                    {searchQuery || selectedTypeFilter !== 'ALL'
+                    {searchQuery || selectedTypeFilter !== 'ALL' || linkStatusFilter !== 'all'
                       ? 'No lore notes match your filter.'
                       : 'No lore notes added yet. Use the form above to add your first character!'}
                   </p>
