@@ -30,10 +30,13 @@ export function ContestDetailsModal({ isOpen, onClose, initialData }: ContestDet
   // Lock background scroll on mobile and desktop while modal is open
   useEffect(() => {
     if (!isOpen) return
-    const originalOverflow = document.body.style.overflow
+    const originalBodyOverflow = document.body.style.overflow
+    const originalHtmlOverflow = document.documentElement.style.overflow
     document.body.style.overflow = 'hidden'
+    document.documentElement.style.overflow = 'hidden'
     return () => {
-      document.body.style.overflow = originalOverflow
+      document.body.style.overflow = originalBodyOverflow
+      document.documentElement.style.overflow = originalHtmlOverflow
     }
   }, [isOpen])
 
@@ -105,7 +108,7 @@ export function ContestDetailsModal({ isOpen, onClose, initialData }: ContestDet
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/60 backdrop-blur-xs"
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs touch-none"
           />
 
           {/* Modal Window: Centered with Zero Header Clipping & Hardware Accelerated */}

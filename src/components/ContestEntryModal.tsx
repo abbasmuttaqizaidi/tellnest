@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   X,
@@ -30,6 +31,7 @@ interface ContestEntryModalProps {
 
 export function ContestEntryModal({ isOpen, onClose, contest, onSuccess }: ContestEntryModalProps) {
   const { isSignedIn, isUserLoaded, openAuthModal } = useApp()
+  const [mounted, setMounted] = useState(false)
   const [loadingWorks, setLoadingWorks] = useState(true)
   const [works, setWorks] = useState<any[]>([])
   const [alreadyEnteredWorkId, setAlreadyEnteredWorkId] = useState<string | null>(null)
@@ -39,6 +41,34 @@ export function ContestEntryModal({ isOpen, onClose, contest, onSuccess }: Conte
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Lock background scroll on mobile and desktop while modal is open
+  useEffect(() => {
+    if (!isOpen) return
+    const originalBodyOverflow = document.body.style.overflow
+    const originalHtmlOverflow = document.documentElement.style.overflow
+    document.body.style.overflow = 'hidden'
+    document.documentElement.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = originalBodyOverflow
+      document.documentElement.style.overflow = originalHtmlOverflow
+    }
+  }, [isOpen])
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown)
+      return () => window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isOpen, onClose])
 
   useEffect(() => {
     if (!isOpen) {
@@ -77,7 +107,7 @@ export function ContestEntryModal({ isOpen, onClose, contest, onSuccess }: Conte
     loadEligibleWorks()
   }, [isOpen, contest.id, isUserLoaded, isSignedIn])
 
-  if (!isOpen) return null
+  if (!mounted || typeof document === 'undefined') return null
 
   const isUpiValid = validateUpiId(upiId)
   const eligibleWorks = works.filter((w) => w.isEligible)
@@ -121,17 +151,18 @@ export function ContestEntryModal({ isOpen, onClose, contest, onSuccess }: Conte
     }
   }
 
-  return (
+  return createPortal(
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-        {/* Backdrop */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs"
-        />
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs touch-none"
+          />
 
         {/* Modal Window */}
         <motion.div
@@ -406,6 +437,8 @@ export function ContestEntryModal({ isOpen, onClose, contest, onSuccess }: Conte
           )}
         </motion.div>
       </div>
-    </AnimatePresence>
-  )
+    )}
+  </AnimatePresence>,
+  document.body
+)
 }

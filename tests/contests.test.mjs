@@ -308,6 +308,9 @@ test('Contest SEO & Security Invariants: /writing-contests SSR, Schema.org Event
   assert.ok(modalCode.includes('Sign In to Enter Contest'), 'Entry modal must display a clear sign-in gate for public visitors')
   assert.ok(modalCode.includes('openAuthModal'), 'Entry modal must invoke openAuthModal for unauthenticated users')
   assert.ok(!modalCode.includes('<span>Monthly Contest Entry</span>'), 'Static header pill "Monthly Contest Entry" must be removed')
+  assert.ok(modalCode.includes("document.body.style.overflow = 'hidden'"), 'Entry modal must lock document body scroll')
+  assert.ok(modalCode.includes("document.documentElement.style.overflow = 'hidden'"), 'Entry modal must lock documentElement scroll for mobile')
+  assert.ok(modalCode.includes('createPortal'), 'Entry modal must render via React portal to prevent stacking issues')
 
   // 6. Sitemap Inclusion
   const sitemapCode = fs.readFileSync(path.join(rootDir, 'src/server/sitemap.ts'), 'utf-8')
