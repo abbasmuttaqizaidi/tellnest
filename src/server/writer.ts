@@ -2937,7 +2937,10 @@ export async function executeImportStoryLoreCsv(
     const CHUNK_SIZE = 100
     for (let i = 0; i < rowsToUpsert.length; i += CHUNK_SIZE) {
       const chunk = rowsToUpsert.slice(i, i + CHUNK_SIZE)
-      await admin.from('story_lore_entities').upsert(chunk, { onConflict: 'work_id,name' })
+      const { error: chunkErr } = await admin.from('story_lore_entities').upsert(chunk, { onConflict: 'work_id,name' })
+      if (chunkErr) {
+        console.error('[executeImportStoryLoreCsv] Upsert chunk error:', chunkErr)
+      }
     }
   } catch (err: any) {
     console.warn('[executeImportStoryLoreCsv] story_lore_entities table upsert notice:', err?.message)
