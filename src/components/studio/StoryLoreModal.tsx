@@ -693,33 +693,18 @@ export function StoryLoreModal({
                               {entType}
                             </span>
 
-                            {/* Manuscript Presence */}
-                            <span className="text-[10px] text-[var(--ink-muted)]">
+                            {/* Linked chapters count */}
+                            <span className="text-[10px]">
                               {chaptersCount > 0 ? (
-                                <span>
-                                  {chaptersCount} {chaptersCount === 1 ? 'chapter' : 'chapters'}
-                                  {totalMentions > 0 && ` (${totalMentions} ${totalMentions === 1 ? 'mention' : 'mentions'})`}
+                                <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                                  Linked in {chaptersCount} {chaptersCount === 1 ? 'chapter' : 'chapters'}
                                 </span>
                               ) : (
-                                <span>0 chapters</span>
+                                <span className="text-[var(--ink-muted)]">
+                                  Not linked yet
+                                </span>
                               )}
                             </span>
-
-                            {/* Current Chapter Status (shown when modal is open inside a chapter editor) */}
-                            {hasChapterContext && mentions && (
-                              <span className="text-[10px] flex items-center gap-1.5 font-medium">
-                                {mentions.linkedCount > 0 && (
-                                  <span className="text-emerald-600 dark:text-emerald-400">
-                                    ✓ {mentions.linkedCount} linked in this chapter
-                                  </span>
-                                )}
-                                {mentions.unlinkedCount > 0 && (
-                                  <span className="text-zinc-600 dark:text-zinc-400">
-                                    • {mentions.unlinkedCount} unlinked in this chapter
-                                  </span>
-                                )}
-                              </span>
-                            )}
                           </div>
                           <p className="text-[11px] text-[var(--ink-secondary)] line-clamp-2 leading-relaxed">
                             {entDesc}
