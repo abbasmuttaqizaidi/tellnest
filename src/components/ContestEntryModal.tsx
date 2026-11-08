@@ -19,6 +19,7 @@ import {
   type ContestInfo,
 } from '../server/contests'
 import { Link } from '@tanstack/react-router'
+import { useApp } from '../context/AppContext'
 
 interface ContestEntryModalProps {
   isOpen: boolean
@@ -28,6 +29,7 @@ interface ContestEntryModalProps {
 }
 
 export function ContestEntryModal({ isOpen, onClose, contest, onSuccess }: ContestEntryModalProps) {
+  const { isSignedIn, isUserLoaded, openAuthModal } = useApp()
   const [loadingWorks, setLoadingWorks] = useState(true)
   const [works, setWorks] = useState<any[]>([])
   const [alreadyEnteredWorkId, setAlreadyEnteredWorkId] = useState<string | null>(null)
@@ -45,6 +47,11 @@ export function ContestEntryModal({ isOpen, onClose, contest, onSuccess }: Conte
       setUpiTouched(false)
       setErrorMessage(null)
       setSuccessMessage(null)
+      return
+    }
+
+    if (!isUserLoaded || !isSignedIn) {
+      setLoadingWorks(false)
       return
     }
 
@@ -68,7 +75,7 @@ export function ContestEntryModal({ isOpen, onClose, contest, onSuccess }: Conte
     }
 
     loadEligibleWorks()
-  }, [isOpen, contest.id])
+  }, [isOpen, contest.id, isUserLoaded, isSignedIn])
 
   if (!isOpen) return null
 
@@ -177,6 +184,66 @@ export function ContestEntryModal({ isOpen, onClose, contest, onSuccess }: Conte
                   className="px-5 py-2.5 rounded-xl bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-xs font-semibold hover:opacity-90 transition-opacity cursor-pointer"
                 >
                   View Live Leaderboard
+                </button>
+              </div>
+            </div>
+          ) : !isUserLoaded ? (
+            /* User Auth Loading State */
+            <div className="py-12 flex flex-col items-center justify-center gap-2 text-xs text-[var(--ink-muted)]">
+              <Loader2 className="w-5 h-5 animate-spin text-[var(--ink-primary)]" />
+              <span>Verifying account status...</span>
+            </div>
+          ) : !isSignedIn ? (
+            /* Unauthenticated Visitor Gate */
+            <div className="py-6 sm:py-8 text-center space-y-5">
+              <div className="w-14 h-14 rounded-2xl bg-[var(--bg-subtle)] border border-[var(--border-strong)] text-[var(--ink-primary)] mx-auto flex items-center justify-center shadow-xs">
+                <Lock className="w-6 h-6 stroke-[1.75]" />
+              </div>
+              <div className="space-y-1.5 max-w-sm mx-auto">
+                <h4 className="font-serif text-lg sm:text-xl font-bold text-[var(--ink-primary)]">
+                  Sign In to Enter Contest
+                </h4>
+                <p className="text-xs text-[var(--ink-muted)] leading-relaxed">
+                  Sign in or create a free HatchPen account to submit your published manuscript, track verified reader likes, and be eligible for the ₹{contest.prize_inr.toLocaleString()} cash prize.
+                </p>
+              </div>
+
+              {/* Contest Guarantees */}
+              <div className="grid grid-cols-3 gap-2 text-left p-3 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[11px] font-mono">
+                <div className="space-y-0.5">
+                  <span className="font-semibold text-[var(--ink-primary)] block">100% Free</span>
+                  <span className="text-[10px] text-[var(--ink-muted)] block">Zero entry fees</span>
+                </div>
+                <div className="space-y-0.5 border-x border-[var(--border-subtle)] px-2">
+                  <span className="font-semibold text-[var(--ink-primary)] block">UPI Transfer</span>
+                  <span className="text-[10px] text-[var(--ink-muted)] block">Direct cash prize</span>
+                </div>
+                <div className="space-y-0.5 pl-1">
+                  <span className="font-semibold text-[var(--ink-primary)] block">Full Rights</span>
+                  <span className="text-[10px] text-[var(--ink-muted)] block">You own your story</span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose()
+                    openAuthModal(typeof window !== 'undefined' ? window.location.pathname : '/writing-contests')
+                  }}
+                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-xs font-semibold hover:opacity-90 transition-opacity inline-flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Sign In / Join Free</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-medium text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors cursor-pointer"
+                >
+                  Cancel
                 </button>
               </div>
             </div>

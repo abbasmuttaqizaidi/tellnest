@@ -298,12 +298,15 @@ test('Contest SEO & Security Invariants: /writing-contests SSR, Schema.org Event
     'Landing page must prominently state HatchPen never calls or asks for OTP'
   )
 
-  // 5. Modal Component Security Invariant
+  // 5. Modal Component Security & Public Visitor Invariant
   const modalPath = path.join(rootDir, 'src/components/ContestEntryModal.tsx')
   assert.ok(fs.existsSync(modalPath), 'ContestEntryModal.tsx must exist')
   const modalCode = fs.readFileSync(modalPath, 'utf-8')
   assert.ok(modalCode.includes('We will NEVER call you or message you'), 'Entry modal must warn writers about OTP safety')
   assert.ok(modalCode.includes('validateUpiId'), 'Entry modal must validate UPI ID syntax')
+  assert.ok(modalCode.includes('isSignedIn'), 'Entry modal must verify user authentication state')
+  assert.ok(modalCode.includes('Sign In to Enter Contest'), 'Entry modal must display a clear sign-in gate for public visitors')
+  assert.ok(modalCode.includes('openAuthModal'), 'Entry modal must invoke openAuthModal for unauthenticated users')
 
   // 6. Sitemap Inclusion
   const sitemapCode = fs.readFileSync(path.join(rootDir, 'src/server/sitemap.ts'), 'utf-8')
