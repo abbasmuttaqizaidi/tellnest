@@ -11,7 +11,6 @@ import {
   Loader2,
   FileSpreadsheet,
   Check,
-  BookOpen,
   ChevronDown,
   RefreshCw,
 } from 'lucide-react'
@@ -450,17 +449,7 @@ export function StoryLoreModal({
         >
           {/* Header */}
           <div className="px-5 py-3.5 border-b border-[var(--border-subtle)] flex items-center justify-between bg-[var(--bg-surface)] shrink-0">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-900 dark:text-zinc-100">
-                <BookOpen className="w-4 h-4" />
-              </div>
-              <div>
-                <h2 className="text-sm font-semibold tracking-tight">Story Lore & Characters</h2>
-                <p className="text-[11px] text-[var(--ink-muted)]">
-                  Add world lore and characters — readers will see these tooltips on hover
-                </p>
-              </div>
-            </div>
+            <h2 className="text-sm font-semibold tracking-tight">Story Lore & Characters</h2>
 
             <div className="flex items-center gap-2">
               {workId && (
