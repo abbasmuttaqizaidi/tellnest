@@ -587,3 +587,57 @@ test('Custom Lore Types: Persists new custom type to author profile preferences 
   assert.ok(bibleRes.loreTypes.includes('Lore'))
   assert.ok(bibleRes.loreTypes.includes('Villain'))
 })
+
+test('Payload Alias Robustness: Accepts both entityName/name and entityDescription/description', async () => {
+  let savedName = ''
+  let savedType = ''
+  let savedDesc = ''
+  const fakeAdmin = {
+    from(table) {
+      if (table === 'profiles') {
+        return {
+          select: () => createQueryMock({ id: 'prof-1', clerk_user_id: 'user_author123' }),
+          update: () => createQueryMock({ id: 'prof-1' }),
+        }
+      }
+      if (table === 'works') {
+        return { select: () => createQueryMock({ id: '00000000-0000-0000-0000-000000000001', author_id: 'prof-1' }) }
+      }
+      if (table === 'story_lore_entities') {
+        return {
+          select: () => createQueryMock(null),
+          upsert: (payload) => {
+            savedName = payload.name
+            savedType = payload.entity_type
+            savedDesc = payload.description
+            return { select: () => createQueryMock({ id: 'lore-123', ...payload }) }
+          },
+        }
+      }
+      if (table === 'chapters') {
+        return {
+          select: () => createQueryMock([]),
+        }
+      }
+      throw new Error(`Unexpected table: ${table}`)
+    },
+  }
+
+  // Caller sends entityName and entityDescription and custom type 'Villan'
+  const res = await executeSaveStoryLoreEntity(
+    {
+      workId: '00000000-0000-0000-0000-000000000001',
+      clerkUserId: 'user_author123',
+      entityName: 'Mogambo',
+      entityType: 'Villan',
+      entityDescription: 'Iconic antagonist',
+    },
+    fakeAdmin,
+    mockAuthResolver
+  )
+
+  assert.equal(res.success, true)
+  assert.equal(savedName, 'Mogambo')
+  assert.equal(savedType, 'Villan')
+  assert.equal(savedDesc, 'Iconic antagonist')
+})

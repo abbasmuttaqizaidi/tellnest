@@ -155,10 +155,11 @@ export function StoryLoreModal({
   }
 
   const handleEditClick = (ent: StoryLoreEntity) => {
-    setEditingName(ent.name)
-    setName(ent.name)
-    setEntityType(ent.type || 'Character')
-    setDescription(ent.description)
+    const entName = ent.name || (ent as any).entityName || ''
+    setEditingName(entName)
+    setName(entName)
+    setEntityType(ent.entityType || (ent as any).type || 'Character')
+    setDescription(ent.description || (ent as any).entityDescription || '')
     setTimeout(() => descInputRef.current?.focus(), 50)
   }
 
@@ -219,10 +220,14 @@ export function StoryLoreModal({
       await saveStoryLoreEntityServerFn({
         data: {
           workId,
+          name: trimmedName,
           entityName: trimmedName,
           entityType,
+          type: entityType,
+          description: trimmedDesc,
           entityDescription: trimmedDesc,
           linkToAllChapters: true,
+          applyToAllChapters: true,
           clerkUserId: user?.id,
         },
       })
@@ -253,15 +258,23 @@ export function StoryLoreModal({
   // Link everywhere (manuscript-wide + current chapter)
   const handleLinkAll = async (ent: StoryLoreEntity) => {
     if (!workId) return
-    const key = `link-${ent.name}`
+    const entName = ent.name || (ent as any).entityName || ''
+    if (!entName) return
+    const entType = ent.entityType || (ent as any).type || 'Character'
+    const entDesc = ent.description || (ent as any).entityDescription || entName
+
+    const key = `link-${entName}`
     setActionLoadingKey(key)
     try {
       const res = await bulkLinkStoryLoreServerFn({
         data: {
           workId,
-          entityName: ent.name,
-          entityType: ent.type,
-          entityDescription: ent.description,
+          name: entName,
+          entityName: entName,
+          entityType: entType,
+          type: entType,
+          description: entDesc,
+          entityDescription: entDesc,
           clerkUserId: user?.id,
         },
       })
@@ -269,9 +282,9 @@ export function StoryLoreModal({
       if (hasChapterContext && onUpdateContent && content) {
         const { newMarkdown } = linkAllOccurrences(
           content,
-          ent.name,
-          ent.type,
-          ent.description
+          entName,
+          entType,
+          entDesc
         )
         await onUpdateContent(newMarkdown)
       }
@@ -286,13 +299,14 @@ export function StoryLoreModal({
 
   // Unlink everywhere
   const handleUnlinkAll = async (entName: string) => {
-    if (!workId) return
+    if (!workId || !entName) return
     const key = `unlink-${entName}`
     setActionLoadingKey(key)
     try {
       const res = await bulkUnlinkStoryLoreServerFn({
         data: {
           workId,
+          name: entName,
           entityName: entName,
           clerkUserId: user?.id,
         },
@@ -313,7 +327,7 @@ export function StoryLoreModal({
 
   // Delete entity
   const handleDelete = async (entName: string) => {
-    if (!workId) return
+    if (!workId || !entName) return
     if (!window.confirm(`Delete "${entName}" from lore notes? Mentions will be unlinked.`)) return
 
     const key = `delete-${entName}`
@@ -322,6 +336,7 @@ export function StoryLoreModal({
       await deleteStoryLoreEntityServerFn({
         data: {
           workId,
+          name: entName,
           entityName: entName,
           clerkUserId: user?.id,
         },
@@ -632,21 +647,25 @@ export function StoryLoreModal({
               ) : (
                 <div className="space-y-2">
                   {filteredEntities.map((ent) => {
-                    const mentions = hasChapterContext && content ? countEntityMentions(content, ent.name) : null
-                    const isBusy =
-                      actionLoadingKey === `link-${ent.name}` ||
-                      actionLoadingKey === `unlink-${ent.name}` ||
-                      actionLoadingKey === `delete-${ent.name}`
+                    const entName = ent.name || (ent as any).entityName || ''
+                    const entType = ent.entityType || (ent as any).type || 'Character'
+                    const entDesc = ent.description || (ent as any).entityDescription || ''
 
-                    const isCharacter = ent.type?.toLowerCase() === 'character'
-                    const isLocation = ent.type?.toLowerCase() === 'location'
-                    const isLore = ent.type?.toLowerCase() === 'lore'
+                    const mentions = hasChapterContext && content ? countEntityMentions(content, entName) : null
+                    const isBusy =
+                      actionLoadingKey === `link-${entName}` ||
+                      actionLoadingKey === `unlink-${entName}` ||
+                      actionLoadingKey === `delete-${entName}`
+
+                    const isCharacter = entType.toLowerCase() === 'character'
+                    const isLocation = entType.toLowerCase() === 'location'
+                    const isLore = entType.toLowerCase() === 'lore'
 
                     return (
                       <div
-                        key={ent.name}
+                        key={entName}
                         className={`p-3 rounded-xl border transition flex items-start sm:items-center justify-between gap-3 ${
-                          editingName === ent.name
+                          editingName === entName
                             ? 'border-zinc-400 dark:border-zinc-500 bg-zinc-100/50 dark:bg-zinc-800/40'
                             : 'border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:border-zinc-300 dark:hover:border-zinc-600'
                         }`}
@@ -655,7 +674,7 @@ export function StoryLoreModal({
                         <div className="space-y-0.5 min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-semibold text-xs text-[var(--ink-primary)]">
-                              {ent.name}
+                              {entName}
                             </span>
                             <span
                               className={`px-1.5 py-0.5 text-[10px] font-medium rounded-md ${
@@ -668,7 +687,7 @@ export function StoryLoreModal({
                                   : 'bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700'
                               }`}
                             >
-                              {ent.type}
+                              {entType}
                             </span>
 
                             {mentions && (
@@ -687,7 +706,7 @@ export function StoryLoreModal({
                             )}
                           </div>
                           <p className="text-[11px] text-[var(--ink-secondary)] line-clamp-2 leading-relaxed">
-                            {ent.description}
+                            {entDesc}
                           </p>
                         </div>
 
@@ -701,7 +720,7 @@ export function StoryLoreModal({
                             title="Auto-link mentions across all chapters"
                             className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 bg-zinc-100/70 dark:bg-zinc-800/70 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition disabled:opacity-50 cursor-pointer"
                           >
-                            {actionLoadingKey === `link-${ent.name}` ? (
+                            {actionLoadingKey === `link-${entName}` ? (
                               <Loader2 className="w-3 h-3 animate-spin" />
                             ) : (
                               <LinkIcon className="w-3 h-3" />
@@ -713,11 +732,11 @@ export function StoryLoreModal({
                           <button
                             type="button"
                             disabled={isBusy}
-                            onClick={() => handleUnlinkAll(ent.name)}
+                            onClick={() => handleUnlinkAll(entName)}
                             title="Unlink all mentions"
                             className="p-1 rounded-lg text-[var(--ink-muted)] hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-[var(--bg-subtle)] transition disabled:opacity-50 cursor-pointer"
                           >
-                            {actionLoadingKey === `unlink-${ent.name}` ? (
+                            {actionLoadingKey === `unlink-${entName}` ? (
                               <Loader2 className="w-3 h-3 animate-spin" />
                             ) : (
                               <Unlink className="w-3 h-3" />
@@ -739,11 +758,11 @@ export function StoryLoreModal({
                           <button
                             type="button"
                             disabled={isBusy}
-                            onClick={() => handleDelete(ent.name)}
+                            onClick={() => handleDelete(entName)}
                             title="Delete note"
                             className="p-1 rounded-lg text-[var(--ink-muted)] hover:text-red-500 hover:bg-red-500/10 transition disabled:opacity-50 cursor-pointer"
                           >
-                            {actionLoadingKey === `delete-${ent.name}` ? (
+                            {actionLoadingKey === `delete-${entName}` ? (
                               <Loader2 className="w-3 h-3 animate-spin" />
                             ) : (
                               <Trash2 className="w-3 h-3" />

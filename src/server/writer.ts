@@ -2236,11 +2236,15 @@ export const getStoryLoreBibleServerFn = createServerFn({ method: 'GET' })
 export interface SaveStoryLoreEntityPayload {
   workId: string
   clerkUserId?: string
-  name: string
-  entityType: string
-  description: string
+  name?: string
+  entityName?: string
+  entityType?: string
+  type?: string
+  description?: string
+  entityDescription?: string
   linkCurrentChapterId?: string
   applyToAllChapters?: boolean
+  linkToAllChapters?: boolean
 }
 
 export async function executeSaveStoryLoreEntity(
@@ -2249,8 +2253,13 @@ export async function executeSaveStoryLoreEntity(
   authResolver?: () => Promise<{ userId: string | null } | null>
 ) {
   if (!data.workId?.trim()) throw new Error('Work ID is required')
-  if (!data.name?.trim()) throw new Error('Entity name is required')
-  if (!data.description?.trim()) throw new Error('Tooltip description is required')
+  const entityName = (data.name || data.entityName || '').trim()
+  const entityDescription = (data.description || data.entityDescription || '').trim()
+  const entityType = (data.entityType || data.type || 'Character').trim()
+  const applyToAllChapters = data.applyToAllChapters ?? data.linkToAllChapters ?? !data.linkCurrentChapterId
+
+  if (!entityName) throw new Error('Entity name is required')
+  if (!entityDescription) throw new Error('Tooltip description is required')
 
   const admin = adminClient || createAdminClient()
   if (!data.clerkUserId) throw new Error('User authentication required')
@@ -2274,9 +2283,6 @@ export async function executeSaveStoryLoreEntity(
     throw new Error('Unauthorized: You can only manage lore for your own manuscripts.')
   }
 
-  const entityName = data.name.trim()
-  const entityType = data.entityType || 'Character'
-  const entityDescription = data.description.trim()
   const nowIso = new Date().toISOString()
 
   let savedEntityId: string | undefined
@@ -2324,7 +2330,7 @@ export async function executeSaveStoryLoreEntity(
   let updatedChaptersCount = 0
   let totalMentionsLinked = 0
 
-  if (data.applyToAllChapters) {
+  if (applyToAllChapters) {
     const { data: chapters } = await admin
       .from('chapters')
       .select('id, content')
@@ -2437,8 +2443,10 @@ export async function executeSaveStoryLoreEntity(
 export const saveStoryLoreEntityServerFn = createServerFn({ method: 'POST' })
   .validator((params: SaveStoryLoreEntityPayload) => {
     if (!params.workId?.trim()) throw new Error('Work ID is required')
-    if (!params.name?.trim()) throw new Error('Entity name is required')
-    if (!params.description?.trim()) throw new Error('Tooltip description is required')
+    const entityName = (params.name || params.entityName || '').trim()
+    const entityDescription = (params.description || params.entityDescription || '').trim()
+    if (!entityName) throw new Error('Entity name is required')
+    if (!entityDescription) throw new Error('Tooltip description is required')
     return params
   })
   .handler(async ({ data }) => {
@@ -2533,7 +2541,12 @@ export const saveUserLoreTypeServerFn = createServerFn({ method: 'POST' })
 export interface BulkLinkStoryLorePayload {
   workId: string
   clerkUserId?: string
-  entityName: string
+  entityName?: string
+  name?: string
+  entityType?: string
+  type?: string
+  entityDescription?: string
+  description?: string
   chapterIds?: string[]
 }
 
@@ -2542,8 +2555,9 @@ export async function executeBulkLinkStoryLore(
   adminClient?: any,
   authResolver?: () => Promise<{ userId: string | null } | null>
 ) {
+  const entityName = (data.entityName || data.name || '').trim()
   if (!data.workId?.trim()) throw new Error('Work ID is required')
-  if (!data.entityName?.trim()) throw new Error('Entity name is required')
+  if (!entityName) throw new Error('Entity name is required')
 
   const admin = adminClient || createAdminClient()
   if (!data.clerkUserId) throw new Error('User authentication required')
@@ -2567,16 +2581,16 @@ export async function executeBulkLinkStoryLore(
     throw new Error('Unauthorized: You can only manage lore for your own manuscripts.')
   }
 
-  // Find entity definition from table or chapters
-  let entityType = 'Character'
-  let description = ''
+  // Find entity definition from payload, table or chapters
+  let entityType = (data.entityType || data.type || 'Character').trim()
+  let description = (data.description || data.entityDescription || '').trim()
 
   try {
     const { data: entRow } = await admin
       .from('story_lore_entities')
       .select('*')
       .eq('work_id', workUuid)
-      .ilike('name', data.entityName.trim())
+      .ilike('name', entityName)
       .maybeSingle()
     if (entRow) {
       entityType = entRow.entity_type
@@ -2599,7 +2613,7 @@ export async function executeBulkLinkStoryLore(
   if (!description && chapters) {
     for (const ch of chapters) {
       const extracted = extractLoreEntities(ch.content || '')
-      const found = extracted.find((e) => e.name.toLowerCase() === data.entityName.trim().toLowerCase())
+      const found = extracted.find((e) => e.name.toLowerCase() === entityName.toLowerCase())
       if (found) {
         entityType = found.entityType
         description = found.description
@@ -2609,13 +2623,13 @@ export async function executeBulkLinkStoryLore(
   }
 
   if (!description) {
-    description = data.entityName.trim()
+    description = entityName
   }
 
   if (chapters && chapters.length > 0) {
     for (const ch of chapters) {
       const { newMarkdown, countReplaced } = linkAllOccurrences(ch.content || '', {
-        name: data.entityName.trim(),
+        name: entityName,
         entityType,
         description,
       })
@@ -2649,14 +2663,15 @@ export async function executeBulkLinkStoryLore(
     chaptersUpdated: updatedChaptersCount,
     totalMentionsLinked,
     totalLinked: totalMentionsLinked,
-    entityName: data.entityName.trim(),
+    entityName,
   }
 }
 
 export const bulkLinkStoryLoreServerFn = createServerFn({ method: 'POST' })
   .validator((params: BulkLinkStoryLorePayload) => {
     if (!params.workId?.trim()) throw new Error('Work ID is required')
-    if (!params.entityName?.trim()) throw new Error('Entity name is required')
+    const name = (params.entityName || params.name || '').trim()
+    if (!name) throw new Error('Entity name is required')
     return params
   })
   .handler(async ({ data }) => {
@@ -2666,7 +2681,8 @@ export const bulkLinkStoryLoreServerFn = createServerFn({ method: 'POST' })
 export interface BulkUnlinkStoryLorePayload {
   workId: string
   clerkUserId?: string
-  entityName: string
+  entityName?: string
+  name?: string
   chapterIds?: string[]
 }
 
@@ -2675,8 +2691,9 @@ export async function executeBulkUnlinkStoryLore(
   adminClient?: any,
   authResolver?: () => Promise<{ userId: string | null } | null>
 ) {
+  const entityName = (data.entityName || data.name || '').trim()
   if (!data.workId?.trim()) throw new Error('Work ID is required')
-  if (!data.entityName?.trim()) throw new Error('Entity name is required')
+  if (!entityName) throw new Error('Entity name is required')
 
   const admin = adminClient || createAdminClient()
   if (!data.clerkUserId) throw new Error('User authentication required')
@@ -2712,7 +2729,7 @@ export async function executeBulkUnlinkStoryLore(
 
   if (chapters && chapters.length > 0) {
     for (const ch of chapters) {
-      const { newMarkdown, countUnlinked } = unlinkAllOccurrences(ch.content || '', data.entityName.trim())
+      const { newMarkdown, countUnlinked } = unlinkAllOccurrences(ch.content || '', entityName)
       if (countUnlinked > 0) {
         const cleanContent = newMarkdown.replace(/\\+[ \t]*(?=\r?\n|$)/g, '').trim()
         const wordCount = cleanContent.split(/\s+/).filter(Boolean).length
@@ -2743,14 +2760,15 @@ export async function executeBulkUnlinkStoryLore(
     chaptersUpdated: updatedChaptersCount,
     totalMentionsUnlinked,
     totalUnlinked: totalMentionsUnlinked,
-    entityName: data.entityName.trim(),
+    entityName,
   }
 }
 
 export const bulkUnlinkStoryLoreServerFn = createServerFn({ method: 'POST' })
   .validator((params: BulkUnlinkStoryLorePayload) => {
     if (!params.workId?.trim()) throw new Error('Work ID is required')
-    if (!params.entityName?.trim()) throw new Error('Entity name is required')
+    const name = (params.entityName || params.name || '').trim()
+    if (!name) throw new Error('Entity name is required')
     return params
   })
   .handler(async ({ data }) => {
@@ -2760,7 +2778,9 @@ export const bulkUnlinkStoryLoreServerFn = createServerFn({ method: 'POST' })
 export interface DeleteStoryLoreEntityPayload {
   workId: string
   clerkUserId?: string
-  entityName: string
+  entityName?: string
+  name?: string
+  entityId?: string
   unlinkEverywhere?: boolean
 }
 
@@ -2769,8 +2789,9 @@ export async function executeDeleteStoryLoreEntity(
   adminClient?: any,
   authResolver?: () => Promise<{ userId: string | null } | null>
 ) {
+  const entityName = (data.entityName || data.name || data.entityId || '').trim()
   if (!data.workId?.trim()) throw new Error('Work ID is required')
-  if (!data.entityName?.trim()) throw new Error('Entity name is required')
+  if (!entityName) throw new Error('Entity name is required')
 
   const admin = adminClient || createAdminClient()
   if (!data.clerkUserId) throw new Error('User authentication required')
@@ -2799,7 +2820,7 @@ export async function executeDeleteStoryLoreEntity(
       .from('story_lore_entities')
       .delete()
       .eq('work_id', workUuid)
-      .ilike('name', data.entityName.trim())
+      .ilike('name', entityName)
   } catch {
     // Table not yet migrated
   }
@@ -2810,7 +2831,7 @@ export async function executeDeleteStoryLoreEntity(
       {
         workId: workUuid,
         clerkUserId: data.clerkUserId,
-        entityName: data.entityName.trim(),
+        entityName,
       },
       admin,
       authResolver
@@ -2821,13 +2842,14 @@ export async function executeDeleteStoryLoreEntity(
   clearPublicWorkCache(workUuid)
   if (workRow.slug) clearPublicWorkCache(workRow.slug)
 
-  return { success: true, deletedName: data.entityName.trim(), unlinkedCount }
+  return { success: true, deletedName: entityName, unlinkedCount }
 }
 
 export const deleteStoryLoreEntityServerFn = createServerFn({ method: 'POST' })
   .validator((params: DeleteStoryLoreEntityPayload) => {
     if (!params.workId?.trim()) throw new Error('Work ID is required')
-    if (!params.entityName?.trim()) throw new Error('Entity name is required')
+    const name = (params.entityName || params.name || params.entityId || '').trim()
+    if (!name) throw new Error('Entity name is required')
     return params
   })
   .handler(async ({ data }) => {
