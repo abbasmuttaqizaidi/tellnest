@@ -1246,9 +1246,9 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
                     </div>
 
                     <div className="pt-2 border-t border-[var(--border-subtle)] flex items-center justify-between">
-                      <span className="font-mono text-[10px] text-[var(--ink-faint)] truncate">
+                      {/* <span className="font-mono text-[10px] text-[var(--ink-faint)] truncate">
                         {pubDate ? new Date(pubDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Debut'}
-                      </span>
+                      </span> */}
 
                       <Link
                         to="/read/$workId/$chapterId"

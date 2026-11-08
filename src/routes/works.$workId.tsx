@@ -1125,12 +1125,12 @@ function WorkDetailPage() {
                       </span>
                       <span className="shrink-0">•</span>
                       <span className="shrink-0">{(chapter.wordCount || 0).toLocaleString()} words</span>
-                      {chapter.publishedAt && (
+                      {/* {chapter.publishedAt && (
                         <>
                           <span className="hidden sm:inline shrink-0">•</span>
                           <span className="hidden sm:inline shrink-0">Published {chapter.publishedAt}</span>
                         </>
-                      )}
+                      )} */}
                     </div>
 
                     <Link

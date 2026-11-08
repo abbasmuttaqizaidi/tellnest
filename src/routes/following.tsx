@@ -514,9 +514,9 @@ function FollowingPage() {
                         {isChapter ? 'Chapter' : 'Work'}
                       </span>
 
-                      <span className="text-[10px] sm:text-[11px] font-mono text-[var(--ink-faint)] ml-auto shrink-0 pl-1">
+                      {/* <span className="text-[10px] sm:text-[11px] font-mono text-[var(--ink-faint)] ml-auto shrink-0 pl-1">
                         {event.timestamp}
-                      </span>
+                      </span> */}
                     </div>
 
                     {/* Book title & Chapter */}

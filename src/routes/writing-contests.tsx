@@ -435,9 +435,11 @@ function WritingContestsPage() {
                   </div>
 
                   <div className="pt-4 border-t border-[var(--border-subtle)] mt-3 flex items-center justify-between text-xs">
-                    <span className="text-[11px] font-mono text-[var(--ink-tertiary)]">
-                      Published {new Date(item.work.published_at).toLocaleDateString()}
-                    </span>
+                    {false && (
+                      <span className="text-[11px] font-mono text-[var(--ink-tertiary)]">
+                        Published {new Date(item.work.published_at).toLocaleDateString()}
+                      </span>
+                    )}
                     <Link
                       to="/works/$workId"
                       params={{ workId: item.work.slug || item.work.id }}
