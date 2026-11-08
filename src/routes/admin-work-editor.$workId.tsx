@@ -14,6 +14,7 @@ import {
   adminBulkLinkLoreServerFn,
   adminBulkUnlinkLoreServerFn,
   adminDeleteLoreEntityServerFn,
+  adminSyncAllStoryLoreServerFn,
   type WorkActAnalytics,
   type AdminUser,
 } from '../server/admin'
@@ -928,6 +929,42 @@ function AdminWorkEditorPage() {
     }
   }
 
+  // Admin Sync All Recorded Lores across all chapters
+  const handleAdminSyncAllLores = async () => {
+    if (!adminToken || !work?.id) return
+    setIsLinkingLore(true)
+    try {
+      const res = await adminSyncAllStoryLoreServerFn({
+        data: {
+          adminToken,
+          workId: work.id,
+        },
+      })
+      if (res.totalMentionsLinked > 0) {
+        showToast(
+          `Synced ${res.totalMentionsLinked} lore mention${res.totalMentionsLinked !== 1 ? 's' : ''} across ${res.updatedChaptersCount} chapter${res.updatedChaptersCount !== 1 ? 's' : ''}!`,
+          'success'
+        )
+      } else {
+        showToast('All chapters are already up to date with recorded lores.', 'success')
+      }
+      await loadLoreBibleFromDb()
+      await loadActsFromDb(adminToken)
+      if (work?.id) {
+        try {
+          const dbWork = await getPublicWorkServerFn({ data: work.id })
+          if (dbWork) setLocalWorkOverride(dbWork)
+        } catch {}
+        await reloadWorksFromDb()
+      }
+      await router.invalidate()
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to sync lores', 'error')
+    } finally {
+      setIsLinkingLore(false)
+    }
+  }
+
   // Verification Gate
   if (isVerifying) {
     return (
@@ -1770,7 +1807,19 @@ function AdminWorkEditorPage() {
                 Define story entities once, then link them across all {work.chapters?.length || 0} chapters with one click. Readers see interactive tooltips when tapping names in prose.
               </p>
             </div>
-            <div className="flex items-center gap-2.5 self-start sm:self-auto shrink-0">
+            <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                isLoading={isLinkingLore}
+                disabled={storyLoreEntities.length === 0}
+                leftIcon={<RefreshCw className="w-3.5 h-3.5 text-blue-500" />}
+                onClick={handleAdminSyncAllLores}
+                title="Automatically scan and link all recorded lore entities across all chapters"
+              >
+                Sync Lores
+              </Button>
               <Button
                 type="button"
                 variant="secondary"

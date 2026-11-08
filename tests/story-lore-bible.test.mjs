@@ -518,6 +518,125 @@ test('Admin Bulk Lore Import: Allows admin to import CSV and link entities acros
   assert.equal(upsertedEntities.length, 3)
 })
 
+test('Sync Lores: Automatically scans all chapters and links all recorded story lore in single pass', async () => {
+  const { executeSyncAllStoryLore } = await import('../src/server/writer.ts')
+  const { executeAdminSyncAllStoryLore, generateAdminToken } = await import('../src/server/admin.ts')
+
+  const mockWorkId = '00000000-0000-0000-0000-000000000055'
+  const mockAuthorProfileId = '00000000-0000-0000-0000-000000000056'
+  const mockClerkUserId = 'user_lore_sync_test'
+  const { token: validToken } = generateAdminToken()
+
+  const updatedChapters = []
+
+  const mockAdminClient = {
+    from(table) {
+      if (table === 'profiles') {
+        return {
+          select() {
+            return {
+              eq() {
+                return {
+                  maybeSingle: async () => ({
+                    data: { id: mockAuthorProfileId, clerk_user_id: mockClerkUserId },
+                  }),
+                }
+              },
+            }
+          },
+        }
+      }
+      if (table === 'works') {
+        return {
+          select() {
+            return {
+              eq() {
+                return {
+                  maybeSingle: async () => ({
+                    data: { id: mockWorkId, title: 'Mystery of Morrow House', slug: 'mystery-of-morrow-house', author_id: mockAuthorProfileId },
+                  }),
+                }
+              },
+            }
+          },
+        }
+      }
+      if (table === 'story_lore_entities') {
+        return {
+          select() {
+            return {
+              eq() {
+                return Promise.resolve({
+                  data: [
+                    { name: 'Evan', entity_type: 'Character', description: 'Tenant of Apt 306' },
+                    { name: 'Morrow House', entity_type: 'Location', description: 'Old building' },
+                  ],
+                })
+              },
+            }
+          },
+        }
+      }
+      if (table === 'chapters') {
+        return {
+          select() {
+            return {
+              eq() {
+                return Promise.resolve({
+                  data: [
+                    { id: 'ch-1', title: 'Arrival', content: 'Evan entered Morrow House late at night.' },
+                    { id: 'ch-2', title: 'Next Morning', content: 'Evan looked out the window.' },
+                    { id: 'ch-3', title: 'The Street', content: 'The weather was cold.' },
+                  ],
+                })
+              },
+            }
+          },
+          update(updates) {
+            return {
+              eq(col, val) {
+                updatedChapters.push({ id: val, updates })
+                return Promise.resolve({ error: null })
+              },
+            }
+          },
+        }
+      }
+      throw new Error(`Unexpected table: ${table}`)
+    },
+  }
+
+  // 1. Author sync test
+  const authorRes = await executeSyncAllStoryLore(
+    {
+      workId: mockWorkId,
+      clerkUserId: mockClerkUserId,
+    },
+    mockAdminClient,
+    async () => ({ userId: mockClerkUserId })
+  )
+
+  assert.equal(authorRes.success, true)
+  assert.equal(authorRes.totalEntities, 2)
+  assert.equal(authorRes.updatedChaptersCount, 2) // ch-1 (Evan & Morrow House) and ch-2 (Evan)
+  assert.equal(authorRes.totalMentionsLinked, 3)
+
+  // 2. Admin sync test
+  updatedChapters.length = 0
+  const adminRes = await executeAdminSyncAllStoryLore(
+    {
+      adminToken: validToken,
+      workId: mockWorkId,
+    },
+    mockAdminClient
+  )
+
+  assert.equal(adminRes.success, true)
+  assert.equal(adminRes.totalEntities, 2)
+  assert.equal(adminRes.updatedChaptersCount, 2)
+  assert.equal(adminRes.totalMentionsLinked, 3)
+})
+
 test('Edge Case: Curly vs straight apostrophes match seamlessly', () => {
   const entity = {
     name: "D'Artagnan",

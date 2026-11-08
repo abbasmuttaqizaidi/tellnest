@@ -6,6 +6,7 @@ import {
   linkAllOccurrences,
   unlinkAllOccurrences,
   linkMultipleEntities,
+  extractLoreEntities,
   type LoreEntity,
 } from '../lib/lore/loreParser.ts'
 import { parseLoreCsv } from '../lib/lore/csvLoreParser.ts'
@@ -1963,6 +1964,134 @@ export const adminImportStoryLoreCsvServerFn = createServerFn({ method: 'POST' }
   })
   .handler(async ({ data }: { data: AdminImportStoryLoreCsvPayload }) => {
     return executeAdminImportStoryLoreCsv(data)
+  })
+
+export interface AdminSyncAllStoryLorePayload {
+  adminToken: string
+  workId: string
+  chapterIds?: string[]
+}
+
+export async function executeAdminSyncAllStoryLore(
+  data: AdminSyncAllStoryLorePayload,
+  adminClient?: any
+) {
+  if (!data.adminToken) throw new Error('Admin authorization token is required')
+  if (!isValidAdminToken(data.adminToken)) {
+    throw new Error('Unauthorized: Invalid administration key')
+  }
+  if (!data.workId?.trim()) throw new Error('Work ID is required')
+
+  const admin = adminClient || createAdminClient()
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.workId.trim())
+  let targetWorkUuid = data.workId.trim()
+  if (!isUuid) {
+    const { data: wRow } = await admin.from('works').select('id').eq('slug', targetWorkUuid.toLowerCase()).maybeSingle()
+    if (wRow?.id) targetWorkUuid = wRow.id
+  }
+
+  // 1. Fetch chapters
+  let chapterQuery = admin.from('chapters').select('id, title, chapter_number, content').eq('work_id', targetWorkUuid)
+  if (data.chapterIds && data.chapterIds.length > 0) {
+    chapterQuery = chapterQuery.in('id', data.chapterIds)
+  }
+  const { data: chapters, error: chErr } = await chapterQuery
+  if (chErr) throw new Error(chErr.message)
+  const allChapters = chapters || []
+
+  // 2. Fetch all recorded lore entities
+  const entityMap = new Map<string, LoreEntity>()
+  try {
+    const { data: dbRows } = await admin
+      .from('story_lore_entities')
+      .select('name, entity_type, description')
+      .eq('work_id', targetWorkUuid)
+    if (Array.isArray(dbRows)) {
+      for (const row of dbRows) {
+        entityMap.set(row.name.toLowerCase().trim(), {
+          name: row.name.trim(),
+          entityType: row.entity_type,
+          description: row.description,
+        })
+      }
+    }
+  } catch {
+    // Continue if table not yet migrated
+  }
+
+  for (const ch of allChapters) {
+    const extracted = extractLoreEntities(ch.content || '')
+    for (const ent of extracted) {
+      const key = ent.name.toLowerCase().trim()
+      if (!entityMap.has(key)) {
+        entityMap.set(key, {
+          name: ent.name.trim(),
+          entityType: ent.entityType,
+          description: ent.description,
+        })
+      }
+    }
+  }
+
+  const allEntities = Array.from(entityMap.values())
+  if (allEntities.length === 0 || allChapters.length === 0) {
+    return {
+      success: true,
+      updatedChaptersCount: 0,
+      totalMentionsLinked: 0,
+      totalEntities: 0,
+    }
+  }
+
+  // 3. Scan & link across all chapters
+  let updatedChaptersCount = 0
+  let totalMentionsLinked = 0
+  const nowIso = new Date().toISOString()
+
+  for (const ch of allChapters) {
+    const rawContent = ch.content || ''
+    const { newMarkdown, totalLinked } = linkMultipleEntities(rawContent, allEntities)
+
+    if (totalLinked > 0) {
+      const cleanContent = newMarkdown.replace(/\\+[ \t]*(?=\r?\n|$)/g, '').trim()
+      const wordCount = cleanContent.split(/\s+/).filter(Boolean).length
+      const readingTime = Math.max(1, Math.ceil(wordCount / 220))
+
+      const { error: upErr } = await admin
+        .from('chapters')
+        .update({
+          content: cleanContent,
+          word_count: wordCount,
+          reading_time_minutes: readingTime,
+          updated_at: nowIso,
+        })
+        .eq('id', ch.id)
+
+      if (!upErr) {
+        updatedChaptersCount++
+        totalMentionsLinked += totalLinked
+      }
+    }
+  }
+
+  clearPublicWorkCache(targetWorkUuid)
+
+  return {
+    success: true,
+    updatedChaptersCount,
+    totalMentionsLinked,
+    totalEntities: allEntities.length,
+  }
+}
+
+export const adminSyncAllStoryLoreServerFn = createServerFn({ method: 'POST' })
+  .validator((params: AdminSyncAllStoryLorePayload) => {
+    if (!params.adminToken) throw new Error('Admin authorization token is required')
+    if (!params.workId?.trim()) throw new Error('Work ID is required')
+    return params
+  })
+  .handler(async ({ data }: { data: AdminSyncAllStoryLorePayload }) => {
+    return executeAdminSyncAllStoryLore(data)
   })
 
 /**

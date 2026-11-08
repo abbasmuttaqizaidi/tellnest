@@ -13,6 +13,7 @@ import {
   Check,
   BookOpen,
   ChevronDown,
+  RefreshCw,
 } from 'lucide-react'
 import { StoryLoreCsvModal } from './StoryLoreCsvModal'
 import {
@@ -29,7 +30,9 @@ import {
   bulkUnlinkStoryLoreServerFn,
   deleteStoryLoreEntityServerFn,
   saveUserLoreTypeServerFn,
+  syncAllStoryLoreServerFn,
 } from '../../server/writer'
+import { adminSyncAllStoryLoreServerFn } from '../../server/admin'
 
 export interface StoryLoreModalProps {
   isOpen: boolean
@@ -79,6 +82,7 @@ export function StoryLoreModal({
 
   // CSV modal & status feedback
   const [isCsvModalOpen, setIsCsvModalOpen] = useState(false)
+  const [isSyncing, setIsSyncing] = useState(false)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const [actionLoadingKey, setActionLoadingKey] = useState<string | null>(null)
 
@@ -88,6 +92,58 @@ export function StoryLoreModal({
   const showToast = (msg: string) => {
     setToastMessage(msg)
     setTimeout(() => setToastMessage(null), 3500)
+  }
+
+  // Automatically scan and sync all recorded lore links across all chapters
+  const handleSyncAllLores = async () => {
+    if (!workId || isSyncing) return
+    setIsSyncing(true)
+    try {
+      if (hasChapterContext && onUpdateContent && bibleEntities.length > 0) {
+        const { newMarkdown, totalLinked } = linkMultipleEntities(
+          content,
+          bibleEntities.map((e) => ({
+            name: e.name,
+            entityType: e.entityType,
+            description: e.description,
+          }))
+        )
+        if (totalLinked > 0) {
+          await onUpdateContent(newMarkdown)
+        }
+      }
+
+      let res: any
+      if (adminToken) {
+        res = await adminSyncAllStoryLoreServerFn({
+          data: {
+            adminToken,
+            workId,
+          },
+        })
+      } else {
+        res = await syncAllStoryLoreServerFn({
+          data: {
+            workId,
+            clerkUserId: user?.id,
+          },
+        })
+      }
+
+      await loadEntities()
+      if (res?.totalMentionsLinked > 0) {
+        showToast(
+          `Synced ${res.totalMentionsLinked} lore mention${res.totalMentionsLinked !== 1 ? 's' : ''} across ${res.updatedChaptersCount} chapter${res.updatedChaptersCount !== 1 ? 's' : ''}!`
+        )
+      } else {
+        showToast('All chapters are already up to date with recorded lores.')
+      }
+    } catch (err: any) {
+      console.error('[StoryLoreModal] Sync lores failed:', err)
+      showToast(err?.message || 'Failed to sync lores')
+    } finally {
+      setIsSyncing(false)
+    }
   }
 
   // Load lore entities & available lore types from backend
@@ -408,15 +464,28 @@ export function StoryLoreModal({
 
             <div className="flex items-center gap-2">
               {workId && (
-                <button
-                  type="button"
-                  onClick={() => setIsCsvModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] hover:bg-[var(--bg-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] transition cursor-pointer"
-                  title="Bulk import lores from CSV"
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Import Lores</span>
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={handleSyncAllLores}
+                    disabled={isSyncing || bibleEntities.length === 0}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] hover:bg-[var(--bg-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] transition cursor-pointer disabled:opacity-50"
+                    title="Automatically scan all chapters and link unlinked mentions of recorded lores"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-zinc-500' : 'text-blue-500'}`} />
+                    <span>{isSyncing ? 'Syncing...' : 'Sync Lores'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsCsvModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] hover:bg-[var(--bg-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] transition cursor-pointer"
+                    title="Bulk import lores from CSV"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Import Lores</span>
+                  </button>
+                </>
               )}
               <button
                 type="button"

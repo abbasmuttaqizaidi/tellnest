@@ -2678,6 +2678,144 @@ export const bulkLinkStoryLoreServerFn = createServerFn({ method: 'POST' })
     return executeBulkLinkStoryLore(data)
   })
 
+export interface SyncAllStoryLorePayload {
+  workId: string
+  clerkUserId?: string
+  chapterIds?: string[]
+}
+
+export async function executeSyncAllStoryLore(
+  data: SyncAllStoryLorePayload,
+  adminClient?: any,
+  authResolver?: () => Promise<{ userId: string | null } | null>
+) {
+  if (!data.workId?.trim()) throw new Error('Work ID is required')
+
+  const admin = adminClient || createAdminClient()
+  if (!data.clerkUserId) throw new Error('User authentication required')
+  const verifiedUserId = await authenticateWriterRequest(data.clerkUserId, authResolver)
+  const profile = await resolveUserProfile(admin, verifiedUserId)
+
+  let workUuid = data.workId.trim()
+  const isWorkUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(workUuid)
+  let workRow: any = null
+
+  if (isWorkUuid) {
+    const { data: row } = await admin.from('works').select('id, title, slug, author_id').eq('id', workUuid).maybeSingle()
+    workRow = row
+  } else {
+    const { data: row } = await admin.from('works').select('id, title, slug, author_id').eq('slug', workUuid.toLowerCase()).maybeSingle()
+    workRow = row
+    if (workRow?.id) workUuid = workRow.id
+  }
+
+  if (!workRow || workRow.author_id !== profile.id) {
+    throw new Error('Unauthorized: You can only manage lore for your own manuscripts.')
+  }
+
+  // 1. Fetch all chapters for this work
+  let chapterQuery = admin.from('chapters').select('id, title, chapter_number, content').eq('work_id', workUuid)
+  if (data.chapterIds && data.chapterIds.length > 0) {
+    chapterQuery = chapterQuery.in('id', data.chapterIds)
+  }
+  const { data: chapters, error: chErr } = await chapterQuery
+  if (chErr) throw new Error(chErr.message)
+  const allChapters = chapters || []
+
+  // 2. Fetch all recorded lore entities from DB and fallback scan
+  const entityMap = new Map<string, LoreEntity>()
+  try {
+    const { data: dbRows } = await admin
+      .from('story_lore_entities')
+      .select('name, entity_type, description')
+      .eq('work_id', workUuid)
+    if (Array.isArray(dbRows)) {
+      for (const row of dbRows) {
+        entityMap.set(row.name.toLowerCase().trim(), {
+          name: row.name.trim(),
+          entityType: row.entity_type,
+          description: row.description,
+        })
+      }
+    }
+  } catch {
+    // Continue if table not yet migrated
+  }
+
+  for (const ch of allChapters) {
+    const extracted = extractLoreEntities(ch.content || '')
+    for (const ent of extracted) {
+      const key = ent.name.toLowerCase().trim()
+      if (!entityMap.has(key)) {
+        entityMap.set(key, {
+          name: ent.name.trim(),
+          entityType: ent.entityType,
+          description: ent.description,
+        })
+      }
+    }
+  }
+
+  const allEntities = Array.from(entityMap.values())
+  if (allEntities.length === 0 || allChapters.length === 0) {
+    return {
+      success: true,
+      updatedChaptersCount: 0,
+      totalMentionsLinked: 0,
+      totalEntities: 0,
+    }
+  }
+
+  // 3. Scan & link across all chapters
+  let updatedChaptersCount = 0
+  let totalMentionsLinked = 0
+  const nowIso = new Date().toISOString()
+
+  for (const ch of allChapters) {
+    const rawContent = ch.content || ''
+    const { newMarkdown, totalLinked } = linkMultipleEntities(rawContent, allEntities)
+
+    if (totalLinked > 0) {
+      const cleanContent = newMarkdown.replace(/\\+[ \t]*(?=\r?\n|$)/g, '').trim()
+      const wordCount = cleanContent.split(/\s+/).filter(Boolean).length
+      const readingTime = Math.max(1, Math.ceil(wordCount / 220))
+
+      const { error: upErr } = await admin
+        .from('chapters')
+        .update({
+          content: cleanContent,
+          word_count: wordCount,
+          reading_time_minutes: readingTime,
+          updated_at: nowIso,
+        })
+        .eq('id', ch.id)
+
+      if (!upErr) {
+        updatedChaptersCount++
+        totalMentionsLinked += totalLinked
+      }
+    }
+  }
+
+  clearPublicWorkCache(workUuid)
+
+  return {
+    success: true,
+    updatedChaptersCount,
+    totalMentionsLinked,
+    totalEntities: allEntities.length,
+  }
+}
+
+export const syncAllStoryLoreServerFn = createServerFn({ method: 'POST' })
+  .validator((params: SyncAllStoryLorePayload) => {
+    if (!params.workId?.trim()) throw new Error('Work ID is required')
+    return params
+  })
+  .handler(async ({ data }) => {
+    return executeSyncAllStoryLore(data)
+  })
+
 export interface BulkUnlinkStoryLorePayload {
   workId: string
   clerkUserId?: string
