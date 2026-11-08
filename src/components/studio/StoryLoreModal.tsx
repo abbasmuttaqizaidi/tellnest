@@ -410,10 +410,10 @@ export function StoryLoreModal({
                   type="button"
                   onClick={() => setIsCsvModalOpen(true)}
                   className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] hover:bg-[var(--bg-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] transition cursor-pointer"
-                  title="Bulk import lore from CSV"
+                  title="Bulk import lores from CSV"
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Import CSV</span>
+                  <span>Import Lores</span>
                 </button>
               )}
               <button
