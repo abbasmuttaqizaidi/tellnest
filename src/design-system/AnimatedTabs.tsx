@@ -16,7 +16,7 @@ export interface AnimatedTabsProps {
   activeId: string
   onChange: (id: string) => void
   className?: string
-  size?: 'sm' | 'md'
+  size?: 'xs' | 'sm' | 'md'
   variant?: 'pill' | 'underline'
 }
 
@@ -33,6 +33,7 @@ export const AnimatedTabs: React.FC<AnimatedTabsProps> = ({
   const groupId = customId || `tabs-${generatedId.replace(/:/g, '')}`
 
   const sizeClasses = {
+    xs: variant === 'pill' ? 'px-2 py-0.5 text-[10px]' : 'px-2 text-[10px]',
     sm: variant === 'pill' ? 'px-3 py-1.5 text-xs' : 'px-3 text-xs',
     md: variant === 'pill' ? 'px-4 py-2 text-xs sm:text-sm' : 'px-4 text-sm',
   }[size]
@@ -44,7 +45,10 @@ export const AnimatedTabs: React.FC<AnimatedTabsProps> = ({
         className={cn(
           'relative inline-flex items-center max-w-full overflow-x-auto select-none [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
           variant === 'pill'
-            ? 'p-1 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-xs gap-1'
+            ? cn(
+                'rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)]',
+                size === 'xs' ? 'p-0.5 gap-0.5 shadow-2xs' : 'p-1 gap-1 shadow-xs'
+              )
             : 'border-b border-[var(--border-subtle)] gap-2 sm:gap-4',
           className
         )}

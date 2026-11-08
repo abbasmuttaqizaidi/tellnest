@@ -685,7 +685,7 @@ export function StoryLoreModal({
                     activeId={linkStatusFilter}
                     onChange={(id) => setLinkStatusFilter(id as 'all' | 'linked' | 'unlinked')}
                     variant="pill"
-                    size="sm"
+                    size="xs"
                     className="shrink-0"
                   />
                 </div>
