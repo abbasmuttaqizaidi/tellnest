@@ -372,11 +372,11 @@ export function StoryLoreModal({
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
         <div
-          className="bg-[var(--bg-canvas)] border border-[var(--border-subtle)] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[88vh] flex flex-col overflow-hidden text-[var(--ink-primary)]"
+          className="bg-[var(--bg-canvas)] border border-[var(--border-subtle)] rounded-2xl shadow-2xl w-full max-w-2xl h-[640px] max-h-[90vh] flex flex-col overflow-hidden text-[var(--ink-primary)]"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="px-5 py-3.5 border-b border-[var(--border-subtle)] flex items-center justify-between bg-[var(--bg-surface)]">
+          <div className="px-5 py-3.5 border-b border-[var(--border-subtle)] flex items-center justify-between bg-[var(--bg-surface)] shrink-0">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-900 dark:text-zinc-100">
                 <BookOpen className="w-4 h-4" />
@@ -414,16 +414,16 @@ export function StoryLoreModal({
 
           {/* Toast feedback */}
           {toastMessage && (
-            <div className="px-5 py-2 bg-emerald-500/10 border-b border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs flex items-center gap-2">
+            <div className="shrink-0 px-5 py-2 bg-emerald-500/10 border-b border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs flex items-center gap-2 animate-in fade-in duration-100">
               <Check className="w-3.5 h-3.5 shrink-0" />
               <span>{toastMessage}</span>
             </div>
           )}
 
           {/* Modal Body */}
-          <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4">
             {/* 1. ADD-FIRST SECTION: Always ready at top */}
-            <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-850/60 space-y-3">
+            <div className="shrink-0 p-4 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-850/60 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-[var(--ink-primary)]">
                   {editingName ? `Edit Lore Note: "${editingName}"` : 'Quick Add Lore'}
@@ -759,7 +759,7 @@ export function StoryLoreModal({
           </div>
 
           {/* Footer */}
-          <div className="px-5 py-2.5 border-t border-[var(--border-subtle)] bg-[var(--bg-surface)] flex items-center justify-between text-[11px] text-[var(--ink-muted)]">
+          <div className="px-5 py-2.5 border-t border-[var(--border-subtle)] bg-[var(--bg-surface)] flex items-center justify-between text-[11px] text-[var(--ink-muted)] shrink-0">
             <span>
               {bibleEntities.length} {bibleEntities.length === 1 ? 'lore note' : 'lore notes'} recorded
             </span>

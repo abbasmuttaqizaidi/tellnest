@@ -223,9 +223,9 @@ export function StoryLoreCsvModal({
       aria-modal="true"
       aria-labelledby="csv-modal-title"
     >
-      <div className="w-full max-w-3xl max-h-[90vh] flex flex-col rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] text-[var(--ink-primary)] shadow-2xl animate-in zoom-in-95 duration-150 overflow-hidden">
+      <div className="w-full max-w-3xl h-[640px] max-h-[90vh] flex flex-col rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] text-[var(--ink-primary)] shadow-2xl animate-in zoom-in-95 duration-150 overflow-hidden">
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-subtle)] bg-[var(--bg-canvas)]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-subtle)] bg-[var(--bg-canvas)] shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-700">
               <FileSpreadsheet className="h-5 w-5" />
@@ -252,7 +252,7 @@ export function StoryLoreCsvModal({
         </div>
 
         {/* Modal Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+        <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-5">
           {/* Error Message */}
           {errorMessage && (
             <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-700 dark:text-red-400 text-xs flex items-start gap-2.5 animate-in fade-in">
@@ -540,7 +540,7 @@ export function StoryLoreCsvModal({
 
         {/* Modal Footer */}
         {!successResult && (
-          <div className="flex items-center justify-between px-6 py-4 border-t border-[var(--border-subtle)] bg-[var(--bg-canvas)]">
+          <div className="flex items-center justify-between px-6 py-4 border-t border-[var(--border-subtle)] bg-[var(--bg-canvas)] shrink-0">
             <button
               type="button"
               onClick={handleClose}
