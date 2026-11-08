@@ -7,6 +7,7 @@ import {
   unlinkAllOccurrences,
   linkMultipleEntities,
   extractLoreEntities,
+  stripLoreToPlainText,
   type LoreEntity,
 } from '../lib/lore/loreParser.ts'
 import { parseLoreCsv } from '../lib/lore/csvLoreParser.ts'
@@ -1854,9 +1855,14 @@ export async function executeAdminImportStoryLoreCsv(
   const admin = adminClient || createAdminClient()
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.workId.trim())
   let targetWorkUuid = data.workId.trim()
+  let targetSlug: string | null = null
   if (!isUuid) {
-    const { data: wRow } = await admin.from('works').select('id').eq('slug', targetWorkUuid.toLowerCase()).maybeSingle()
+    const { data: wRow } = await admin.from('works').select('id, slug').eq('slug', targetWorkUuid.toLowerCase()).maybeSingle()
     if (wRow?.id) targetWorkUuid = wRow.id
+    if (wRow?.slug) targetSlug = wRow.slug
+  } else {
+    const { data: wRow } = await admin.from('works').select('slug').eq('id', targetWorkUuid).maybeSingle()
+    if (wRow?.slug) targetSlug = wRow.slug
   }
 
   const parseResult = parseLoreCsv(data.csvText)
@@ -1944,6 +1950,9 @@ export async function executeAdminImportStoryLoreCsv(
   }
 
   clearPublicWorkCache(targetWorkUuid)
+  if (targetSlug) {
+    clearPublicWorkCache(targetSlug)
+  }
 
   return {
     success: true,
@@ -1985,9 +1994,14 @@ export async function executeAdminSyncAllStoryLore(
   const admin = adminClient || createAdminClient()
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.workId.trim())
   let targetWorkUuid = data.workId.trim()
+  let targetSlug: string | null = null
   if (!isUuid) {
-    const { data: wRow } = await admin.from('works').select('id').eq('slug', targetWorkUuid.toLowerCase()).maybeSingle()
+    const { data: wRow } = await admin.from('works').select('id, slug').eq('slug', targetWorkUuid.toLowerCase()).maybeSingle()
     if (wRow?.id) targetWorkUuid = wRow.id
+    if (wRow?.slug) targetSlug = wRow.slug
+  } else {
+    const { data: wRow } = await admin.from('works').select('slug').eq('id', targetWorkUuid).maybeSingle()
+    if (wRow?.slug) targetSlug = wRow.slug
   }
 
   // 1. Fetch chapters
@@ -2048,33 +2062,57 @@ export async function executeAdminSyncAllStoryLore(
   let totalMentionsLinked = 0
   const nowIso = new Date().toISOString()
 
+  const chaptersToUpdate: {
+    id: string
+    content: string
+    wordCount: number
+    readingTime: number
+  }[] = []
+
   for (const ch of allChapters) {
     const rawContent = ch.content || ''
     const { newMarkdown, totalLinked } = linkMultipleEntities(rawContent, allEntities)
 
     if (totalLinked > 0) {
       const cleanContent = newMarkdown.replace(/\\+[ \t]*(?=\r?\n|$)/g, '').trim()
-      const wordCount = cleanContent.split(/\s+/).filter(Boolean).length
+      const proseOnly = stripLoreToPlainText(cleanContent)
+      const wordCount = proseOnly.split(/\s+/).filter(Boolean).length
       const readingTime = Math.max(1, Math.ceil(wordCount / 220))
 
-      const { error: upErr } = await admin
-        .from('chapters')
-        .update({
-          content: cleanContent,
-          word_count: wordCount,
-          reading_time_minutes: readingTime,
-          updated_at: nowIso,
-        })
-        .eq('id', ch.id)
-
-      if (!upErr) {
-        updatedChaptersCount++
-        totalMentionsLinked += totalLinked
-      }
+      chaptersToUpdate.push({
+        id: ch.id,
+        content: cleanContent,
+        wordCount,
+        readingTime,
+      })
+      totalMentionsLinked += totalLinked
     }
   }
 
+  // Batch update chapters concurrently (6 at a time)
+  const CONCURRENCY = 6
+  for (let i = 0; i < chaptersToUpdate.length; i += CONCURRENCY) {
+    const batch = chaptersToUpdate.slice(i, i + CONCURRENCY)
+    await Promise.all(
+      batch.map((item) =>
+        admin
+          .from('chapters')
+          .update({
+            content: item.content,
+            word_count: item.wordCount,
+            reading_time_minutes: item.readingTime,
+            updated_at: nowIso,
+          })
+          .eq('id', item.id)
+      )
+    )
+    updatedChaptersCount += batch.length
+  }
+
   clearPublicWorkCache(targetWorkUuid)
+  if (targetSlug) {
+    clearPublicWorkCache(targetSlug)
+  }
 
   return {
     success: true,

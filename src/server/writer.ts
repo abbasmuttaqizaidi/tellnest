@@ -12,6 +12,7 @@ import {
   linkAllOccurrences,
   unlinkAllOccurrences,
   linkMultipleEntities,
+  stripLoreToPlainText,
   type LoreEntity,
   type StoryLoreEntity,
 } from '../lib/lore/loreParser.ts'
@@ -821,10 +822,23 @@ export async function executeSaveWriterChapter(data: SaveWriterChapterPayload, a
 
     // 1. Resolve work ID (if passed as slug)
     let workUuid = data.workId
+    let workSlug: string | undefined = undefined
     const isWorkUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.workId)
     if (!isWorkUuid) {
-      const { data: wRow } = await admin.from('works').select('id').eq('slug', data.workId).maybeSingle()
-      if (wRow?.id) workUuid = wRow.id
+      try {
+        const query = admin.from('works').select('id, slug').eq('slug', data.workId)
+        const res = typeof query?.maybeSingle === 'function' ? await query.maybeSingle() : await query
+        const wRow = res?.data
+        if (wRow?.id) workUuid = wRow.id
+        if (wRow?.slug) workSlug = wRow.slug
+      } catch {}
+    } else {
+      try {
+        const query = admin.from('works').select('slug').eq('id', workUuid)
+        const res = typeof query?.maybeSingle === 'function' ? await query.maybeSingle() : await query
+        const wRow = res?.data
+        if (wRow?.slug) workSlug = wRow.slug
+      } catch {}
     }
 
     // 2. Check if chapter exists by ID (UUID check)
@@ -1017,7 +1031,10 @@ export async function executeSaveWriterChapter(data: SaveWriterChapterPayload, a
 
   clearPublicWorkCache(workUuid)
   clearStoryLoreBibleCache(workUuid)
-  clearStoryLoreBibleCache(workUuid)
+  if (workSlug) {
+    clearPublicWorkCache(workSlug)
+    clearStoryLoreBibleCache(workSlug)
+  }
 
   return JSON.parse(JSON.stringify({
     success: true,
@@ -1353,8 +1370,9 @@ export async function executeDeleteWriterWork(
   // 6. Invalidate public caches
   clearPublicWorkCache(workUuid)
   clearStoryLoreBibleCache(workUuid)
-  if (workRow.slug) {
+  if (workRow?.slug) {
     clearPublicWorkCache(workRow.slug)
+    clearStoryLoreBibleCache(workRow.slug)
   }
 
   return {
@@ -1737,6 +1755,7 @@ export async function executeWriterWorkPublication(
   clearStoryLoreBibleCache(workUuid)
   if (updatedWork?.slug) {
     clearPublicWorkCache(updatedWork.slug)
+    clearStoryLoreBibleCache(updatedWork.slug)
   }
 
   return {
@@ -2400,7 +2419,8 @@ export async function executeSaveStoryLoreEntity(
         })
         if (countReplaced > 0) {
           const cleanContent = newMarkdown.replace(/\\+[ \t]*(?=\r?\n|$)/g, '').trim()
-          const wordCount = cleanContent.split(/\s+/).filter(Boolean).length
+          const proseOnly = stripLoreToPlainText(cleanContent)
+          const wordCount = proseOnly.split(/\s+/).filter(Boolean).length
           const readingTime = Math.max(1, Math.ceil(wordCount / 220))
 
           await admin
@@ -2437,7 +2457,8 @@ export async function executeSaveStoryLoreEntity(
       })
       if (countReplaced > 0) {
         const cleanContent = newMarkdown.replace(/\\+[ \t]*(?=\r?\n|$)/g, '').trim()
-        const wordCount = cleanContent.split(/\s+/).filter(Boolean).length
+        const proseOnly = stripLoreToPlainText(cleanContent)
+        const wordCount = proseOnly.split(/\s+/).filter(Boolean).length
         const readingTime = Math.max(1, Math.ceil(wordCount / 220))
 
         await admin
@@ -2478,6 +2499,10 @@ export async function executeSaveStoryLoreEntity(
 
   clearPublicWorkCache(workUuid)
   clearStoryLoreBibleCache(workUuid)
+  if (workRow?.slug) {
+    clearPublicWorkCache(workRow.slug)
+    clearStoryLoreBibleCache(workRow.slug)
+  }
   if (workRow.slug) clearPublicWorkCache(workRow.slug)
   clearStoryLoreBibleCache(workUuid)
 
@@ -2684,6 +2709,13 @@ export async function executeBulkLinkStoryLore(
   }
 
   if (chapters && chapters.length > 0) {
+    const chaptersToUpdate: {
+      id: string
+      content: string
+      wordCount: number
+      readingTime: number
+    }[] = []
+
     for (const ch of chapters) {
       const { newMarkdown, countReplaced } = linkAllOccurrences(ch.content || '', {
         name: entityName,
@@ -2692,27 +2724,46 @@ export async function executeBulkLinkStoryLore(
       })
       if (countReplaced > 0) {
         const cleanContent = newMarkdown.replace(/\\+[ \t]*(?=\r?\n|$)/g, '').trim()
-        const wordCount = cleanContent.split(/\s+/).filter(Boolean).length
+        const proseOnly = stripLoreToPlainText(cleanContent)
+        const wordCount = proseOnly.split(/\s+/).filter(Boolean).length
         const readingTime = Math.max(1, Math.ceil(wordCount / 220))
 
-        await admin
-          .from('chapters')
-          .update({
-            content: cleanContent,
-            word_count: wordCount,
-            reading_time_minutes: readingTime,
-            updated_at: nowIso,
-          })
-          .eq('id', ch.id)
-
-        updatedChaptersCount++
+        chaptersToUpdate.push({
+          id: ch.id,
+          content: cleanContent,
+          wordCount,
+          readingTime,
+        })
         totalMentionsLinked += countReplaced
       }
+    }
+
+    const CONCURRENCY = 6
+    for (let i = 0; i < chaptersToUpdate.length; i += CONCURRENCY) {
+      const batch = chaptersToUpdate.slice(i, i + CONCURRENCY)
+      await Promise.all(
+        batch.map((item) =>
+          admin
+            .from('chapters')
+            .update({
+              content: item.content,
+              word_count: item.wordCount,
+              reading_time_minutes: item.readingTime,
+              updated_at: nowIso,
+            })
+            .eq('id', item.id)
+        )
+      )
+      updatedChaptersCount += batch.length
     }
   }
 
   clearPublicWorkCache(workUuid)
   clearStoryLoreBibleCache(workUuid)
+  if (workRow?.slug) {
+    clearPublicWorkCache(workRow.slug)
+    clearStoryLoreBibleCache(workRow.slug)
+  }
   if (workRow.slug) clearPublicWorkCache(workRow.slug)
   clearStoryLoreBibleCache(workUuid)
 
@@ -2830,34 +2881,59 @@ export async function executeSyncAllStoryLore(
   let totalMentionsLinked = 0
   const nowIso = new Date().toISOString()
 
+  const chaptersToUpdate: {
+    id: string
+    content: string
+    wordCount: number
+    readingTime: number
+  }[] = []
+
   for (const ch of allChapters) {
     const rawContent = ch.content || ''
     const { newMarkdown, totalLinked } = linkMultipleEntities(rawContent, allEntities)
 
     if (totalLinked > 0) {
       const cleanContent = newMarkdown.replace(/\\+[ \t]*(?=\r?\n|$)/g, '').trim()
-      const wordCount = cleanContent.split(/\s+/).filter(Boolean).length
+      const proseOnly = stripLoreToPlainText(cleanContent)
+      const wordCount = proseOnly.split(/\s+/).filter(Boolean).length
       const readingTime = Math.max(1, Math.ceil(wordCount / 220))
 
-      const { error: upErr } = await admin
-        .from('chapters')
-        .update({
-          content: cleanContent,
-          word_count: wordCount,
-          reading_time_minutes: readingTime,
-          updated_at: nowIso,
-        })
-        .eq('id', ch.id)
-
-      if (!upErr) {
-        updatedChaptersCount++
-        totalMentionsLinked += totalLinked
-      }
+      chaptersToUpdate.push({
+        id: ch.id,
+        content: cleanContent,
+        wordCount,
+        readingTime,
+      })
+      totalMentionsLinked += totalLinked
     }
+  }
+
+  // Batch update chapters concurrently (6 at a time) to prevent serverless timeouts
+  const CONCURRENCY = 6
+  for (let i = 0; i < chaptersToUpdate.length; i += CONCURRENCY) {
+    const batch = chaptersToUpdate.slice(i, i + CONCURRENCY)
+    await Promise.all(
+      batch.map((item) =>
+        admin
+          .from('chapters')
+          .update({
+            content: item.content,
+            word_count: item.wordCount,
+            reading_time_minutes: item.readingTime,
+            updated_at: nowIso,
+          })
+          .eq('id', item.id)
+      )
+    )
+    updatedChaptersCount += batch.length
   }
 
   clearPublicWorkCache(workUuid)
   clearStoryLoreBibleCache(workUuid)
+  if (workRow?.slug) {
+    clearPublicWorkCache(workRow.slug)
+    clearStoryLoreBibleCache(workRow.slug)
+  }
 
   return {
     success: true,
@@ -2926,31 +3002,57 @@ export async function executeBulkUnlinkStoryLore(
   let totalMentionsUnlinked = 0
 
   if (chapters && chapters.length > 0) {
+    const chaptersToUpdate: {
+      id: string
+      content: string
+      wordCount: number
+      readingTime: number
+    }[] = []
+
     for (const ch of chapters) {
       const { newMarkdown, countUnlinked } = unlinkAllOccurrences(ch.content || '', entityName)
       if (countUnlinked > 0) {
         const cleanContent = newMarkdown.replace(/\\+[ \t]*(?=\r?\n|$)/g, '').trim()
-        const wordCount = cleanContent.split(/\s+/).filter(Boolean).length
+        const proseOnly = stripLoreToPlainText(cleanContent)
+        const wordCount = proseOnly.split(/\s+/).filter(Boolean).length
         const readingTime = Math.max(1, Math.ceil(wordCount / 220))
 
-        await admin
-          .from('chapters')
-          .update({
-            content: cleanContent,
-            word_count: wordCount,
-            reading_time_minutes: readingTime,
-            updated_at: nowIso,
-          })
-          .eq('id', ch.id)
-
-        updatedChaptersCount++
+        chaptersToUpdate.push({
+          id: ch.id,
+          content: cleanContent,
+          wordCount,
+          readingTime,
+        })
         totalMentionsUnlinked += countUnlinked
       }
+    }
+
+    const CONCURRENCY = 6
+    for (let i = 0; i < chaptersToUpdate.length; i += CONCURRENCY) {
+      const batch = chaptersToUpdate.slice(i, i + CONCURRENCY)
+      await Promise.all(
+        batch.map((item) =>
+          admin
+            .from('chapters')
+            .update({
+              content: item.content,
+              word_count: item.wordCount,
+              reading_time_minutes: item.readingTime,
+              updated_at: nowIso,
+            })
+            .eq('id', item.id)
+        )
+      )
+      updatedChaptersCount += batch.length
     }
   }
 
   clearPublicWorkCache(workUuid)
   clearStoryLoreBibleCache(workUuid)
+  if (workRow?.slug) {
+    clearPublicWorkCache(workRow.slug)
+    clearStoryLoreBibleCache(workRow.slug)
+  }
   if (workRow.slug) clearPublicWorkCache(workRow.slug)
   clearStoryLoreBibleCache(workUuid)
 
@@ -3041,6 +3143,10 @@ export async function executeDeleteStoryLoreEntity(
 
   clearPublicWorkCache(workUuid)
   clearStoryLoreBibleCache(workUuid)
+  if (workRow?.slug) {
+    clearPublicWorkCache(workRow.slug)
+    clearStoryLoreBibleCache(workRow.slug)
+  }
   if (workRow.slug) clearPublicWorkCache(workRow.slug)
   clearStoryLoreBibleCache(workUuid)
 
@@ -3211,6 +3317,10 @@ export async function executeImportStoryLoreCsv(
 
   clearPublicWorkCache(workUuid)
   clearStoryLoreBibleCache(workUuid)
+  if (workRow?.slug) {
+    clearPublicWorkCache(workRow.slug)
+    clearStoryLoreBibleCache(workRow.slug)
+  }
   if (workRow.slug) clearPublicWorkCache(workRow.slug)
   clearStoryLoreBibleCache(workUuid)
 

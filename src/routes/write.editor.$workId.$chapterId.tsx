@@ -32,7 +32,9 @@ export const Route = createFileRoute('/write/editor/$workId/$chapterId')({
   validateSearch: (search: Record<string, unknown>): { actId?: string } => ({
     actId: typeof search.actId === 'string' ? search.actId : undefined,
   }),
-  staleTime: 15_000,
+  staleTime: 0,
+  gcTime: 0,
+  shouldReload: true,
   loader: async ({ params }) => {
     try {
       const dbWork = await getWriterWorkDetailsServerFn({ data: { workId: params.workId } })
@@ -298,9 +300,20 @@ function ChapterEditorPage() {
           content: initialContent,
           bannerImage: initialBanner,
         })
+      } else if (autosaveStatus === 'saved' && currentChapter.content !== undefined) {
+        // If chapter content changed externally on server (e.g. from Sync Lore in Manage or background sync)
+        // and local editor is saved, smoothly accept the latest server content
+        const serverContent = currentChapter.content || ''
+        const normServer = serverContent.replace(/%7C/gi, '|').trim()
+        const normLocal = (content || '').replace(/%7C/gi, '|').trim()
+        if (normServer !== normLocal) {
+          setContent(serverContent)
+          setSavedSnapshot((prev) => ({ ...prev, content: serverContent }))
+          setLoadedUpdatedAt(currentChapter.updated_at || currentChapter.updatedAt || new Date().toISOString())
+        }
       }
     }
-  }, [currentChapter?.id, persistedChapterId])
+  }, [currentChapter?.id, currentChapter?.content, currentChapter?.updated_at, currentChapter?.updatedAt, persistedChapterId, autosaveStatus])
 
   // Real-time word count & estimated reading time calculation
   const wordCount = useMemo(() => {

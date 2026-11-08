@@ -234,3 +234,39 @@ However there [could](lore:Charact`
   assert.ok(snippet.includes('Navya is the main character'))
   assert.ok(snippet.includes('may not be However there could'))
 })
+
+test('extractLoreEntities strips wrapping bold/italic delimiters from entity name', () => {
+  const text = 'Look at [**Kavya**](lore:Character|Lead) and [*Aarav*](lore:Character|Hero) and [[__Camelot__|Location|Kingdom]].'
+  const entities = extractLoreEntities(text)
+  assert.equal(entities.length, 3)
+  assert.equal(entities[0].name, 'Kavya')
+  assert.equal(entities[1].name, 'Aarav')
+  assert.equal(entities[2].name, 'Camelot')
+})
+
+test('countEntityMentions accurately counts formatted linked mentions and underscore unlinked mentions', () => {
+  const text = 'She saw [**Kavya**](lore:Character|Lead) and [*Kavya*](lore:Character|Lead). Later _Kavya_ and __Kavya__ walked in.'
+  const stats = countEntityMentions(text, 'Kavya')
+  assert.equal(stats.linkedCount, 2)
+  assert.equal(stats.unlinkedCount, 2)
+})
+
+test('linkAllOccurrences links underscore-formatted occurrences cleanly', () => {
+  const text = 'She admired _Kavya_ and __Kavya__ from afar.'
+  const { newMarkdown, countReplaced } = linkAllOccurrences(text, 'Kavya', 'Character', 'Lead Actress')
+  assert.equal(countReplaced, 2)
+  assert.ok(newMarkdown.includes('_[Kavya](lore:Character|Lead%20Actress)_'))
+  assert.ok(newMarkdown.includes('__[Kavya](lore:Character|Lead%20Actress)__'))
+})
+
+test('unlinkAllOccurrences cleanly strips lore links while preserving inner bold and italic formatting', () => {
+  const text = 'Hello [**Kavya**](lore:Character|Lead), [*Aarav*](lore:Character|Hero), and [Kavya](lore:Character|Lead)!'
+  const res = unlinkAllOccurrences(text, 'Kavya')
+  assert.equal(res.countUnlinked, 2)
+  assert.equal(res.newMarkdown, 'Hello **Kavya**, [*Aarav*](lore:Character|Hero), and Kavya!')
+
+  // Even if caller passes "**Kavya**" with asterisks
+  const res2 = unlinkAllOccurrences('Look at [**Kavya**](lore:Character|Lead)', '**Kavya**')
+  assert.equal(res2.countUnlinked, 1)
+  assert.equal(res2.newMarkdown, 'Look at **Kavya**')
+})

@@ -124,10 +124,11 @@ export function extractLoreEntities(markdown: string): LoreEntity[] {
   const mdRegex = /\\*\[([^\]]+)\\*\]\(lore:([^)]+)\)/g
   let match: RegExpExecArray | null
   while ((match = mdRegex.exec(markdown)) !== null) {
-    const name = match[1].trim()
+    let name = match[1].trim()
+    name = name.replace(/^(\*{1,3}|_{1,3})+/, '').replace(/(\*{1,3}|_{1,3})+$/, '').trim()
     const { entityType, description } = parseLorePayload(match[2])
     const key = name
-    if (!map.has(key)) {
+    if (name && !map.has(key)) {
       map.set(key, { name, entityType, description })
     }
   }
@@ -135,10 +136,11 @@ export function extractLoreEntities(markdown: string): LoreEntity[] {
   // 2. Match [[Text|Payload]] or [[Text|Type|Description]] with optional leading backslashes
   const wikiRegex = /\\*\[\\*\[([^|\]]+)\|([^\]]+)\\*\]\\*\]/g
   while ((match = wikiRegex.exec(markdown)) !== null) {
-    const name = match[1].trim()
+    let name = match[1].trim()
+    name = name.replace(/^(\*{1,3}|_{1,3})+/, '').replace(/(\*{1,3}|_{1,3})+$/, '').trim()
     const { entityType, description } = parseLorePayload(match[2])
     const key = name
-    if (!map.has(key)) {
+    if (name && !map.has(key)) {
       map.set(key, { name, entityType, description })
     }
   }
@@ -167,12 +169,16 @@ export function countEntityMentions(
     return { linkedCount: 0, unlinkedCount: 0, linked: 0, unlinked: 0 }
   }
 
-  const trimmed = entityName.trim()
-  const escaped = escapeRegExp(trimmed)
+  const cleanTarget = entityName
+    .trim()
+    .replace(/^(\*{1,3}|_{1,3})+/, '')
+    .replace(/(\*{1,3}|_{1,3})+$/, '')
+    .trim()
+  const escaped = escapeRegExp(cleanTarget)
 
-  // Count linked occurrences (exact case)
+  // Count linked occurrences (exact case, supporting both unformatted and inner bold/italic links)
   const linkedRegex = new RegExp(
-    `\\\\*\\[${escaped}\\\\*\\]\\(lore:[^)]+\\)|\\\\*\\[\\\\*\\[${escaped}\\|[^\\]]+\\\\*\\]\\\\*\\]`,
+    `\\\\*\\[(?:\\*{1,3}|_{1,3})?${escaped}(?:\\*{1,3}|_{1,3})?\\\\*\\]\\(lore:[^)]+\\)|\\\\*\\[\\\\*\\[(?:\\*{1,3}|_{1,3})?${escaped}(?:\\*{1,3}|_{1,3})?\\|[^\\]]+\\\\*\\]\\\\*\\]`,
     'gu'
   )
   const linkedMatches = markdown.match(linkedRegex)
@@ -187,9 +193,10 @@ export function countEntityMentions(
     .replace(/\\*\[([^\]]+)\\*\]\([^)]+\)/g, '')
     .replace(/\\*\[\\*\[[^\]]+\\*\]\\*\]/g, '')
 
-  // Unicode-aware word boundary for exact case (no 'i' flag)
+  // Unicode-aware word boundary for exact case (no 'i' flag).
+  // Note: We use [\p{L}\p{N}] so markdown formatting delimiters (*, _, etc.) act as valid word boundaries.
   const wordBoundaryRegex = new RegExp(
-    `(?<![\\p{L}\\p{N}_])(${escaped})(?![\\p{L}\\p{N}_])`,
+    `(?<![\\p{L}\\p{N}])(${escaped})(?![\\p{L}\\p{N}])`,
     'gu'
   )
   const unlinkedMatches = sanitized.match(wordBoundaryRegex)
@@ -259,7 +266,7 @@ export function linkAllOccurrences(
 
     // Replace whole-word matches in plain prose (exact case, no 'i' flag)
     const wordRegex = new RegExp(
-      `(?<![\\p{L}\\p{N}_])(${escaped})(?![\\p{L}\\p{N}_])`,
+      `(?<![\\p{L}\\p{N}])(${escaped})(?![\\p{L}\\p{N}])`,
       'gu'
     )
     return part.replace(wordRegex, (_full, matchedWord) => {
@@ -316,7 +323,7 @@ export function linkMultipleEntities(
 
   // Combined single-pass alternation regex
   const combinedRegex = new RegExp(
-    `(?<![\\p{L}\\p{N}_])(${escapedPatterns.join('|')})(?![\\p{L}\\p{N}_])`,
+    `(?<![\\p{L}\\p{N}])(${escapedPatterns.join('|')})(?![\\p{L}\\p{N}])`,
     'gu'
   )
 
@@ -418,7 +425,7 @@ export function linkSingleOccurrence(
     }
 
     const wordRegex = new RegExp(
-      `(?<![\\p{L}\\p{N}_])(${escaped})(?![\\p{L}\\p{N}_])`,
+      `(?<![\\p{L}\\p{N}])(${escaped})(?![\\p{L}\\p{N}])`,
       'u'
     )
     if (wordRegex.test(part)) {
@@ -447,18 +454,29 @@ export function unlinkAllOccurrences(
     return { newMarkdown: markdown, countUnlinked: 0 }
   }
 
-  const escaped = escapeRegExp(entityName.trim())
+  const cleanTarget = entityName
+    .trim()
+    .replace(/^(\*{1,3}|_{1,3})+/, '')
+    .replace(/(\*{1,3}|_{1,3})+$/, '')
+    .trim()
+  const escaped = escapeRegExp(cleanTarget)
   let countUnlinked = 0
 
-  // 1. Replace [Name](lore:...) -> Name (supporting possible escaped brackets)
-  const mdRegex = new RegExp(`\\\\*\\[(${escaped})\\\\*\\]\\(lore:[^)]+\\)`, 'gu')
+  // 1. Replace [Name](lore:...) -> Name (supporting inner bold/italic marks and escaped brackets)
+  const mdRegex = new RegExp(
+    `\\\\*\\[((?:\\*{1,3}|_{1,3})?${escaped}(?:\\*{1,3}|_{1,3})?)\\\\*\\]\\(lore:[^)]+\\)`,
+    'gu'
+  )
   let result = markdown.replace(mdRegex, (_full, name) => {
     countUnlinked++
     return name
   })
 
-  // 2. Replace [[Name|...]] -> Name
-  const wikiRegex = new RegExp(`\\\\*\\[\\\\*\\[(${escaped})\\|[^\\]]+\\\\*\\]\\\\*\\]`, 'gu')
+  // 2. Replace [[Name|...]] -> Name (supporting inner bold/italic marks)
+  const wikiRegex = new RegExp(
+    `\\\\*\\[\\\\*\\[((?:\\*{1,3}|_{1,3})?${escaped}(?:\\*{1,3}|_{1,3})?)\\|[^\\]]+\\\\*\\]\\\\*\\]`,
+    'gu'
+  )
   result = result.replace(wikiRegex, (_full, name) => {
     countUnlinked++
     return name

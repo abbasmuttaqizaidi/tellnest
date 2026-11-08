@@ -313,3 +313,11 @@ test('Edge Case: Cells wrapped in outer quotes or extra brackets are cleanly tri
   assert.equal(res.rows[0].tooltip, 'Queen of Camelot')
 })
 
+test('Edge Case: Name column with asterisks or underscores is sanitized', () => {
+  const csv = 'Name,Type,Tooltip\n"**Kavya**",Character,"Heroine"\n"__Aarav__",Character,"Hero"'
+  const res = parseLoreCsv(csv)
+  assert.equal(res.success, true)
+  assert.equal(res.rows[0].name, 'Kavya')
+  assert.equal(res.rows[1].name, 'Aarav')
+})
+

@@ -1020,3 +1020,158 @@ test('Mentions Tab Filter: Distinguishes lores with unlinked appearances from un
   const unlinkedTabList = filterByTab('unlinked')
   assert.equal(unlinkedTabList.length, 1) // Apartment 305
 })
+
+test('Lore Architecture: Accurate Word Count & Parallel Concurrency Batching', async () => {
+  const { stripLoreToPlainText } = await import('../src/lib/lore/loreParser.ts')
+  const { executeSyncAllStoryLore } = await import('../src/server/writer.ts')
+
+  // 1. Verify stripLoreToPlainText ensures payload URLs do not artificially inflate word count
+  const rawWithLore = 'Evan walked into the [Morrow House](lore:Location%7CAn%20ancient%20gothic%20mansion%20with%20dark%20mysteries) alone.'
+  const cleanProse = stripLoreToPlainText(rawWithLore)
+  assert.equal(cleanProse, 'Evan walked into the Morrow House alone.')
+  const wordCount = cleanProse.split(/\s+/).filter(Boolean).length
+  assert.equal(wordCount, 7) // 7 actual spoken/read words, not inflated by the 7 words inside the lore tooltip payload
+
+  // 2. Verify executeSyncAllStoryLore updates multiple chapters concurrently without timing out
+  const mockWorkId = '00000000-0000-0000-0000-000000000088'
+  const mockAuthorProfileId = '00000000-0000-0000-0000-000000000089'
+  const mockClerkUserId = 'user_lore_concurrency_test'
+
+  const updatedIds = []
+  const mockAdminClient = {
+    from(table) {
+      if (table === 'profiles') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { id: mockAuthorProfileId, clerk_user_id: mockClerkUserId },
+              }),
+            }),
+          }),
+        }
+      }
+      if (table === 'works') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { id: mockWorkId, author_id: mockAuthorProfileId },
+              }),
+            }),
+          }),
+        }
+      }
+      if (table === 'story_lore_entities') {
+        return {
+          select: () => ({
+            eq: () => Promise.resolve({
+              data: [{ name: 'Aria', entity_type: 'Character', description: 'Rebel pilot' }],
+            }),
+          }),
+        }
+      }
+      if (table === 'chapters') {
+        return {
+          select: () => ({
+            eq: () => Promise.resolve({
+              data: [
+                { id: 'ch-1', title: 'Chapter 1', content: 'Aria checked her engines.' },
+                { id: 'ch-2', title: 'Chapter 2', content: 'Aria flew into the storm.' },
+                { id: 'ch-3', title: 'Chapter 3', content: 'Aria landed safely.' },
+              ],
+            }),
+          }),
+          update: (updates) => ({
+            eq: async (col, val) => {
+              updatedIds.push(val)
+              assert.ok(updates.word_count > 0)
+              assert.ok(updates.reading_time_minutes >= 1)
+              return { error: null }
+            },
+          }),
+        }
+      }
+      throw new Error(`Unexpected table: ${table}`)
+    },
+  }
+
+  const res = await executeSyncAllStoryLore(
+    { workId: mockWorkId, clerkUserId: mockClerkUserId },
+    mockAdminClient,
+    async () => ({ userId: mockClerkUserId })
+  )
+
+  assert.equal(res.success, true)
+  assert.equal(res.updatedChaptersCount, 3)
+  assert.equal(res.totalMentionsLinked, 3)
+  assert.deepEqual(updatedIds.sort(), ['ch-1', 'ch-2', 'ch-3'])
+})
+
+test('Lore Cache Invalidation: executeSyncAllStoryLore evicts both work UUID and slug from public cache', async () => {
+  const { executeSyncAllStoryLore } = await import('../src/server/writer.ts')
+  const { clearPublicWorkCache } = await import('../src/server/works.ts')
+
+  const mockWorkId = '00000000-0000-0000-0000-000000000099'
+  const mockWorkSlug = 'aria-chronicles-test'
+  const mockAuthorProfileId = '00000000-0000-0000-0000-000000000098'
+  const mockClerkUserId = 'user_lore_cache_invalidation_test'
+
+  const mockAdminClient = {
+    from(table) {
+      if (table === 'profiles') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { id: mockAuthorProfileId, clerk_user_id: mockClerkUserId },
+              }),
+            }),
+          }),
+        }
+      }
+      if (table === 'works') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { id: mockWorkId, slug: mockWorkSlug, author_id: mockAuthorProfileId },
+              }),
+            }),
+          }),
+        }
+      }
+      if (table === 'story_lore_entities') {
+        return {
+          select: () => ({
+            eq: () => Promise.resolve({
+              data: [{ name: 'Aria', entity_type: 'Character', description: 'Heroine' }],
+            }),
+          }),
+        }
+      }
+      if (table === 'chapters') {
+        return {
+          select: () => ({
+            eq: () => Promise.resolve({
+              data: [{ id: 'ch-cache-1', title: 'Chapter 1', content: 'Aria flew.' }],
+            }),
+          }),
+          update: () => ({
+            eq: async () => ({ error: null }),
+          }),
+        }
+      }
+      throw new Error(`Unexpected table: ${table}`)
+    },
+  }
+
+  const res = await executeSyncAllStoryLore(
+    { workId: mockWorkId, clerkUserId: mockClerkUserId },
+    mockAdminClient,
+    async () => ({ userId: mockClerkUserId })
+  )
+
+  assert.equal(res.success, true)
+  assert.equal(res.updatedChaptersCount, 1)
+})

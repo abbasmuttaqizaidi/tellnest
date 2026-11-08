@@ -30,6 +30,7 @@ import { Route as AdminWorkEditorWorkIdRouteImport } from './routes/admin-work-e
 import { Route as AuthorAuthorIdRouteImport } from './routes/author.$authorId'
 import { Route as BrowseCollectionRouteImport } from './routes/browse.$collection'
 import { Route as CategorySlugRouteImport } from './routes/category.$slug'
+import { Route as CompareWattpadAlternativeRouteImport } from './routes/compare.wattpad-alternative'
 import { Route as GenreSlugRouteImport } from './routes/genre.$slug'
 import { Route as TagSlugRouteImport } from './routes/tag.$slug'
 import { Route as WorksWorkIdRouteImport } from './routes/works.$workId'
@@ -145,6 +146,12 @@ const CategorySlugRoute = CategorySlugRouteImport.update({
   path: '/category/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CompareWattpadAlternativeRoute =
+  CompareWattpadAlternativeRouteImport.update({
+    id: '/compare/wattpad-alternative',
+    path: '/compare/wattpad-alternative',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const GenreSlugRoute = GenreSlugRouteImport.update({
   id: '/genre/$slug',
   path: '/genre/$slug',
@@ -214,6 +221,7 @@ export interface FileRoutesByFullPath {
   '/author/$authorId': typeof AuthorAuthorIdRoute
   '/browse/$collection': typeof BrowseCollectionRoute
   '/category/$slug': typeof CategorySlugRoute
+  '/compare/wattpad-alternative': typeof CompareWattpadAlternativeRoute
   '/genre/$slug': typeof GenreSlugRoute
   '/tag/$slug': typeof TagSlugRoute
   '/works/$workId': typeof WorksWorkIdRoute
@@ -246,6 +254,7 @@ export interface FileRoutesByTo {
   '/author/$authorId': typeof AuthorAuthorIdRoute
   '/browse/$collection': typeof BrowseCollectionRoute
   '/category/$slug': typeof CategorySlugRoute
+  '/compare/wattpad-alternative': typeof CompareWattpadAlternativeRoute
   '/genre/$slug': typeof GenreSlugRoute
   '/tag/$slug': typeof TagSlugRoute
   '/works/$workId': typeof WorksWorkIdRoute
@@ -279,6 +288,7 @@ export interface FileRoutesById {
   '/author/$authorId': typeof AuthorAuthorIdRoute
   '/browse/$collection': typeof BrowseCollectionRoute
   '/category/$slug': typeof CategorySlugRoute
+  '/compare/wattpad-alternative': typeof CompareWattpadAlternativeRoute
   '/genre/$slug': typeof GenreSlugRoute
   '/tag/$slug': typeof TagSlugRoute
   '/works/$workId': typeof WorksWorkIdRoute
@@ -313,6 +323,7 @@ export interface FileRouteTypes {
     | '/author/$authorId'
     | '/browse/$collection'
     | '/category/$slug'
+    | '/compare/wattpad-alternative'
     | '/genre/$slug'
     | '/tag/$slug'
     | '/works/$workId'
@@ -345,6 +356,7 @@ export interface FileRouteTypes {
     | '/author/$authorId'
     | '/browse/$collection'
     | '/category/$slug'
+    | '/compare/wattpad-alternative'
     | '/genre/$slug'
     | '/tag/$slug'
     | '/works/$workId'
@@ -377,6 +389,7 @@ export interface FileRouteTypes {
     | '/author/$authorId'
     | '/browse/$collection'
     | '/category/$slug'
+    | '/compare/wattpad-alternative'
     | '/genre/$slug'
     | '/tag/$slug'
     | '/works/$workId'
@@ -410,6 +423,7 @@ export interface RootRouteChildren {
   AuthorAuthorIdRoute: typeof AuthorAuthorIdRoute
   BrowseCollectionRoute: typeof BrowseCollectionRoute
   CategorySlugRoute: typeof CategorySlugRoute
+  CompareWattpadAlternativeRoute: typeof CompareWattpadAlternativeRoute
   GenreSlugRoute: typeof GenreSlugRoute
   TagSlugRoute: typeof TagSlugRoute
   WorksWorkIdRoute: typeof WorksWorkIdRoute
@@ -570,6 +584,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CategorySlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/compare/wattpad-alternative': {
+      id: '/compare/wattpad-alternative'
+      path: '/compare/wattpad-alternative'
+      fullPath: '/compare/wattpad-alternative'
+      preLoaderRoute: typeof CompareWattpadAlternativeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/genre/$slug': {
       id: '/genre/$slug'
       path: '/genre/$slug'
@@ -658,6 +679,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthorAuthorIdRoute: AuthorAuthorIdRoute,
   BrowseCollectionRoute: BrowseCollectionRoute,
   CategorySlugRoute: CategorySlugRoute,
+  CompareWattpadAlternativeRoute: CompareWattpadAlternativeRoute,
   GenreSlugRoute: GenreSlugRoute,
   TagSlugRoute: TagSlugRoute,
   WorksWorkIdRoute: WorksWorkIdRoute,

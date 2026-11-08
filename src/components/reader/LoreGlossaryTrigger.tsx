@@ -119,6 +119,11 @@ export function LoreGlossaryTrigger({
   // Clean formatted entity type (uppercase)
   const displayType = (entityType || 'LORE').trim().toUpperCase()
 
+  // Clean any residual raw markdown symbols (**, *, _) from display text so they NEVER show on screen
+  const cleanDisplayText = typeof text === 'string'
+    ? text.replace(/\\+/g, '').replace(/^\*+|\*+$/g, '').replace(/^_+|_+$/g, '').trim()
+    : text
+
   return (
     <>
       <button
@@ -128,10 +133,10 @@ export function LoreGlossaryTrigger({
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         className="inline font-inherit text-inherit underline underline-offset-4 decoration-1 hover:text-[var(--ink-primary)] transition-colors cursor-pointer select-text bg-transparent border-none p-0 m-0"
-        aria-label={`${text} (${displayType}) - ${description}`}
+        aria-label={`${cleanDisplayText} (${displayType}) - ${description}`}
         aria-expanded={isOpen}
       >
-        {text}
+        {cleanDisplayText}
       </button>
 
       {isOpen &&

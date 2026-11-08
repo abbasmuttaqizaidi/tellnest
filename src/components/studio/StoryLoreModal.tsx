@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { useUser } from '@clerk/react'
+import { useRouter } from '@tanstack/react-router'
 import {
   X,
   Search,
@@ -70,7 +71,16 @@ export function StoryLoreModal({
   adminToken,
 }: StoryLoreModalProps) {
   const { user } = useUser()
+  const router = useRouter()
   const hasChapterContext = Boolean(onUpdateContent)
+
+  const invalidateAppRoutes = useCallback(async () => {
+    try {
+      await router.invalidate()
+    } catch (err) {
+      console.warn('[StoryLoreModal] Router invalidation error:', err)
+    }
+  }, [router])
 
   // Live content tracking to prevent stale closure overwrites when multiple lores are linked sequentially
   const [activeContent, setActiveContent] = useState(content)
@@ -115,12 +125,13 @@ export function StoryLoreModal({
     setTimeout(() => setToastMessage(null), 3500)
   }
 
-  // Automatically scan and sync all recorded lore links across all chapters
+  // Automatically scan and sync recorded lore links (chapter-only if in editor, or manuscript-wide if in manage)
   const handleSyncAllLores = async () => {
     if (!workId || isSyncing) return
     setIsSyncing(true)
     try {
       if (hasChapterContext && onUpdateContent && bibleEntities.length > 0 && latestContentRef.current) {
+        // In-Editor Context: Link only into the active chapter (safe, instant, zero DB overwrite)
         const { newMarkdown, totalLinked } = linkMultipleEntities(
           latestContentRef.current,
           bibleEntities.map((e) => ({
@@ -133,9 +144,17 @@ export function StoryLoreModal({
           latestContentRef.current = newMarkdown
           setActiveContent(newMarkdown)
           await onUpdateContent(newMarkdown)
+          showToast(
+            `Synced ${totalLinked} lore mention${totalLinked !== 1 ? 's' : ''} in this chapter!`
+          )
+        } else {
+          showToast('All mentions in this chapter are already linked.')
         }
+        await loadEntities(true)
+        return
       }
 
+      // Manage Context: Scan & update all chapters in database
       let res: any
       if (adminToken) {
         res = await adminSyncAllStoryLoreServerFn({
@@ -155,6 +174,7 @@ export function StoryLoreModal({
 
       invalidateClientLoreBibleCache(workId)
       await loadEntities(true)
+      await invalidateAppRoutes()
       if (res?.totalMentionsLinked > 0) {
         showToast(
           `Synced ${res.totalMentionsLinked} lore mention${res.totalMentionsLinked !== 1 ? 's' : ''} across ${res.updatedChaptersCount} chapter${res.updatedChaptersCount !== 1 ? 's' : ''}!`
@@ -325,13 +345,14 @@ export function StoryLoreModal({
           type: entityType,
           description: trimmedDesc,
           entityDescription: trimmedDesc,
-          linkToAllChapters: true,
-          applyToAllChapters: true,
+          // Inside chapter editor: save entity in DB Lore Bible, but don't overwrite chapters in DB
+          linkToAllChapters: !hasChapterContext,
+          applyToAllChapters: !hasChapterContext,
           clerkUserId: user?.id,
         },
       })
 
-      // Also link in current editor if editing a chapter
+      // Also link in current editor locally if editing a chapter
       if (hasChapterContext && onUpdateContent && latestContentRef.current) {
         const { newMarkdown, countReplaced } = linkAllOccurrences(latestContentRef.current, {
           name: trimmedName,
@@ -347,6 +368,9 @@ export function StoryLoreModal({
 
       invalidateClientLoreBibleCache(workId)
       await loadEntities(true)
+      if (!hasChapterContext) {
+        await invalidateAppRoutes()
+      }
       showToast(editingName ? `Updated "${trimmedName}"` : `Added "${trimmedName}" to lore`)
       resetForm()
     } catch (err: any) {
@@ -356,7 +380,7 @@ export function StoryLoreModal({
     }
   }
 
-  // Link everywhere (manuscript-wide + current chapter)
+  // Link mentions (chapter-only if in editor, or manuscript-wide if in manage)
   const handleLinkAll = async (ent: StoryLoreEntity) => {
     if (!workId) return
     const entName = ent.name || (ent as any).entityName || ''
@@ -367,6 +391,26 @@ export function StoryLoreModal({
     const key = `link-${entName}`
     setActionLoadingKey(key)
     try {
+      if (hasChapterContext && onUpdateContent && latestContentRef.current) {
+        // In-Editor Context: Link only in current active chapter locally
+        const { newMarkdown, countReplaced } = linkAllOccurrences(latestContentRef.current, {
+          name: entName,
+          entityType: entType,
+          description: entDesc,
+        })
+        if (countReplaced > 0) {
+          latestContentRef.current = newMarkdown
+          setActiveContent(newMarkdown)
+          await onUpdateContent(newMarkdown)
+          showToast(`Linked ${countReplaced} mention${countReplaced !== 1 ? 's' : ''} of "${entName}" in this chapter!`)
+        } else {
+          showToast(`No unlinked mentions of "${entName}" found in this chapter.`)
+        }
+        await loadEntities(true)
+        return
+      }
+
+      // Manage Context: Bulk link across all chapters in database
       const res = await bulkLinkStoryLoreServerFn({
         data: {
           workId,
@@ -380,19 +424,9 @@ export function StoryLoreModal({
         },
       })
 
-      if (hasChapterContext && onUpdateContent && latestContentRef.current) {
-        const { newMarkdown } = linkAllOccurrences(latestContentRef.current, {
-          name: entName,
-          entityType: entType,
-          description: entDesc,
-        })
-        latestContentRef.current = newMarkdown
-        setActiveContent(newMarkdown)
-        await onUpdateContent(newMarkdown)
-      }
-
       invalidateClientLoreBibleCache(workId)
       await loadEntities(true)
+      await invalidateAppRoutes()
       showToast(`Linked across ${res.updatedChaptersCount} chapter(s)`)
     } catch (err: any) {
       showToast(err?.message || 'Failed to link occurrences')
@@ -401,12 +435,28 @@ export function StoryLoreModal({
     }
   }
 
-  // Unlink everywhere
+  // Unlink mentions (chapter-only if in editor, or manuscript-wide if in manage)
   const handleUnlinkAll = async (entName: string) => {
     if (!workId || !entName) return
     const key = `unlink-${entName}`
     setActionLoadingKey(key)
     try {
+      if (hasChapterContext && onUpdateContent && latestContentRef.current) {
+        // In-Editor Context: Unlink in current active chapter locally
+        const { newMarkdown, countUnlinked } = unlinkAllOccurrences(latestContentRef.current, entName)
+        if (countUnlinked > 0) {
+          latestContentRef.current = newMarkdown
+          setActiveContent(newMarkdown)
+          await onUpdateContent(newMarkdown)
+          showToast(`Unlinked "${entName}" in this chapter!`)
+        } else {
+          showToast(`"${entName}" was not linked in this chapter.`)
+        }
+        await loadEntities(true)
+        return
+      }
+
+      // Manage Context: Bulk unlink across all chapters in database
       const res = await bulkUnlinkStoryLoreServerFn({
         data: {
           workId,
@@ -416,15 +466,9 @@ export function StoryLoreModal({
         },
       })
 
-      if (hasChapterContext && onUpdateContent && latestContentRef.current) {
-        const { newMarkdown } = unlinkAllOccurrences(latestContentRef.current, entName)
-        latestContentRef.current = newMarkdown
-        setActiveContent(newMarkdown)
-        await onUpdateContent(newMarkdown)
-      }
-
       invalidateClientLoreBibleCache(workId)
       await loadEntities(true)
+      await invalidateAppRoutes()
       showToast(`Unlinked from ${res.updatedChaptersCount} chapter(s)`)
     } catch (err: any) {
       showToast(err?.message || 'Failed to unlink occurrences')
@@ -447,6 +491,7 @@ export function StoryLoreModal({
           name: entName,
           entityName: entName,
           clerkUserId: user?.id,
+          unlinkEverywhere: true,
         },
       })
 
@@ -459,6 +504,7 @@ export function StoryLoreModal({
 
       invalidateClientLoreBibleCache(workId)
       await loadEntities(true)
+      await invalidateAppRoutes()
       if (editingName === entName) {
         resetForm()
       }
@@ -533,10 +579,20 @@ export function StoryLoreModal({
                     onClick={handleSyncAllLores}
                     disabled={isSyncing || bibleEntities.length === 0}
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] hover:bg-[var(--bg-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] transition cursor-pointer disabled:opacity-50"
-                    title="Automatically scan all chapters and link unlinked mentions of recorded lores"
+                    title={
+                      hasChapterContext
+                        ? 'Automatically scan this chapter and link unlinked mentions of recorded lores'
+                        : 'Automatically scan all chapters and link unlinked mentions of recorded lores'
+                    }
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-zinc-500' : 'text-blue-500'}`} />
-                    <span>{isSyncing ? 'Syncing...' : 'Sync Lores'}</span>
+                    <span>
+                      {isSyncing
+                        ? 'Syncing...'
+                        : hasChapterContext
+                        ? 'Sync Chapter Lores'
+                        : 'Sync All Chapters'}
+                    </span>
                   </button>
 
                   <button
@@ -882,7 +938,7 @@ export function StoryLoreModal({
                             type="button"
                             disabled={isBusy}
                             onClick={() => handleLinkAll(ent)}
-                            title="Auto-link mentions across all chapters"
+                            title={hasChapterContext ? 'Auto-link mentions in this chapter' : 'Auto-link mentions across all chapters'}
                             className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 bg-zinc-100/70 dark:bg-zinc-800/70 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition disabled:opacity-50 cursor-pointer"
                           >
                             {actionLoadingKey === `link-${entName}` ? (
@@ -890,7 +946,7 @@ export function StoryLoreModal({
                             ) : (
                               <LinkIcon className="w-3 h-3" />
                             )}
-                            <span>Link</span>
+                            <span>{hasChapterContext ? 'Link in Chapter' : 'Link'}</span>
                           </button>
 
                           {/* Unlink button */}
@@ -898,7 +954,7 @@ export function StoryLoreModal({
                             type="button"
                             disabled={isBusy}
                             onClick={() => handleUnlinkAll(entName)}
-                            title="Unlink all mentions"
+                            title={hasChapterContext ? 'Unlink mentions in this chapter' : 'Unlink all mentions across chapters'}
                             className="p-1 rounded-lg text-[var(--ink-muted)] hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-[var(--bg-subtle)] transition disabled:opacity-50 cursor-pointer"
                           >
                             {actionLoadingKey === `unlink-${entName}` ? (
@@ -968,6 +1024,7 @@ export function StoryLoreModal({
           onImportSuccess={async (res) => {
             invalidateClientLoreBibleCache(workId)
             await loadEntities(true)
+            await invalidateAppRoutes()
             if (hasChapterContext && onUpdateContent && res.entities && res.entities.length > 0 && latestContentRef.current) {
               const { newMarkdown, totalLinked } = linkMultipleEntities(
                 latestContentRef.current,

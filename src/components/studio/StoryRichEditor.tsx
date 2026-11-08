@@ -88,11 +88,13 @@ export interface StoryRichEditorProps {
 function formatInlineMarkdown(text: string): React.ReactNode {
   // Strip any trailing backslashes before newlines or end of line (markdown hard-break artifacts)
   const cleanText = text
+    .replace(/\\+\*/g, '*')
+    .replace(/\\+_/g, '_')
     .replace(/\\+\[([^\]]+)\\+\]\((lore:[^)]+)\)/g, '[$1]($2)')
     .replace(/\\+\[\\+\[([^\]]+)\\+\]\\+\]/g, '[[$1]]')
     .replace(/\\+\{([^}]+)\\+\}/g, '{$1}')
     .replace(/\\+[ \t]*(?=\r?\n|$)/g, '')
-  const regex = /(\[\[[^|\]]+\|[^\]]+\]\]|\[[^\]]+\]\([^)]+\)|\*\*[^*]+\*\*|__[^_]+__|(?<!\*)\*[^*]+\*(?!\*)|(?<!_)_[^_]+_(?!_)|~~[^~]+~~|`[^`]+`)/g
+  const regex = /(\[\[[^|\]]+\|[^\]]+\]\]|\[[^\]]+\]\([^)]+\)|\*\*\*[^*]+\*\*\*|___[^_]+___|\*\*[^*]+\*\*|__[^_]+__|(?<!\*)\*[^*]+\*(?!\*)|(?<!_)_[^_]+_(?!_)|~~[^~]+~~|`[^`]+`)/g
   const parts = cleanText.split(regex)
   if (parts.length === 1) return cleanText
 
@@ -122,18 +124,53 @@ function formatInlineMarkdown(text: string): React.ReactNode {
       if (match) {
         const linkText = match[1]
         const linkTarget = match[2]
+
+        // Check if linkText contains inner bold/italic markdown marks: [**Text**] or [*Text*]
+        let cleanLinkText = linkText.trim()
+        let isInnerBold = false
+        let isInnerItalic = false
+
+        if (
+          (cleanLinkText.startsWith('***') && cleanLinkText.endsWith('***') && cleanLinkText.length >= 6) ||
+          (cleanLinkText.startsWith('___') && cleanLinkText.endsWith('___') && cleanLinkText.length >= 6)
+        ) {
+          cleanLinkText = cleanLinkText.slice(3, -3)
+          isInnerBold = true
+          isInnerItalic = true
+        } else if (
+          (cleanLinkText.startsWith('**') && cleanLinkText.endsWith('**') && cleanLinkText.length >= 4) ||
+          (cleanLinkText.startsWith('__') && cleanLinkText.endsWith('__') && cleanLinkText.length >= 4)
+        ) {
+          cleanLinkText = cleanLinkText.slice(2, -2)
+          isInnerBold = true
+        } else if (
+          (cleanLinkText.startsWith('*') && cleanLinkText.endsWith('*') && cleanLinkText.length >= 2) ||
+          (cleanLinkText.startsWith('_') && cleanLinkText.endsWith('_') && cleanLinkText.length >= 2)
+        ) {
+          cleanLinkText = cleanLinkText.slice(1, -1)
+          isInnerItalic = true
+        }
+
         if (linkTarget.startsWith('lore:')) {
           const rawPayload = linkTarget.slice(5)
           const { entityType, description } = parseLorePayload(rawPayload)
-          return (
+          let node: React.ReactNode = (
             <LoreGlossaryTrigger
               key={index}
-              text={linkText}
+              text={cleanLinkText}
               entityType={entityType}
               description={description}
             />
           )
+          if (isInnerItalic) node = <em className="italic text-inherit">{node}</em>
+          if (isInnerBold) node = <strong className="font-bold text-inherit">{node}</strong>
+          return <React.Fragment key={index}>{node}</React.Fragment>
         }
+
+        let anchorNode: React.ReactNode = cleanLinkText
+        if (isInnerItalic) anchorNode = <em className="italic text-inherit">{anchorNode}</em>
+        if (isInnerBold) anchorNode = <strong className="font-bold text-inherit">{anchorNode}</strong>
+
         return (
           <a
             key={index}
@@ -142,19 +179,31 @@ function formatInlineMarkdown(text: string): React.ReactNode {
             rel="noopener noreferrer"
             className="text-amber-700 dark:text-amber-400 underline underline-offset-4 decoration-amber-500/50 hover:opacity-80 transition-opacity"
           >
-            {linkText}
+            {anchorNode}
           </a>
         )
       }
     }
 
     if (
+      (part.startsWith('***') && part.endsWith('***') && part.length >= 6) ||
+      (part.startsWith('___') && part.endsWith('___') && part.length >= 6)
+    ) {
+      return (
+        <strong key={index} className="font-bold text-[var(--ink-primary)]">
+          <em className="italic text-inherit">
+            {formatInlineMarkdown(part.slice(3, -3))}
+          </em>
+        </strong>
+      )
+    }
+    if (
       (part.startsWith('**') && part.endsWith('**') && part.length >= 4) ||
       (part.startsWith('__') && part.endsWith('__') && part.length >= 4)
     ) {
       return (
         <strong key={index} className="font-bold text-[var(--ink-primary)]">
-          {part.slice(2, -2)}
+          {formatInlineMarkdown(part.slice(2, -2))}
         </strong>
       )
     }
@@ -164,14 +213,14 @@ function formatInlineMarkdown(text: string): React.ReactNode {
     ) {
       return (
         <em key={index} className="italic text-[var(--ink-primary)]">
-          {part.slice(1, -1)}
+          {formatInlineMarkdown(part.slice(1, -1))}
         </em>
       )
     }
     if (part.startsWith('~~') && part.endsWith('~~') && part.length >= 4) {
       return (
         <del key={index} className="line-through text-[var(--ink-faint)]">
-          {part.slice(2, -2)}
+          {formatInlineMarkdown(part.slice(2, -2))}
         </del>
       )
     }
@@ -196,8 +245,8 @@ function renderChapterParagraph(text: string, isFirstParagraph: boolean = false)
     return <div className="h-4" />
   }
 
-  // Ornamental Scene Break (--- or ***)
-  if (/^(\*{3,}|-{3,})$/.test(trimmed)) {
+  // Ornamental Scene Break (--- or *** or ___)
+  if (/^(\*{3,}|-{3,}|_{3,})$/.test(trimmed)) {
     return (
       <div className="py-6 flex items-center justify-center gap-3 text-[var(--ink-faint)] select-none">
         <span className="w-8 border-t border-[var(--border-subtle)]" />

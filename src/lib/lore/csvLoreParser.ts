@@ -164,6 +164,8 @@ export function parseLoreCsv(csvText: string): CsvLoreParseResult {
     const rawName = (rawCols[nameIdx] || '')
       .replace(/[\[\]]/g, '')
       .replace(/^["']+|["']+$/g, '')
+      .replace(/^(\*{1,3}|_{1,3})+/, '')
+      .replace(/(\*{1,3}|_{1,3})+$/, '')
       .trim()
     const rawType = (rawCols[typeIdx] || '').replace(/\|/g, '/').trim() || 'Character'
     const rawTooltip = (rawCols[tooltipIdx] || '')
