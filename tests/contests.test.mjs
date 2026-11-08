@@ -307,6 +307,7 @@ test('Contest SEO & Security Invariants: /writing-contests SSR, Schema.org Event
   assert.ok(modalCode.includes('isSignedIn'), 'Entry modal must verify user authentication state')
   assert.ok(modalCode.includes('Sign In to Enter Contest'), 'Entry modal must display a clear sign-in gate for public visitors')
   assert.ok(modalCode.includes('openAuthModal'), 'Entry modal must invoke openAuthModal for unauthenticated users')
+  assert.ok(!modalCode.includes('<span>Monthly Contest Entry</span>'), 'Static header pill "Monthly Contest Entry" must be removed')
 
   // 6. Sitemap Inclusion
   const sitemapCode = fs.readFileSync(path.join(rootDir, 'src/server/sitemap.ts'), 'utf-8')

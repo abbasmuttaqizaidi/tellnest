@@ -144,10 +144,6 @@ export function ContestEntryModal({ isOpen, onClose, contest, onSuccess }: Conte
           {/* Header */}
           <div className="flex items-start justify-between pb-4 border-b border-[var(--border-subtle)]">
             <div className="space-y-1">
-              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[11px] font-mono font-medium">
-                <Trophy className="w-3.5 h-3.5" />
-                <span>Monthly Contest Entry</span>
-              </div>
               <h3 className="font-serif text-xl sm:text-2xl font-bold text-[var(--ink-primary)]">
                 Enter The Monthly Indie Contest
               </h3>
