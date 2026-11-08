@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { useState, useMemo } from 'react'
 import {
   Trophy,
@@ -190,6 +190,7 @@ export const Route = createFileRoute('/writing-contests')({
 })
 
 function WritingContestsPage() {
+  const router = useRouter()
   const loaderData = Route.useLoaderData()
   const contest = loaderData?.contest
   const leaderboard = loaderData?.leaderboard || []
@@ -554,9 +555,9 @@ function WritingContestsPage() {
           isOpen={isEntryModalOpen}
           onClose={() => setIsEntryModalOpen(false)}
           contest={contest}
-          onSuccess={() => {
-            // refresh data after success
-            window.location.reload()
+          onSuccess={async () => {
+            // Smoothly refresh data without white-screen page reload
+            await router.invalidate()
           }}
         />
       )}

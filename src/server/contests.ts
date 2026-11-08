@@ -369,10 +369,19 @@ export async function executeGetEligibleUserWorksForContest(
   // Check if author already entered a work
   const { data: existingEntry } = await client
     .from('contest_entries')
-    .select('work_id')
+    .select('work_id, works:work_id(id, title, slug, like_count)')
     .eq('contest_id', contest.id)
     .eq('author_id', profile.id)
     .maybeSingle()
+
+  const enteredWork = existingEntry?.works
+    ? {
+        id: existingEntry.work_id,
+        title: (existingEntry.works as any).title,
+        slug: (existingEntry.works as any).slug,
+        like_count: Number((existingEntry.works as any).like_count || 0),
+      }
+    : null
 
   const contestStart = new Date(contest.start_date).getTime()
   const contestEnd = new Date(contest.end_date).getTime()
@@ -410,6 +419,7 @@ export async function executeGetEligibleUserWorksForContest(
   return {
     works: worksList,
     alreadyEnteredWorkId: existingEntry?.work_id || null,
+    alreadyEnteredWork: enteredWork,
   }
 }
 

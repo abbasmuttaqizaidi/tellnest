@@ -311,16 +311,30 @@ test('Contest SEO & Security Invariants: /writing-contests SSR, Schema.org Event
   assert.ok(modalCode.includes("document.body.style.overflow = 'hidden'"), 'Entry modal must lock document body scroll')
   assert.ok(modalCode.includes("document.documentElement.style.overflow = 'hidden'"), 'Entry modal must lock documentElement scroll for mobile')
   assert.ok(modalCode.includes('createPortal'), 'Entry modal must render via React portal to prevent stacking issues')
+  assert.ok(modalCode.includes('alreadyEnteredWork'), 'Entry modal must show already entered work details')
+  assert.ok(modalCode.includes('selectedWork?.published_at'), 'Entry modal must show dynamic publish date for selected work')
+  assert.ok(!modalCode.includes('View Live Leaderboard'), 'Entry modal must not promise hidden leaderboard on close')
 
-  // 6. Sitemap Inclusion
+  // 6. Router Invalidation on Contest Landing
+  assert.ok(routeCode.includes('router.invalidate()'), 'writing-contests.tsx must use router.invalidate() instead of hard reload')
+  assert.ok(!routeCode.includes('window.location.reload()'), 'writing-contests.tsx must avoid white screen page reload')
+
+  // 7. Writer Studio Contest Discovery Invariant
+  const manageRoutePath = path.join(rootDir, 'src/routes/write.manage.$workId.tsx')
+  assert.ok(fs.existsSync(manageRoutePath), 'write.manage route must exist')
+  const manageCode = fs.readFileSync(manageRoutePath, 'utf-8')
+  assert.ok(manageCode.includes('isEligibleForContestMonth'), 'write.manage must calculate contest eligibility')
+  assert.ok(manageCode.includes('to="/writing-contests"'), 'write.manage must link eligible manuscripts to contest')
+
+  // 8. Sitemap Inclusion
   const sitemapCode = fs.readFileSync(path.join(rootDir, 'src/server/sitemap.ts'), 'utf-8')
   assert.ok(sitemapCode.includes('/writing-contests'), 'sitemap.ts must include /writing-contests entry')
 
-  // 7. Footer Link Equity
+  // 9. Footer Link Equity
   const footerCode = fs.readFileSync(path.join(rootDir, 'src/components/Footer.tsx'), 'utf-8')
   assert.ok(footerCode.includes('to="/writing-contests"'), 'Footer must link to /writing-contests')
 
-  // 8. Admin Panel Section
+  // 10. Admin Panel Section
   const adminCode = fs.readFileSync(path.join(rootDir, 'src/routes/secret-adminpanel.tsx'), 'utf-8')
   assert.ok(adminCode.includes("activeAdminSection === 'contests'"), 'Admin panel must have contests section')
   assert.ok(adminCode.includes('getAdminContestOverviewServerFn'), 'Admin panel must call getAdminContestOverviewServerFn')

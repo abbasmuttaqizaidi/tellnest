@@ -12,6 +12,7 @@ import {
   ArrowRight,
   Lock,
   Loader2,
+  Heart,
 } from 'lucide-react'
 import {
   getEligibleUserWorksForContestServerFn,
@@ -35,6 +36,7 @@ export function ContestEntryModal({ isOpen, onClose, contest, onSuccess }: Conte
   const [loadingWorks, setLoadingWorks] = useState(true)
   const [works, setWorks] = useState<any[]>([])
   const [alreadyEnteredWorkId, setAlreadyEnteredWorkId] = useState<string | null>(null)
+  const [alreadyEnteredWork, setAlreadyEnteredWork] = useState<{ id: string; title: string; slug?: string; like_count: number } | null>(null)
   const [selectedWorkId, setSelectedWorkId] = useState<string>('')
   const [upiId, setUpiId] = useState<string>('')
   const [upiTouched, setUpiTouched] = useState(false)
@@ -77,6 +79,7 @@ export function ContestEntryModal({ isOpen, onClose, contest, onSuccess }: Conte
       setUpiTouched(false)
       setErrorMessage(null)
       setSuccessMessage(null)
+      setAlreadyEnteredWork(null)
       return
     }
 
@@ -91,6 +94,7 @@ export function ContestEntryModal({ isOpen, onClose, contest, onSuccess }: Conte
         const res = await getEligibleUserWorksForContestServerFn({ data: contest.id })
         setWorks(res.works || [])
         setAlreadyEnteredWorkId(res.alreadyEnteredWorkId)
+        setAlreadyEnteredWork((res as any).alreadyEnteredWork || null)
 
         // Pre-select first eligible work if available
         const firstEligible = (res.works || []).find((w: any) => w.isEligible)
@@ -112,6 +116,7 @@ export function ContestEntryModal({ isOpen, onClose, contest, onSuccess }: Conte
   const isUpiValid = validateUpiId(upiId)
   const eligibleWorks = works.filter((w) => w.isEligible)
   const hasEligibleWorks = eligibleWorks.length > 0
+  const selectedWork = eligibleWorks.find((w) => w.id === selectedWorkId) || eligibleWorks[0]
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -210,7 +215,7 @@ export function ContestEntryModal({ isOpen, onClose, contest, onSuccess }: Conte
                   onClick={onClose}
                   className="px-5 py-2.5 rounded-xl bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-xs font-semibold hover:opacity-90 transition-opacity cursor-pointer"
                 >
-                  View Live Leaderboard
+                  Close
                 </button>
               </div>
             </div>
@@ -275,7 +280,7 @@ export function ContestEntryModal({ isOpen, onClose, contest, onSuccess }: Conte
               </div>
             </div>
           ) : alreadyEnteredWorkId ? (
-            <div className="py-8 text-center space-y-4">
+            <div className="py-6 sm:py-8 text-center space-y-4">
               <div className="w-12 h-12 rounded-full bg-amber-500/10 text-amber-600 mx-auto flex items-center justify-center">
                 <Trophy className="w-6 h-6" />
               </div>
@@ -287,12 +292,29 @@ export function ContestEntryModal({ isOpen, onClose, contest, onSuccess }: Conte
                   You have already registered an active manuscript for this month’s contest. Only 1 entry per author is permitted per month to keep competition balanced.
                 </p>
               </div>
+
+              {/* Display Entered Work Details */}
+              {alreadyEnteredWork && (
+                <div className="p-3.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] space-y-1.5 text-left max-w-sm mx-auto">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-tertiary)] block">
+                    Participating Manuscript
+                  </span>
+                  <p className="font-serif font-bold text-sm text-[var(--ink-primary)] truncate">
+                    {alreadyEnteredWork.title}
+                  </p>
+                  <div className="flex items-center gap-1.5 text-xs text-[var(--ink-muted)] font-mono">
+                    <Heart className="w-3.5 h-3.5 fill-[var(--ink-primary)] text-[var(--ink-primary)]" />
+                    <span>{alreadyEnteredWork.like_count.toLocaleString()} reader likes collected</span>
+                  </div>
+                </div>
+              )}
+
               <div className="pt-2">
                 <button
                   onClick={onClose}
                   className="px-5 py-2.5 rounded-xl bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-xs font-semibold hover:opacity-90 transition-opacity cursor-pointer"
                 >
-                  Close & View Leaderboard
+                  Close
                 </button>
               </div>
             </div>
@@ -345,7 +367,7 @@ export function ContestEntryModal({ isOpen, onClose, contest, onSuccess }: Conte
                       ))}
                     </select>
                     <p className="text-[11px] text-[var(--ink-muted)]">
-                      Eligible: Published on {new Date(eligibleWorks[0]?.published_at || Date.now()).toLocaleDateString()}
+                      Eligible: Published on {new Date(selectedWork?.published_at || Date.now()).toLocaleDateString()}
                     </p>
                   </div>
                 )}

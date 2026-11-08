@@ -42,6 +42,8 @@ import {
   X,
   Sparkles,
   AlertTriangle,
+  Trophy,
+  ArrowRight,
 } from 'lucide-react'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { generateMeta } from '../lib/seo'
@@ -1012,6 +1014,15 @@ function WorkManagementPage() {
     return chapters.filter((c) => c.status === 'draft').length
   }, [chapters])
 
+  const isEligibleForContestMonth = useMemo(() => {
+    if ((publicationStatus || '').toLowerCase() !== 'published') return false
+    const pubDateStr = work?.published_at || work?.publishedAt
+    if (!pubDateStr) return false
+    const pubDate = new Date(pubDateStr)
+    const now = new Date()
+    return pubDate.getUTCFullYear() === now.getUTCFullYear() && pubDate.getUTCMonth() === now.getUTCMonth()
+  }, [publicationStatus, work?.published_at, work?.publishedAt])
+
   return (
     <div className="min-h-screen py-8 sm:py-10 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
       
@@ -1364,6 +1375,32 @@ function WorkManagementPage() {
 
         </div>
       </div>
+
+      {/* Contest Eligibility Discovery Banner */}
+      {isEligibleForContestMonth && (
+        <div className="my-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 text-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 shrink-0">
+              <Trophy className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="font-semibold text-sm text-[var(--ink-primary)]">
+                This manuscript is eligible for the Monthly Indie Contest!
+              </p>
+              <p className="text-[11px] text-[var(--ink-muted)]">
+                Published this month • Compete for the ₹2,000 cash prize (100% Free Entry)
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/writing-contests"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-xs font-semibold no-underline hover:opacity-90 transition-opacity shrink-0 shadow-xs"
+          >
+            <span>Enter Contest</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+      )}
 
       {/* Chapters Folio Workspace */}
       <div className="space-y-4">
