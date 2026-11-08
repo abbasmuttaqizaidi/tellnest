@@ -21,9 +21,13 @@ export interface StoryLoreEntity extends LoreEntity {
   totalOccurrencesInStory?: number
   chaptersCount?: number
   chapterCount?: number
+  linkedChaptersCount?: number
+  unlinkedChaptersCount?: number
   mentionCount?: number
   linkedCount?: number
   unlinkedCount?: number
+  totalLinkedCount?: number
+  totalUnlinkedCount?: number
 }
 
 export interface ParsedLoreToken {

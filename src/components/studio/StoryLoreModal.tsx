@@ -437,8 +437,9 @@ export function StoryLoreModal({
       const entName = ent.name || (ent as any).entityName || ''
       const entDesc = ent.description || (ent as any).entityDescription || ''
       const entType = ent.entityType || (ent as any).type || 'Character'
-      const chaptersCount = Number(ent.chaptersCount ?? (ent as any).chapterCount ?? 0)
-      const isLinked = chaptersCount > 0
+      const linkedChapters = Number(ent.linkedChaptersCount ?? ent.chaptersCount ?? 0)
+      const totalUnlinked = Number(ent.totalUnlinkedCount ?? ent.unlinkedCount ?? 0)
+      const isLinked = linkedChapters > 0
 
       const matchesSearch =
         !q ||
@@ -452,7 +453,7 @@ export function StoryLoreModal({
       const matchesLinkStatus =
         linkStatusFilter === 'all' ||
         (linkStatusFilter === 'linked' && isLinked) ||
-        (linkStatusFilter === 'unlinked' && !isLinked)
+        (linkStatusFilter === 'unlinked' && (!isLinked || totalUnlinked > 0))
 
       return matchesSearch && matchesType && matchesLinkStatus
     })
@@ -759,7 +760,8 @@ export function StoryLoreModal({
                     const isLocation = entType.toLowerCase() === 'location'
                     const isLore = entType.toLowerCase() === 'lore'
 
-                    const chaptersCount = ent.chaptersCount ?? ent.chapterCount ?? 0
+                    const linkedChapters = ent.linkedChaptersCount ?? ent.chaptersCount ?? 0
+                    const totalUnlinked = ent.totalUnlinkedCount ?? ent.unlinkedCount ?? 0
                     const totalMentions = ent.totalOccurrencesInStory ?? ent.mentionCount ?? 0
 
                     return (
@@ -791,11 +793,20 @@ export function StoryLoreModal({
                               {entType}
                             </span>
 
-                            {/* Linked chapters count */}
+                            {/* Linked chapters count & Unlinked info */}
                             <span className="text-[10px]">
-                              {chaptersCount > 0 ? (
+                              {linkedChapters > 0 ? (
                                 <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                                  Linked in {chaptersCount} {chaptersCount === 1 ? 'chapter' : 'chapters'}
+                                  Linked in {linkedChapters} {linkedChapters === 1 ? 'chapter' : 'chapters'}
+                                  {totalUnlinked > 0 && (
+                                    <span className="text-amber-600 dark:text-amber-400 font-normal ml-1">
+                                      • {totalUnlinked} unlinked
+                                    </span>
+                                  )}
+                                </span>
+                              ) : totalUnlinked > 0 ? (
+                                <span className="text-amber-600 dark:text-amber-400 font-medium">
+                                  Not linked ({totalUnlinked} unlinked {totalUnlinked === 1 ? 'mention' : 'mentions'})
                                 </span>
                               ) : (
                                 <span className="text-[var(--ink-muted)]">

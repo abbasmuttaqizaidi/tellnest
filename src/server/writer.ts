@@ -2147,10 +2147,22 @@ export async function executeGetStoryLoreBible(
 
   for (const ent of entitiesList) {
     let totalStoryMentions = 0
+    let totalLinkedCount = 0
+    let totalUnlinkedCount = 0
+    let chaptersWithLinks = 0
+    let chaptersWithUnlinkedMentions = 0
     let chaptersWithMentions = 0
 
     for (const ch of allChapters) {
       const stats = countEntityMentions(ch.content || '', ent.name)
+      if (stats.linkedCount > 0) {
+        chaptersWithLinks++
+        totalLinkedCount += stats.linkedCount
+      }
+      if (stats.unlinkedCount > 0) {
+        chaptersWithUnlinkedMentions++
+        totalUnlinkedCount += stats.unlinkedCount
+      }
       const totalInChapter = stats.linkedCount + stats.unlinkedCount
       if (totalInChapter > 0) {
         chaptersWithMentions++
@@ -2159,14 +2171,21 @@ export async function executeGetStoryLoreBible(
     }
 
     ent.totalOccurrencesInStory = totalStoryMentions
-    ent.chaptersCount = chaptersWithMentions
+    ent.chaptersCount = chaptersWithLinks // Number of chapters where entity is ACTUALLY linked
+    ent.chapterCount = chaptersWithMentions // Total chapters with any mention
+    ent.linkedChaptersCount = chaptersWithLinks
+    ent.unlinkedChaptersCount = chaptersWithUnlinkedMentions
+    ent.totalLinkedCount = totalLinkedCount
+    ent.totalUnlinkedCount = totalUnlinkedCount
     ent.mentionCount = totalStoryMentions
-    ent.chapterCount = chaptersWithMentions
 
     if (currentCh) {
       const curStats = countEntityMentions(currentCh.content || '', ent.name)
       ent.linkedCount = curStats.linkedCount
       ent.unlinkedCount = curStats.unlinkedCount
+    } else {
+      ent.linkedCount = totalLinkedCount
+      ent.unlinkedCount = totalUnlinkedCount
     }
   }
 
