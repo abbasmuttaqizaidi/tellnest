@@ -706,3 +706,31 @@ test('Modal Scroll Lock & Anti-Layout-Shift Invariants: lockScroll compensates s
     globalThis.window = originalWin
   }
 })
+
+test('Mobile Contest Navbar Removal & 48-Hour Dismissal Modal Invariants', () => {
+  // 1. Mobile modal component exists with 48h cooldown logic
+  const modalPath = path.join(rootDir, 'src/components/MobileContestAnnouncementModal.tsx')
+  assert.ok(fs.existsSync(modalPath), 'MobileContestAnnouncementModal.tsx must exist')
+  const modalCode = fs.readFileSync(modalPath, 'utf-8')
+  assert.ok(modalCode.includes('48 * 60 * 60 * 1000'), 'Modal must enforce 48 hours cooldown')
+  assert.ok(modalCode.includes('localStorage.setItem'), 'Modal must store dismissal timestamp in localStorage')
+  assert.ok(modalCode.includes('localStorage.getItem'), 'Modal must read dismissal timestamp from localStorage')
+  assert.ok(modalCode.includes('window.innerWidth'), 'Modal must check mobile screen viewport')
+  assert.ok(modalCode.includes('to="/writing-contests"'), 'Modal must link to /writing-contests')
+
+  // 2. Global Root integration
+  const rootPath = path.join(rootDir, 'src/routes/__root.tsx')
+  const rootCode = fs.readFileSync(rootPath, 'utf-8')
+  assert.ok(rootCode.includes('MobileContestAnnouncementModal'), '__root.tsx must render MobileContestAnnouncementModal')
+
+  // 3. Navbar removal on mobile screens
+  const globalHeaderPath = path.join(rootDir, 'src/components/Header.tsx')
+  const globalHeaderCode = fs.readFileSync(globalHeaderPath, 'utf-8')
+  assert.ok(!globalHeaderCode.includes('md:hidden inline-flex items-center justify-center rounded-full bg-[#18181B] hover:bg-black dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-[#18181B] px-2.5 py-1 text-[11px] font-medium transition-all shadow-xs cursor-pointer shrink-0 select-none'), 'Mobile top bar contest button must be removed from Header.tsx')
+  // Desktop button is preserved
+  assert.ok(globalHeaderCode.includes('Active Contest Quick Details Button'), 'Header.tsx must retain desktop contest button')
+
+  const publicMobilePath = path.join(rootDir, 'src/components/PublicMobileStories.tsx')
+  const publicMobileCode = fs.readFileSync(publicMobilePath, 'utf-8')
+  assert.ok(!publicMobileCode.includes('aria-label="View writing contest details"'), 'PublicMobileStories top bar must not have contest button')
+})

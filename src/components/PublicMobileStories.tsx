@@ -730,20 +730,8 @@ export function PublicMobileStories({
             <HatchpenLogo size="xs" variant="compact" forceTheme="light" />
           </Link>
 
-          {/* Top-right action: Contest, Join HatchPen & Circular Hamburger Button */}
+          {/* Top-right action: Join HatchPen & Circular Hamburger Button */}
           <div className="flex items-center gap-1.5 sm:gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic(8)
-                setIsContestModalOpen(true)
-              }}
-              className="inline-flex items-center justify-center rounded-full bg-[#18181B] text-white hover:bg-black px-2.5 py-1 text-[11px] font-medium shadow-xs active:scale-95 transition-all cursor-pointer select-none"
-              aria-label="View writing contest details"
-              title="Writing Contest"
-            >
-              <span>Contest</span>
-            </button>
             <button
               type="button"
               onClick={() => {

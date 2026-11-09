@@ -626,16 +626,6 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
             </div>
           )}
 
-          {/* Active Contest Button on Mobile Top Bar (Always visible for all users) */}
-          <button
-            type="button"
-            onClick={() => setContestModalOpen(true)}
-            className="md:hidden inline-flex items-center justify-center rounded-full bg-[#18181B] hover:bg-black dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-[#18181B] px-2.5 py-1 text-[11px] font-medium transition-all shadow-xs cursor-pointer shrink-0 select-none"
-            title="Writing Contest"
-          >
-            <span>Contest</span>
-          </button>
-
           {/* Mobile Navigation Hamburger */}
           <button
             onClick={() => setMobileDrawerOpen(!mobileDrawerOpen)}

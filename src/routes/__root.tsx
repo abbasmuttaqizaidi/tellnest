@@ -8,6 +8,7 @@ import { InspectletTracker } from '../components/InspectletTracker'
 import { AuthModal } from '../components/AuthModal'
 import { PublicWriteModal } from '../components/PublicWriteModal'
 import { UserOnboardingModal } from '../components/UserOnboardingModal'
+import { MobileContestAnnouncementModal } from '../components/MobileContestAnnouncementModal'
 import { AppProvider } from '../context/AppContext'
 import { getAuthUserServerFn } from '../server/auth'
 
@@ -368,6 +369,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <AuthModal />
       <PublicWriteModal />
       <UserOnboardingModal authUser={rootData?.authUser} />
+      <MobileContestAnnouncementModal />
       <Header serverAuthenticated={Boolean(rootData?.isAuthenticated)} />
       <main className="flex-1 w-full max-w-full bg-[var(--bg-canvas)]">
         {children}
