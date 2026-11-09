@@ -185,7 +185,7 @@ export const CloudinaryAssetPickerModal: React.FC<CloudinaryAssetPickerModalProp
                       isSelected
                         ? 'border-[var(--ink-primary)] ring-2 ring-[var(--ink-primary)] shadow-md'
                         : 'border-[var(--border-subtle)] hover:border-[var(--ink-muted)] hover:shadow-sm'
-                    } ${isCover ? 'aspect-[3/4]' : 'aspect-[16/9]'}`}
+                    } ${isCover ? 'aspect-[512/763]' : 'aspect-[16/9]'}`}
                   >
                     <img
                       src={thumbUrl}

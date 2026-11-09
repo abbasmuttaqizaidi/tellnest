@@ -24,8 +24,8 @@ export const CloudinaryImageUpload: React.FC<CloudinaryImageUploadProps> = ({
   onImageRemoved,
   onUploading,
   folder = 'banners',
-  recommendedDimensions = '1200 × 500 px',
-  aspectRatioHint = 'Landscape (~21:9 or 16:9)',
+  recommendedDimensions,
+  aspectRatioHint,
   maxSizeMb = 10,
   className = '',
   allowPlatformPicker = true,
@@ -38,6 +38,8 @@ export const CloudinaryImageUpload: React.FC<CloudinaryImageUploadProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const isCover = folder === 'covers'
+  const effectiveRecommendedDimensions = recommendedDimensions ?? (isCover ? '512 × 763 px' : '1200 × 500 px')
+  const effectiveAspectRatioHint = aspectRatioHint ?? (isCover ? 'Portrait' : 'Landscape (~21:9 or 16:9)')
 
   const handleFile = async (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -85,14 +87,14 @@ export const CloudinaryImageUpload: React.FC<CloudinaryImageUploadProps> = ({
           {label}
         </label>
         <span className="text-[10px] font-mono text-[var(--ink-faint)]">
-          {recommendedDimensions} • {aspectRatioHint}
+          {effectiveRecommendedDimensions} • {effectiveAspectRatioHint}
         </span>
       </div>
 
       {currentImageUrl && !imageLoadError ? (
         <div
           className={`relative group overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] ${
-            isCover ? 'w-full max-w-[260px] mx-auto aspect-[2/3] shadow-md' : 'w-full'
+            isCover ? 'w-full max-w-[260px] mx-auto aspect-[512/763] shadow-md' : 'w-full'
           }`}
         >
           <img
@@ -100,7 +102,7 @@ export const CloudinaryImageUpload: React.FC<CloudinaryImageUploadProps> = ({
             alt="Uploaded preview"
             onError={() => setImageLoadError(true)}
             className={`w-full object-cover object-center ${
-              isCover ? 'h-full aspect-[2/3]' : 'h-32 sm:h-40'
+              isCover ? 'h-full aspect-[512/763]' : 'h-32 sm:h-40'
             }`}
           />
           <div
@@ -155,7 +157,7 @@ export const CloudinaryImageUpload: React.FC<CloudinaryImageUploadProps> = ({
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
             className={`flex flex-col items-center justify-center p-5 rounded-lg border-2 border-dashed transition-all cursor-pointer ${
-              isCover ? 'w-full max-w-[260px] mx-auto aspect-[2/3]' : ''
+              isCover ? 'w-full max-w-[260px] mx-auto aspect-[512/763]' : ''
             } ${
               dragOver
                 ? 'border-[var(--ink-primary)] bg-[var(--bg-subtle)]'
@@ -177,8 +179,8 @@ export const CloudinaryImageUpload: React.FC<CloudinaryImageUploadProps> = ({
                 <div className="text-xs font-mono text-[var(--ink-primary)] font-medium">
                   {isCover ? 'Upload Book Cover' : 'Click to upload custom image'}
                 </div>
-                <div className="text-[10px] font-mono text-[var(--ink-faint)] max-w-[180px]">
-                  {isCover ? 'Portrait 2:3 (600×900 px)' : 'PNG, JPG, WebP'} up to {maxSizeMb}MB
+                <div className="text-[10px] font-mono text-[var(--ink-faint)] max-w-[200px]">
+                  {isCover ? '512 × 763 px (Recommended)' : 'PNG, JPG, WebP'} • Max {maxSizeMb}MB
                 </div>
               </div>
             )}
@@ -195,6 +197,12 @@ export const CloudinaryImageUpload: React.FC<CloudinaryImageUploadProps> = ({
                 Choose from Library
               </button>
             </div>
+          )}
+
+          {isCover && (
+            <p className="text-[10.5px] font-mono text-[var(--ink-muted)] text-center">
+              Standard HatchPen ratio: 512 × 763 px. Non-standard covers will be fitted to this frame across Discover & Story pages.
+            </p>
           )}
         </div>
       )}

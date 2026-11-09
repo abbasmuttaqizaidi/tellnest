@@ -504,8 +504,8 @@ function CreateWorkPage() {
                   onImageUploaded={(url) => setCover(url)}
                   onImageRemoved={() => setCover(defaultBookCover)}
                   folder="covers"
-                  recommendedDimensions="600 × 900 px"
-                  aspectRatioHint="Portrait (2:3)"
+                  recommendedDimensions="512 × 763 px"
+                  aspectRatioHint="Portrait"
                   maxSizeMb={10}
                   allowPlatformPicker={true}
                 />

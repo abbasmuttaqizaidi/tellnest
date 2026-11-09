@@ -1451,8 +1451,8 @@ function AdminWorkEditorPage() {
                 onImageRemoved={() => setCover('')}
                 onUploading={setIsCoverUploading}
                 folder="covers"
-                recommendedDimensions="600 × 900 px"
-                aspectRatioHint="Portrait (2:3)"
+                recommendedDimensions="512 × 763 px"
+                aspectRatioHint="Portrait"
                 maxSizeMb={10}
               />
 
