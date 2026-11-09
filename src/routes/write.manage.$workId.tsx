@@ -53,6 +53,7 @@ import defaultBookCover from '../assets/default-book-cover.webp'
 import { FormattedSynopsis } from '../components/FormattedSynopsis'
 import { extractLoreEntities } from '../lib/lore/loreParser'
 import { StoryLoreModal } from '../components/studio/StoryLoreModal'
+import { useScrollLock } from '../lib/scrollLock'
 import {
   getWriterWorkDetailsServerFn,
   saveWriterChapterServerFn,
@@ -1022,6 +1023,32 @@ function WorkManagementPage() {
     const now = new Date()
     return pubDate.getUTCFullYear() === now.getUTCFullYear() && pubDate.getUTCMonth() === now.getUTCMonth()
   }, [publicationStatus, work?.published_at, work?.publishedAt])
+
+  // Strict background scroll lock whenever any modal (especially Change Cover modal) is open
+  const isAnyModalOpen = Boolean(
+    coverModalOpen ||
+    editStoryModalOpen ||
+    pubModalOpen ||
+    newChapterModalOpen ||
+    actModalOpen ||
+    deleteWorkModalOpen ||
+    deleteActTarget ||
+    loreBibleModalOpen
+  )
+
+  useScrollLock(isAnyModalOpen)
+
+  // Close cover modal on Escape key
+  useEffect(() => {
+    if (!coverModalOpen) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setCoverModalOpen(false)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [coverModalOpen])
 
   return (
     <div className="min-h-screen py-8 sm:py-10 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
@@ -2528,27 +2555,36 @@ function WorkManagementPage() {
 
       {/* Change Cover Modal */}
       {coverModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="w-full max-w-md rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-3">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={() => setCoverModalOpen(false)}
+        >
+          <div
+            className="relative w-full max-w-md max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3.5rem)] flex flex-col rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-5 sm:px-6 py-4 shrink-0 bg-[var(--bg-surface)]">
               <div>
                 <h3 className="font-serif text-lg font-semibold text-[var(--ink-primary)]">
                   Change Manuscript Cover
                 </h3>
-                <p className="font-mono text-xs text-[var(--ink-muted)]">
+                <p className="font-mono text-xs text-[var(--ink-muted)] mt-0.5">
                   PNG/JPG files are auto-converted to WebP before uploading
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setCoverModalOpen(false)}
-                className="p-1 text-[var(--ink-muted)] hover:text-[var(--ink-primary)] rounded hover:bg-[var(--bg-subtle)]"
+                className="p-1.5 text-[var(--ink-muted)] hover:text-[var(--ink-primary)] rounded-lg hover:bg-[var(--bg-subtle)] transition cursor-pointer"
+                title="Close"
               >
-                ✕
+                <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="space-y-4 pt-1">
+            {/* Scrollable Content Body */}
+            <div className="flex-1 overflow-y-auto modal-scrollable-content px-5 sm:px-6 py-4 sm:py-5 space-y-4">
               <CloudinaryImageUpload
                 label="Select or Upload New Cover"
                 folder="covers"
@@ -2558,17 +2594,18 @@ function WorkManagementPage() {
                 onImageUploaded={handleSaveNewCover}
                 allowPlatformPicker={true}
               />
+            </div>
 
-              <div className="flex justify-end pt-2 border-t border-[var(--border-subtle)]">
-                <button
-                  type="button"
-                  disabled={isSavingCover}
-                  onClick={() => setCoverModalOpen(false)}
-                  className="rounded px-4 py-1.5 text-xs text-[var(--ink-muted)] hover:text-[var(--ink-primary)]"
-                >
-                  Close
-                </button>
-              </div>
+            {/* Modal Sticky Footer */}
+            <div className="flex justify-end items-center px-5 sm:px-6 py-3 border-t border-[var(--border-subtle)] bg-[var(--bg-subtle)]/40 shrink-0">
+              <button
+                type="button"
+                disabled={isSavingCover}
+                onClick={() => setCoverModalOpen(false)}
+                className="rounded-lg px-4 py-1.5 text-xs font-mono font-medium text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition cursor-pointer disabled:opacity-50"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

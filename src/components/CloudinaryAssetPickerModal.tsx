@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Sparkles, Check, Loader2, X, RefreshCw, FolderSearch } from 'lucide-react'
 import { getCloudinaryPlatformAssetsServerFn } from '../server/works'
 import { getOptimizedImageUrl } from '../lib/cloudinary'
+import { useScrollLock } from '../lib/scrollLock'
 
 export interface PlatformAsset {
   publicId: string
@@ -27,6 +28,8 @@ export const CloudinaryAssetPickerModal: React.FC<CloudinaryAssetPickerModalProp
   type,
   currentUrl,
 }) => {
+  useScrollLock(isOpen)
+
   const [assets, setAssets] = useState<PlatformAsset[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -134,7 +137,7 @@ export const CloudinaryAssetPickerModal: React.FC<CloudinaryAssetPickerModalProp
         </div>
 
         {/* Content Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[var(--bg-canvas)]">
+        <div className="flex-1 overflow-y-auto modal-scrollable-content p-4 sm:p-6 bg-[var(--bg-canvas)]">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3">
               <Loader2 className="h-7 w-7 animate-spin text-[var(--ink-primary)]" />

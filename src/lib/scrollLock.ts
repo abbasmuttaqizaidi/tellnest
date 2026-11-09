@@ -4,6 +4,8 @@ let lockCount = 0
 let originalBodyOverflow = ''
 let originalHtmlOverflow = ''
 let originalBodyPaddingRight = ''
+let originalBodyOverscroll = ''
+let originalHtmlOverscroll = ''
 
 /**
  * Locks background scrolling without causing layout shifts.
@@ -23,6 +25,8 @@ export function lockScroll(): () => void {
     originalBodyOverflow = document.body.style.overflow
     originalHtmlOverflow = document.documentElement.style.overflow
     originalBodyPaddingRight = document.body.style.paddingRight
+    originalBodyOverscroll = document.body.style.overscrollBehavior
+    originalHtmlOverscroll = document.documentElement.style.overscrollBehavior
 
     if (scrollbarWidth > 0) {
       document.body.style.paddingRight = `${scrollbarWidth}px`
@@ -31,6 +35,8 @@ export function lockScroll(): () => void {
 
     document.body.style.overflow = 'hidden'
     document.documentElement.style.overflow = 'hidden'
+    document.body.style.overscrollBehavior = 'none'
+    document.documentElement.style.overscrollBehavior = 'none'
   }
 
   lockCount++
@@ -52,10 +58,14 @@ export function unlockScroll(): void {
     document.body.style.overflow = originalBodyOverflow
     document.documentElement.style.overflow = originalHtmlOverflow
     document.body.style.paddingRight = originalBodyPaddingRight
+    document.body.style.overscrollBehavior = originalBodyOverscroll
+    document.documentElement.style.overscrollBehavior = originalHtmlOverscroll
     document.documentElement.style.removeProperty('--scrollbar-width')
     originalBodyOverflow = ''
     originalHtmlOverflow = ''
     originalBodyPaddingRight = ''
+    originalBodyOverscroll = ''
+    originalHtmlOverscroll = ''
   }
 }
 

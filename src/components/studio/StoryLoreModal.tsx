@@ -855,7 +855,7 @@ export function StoryLoreModal({
                   </p>
                 </div>
               ) : (
-                <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-2">
+                <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-2 overscroll-contain custom-scrollbar">
                   {filteredEntities.map((ent) => {
                     const entName = ent.name || (ent as any).entityName || ''
                     const entType = ent.entityType || (ent as any).type || 'Character'
