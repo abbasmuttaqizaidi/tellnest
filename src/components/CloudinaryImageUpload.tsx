@@ -37,6 +37,10 @@ export const CloudinaryImageUpload: React.FC<CloudinaryImageUploadProps> = ({
   const [isPickerOpen, setIsPickerOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  useEffect(() => {
+    setImageLoadError(false)
+  }, [currentImageUrl])
+
   const isCover = folder === 'covers'
   const effectiveRecommendedDimensions = recommendedDimensions ?? (isCover ? '512 × 763 px' : '1200 × 500 px')
   const effectiveAspectRatioHint = aspectRatioHint ?? (isCover ? 'Portrait' : 'Landscape (~21:9 or 16:9)')
@@ -92,8 +96,9 @@ export const CloudinaryImageUpload: React.FC<CloudinaryImageUploadProps> = ({
       </div>
 
       {currentImageUrl && !imageLoadError ? (
-        <div
-          className={`relative group overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] ${
+        <>
+          <div
+            className={`relative group overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] ${
             isCover ? 'w-full max-w-[260px] mx-auto aspect-[512/763] shadow-md' : 'w-full'
           }`}
         >
@@ -106,7 +111,7 @@ export const CloudinaryImageUpload: React.FC<CloudinaryImageUploadProps> = ({
             }`}
           />
           <div
-            className={`absolute inset-0 bg-black/65 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-4 ${
+            className={`absolute inset-0 bg-black/65 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity flex items-center justify-center p-4 ${
               isCover ? 'flex-col gap-2' : 'gap-2 flex-wrap'
             }`}
           >
@@ -146,6 +151,39 @@ export const CloudinaryImageUpload: React.FC<CloudinaryImageUploadProps> = ({
             <span>Optimized</span>
           </div>
         </div>
+
+        {/* Mobile / touch fallback buttons when hover is unavailable */}
+        <div className="flex sm:hidden items-center justify-center gap-2 pt-1 flex-wrap">
+          {allowPlatformPicker && (
+            <button
+              type="button"
+              onClick={() => setIsPickerOpen(true)}
+              disabled={isUploading}
+              className="py-1 px-2.5 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--ink-secondary)] text-[11px] font-mono cursor-pointer"
+            >
+              Choose Library
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className="py-1 px-2.5 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--ink-secondary)] text-[11px] font-mono cursor-pointer"
+          >
+            Upload New
+          </button>
+          {onImageRemoved && (
+            <button
+              type="button"
+              onClick={onImageRemoved}
+              disabled={isUploading}
+              className="py-1 px-2.5 rounded-md border border-rose-500/30 text-rose-500 text-[11px] font-mono cursor-pointer"
+            >
+              Remove
+            </button>
+          )}
+        </div>
+      </>
       ) : (
         <div className="space-y-2.5">
           <div

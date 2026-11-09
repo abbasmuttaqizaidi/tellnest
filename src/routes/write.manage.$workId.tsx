@@ -1043,12 +1043,13 @@ function WorkManagementPage() {
     if (!coverModalOpen) return
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        if (isSavingCover) return
         setCoverModalOpen(false)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [coverModalOpen])
+  }, [coverModalOpen, isSavingCover])
 
   return (
     <div className="min-h-screen py-8 sm:py-10 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
@@ -2556,11 +2557,13 @@ function WorkManagementPage() {
       {/* Change Cover Modal */}
       {coverModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
-          onClick={() => setCoverModalOpen(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overscroll-contain animate-in fade-in duration-150"
+          onClick={() => {
+            if (!isSavingCover) setCoverModalOpen(false)
+          }}
         >
           <div
-            className="relative w-full max-w-md max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3.5rem)] flex flex-col rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
+            className="relative w-full max-w-md max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3.5rem)] flex flex-col rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-2xl overflow-hidden overscroll-contain animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
@@ -2575,8 +2578,9 @@ function WorkManagementPage() {
               </div>
               <button
                 type="button"
+                disabled={isSavingCover}
                 onClick={() => setCoverModalOpen(false)}
-                className="p-1.5 text-[var(--ink-muted)] hover:text-[var(--ink-primary)] rounded-lg hover:bg-[var(--bg-subtle)] transition cursor-pointer"
+                className="p-1.5 text-[var(--ink-muted)] hover:text-[var(--ink-primary)] rounded-lg hover:bg-[var(--bg-subtle)] transition cursor-pointer disabled:opacity-50"
                 title="Close"
               >
                 <X className="h-4 w-4" />

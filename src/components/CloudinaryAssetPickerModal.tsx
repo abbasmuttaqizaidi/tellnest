@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Sparkles, Check, Loader2, X, RefreshCw, FolderSearch } from 'lucide-react'
 import { getCloudinaryPlatformAssetsServerFn } from '../server/works'
 import { getOptimizedImageUrl } from '../lib/cloudinary'
@@ -88,15 +89,28 @@ export const CloudinaryAssetPickerModal: React.FC<CloudinaryAssetPickerModalProp
     }
   }, [isOpen, type])
 
-  if (!isOpen) return null
+  // Topmost Escape key handler: stops immediate propagation so underlying modal doesn't close prematurely
+  useEffect(() => {
+    if (!isOpen) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopImmediatePropagation()
+        onClose()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown, true)
+    return () => window.removeEventListener('keydown', handleKeyDown, true)
+  }, [isOpen, onClose])
 
-  return (
+  if (!isOpen || typeof document === 'undefined') return null
+
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+      className="fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-xs overscroll-contain animate-in fade-in duration-150"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-4xl max-h-[85vh] flex flex-col rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-canvas)] shadow-2xl overflow-hidden"
+        className="w-full max-w-4xl max-h-[85vh] flex flex-col rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-canvas)] shadow-2xl overflow-hidden overscroll-contain"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -228,6 +242,7 @@ export const CloudinaryAssetPickerModal: React.FC<CloudinaryAssetPickerModalProp
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
