@@ -779,12 +779,12 @@ function WorkDetailPage() {
         {/* Cover Column */}
         <div className="md:col-span-4 lg:col-span-4 flex flex-col items-center sm:items-start">
           {/* Book Cover Image */}
-          <div className="relative aspect-[3/4] w-full max-w-[280px] sm:max-w-[320px] overflow-hidden rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] shadow-md">
+          <div className="relative aspect-[512/763] w-full max-w-[280px] sm:max-w-[320px] overflow-hidden rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] shadow-md">
             <img
               src={work.cover || defaultBookCover}
               alt={`${work.title} by ${authorDisplayName} — Original ${work.genre || 'Literary'} manuscript cover on HatchPen`}
-              width={320}
-              height={427}
+              width={512}
+              height={763}
               fetchPriority="high"
               loading="eager"
               decoding="async"

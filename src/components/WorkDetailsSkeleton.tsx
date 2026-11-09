@@ -17,11 +17,11 @@ export function WorkDetailsSkeleton() {
       <div className="grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-12 pb-12 border-b border-[var(--border-subtle)]">
         {/* Cover Column Skeleton */}
         <div className="md:col-span-4 lg:col-span-4 flex flex-col items-center sm:items-start">
-          <div className="aspect-[3/4] w-full max-w-[260px] sm:max-w-[320px] rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] shadow-md" />
+          <div className="aspect-[512/763] w-full max-w-[280px] sm:max-w-[320px] rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] shadow-md" />
           {/* Primary Action Button Skeleton */}
-          <div className="w-full max-w-[260px] sm:max-w-[320px] h-12 mt-4 rounded-xl bg-[var(--bg-subtle)]" />
+          <div className="w-full max-w-[280px] sm:max-w-[320px] h-12 mt-4 rounded-xl bg-[var(--bg-subtle)]" />
           {/* Secondary Buttons Skeleton */}
-          <div className="w-full max-w-[260px] sm:max-w-[320px] grid grid-cols-2 gap-2 mt-2">
+          <div className="w-full max-w-[280px] sm:max-w-[320px] grid grid-cols-2 gap-2 mt-2">
             <div className="h-10 rounded-lg bg-[var(--bg-subtle)]" />
             <div className="h-10 rounded-lg bg-[var(--bg-subtle)]" />
           </div>

@@ -16,8 +16,8 @@ export function DiscoverGridSkeleton({ count = 14 }: { count?: number }) {
           className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-2.5 sm:p-3.5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex flex-col justify-between"
         >
           <div>
-            {/* Cover image placeholder matching aspect-[3/4] */}
-            <div className="aspect-[3/4] w-full rounded-lg bg-[var(--bg-subtle)]" />
+            {/* Cover image placeholder matching aspect-[512/763] */}
+            <div className="aspect-[512/763] w-full rounded-lg bg-[var(--bg-subtle)]" />
 
             {/* Meta Header placeholder (Category + Rating) */}
             <div className="mt-3 flex items-center justify-between">

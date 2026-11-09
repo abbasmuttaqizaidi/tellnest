@@ -10,9 +10,10 @@ import { formatViewCount } from '../lib/utils'
 interface WorkCardProps {
   work: Work
   layout?: 'portrait' | 'horizontal' | 'compact'
+  aspectRatio?: string
 }
 
-export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
+export default function WorkCard({ work, layout = 'portrait', aspectRatio = 'aspect-[512/763]' }: WorkCardProps) {
   const { isWorkSaved, toggleSaveWork, readingProgress, isOwnWork, isSignedIn, openAuthModal } = useApp()
   const saved = isWorkSaved(work.id)
   const progress = !isOwnWork(work.id) ? readingProgress[work.id] : undefined
@@ -169,13 +170,13 @@ export default function WorkCard({ work, layout = 'portrait' }: WorkCardProps) {
     >
       <div>
         {/* Cover Presentation */}
-        <div className="relative aspect-[3/4] w-full overflow-hidden rounded bg-[var(--bg-subtle)]">
+        <div className={`relative ${aspectRatio} w-full overflow-hidden rounded bg-[var(--bg-subtle)]`}>
           <Link to="/works/$workId" params={{ workId: workSlug }} preload="intent">
             <OptimizedImage
               src={work.cover}
               alt={`${work.title} by ${authorDisplayName} — ${work.genre || 'Original'} story cover`}
-              width={320}
-              height={426}
+              width={512}
+              height={763}
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
               containerClassName="h-full w-full"
               className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"

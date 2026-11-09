@@ -1427,8 +1427,8 @@ test('Image SEO & Core Web Vitals: Hero story cover has high priority, eager loa
   const worksCode = fs.readFileSync(path.join(rootDir, 'src/routes/works.$workId.tsx'), 'utf-8')
   assert.ok(worksCode.includes('fetchPriority="high"'), 'Hero cover must specify fetchPriority high')
   assert.ok(worksCode.includes('loading="eager"'), 'Hero cover must specify eager loading')
-  assert.ok(worksCode.includes('width={320}'), 'Hero cover must declare explicit width')
-  assert.ok(worksCode.includes('height={427}'), 'Hero cover must declare explicit height')
+  assert.ok(worksCode.includes('width={512}') || worksCode.includes('width={320}'), 'Hero cover must declare explicit width')
+  assert.ok(worksCode.includes('height={763}') || worksCode.includes('height={427}'), 'Hero cover must declare explicit height')
   assert.ok(worksCode.includes('manuscript cover on HatchPen'), 'Hero cover must have descriptive alt for Image SEO')
 })
 
