@@ -598,6 +598,8 @@ function WorkDetailPage() {
     return Array.from(set)
   }, [loreEntities])
 
+  const hasCharactersButton = Boolean(loreEntities.length > 0 || isAuthor || isSelf)
+
   const loreTabOptions: TabOption[] = useMemo(() => {
     const options: TabOption[] = [
       { id: 'all', label: 'All', badge: loreEntities.length }
@@ -829,43 +831,47 @@ function WorkDetailPage() {
             </Link>
 
             {/* Mobile-Only Actions Row: Left Characters (full remaining width), Right Icon Buttons (Heart, Save, Share) */}
-            <div className={`flex sm:hidden items-center gap-1.5 mt-2 w-full ${(loreEntities.length > 0 || isAuthor || isSelf) ? '' : 'justify-end'}`}>
-              {/* Characters Button (Full Width on Left) */}
-              {loreEntities.length > 0 && (
-                <motion.button
-                  type="button"
-                  whileTap={{ scale: 0.96 }}
-                  onClick={() => {
-                    setSelectedLoreEntity(null)
-                    setIsCodexModalOpen(true)
-                  }}
-                  className="flex-1 h-8 inline-flex items-center justify-center rounded-lg border border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] hover:opacity-90 px-3 text-xs font-mono font-medium shadow-xs select-none whitespace-nowrap cursor-pointer transition-all"
-                  title="View Codex & Characters"
-                >
-                  <span>Characters</span>
-                </motion.button>
+            <div className="flex sm:hidden items-center gap-1.5 mt-2 w-full">
+              {/* Characters Button (Full Width on Left when present) */}
+              {hasCharactersButton && (
+                <>
+                  {loreEntities.length > 0 ? (
+                    <motion.button
+                      type="button"
+                      whileTap={{ scale: 0.96 }}
+                      onClick={() => {
+                        setSelectedLoreEntity(null)
+                        setIsCodexModalOpen(true)
+                      }}
+                      className="flex-1 h-8 inline-flex items-center justify-center rounded-lg border border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] hover:opacity-90 px-3 text-xs font-mono font-medium shadow-xs select-none whitespace-nowrap cursor-pointer transition-all"
+                      title="View Codex & Characters"
+                    >
+                      <span>Characters</span>
+                    </motion.button>
+                  ) : (
+                    <motion.button
+                      type="button"
+                      whileTap={{ scale: 0.96 }}
+                      onClick={() => setIsAuthorLoreModalOpen(true)}
+                      className="flex-1 h-8 inline-flex items-center justify-center rounded-lg border border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] hover:opacity-90 px-3 text-xs font-mono font-medium shadow-xs select-none whitespace-nowrap cursor-pointer transition-all"
+                      title="Add Characters"
+                    >
+                      <span>+ Characters</span>
+                    </motion.button>
+                  )}
+                </>
               )}
 
-              {(isAuthor || isSelf) && loreEntities.length === 0 && (
-                <motion.button
-                  type="button"
-                  whileTap={{ scale: 0.96 }}
-                  onClick={() => setIsAuthorLoreModalOpen(true)}
-                  className="flex-1 h-8 inline-flex items-center justify-center rounded-lg border border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] hover:opacity-90 px-3 text-xs font-mono font-medium shadow-xs select-none whitespace-nowrap cursor-pointer transition-all"
-                  title="Add Characters"
-                >
-                  <span>+ Characters</span>
-                </motion.button>
-              )}
-
-              {/* Right: Icon Buttons for Heart, Save, and Share */}
-              <div className="flex items-center gap-1.5 shrink-0">
-                {/* Heart Icon Button */}
+              {/* Action Buttons: When Characters button is present, render as compact right-aligned icons. When absent, expand across full available space. */}
+              <div className={`flex items-center gap-1.5 ${hasCharactersButton ? 'shrink-0' : 'w-full'}`}>
+                {/* Heart Button */}
                 <motion.button
                   type="button"
                   whileTap={{ scale: 0.92 }}
                   onClick={handleToggleWorkHeart}
-                  className={`h-8 w-8 inline-flex items-center justify-center rounded-lg border transition-all cursor-pointer select-none ${
+                  className={`h-8 inline-flex items-center justify-center rounded-lg border transition-all cursor-pointer select-none ${
+                    hasCharactersButton ? 'w-8 shrink-0' : 'flex-1 gap-1.5 px-2'
+                  } ${
                     workHearted
                       ? 'border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] shadow-xs'
                       : 'border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] hover:border-[var(--ink-primary)]'
@@ -878,14 +884,21 @@ function WorkDetailPage() {
                   >
                     <Heart className={`h-4 w-4 ${workHearted ? 'fill-current' : ''}`} />
                   </motion.div>
+                  {!hasCharactersButton && (
+                    <span className="text-xs font-mono font-medium truncate">
+                      {formatHeartCount(workHeartCount, true)}
+                    </span>
+                  )}
                 </motion.button>
 
-                {/* Save Icon Button */}
+                {/* Save Button */}
                 <motion.button
                   type="button"
                   whileTap={{ scale: 0.92 }}
                   onClick={handleToggleSave}
-                  className={`h-8 w-8 inline-flex items-center justify-center rounded-lg border transition-all cursor-pointer select-none ${
+                  className={`h-8 inline-flex items-center justify-center rounded-lg border transition-all cursor-pointer select-none ${
+                    hasCharactersButton ? 'w-8 shrink-0' : 'flex-1 gap-1.5 px-2'
+                  } ${
                     saved
                       ? 'border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] shadow-xs'
                       : 'border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] hover:border-[var(--ink-primary)]'
@@ -893,17 +906,29 @@ function WorkDetailPage() {
                   title={saved ? 'In Library' : 'Save to Library'}
                 >
                   <Bookmark className={`h-4 w-4 ${saved ? 'fill-current' : ''}`} />
+                  {!hasCharactersButton && (
+                    <span className="text-xs font-mono font-medium truncate">
+                      {saved ? 'Saved' : 'Save'}
+                    </span>
+                  )}
                 </motion.button>
 
-                {/* Share Icon Button */}
+                {/* Share Button */}
                 <motion.button
                   type="button"
                   whileTap={{ scale: 0.92 }}
                   onClick={handleShare}
-                  className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:border-[var(--ink-primary)] transition-all cursor-pointer select-none"
+                  className={`h-8 inline-flex items-center justify-center rounded-lg border border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:border-[var(--ink-primary)] transition-all cursor-pointer select-none ${
+                    hasCharactersButton ? 'w-8 shrink-0' : 'flex-1 gap-1.5 px-2'
+                  }`}
                   title="Share Story"
                 >
                   <Share2 className="h-4 w-4" />
+                  {!hasCharactersButton && (
+                    <span className="text-xs font-mono font-medium truncate">
+                      Share
+                    </span>
+                  )}
                 </motion.button>
               </div>
             </div>
