@@ -361,9 +361,9 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
                 type="button"
                 onClick={() => setContestModalOpen(true)}
                 className="inline-flex items-center justify-center rounded-full bg-[#18181B] hover:bg-black dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-[#18181B] px-3.5 py-1 text-xs font-medium transition-all shadow-xs cursor-pointer shrink-0 select-none ml-2 tracking-tight"
-                title="Active Writing Contest Details & ₹2,000 Cash Prize"
+                title="Active Writing Contest Details"
               >
-                <span>Writing Contest — ₹2k</span>
+                <span>Contest</span>
               </button>
             </nav>
           )}
@@ -637,9 +637,9 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
             type="button"
             onClick={() => setContestModalOpen(true)}
             className="md:hidden inline-flex items-center justify-center rounded-full bg-[#18181B] hover:bg-black dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-[#18181B] px-2.5 py-1 text-[11px] font-medium transition-all shadow-xs cursor-pointer shrink-0 select-none"
-            title="Writing Contest — ₹2k"
+            title="Writing Contest"
           >
-            <span>Contest — ₹2k</span>
+            <span>Contest</span>
           </button>
 
           {/* Mobile Navigation Hamburger */}

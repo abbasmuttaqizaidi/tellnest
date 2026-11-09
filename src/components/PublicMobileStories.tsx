@@ -740,9 +740,9 @@ export function PublicMobileStories({
               }}
               className="inline-flex items-center justify-center rounded-full bg-[#18181B] text-white hover:bg-black px-2.5 py-1 text-[11px] font-medium shadow-xs active:scale-95 transition-all cursor-pointer select-none"
               aria-label="View writing contest details"
-              title="Writing Contest — ₹2k"
+              title="Writing Contest"
             >
-              <span>Contest — ₹2k</span>
+              <span>Contest</span>
             </button>
             <button
               type="button"
