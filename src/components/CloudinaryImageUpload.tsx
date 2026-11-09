@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { UploadCloud, CheckCircle2, Loader2, X, Image as ImageIcon, Sparkles } from 'lucide-react'
 import { uploadToCloudinary, getOptimizedImageUrl } from '../lib/cloudinary'
 import { CloudinaryAssetPickerModal } from './CloudinaryAssetPickerModal'

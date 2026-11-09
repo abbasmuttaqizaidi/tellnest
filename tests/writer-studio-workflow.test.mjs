@@ -1,5 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
 import {
   executeDeleteWriterChapter,
   executeSaveWriterChapter,
@@ -691,4 +693,15 @@ test('Admin Cover Management: executeAdminUpdateWorkCover successfully updates s
   assert.equal(result.cover, 'https://images.unsplash.com/photo-custom-cover?auto=format&fit=crop&w=800&q=80')
   assert.equal(updatedPayload.cover_image_path, 'https://images.unsplash.com/photo-custom-cover?auto=format&fit=crop&w=800&q=80')
   assert.equal(updatedPayload.last_activity_type, 'work_metadata_updated')
+})
+
+test('CloudinaryImageUpload: React hook imports invariant', () => {
+  const filePath = path.resolve('src/components/CloudinaryImageUpload.tsx')
+  const content = fs.readFileSync(filePath, 'utf8')
+  assert.ok(content.includes('useEffect'), 'CloudinaryImageUpload must use useEffect')
+  assert.match(
+    content,
+    /import\s+React,\s*\{[^}]*\buseEffect\b[^}]*\}\s+from\s+['"]react['"]/,
+    'CloudinaryImageUpload must import useEffect from react'
+  )
 })
