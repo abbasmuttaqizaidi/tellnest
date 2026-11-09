@@ -5,7 +5,7 @@ import { useUser, useClerk } from '@clerk/react'
 import { useApp } from '../context/AppContext'
 import EmptyState from '../components/EmptyState'
 import { TellnestLoader } from '../components/TellnestLoader'
-import { CardAccordion, Button, Badge, AnimatedSearch } from '../design-system'
+import { CardAccordion, Button, Badge, AnimatedSearch, Modal, AnimatedTabs, type TabOption } from '../design-system'
 import {
   BookOpen,
   Bookmark,
@@ -21,12 +21,24 @@ import {
   UserCheck,
   MessageCircle,
   Tag,
+  ChevronRight,
+  Edit3,
+  Search,
+  X,
 } from 'lucide-react'
 import { getWorkSlug } from '../data/mockData'
 import { generateMeta } from '../lib/seo'
 import { getStorySocialCardUrl } from '../lib/og'
 import { getPublicWorkServerFn, trackWorkImpressionServerFn } from '../server/works'
 import { getWorkHeartStatusServerFn, toggleWorkHeartServerFn } from '../server/hearts'
+import { getStoryLoreBibleServerFn } from '../server/writer'
+import { StoryLoreModal } from '../components/studio/StoryLoreModal'
+import type { StoryLoreEntity } from '../lib/lore/loreParser'
+import {
+  getClientLoreBibleCache,
+  setClientLoreBibleCache,
+  invalidateClientLoreBibleCache,
+} from '../lib/lore/loreClientCache'
 import { HeartsBreakdownModal } from '../components/HeartsBreakdownModal'
 import { SavesAdjustmentModal } from '../components/SavesAdjustmentModal'
 import { AuthorProfileModal } from '../components/AuthorProfileModal'
@@ -41,7 +53,7 @@ import { FormattedSynopsis } from '../components/FormattedSynopsis'
 import { WorkDetailsSkeleton } from '../components/WorkDetailsSkeleton'
 import { getCleanChapterSnippet } from '../lib/lore/loreParser'
 
-const clientStoryCache = new Map<string, { work: any; timestamp: number }>()
+const clientStoryCache = new Map<string, { work: any; loreBible?: any; timestamp: number }>()
 const CLIENT_STORY_CACHE_TTL_MS = 120_000 // 2 minutes in-memory client cache
 
 export const Route = createFileRoute('/works/$workId')({
@@ -55,7 +67,7 @@ export const Route = createFileRoute('/works/$workId')({
     if (typeof window !== 'undefined') {
       const cached = clientStoryCache.get(cleanId)
       if (cached && Date.now() - cached.timestamp < CLIENT_STORY_CACHE_TTL_MS) {
-        return { work: cached.work }
+        return { work: cached.work, loreBible: cached.loreBible || null }
       }
     }
 
@@ -63,12 +75,23 @@ export const Route = createFileRoute('/works/$workId')({
     try {
       const dbWork = await getPublicWorkServerFn({ data: params.workId })
       if (dbWork) {
-        if (typeof window !== 'undefined') {
-          clientStoryCache.set(cleanId, { work: dbWork, timestamp: Date.now() })
-          if (dbWork.id) clientStoryCache.set(dbWork.id.toLowerCase(), { work: dbWork, timestamp: Date.now() })
-          if (dbWork.slug) clientStoryCache.set(dbWork.slug.toLowerCase(), { work: dbWork, timestamp: Date.now() })
+        let loreBible = null
+        try {
+          loreBible = await getStoryLoreBibleServerFn({ data: { workId: dbWork.id || params.workId } })
+        } catch {
+          // Non-fatal if lore lookup encounters an error or empty state
         }
-        return { work: dbWork }
+
+        if (typeof window !== 'undefined') {
+          const cachePayload = { work: dbWork, loreBible, timestamp: Date.now() }
+          clientStoryCache.set(cleanId, cachePayload)
+          if (dbWork.id) clientStoryCache.set(dbWork.id.toLowerCase(), cachePayload)
+          if (dbWork.slug) clientStoryCache.set(dbWork.slug.toLowerCase(), cachePayload)
+          if (loreBible && dbWork.id) {
+            setClientLoreBibleCache(dbWork.id, loreBible)
+          }
+        }
+        return { work: dbWork, loreBible }
       }
     } catch (e) {
       console.warn('[Route /works/$workId] Loader DB lookup error:', e)
@@ -484,8 +507,6 @@ function WorkDetailPage() {
       .slice(0, 4)
   }, [work, allWorks])
 
-  const [chapterSearch, setChapterSearch] = useState('')
-
   const { openSignIn } = useClerk()
   const [adminToken] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
@@ -512,6 +533,112 @@ function WorkDetailPage() {
   const [showHeartBurst, setShowHeartBurst] = useState<boolean>(false)
   const [authorModalOpen, setAuthorModalOpen] = useState<boolean>(false)
   const [isShareModalOpen, setIsShareModalOpen] = useState<boolean>(false)
+
+  // Story Lore Bible state & interactive entity viewer
+  const [storyLore, setStoryLore] = useState<{
+    entities: StoryLoreEntity[]
+    loreTypes: string[]
+    totalChaptersCount?: number
+  } | null>(() => {
+    if (loaderData?.loreBible) return loaderData.loreBible
+    if (work?.id) return getClientLoreBibleCache(work.id)
+    return null
+  })
+  const [isCodexModalOpen, setIsCodexModalOpen] = useState<boolean>(false)
+  const [selectedLoreEntity, setSelectedLoreEntity] = useState<StoryLoreEntity | null>(null)
+  const [loreFilterType, setLoreFilterType] = useState<string>('all')
+  const [loreSearchQuery, setLoreSearchQuery] = useState<string>('')
+  const [isAuthorLoreModalOpen, setIsAuthorLoreModalOpen] = useState<boolean>(false)
+
+  const handleCloseCodexModal = () => {
+    setIsCodexModalOpen(false)
+    setSelectedLoreEntity(null)
+    setLoreSearchQuery('')
+  }
+
+  // Fetch or sync lore bible on mount or when work changes
+  useEffect(() => {
+    if (!work?.id) return
+    const cached = getClientLoreBibleCache(work.id)
+    if (cached) {
+      setStoryLore(cached)
+      return
+    }
+    getStoryLoreBibleServerFn({ data: { workId: work.id } })
+      .then((res) => {
+        if (res && Array.isArray(res.entities)) {
+          setStoryLore(res)
+          setClientLoreBibleCache(work.id, res)
+        }
+      })
+      .catch(() => {})
+  }, [work?.id])
+
+  const refreshLore = async () => {
+    if (!work?.id) return
+    invalidateClientLoreBibleCache(work.id)
+    try {
+      const res = await getStoryLoreBibleServerFn({ data: { workId: work.id } })
+      if (res && Array.isArray(res.entities)) {
+        setStoryLore(res)
+        setClientLoreBibleCache(work.id, res)
+      }
+    } catch {}
+  }
+
+  const loreEntities = useMemo(() => {
+    return storyLore?.entities || []
+  }, [storyLore])
+
+  const availableLoreTypes = useMemo(() => {
+    const set = new Set<string>()
+    for (const ent of loreEntities) {
+      if (ent.entityType) set.add(ent.entityType.trim())
+    }
+    return Array.from(set)
+  }, [loreEntities])
+
+  const loreTabOptions: TabOption[] = useMemo(() => {
+    const options: TabOption[] = [
+      { id: 'all', label: 'All', badge: loreEntities.length }
+    ]
+    for (const type of availableLoreTypes) {
+      const count = loreEntities.filter(
+        (e) => (e.entityType || '').toLowerCase() === type.toLowerCase()
+      ).length
+      options.push({
+        id: type.toLowerCase(),
+        label: type,
+        badge: count,
+      })
+    }
+    return options
+  }, [loreEntities, availableLoreTypes])
+
+  const filteredLoreEntities = useMemo(() => {
+    let list = loreEntities
+    if (loreFilterType !== 'all') {
+      list = list.filter((e) => (e.entityType || '').toLowerCase() === loreFilterType.toLowerCase())
+    }
+    if (loreSearchQuery.trim()) {
+      const q = loreSearchQuery.toLowerCase().trim()
+      list = list.filter((e) =>
+        e.name.toLowerCase().includes(q) ||
+        (e.description || '').toLowerCase().includes(q)
+      )
+    }
+    return list
+  }, [loreEntities, loreFilterType, loreSearchQuery])
+
+  const chaptersMentioningSelectedEntity = useMemo(() => {
+    if (!selectedLoreEntity || !Array.isArray(chaptersList)) return []
+    const nameLower = selectedLoreEntity.name.toLowerCase().trim()
+    return chaptersList.filter((ch: any) => {
+      const content = (ch.content || '').toLowerCase()
+      const title = (ch.title || '').toLowerCase()
+      return content.includes(nameLower) || title.includes(nameLower)
+    })
+  }, [selectedLoreEntity, chaptersList])
 
   // Sync heart and save counts if work changes
   useEffect(() => {
@@ -604,17 +731,6 @@ function WorkDetailPage() {
     }
   }
 
-  const filteredChapters = useMemo(() => {
-    if (!chapterSearch.trim()) return chaptersList
-    const q = chapterSearch.toLowerCase()
-    return chaptersList.filter(
-      (c) =>
-        (c.title && c.title.toLowerCase().includes(q)) ||
-        (c.subtitle && c.subtitle.toLowerCase().includes(q)) ||
-        String(c.number).includes(q)
-    )
-  }, [chaptersList, chapterSearch])
-
   const navigate = useNavigate()
 
   // SEO Canonical URL Enforcement:
@@ -663,7 +779,7 @@ function WorkDetailPage() {
         {/* Cover Column */}
         <div className="md:col-span-4 lg:col-span-4 flex flex-col items-center sm:items-start">
           {/* Book Cover Image */}
-          <div className="relative aspect-[3/4] w-full max-w-[260px] sm:max-w-[320px] overflow-hidden rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] shadow-md">
+          <div className="relative aspect-[3/4] w-full max-w-[280px] sm:max-w-[320px] overflow-hidden rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] shadow-md">
             <img
               src={work.cover || defaultBookCover}
               alt={`${work.title} by ${authorDisplayName} — Original ${work.genre || 'Literary'} manuscript cover on HatchPen`}
@@ -688,7 +804,7 @@ function WorkDetailPage() {
           </div>
 
           {/* Primary Action Button Directly Under Cover Image (Responsive & Single Line) */}
-          <div className="mt-4 w-full max-w-[260px] sm:max-w-[320px]">
+          <div className="mt-4 w-full max-w-[280px] sm:max-w-[320px]">
             <Link
               to="/read/$workId/$chapterId"
               params={{ workId: canonicalSlug, chapterId: resumeChapterId }}
@@ -712,56 +828,84 @@ function WorkDetailPage() {
               <ArrowRight className="h-4 w-4 shrink-0" />
             </Link>
 
-            {/* Mobile-Only Actions Row (Like, Save, Share) Directly Under Continue/Resume */}
-            <div className="flex sm:hidden items-center gap-2 mt-2 w-full">
-              {/* Heart Button */}
-              <motion.button
-                type="button"
-                whileTap={{ scale: 0.95 }}
-                onClick={handleToggleWorkHeart}
-                className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg py-2 px-2 text-xs font-mono font-medium transition-all cursor-pointer border select-none ${
-                  workHearted
-                    ? 'border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] shadow-xs'
-                    : 'border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] hover:border-[var(--ink-primary)]'
-                }`}
-                title={workHearted ? 'Remove heart from story' : 'Heart this story'}
-              >
-                <motion.div
-                  animate={isHeartBouncing ? { scale: [1, 1.35, 0.9, 1.15, 1] } : { scale: 1 }}
-                  transition={{ duration: 0.4 }}
+            {/* Mobile-Only Actions Row: Left Characters (full remaining width), Right Icon Buttons (Heart, Save, Share) */}
+            <div className={`flex sm:hidden items-center gap-1.5 mt-2 w-full ${(loreEntities.length > 0 || isAuthor || isSelf) ? '' : 'justify-end'}`}>
+              {/* Characters Button (Full Width on Left) */}
+              {loreEntities.length > 0 && (
+                <motion.button
+                  type="button"
+                  whileTap={{ scale: 0.96 }}
+                  onClick={() => {
+                    setSelectedLoreEntity(null)
+                    setIsCodexModalOpen(true)
+                  }}
+                  className="flex-1 h-8 inline-flex items-center justify-center rounded-lg border border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] hover:opacity-90 px-3 text-xs font-mono font-medium shadow-xs select-none whitespace-nowrap cursor-pointer transition-all"
+                  title="View Codex & Characters"
                 >
-                  <Heart className={`h-3.5 w-3.5 ${workHearted ? 'fill-current' : ''}`} />
-                </motion.div>
-                <span>{formatHeartCount(workHeartCount, true)}</span>
-              </motion.button>
+                  <span>Characters</span>
+                </motion.button>
+              )}
 
-              {/* Save Button */}
-              <motion.button
-                type="button"
-                whileTap={{ scale: 0.95 }}
-                onClick={handleToggleSave}
-                className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg py-2 px-2 text-xs font-mono font-medium transition-all cursor-pointer border select-none ${
-                  saved
-                    ? 'border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] shadow-xs'
-                    : 'border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] hover:border-[var(--ink-primary)]'
-                }`}
-                title={saved ? 'In Library' : 'Save to Library'}
-              >
-                <Bookmark className={`h-3.5 w-3.5 ${saved ? 'fill-current' : ''}`} />
-                <span>{saved ? 'Saved' : 'Save'}</span>
-              </motion.button>
+              {(isAuthor || isSelf) && loreEntities.length === 0 && (
+                <motion.button
+                  type="button"
+                  whileTap={{ scale: 0.96 }}
+                  onClick={() => setIsAuthorLoreModalOpen(true)}
+                  className="flex-1 h-8 inline-flex items-center justify-center rounded-lg border border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] hover:opacity-90 px-3 text-xs font-mono font-medium shadow-xs select-none whitespace-nowrap cursor-pointer transition-all"
+                  title="Add Characters"
+                >
+                  <span>+ Characters</span>
+                </motion.button>
+              )}
 
-              {/* Share Button */}
-              <motion.button
-                type="button"
-                whileTap={{ scale: 0.95 }}
-                onClick={handleShare}
-                className="inline-flex items-center justify-center gap-1 rounded-lg py-2 px-3 text-xs font-mono font-medium border border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:border-[var(--ink-primary)] transition-all cursor-pointer select-none shrink-0"
-                title="Share Story"
-              >
-                <Share2 className="h-3.5 w-3.5" />
-                <span>Share</span>
-              </motion.button>
+              {/* Right: Icon Buttons for Heart, Save, and Share */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                {/* Heart Icon Button */}
+                <motion.button
+                  type="button"
+                  whileTap={{ scale: 0.92 }}
+                  onClick={handleToggleWorkHeart}
+                  className={`h-8 w-8 inline-flex items-center justify-center rounded-lg border transition-all cursor-pointer select-none ${
+                    workHearted
+                      ? 'border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] shadow-xs'
+                      : 'border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] hover:border-[var(--ink-primary)]'
+                  }`}
+                  title={workHearted ? 'Remove heart from story' : `Heart this story (${formatHeartCount(workHeartCount, true)})`}
+                >
+                  <motion.div
+                    animate={isHeartBouncing ? { scale: [1, 1.35, 0.9, 1.15, 1] } : { scale: 1 }}
+                    transition={{ duration: 0.4 }}
+                  >
+                    <Heart className={`h-4 w-4 ${workHearted ? 'fill-current' : ''}`} />
+                  </motion.div>
+                </motion.button>
+
+                {/* Save Icon Button */}
+                <motion.button
+                  type="button"
+                  whileTap={{ scale: 0.92 }}
+                  onClick={handleToggleSave}
+                  className={`h-8 w-8 inline-flex items-center justify-center rounded-lg border transition-all cursor-pointer select-none ${
+                    saved
+                      ? 'border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] shadow-xs'
+                      : 'border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)] hover:border-[var(--ink-primary)]'
+                  }`}
+                  title={saved ? 'In Library' : 'Save to Library'}
+                >
+                  <Bookmark className={`h-4 w-4 ${saved ? 'fill-current' : ''}`} />
+                </motion.button>
+
+                {/* Share Icon Button */}
+                <motion.button
+                  type="button"
+                  whileTap={{ scale: 0.92 }}
+                  onClick={handleShare}
+                  className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-[var(--border-strong)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:border-[var(--ink-primary)] transition-all cursor-pointer select-none"
+                  title="Share Story"
+                >
+                  <Share2 className="h-4 w-4" />
+                </motion.button>
+              </div>
             </div>
           </div>
         </div>
@@ -891,8 +1035,36 @@ function WorkDetailPage() {
               </div>
             </div>
 
-            {/* Right: Hearts, Save, and Share Action Buttons (Desktop only - mobile shown below CTA) */}
+            {/* Right: Characters, Hearts, Save, and Share Action Buttons (Desktop only - mobile shown below CTA) */}
             <div className="hidden sm:flex items-center gap-2">
+              {/* Codex & Character Profiles Button */}
+              {loreEntities.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedLoreEntity(null)
+                    setIsCodexModalOpen(true)
+                  }}
+                  className="inline-flex items-center justify-center rounded-lg border border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] hover:opacity-90 px-3 py-1.5 text-xs font-mono font-medium transition-all cursor-pointer shadow-xs whitespace-nowrap select-none"
+                  title="View Codex & Character Profiles"
+                >
+                  <span className="hidden lg:inline">Codex & Characters</span>
+                  <span className="lg:hidden">Characters</span>
+                </button>
+              )}
+
+              {(isAuthor || isSelf) && loreEntities.length === 0 && (
+                <button
+                  type="button"
+                  onClick={() => setIsAuthorLoreModalOpen(true)}
+                  className="inline-flex items-center justify-center rounded-lg border border-[var(--ink-primary)] bg-[var(--ink-primary)] text-[var(--accent-contrast)] hover:opacity-90 px-3 py-1.5 text-xs font-mono font-medium transition-all cursor-pointer shadow-xs whitespace-nowrap select-none"
+                  title="Define Story Codex & Characters"
+                >
+                  <span className="hidden lg:inline">+ Add Codex</span>
+                  <span className="lg:hidden">+ Characters</span>
+                </button>
+              )}
+
               {/* Heart Story Button */}
               <motion.button
                 type="button"
@@ -959,22 +1131,20 @@ function WorkDetailPage() {
           </div>
 
           {/* Tags / Tropes Discovery */}
-          {workTags.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5 pt-1">
-              {workTags.map((tag) => (
-                <Link
-                  key={tag}
-                  to="/tag/$slug"
-                  params={{ slug: slugify(tag) }}
-                  className="rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-1 text-xs font-mono text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)] transition-all no-underline inline-flex items-center gap-1 cursor-pointer"
-                  title={`Explore #${tag} stories & novels`}
-                >
-                  <Tag className="w-2.5 h-2.5 opacity-50" />
-                  <span>#{tag}</span>
-                </Link>
-              ))}
-            </div>
-          )}
+          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+            {workTags.map((tag) => (
+              <Link
+                key={tag}
+                to="/tag/$slug"
+                params={{ slug: slugify(tag) }}
+                className="rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-1 text-xs font-mono text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)] transition-all no-underline inline-flex items-center gap-1 cursor-pointer"
+                title={`Explore #${tag} stories & novels`}
+              >
+                <Tag className="w-2.5 h-2.5 opacity-50" />
+                <span>#{tag}</span>
+              </Link>
+            ))}
+          </div>
 
           {/* Reading Statistics Row */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-4 border-t border-[var(--border-subtle)] font-mono text-center">
@@ -1031,7 +1201,7 @@ function WorkDetailPage() {
                 <span className="font-semibold text-[var(--ink-primary)]">
                   {(Number(work.impressionCount) || 0).toLocaleString()}
                 </span>
-                <span>unique folio impressions</span>
+                <span>impressions</span>
               </span>
               <span className="text-[10px] text-[var(--ink-faint)] uppercase tracking-wider">
                 Private to Author & Admin
@@ -1044,47 +1214,23 @@ function WorkDetailPage() {
 
       {/* CHAPTER INDEX LIST */}
       <section className="py-12" style={{ contentVisibility: 'auto', containIntrinsicSize: '600px' }}>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-[var(--border-subtle)]">
-          <div>
-            <h2 className="font-serif text-2xl font-semibold text-[var(--ink-primary)]">
-              Table of Contents
-            </h2>
-            <p className="text-xs text-[var(--ink-muted)] mt-0.5">
-              {filteredChapters.length} of {work.publishedChaptersCount} published chapters in this edition
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="w-56 sm:w-64">
-              <AnimatedSearch
-                variant="minimal"
-                placeholder="Find chapter..."
-                value={chapterSearch}
-                onChange={setChapterSearch}
-                onClear={() => setChapterSearch('')}
-                size="sm"
-              />
-            </div>
-            <span className="font-mono text-xs text-[var(--ink-faint)] hidden sm:inline whitespace-nowrap">
-              Updated {work.updatedAt}
-            </span>
-          </div>
+        <div className="mb-6 pb-4 border-b border-[var(--border-subtle)]">
+          <h2 className="font-serif text-2xl font-semibold text-[var(--ink-primary)]">
+            Table of Contents
+          </h2>
+          <p className="text-xs text-[var(--ink-muted)] mt-0.5">
+            {chaptersList.length} of {work.publishedChaptersCount} published chapters in this edition
+          </p>
         </div>
 
-        {filteredChapters.length === 0 ? (
+        {chaptersList.length === 0 ? (
           <div className="text-center py-12 border border-dashed border-[var(--border-subtle)] rounded-lg">
-            <p className="text-xs font-mono text-[var(--ink-muted)]">No chapters found matching "{chapterSearch}"</p>
-            <button
-              type="button"
-              onClick={() => setChapterSearch('')}
-              className="mt-2 text-xs font-mono text-[var(--ink-primary)] underline hover:opacity-80 cursor-pointer"
-            >
-              Clear filter
-            </button>
+            <p className="text-xs font-mono text-[var(--ink-muted)]">No published chapters yet in this edition.</p>
           </div>
         ) : (
           <CardAccordion
             defaultOpenId={resumeChapterId}
-            items={filteredChapters.map((chapter) => {
+            items={chaptersList.map((chapter) => {
             const isRead = progress && progress.chapterNumber > chapter.number
             const isCurrent = progress && progress.chapterId === chapter.id
             const isDraft = chapter.status === 'draft'
@@ -1272,6 +1418,226 @@ function WorkDetailPage() {
           authorName={authorDisplayName}
           url={typeof window !== 'undefined' ? window.location.href : `https://hatchpen.com/works/${canonicalSlug}`}
           cover={work.cover}
+        />
+      )}
+
+      {/* STORY CODEX & CHARACTER PROFILES MODAL */}
+      {isCodexModalOpen && (
+        <Modal
+          isOpen={isCodexModalOpen}
+          onClose={handleCloseCodexModal}
+          size="md"
+          className="h-[560px] max-h-[90vh] flex flex-col"
+          bodyClassName="flex-1 min-h-0 flex flex-col overflow-hidden p-4"
+          title={selectedLoreEntity ? selectedLoreEntity.name : "Story Codex & Characters"}
+          description={
+            selectedLoreEntity
+              ? `${selectedLoreEntity.entityType || 'Lore'} Profile • ${work.title}`
+              : `Explore world lore and character profiles for ${work.title}`
+          }
+          footer={
+            <div className="flex items-center justify-between w-full">
+              <div className="text-xs font-mono text-[var(--ink-muted)]">
+                {selectedLoreEntity ? (
+                  'Codex Profile'
+                ) : (
+                  `${filteredLoreEntities.length} of ${loreEntities.length} entries shown`
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {selectedLoreEntity && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setSelectedLoreEntity(null)}
+                  >
+                    ← Back to Codex
+                  </Button>
+                )}
+                {(isAuthor || isSelf) && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setIsCodexModalOpen(false)
+                      setIsAuthorLoreModalOpen(true)
+                    }}
+                  >
+                    <Edit3 className="w-3.5 h-3.5 mr-1" />
+                    Manage in Studio
+                  </Button>
+                )}
+                <Button size="sm" variant="primary" onClick={handleCloseCodexModal}>
+                  Done
+                </Button>
+              </div>
+            </div>
+          }
+        >
+          {selectedLoreEntity ? (
+            /* DRILL-DOWN: ENTITY DETAIL VIEW */
+            <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+              {/* Back navigation & Type header */}
+              <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)] shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setSelectedLoreEntity(null)}
+                  className="inline-flex items-center gap-1.5 text-xs font-mono text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] transition-colors cursor-pointer"
+                >
+                  <ArrowRight className="w-3 h-3 rotate-180" />
+                  <span>Back to all entries</span>
+                </button>
+                <span className="rounded-full bg-black text-white dark:bg-white dark:text-black px-2.5 py-0.5 text-[10px] font-mono font-medium uppercase tracking-wider shrink-0 select-none">
+                  {selectedLoreEntity.entityType || 'LORE'}
+                </span>
+              </div>
+
+              {/* Scrollable Detail Body */}
+              <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pt-3 pr-1 overscroll-contain">
+                {/* Full Bio / Lore Description */}
+                <div className="p-3.5 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-subtle)]">
+                  <h4 className="text-[11px] font-mono uppercase tracking-wider text-[var(--ink-muted)] font-semibold mb-1.5">
+                    Description & Notes
+                  </h4>
+                  <p className="text-sm leading-relaxed text-[var(--ink-primary)] font-serif whitespace-pre-line select-text">
+                    {selectedLoreEntity.description || 'No detailed background notes provided for this entity yet.'}
+                  </p>
+                </div>
+
+                {/* Chapters where this entity appears */}
+                {chaptersMentioningSelectedEntity.length > 0 && (
+                  <div className="space-y-2 pt-1">
+                    <h4 className="text-[11px] font-mono uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
+                      Featured in Chapters ({chaptersMentioningSelectedEntity.length})
+                    </h4>
+                    <div className="space-y-1.5">
+                      {chaptersMentioningSelectedEntity.map((ch: any) => (
+                        <Link
+                          key={ch.id}
+                          to="/read/$workId/$chapterId"
+                          params={{ workId: canonicalSlug, chapterId: ch.id }}
+                          onClick={handleCloseCodexModal}
+                          className="flex items-center justify-between p-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:border-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] text-inherit no-underline transition-all group"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <BookOpen className="w-3.5 h-3.5 text-[var(--ink-muted)] shrink-0" />
+                            <span className="text-xs font-medium text-[var(--ink-primary)] truncate group-hover:underline">
+                              Ch. {ch.number}: {ch.title || `Chapter ${ch.number}`}
+                            </span>
+                          </div>
+                          <span className="text-[11px] font-mono text-[var(--ink-muted)] group-hover:text-[var(--ink-primary)] shrink-0 flex items-center gap-1">
+                            <span>Read</span>
+                            <ArrowRight className="w-3 h-3" />
+                          </span>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            /* LIST VIEW: TABS, SEARCH, AND COMPACT LISTING */
+            <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+              {/* Header Controls: AnimatedTabs & Improved Search Field */}
+              <div className="shrink-0 space-y-2.5 pb-3 border-b border-[var(--border-subtle)]">
+                {loreTabOptions.length > 1 && (
+                  <div className="overflow-x-auto no-scrollbar">
+                    <AnimatedTabs
+                      id="codex-modal-tabs"
+                      tabs={loreTabOptions}
+                      activeId={loreFilterType}
+                      onChange={setLoreFilterType}
+                      variant="pill"
+                      size="xs"
+                      className="shrink-0"
+                    />
+                  </div>
+                )}
+
+                {/* Improved Sleek Search Bar */}
+                <div className="relative w-full">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-muted)] pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Search by name or keyword..."
+                    value={loreSearchQuery}
+                    onChange={(e) => setLoreSearchQuery(e.target.value)}
+                    className="w-full h-8 pl-8.5 pr-8 text-xs rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/40 hover:bg-[var(--bg-surface)] focus:bg-[var(--bg-surface)] text-[var(--ink-primary)] placeholder-[var(--ink-muted)] focus:outline-none focus:border-[var(--ink-primary)] transition-all font-sans"
+                  />
+                  {loreSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setLoreSearchQuery('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--ink-muted)] hover:text-[var(--ink-primary)] p-0.5 rounded cursor-pointer transition-colors"
+                      title="Clear search"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Scrollable Compact Vertical Listing */}
+              <div className="flex-1 min-h-0 overflow-y-auto pt-2.5 pr-1 overscroll-contain">
+                {filteredLoreEntities.length === 0 ? (
+                  <div className="py-12 text-center border border-dashed border-[var(--border-subtle)] rounded-xl">
+                    <p className="text-xs font-mono text-[var(--ink-muted)]">No entities found matching your filter</p>
+                    {(loreSearchQuery || loreFilterType !== 'all') && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLoreFilterType('all')
+                          setLoreSearchQuery('')
+                        }}
+                        className="mt-2 text-xs font-mono text-[var(--ink-primary)] underline hover:opacity-80 cursor-pointer"
+                      >
+                        Reset filters
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    {filteredLoreEntities.map((entity) => (
+                      <div
+                        key={entity.id || entity.name}
+                        onClick={() => setSelectedLoreEntity(entity)}
+                        className="py-2 px-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] hover:border-[var(--ink-primary)] transition-all cursor-pointer group text-left"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <h4 className="font-serif font-medium text-sm text-[var(--ink-primary)] group-hover:underline truncate">
+                            {entity.name}
+                          </h4>
+                          <span className="rounded-full bg-black text-white dark:bg-white dark:text-black px-2.5 py-0.5 text-[10px] font-mono font-medium uppercase tracking-wider shrink-0 select-none">
+                            {entity.entityType || 'LORE'}
+                          </span>
+                        </div>
+
+                        {entity.description && (
+                          <p className="mt-1 text-xs text-[var(--ink-secondary)] line-clamp-1 leading-relaxed font-sans">
+                            {entity.description}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </Modal>
+      )}
+
+      {/* AUTHOR STUDIO LORE MODAL */}
+      {isAuthorLoreModalOpen && work && (
+        <StoryLoreModal
+          isOpen={isAuthorLoreModalOpen}
+          onClose={() => {
+            setIsAuthorLoreModalOpen(false)
+            refreshLore()
+          }}
+          workId={work.id}
+          initialTab="bible"
         />
       )}
 

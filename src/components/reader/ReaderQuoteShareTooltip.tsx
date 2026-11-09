@@ -166,19 +166,19 @@ export function ReaderQuoteShareTooltip({
         top: `${position.top}px`,
         left: `${position.left}px`,
       }}
-      className="absolute z-50 flex items-center gap-1 p-1 bg-neutral-900/95 dark:bg-neutral-950/95 text-white backdrop-blur-md rounded-xl border border-neutral-700/80 shadow-xl animate-in fade-in zoom-in-95 duration-150 select-none"
+      className="absolute z-50 flex items-center gap-1 p-1 bg-[var(--bg-subtle)] text-[var(--ink-primary)] backdrop-blur-md rounded-xl border border-[var(--border-subtle)] shadow-xl animate-in fade-in zoom-in-95 duration-150 select-none"
     >
       <button
         type="button"
         onClick={handleCopyQuote}
-        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium hover:bg-neutral-800 text-neutral-200 hover:text-white transition-colors cursor-pointer"
+        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium hover:bg-[var(--bg-surface)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] transition-colors cursor-pointer"
         title="Copy quote with story citation"
         aria-label="Copy quote with citation"
       >
         {copied ? (
           <>
-            <Check className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="text-[11px] font-mono text-emerald-300">Copied</span>
+            <Check className="w-3.5 h-3.5 text-emerald-500" />
+            <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400">Copied</span>
           </>
         ) : (
           <>
@@ -188,12 +188,12 @@ export function ReaderQuoteShareTooltip({
         )}
       </button>
 
-      <div className="w-px h-4 bg-neutral-700 mx-0.5" />
+      <div className="w-px h-4 bg-[var(--border-subtle)] mx-0.5" />
 
       <button
         type="button"
         onClick={handleShareTwitter}
-        className="p-1.5 rounded-lg text-neutral-300 hover:text-white hover:bg-neutral-800 transition-colors cursor-pointer"
+        className="p-1.5 rounded-lg text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-surface)] transition-colors cursor-pointer"
         title="Share quote to X (Twitter)"
         aria-label="Share quote to X"
       >
@@ -203,7 +203,7 @@ export function ReaderQuoteShareTooltip({
       <button
         type="button"
         onClick={handleShareWhatsApp}
-        className="p-1.5 rounded-lg text-emerald-400 hover:text-emerald-300 hover:bg-neutral-800 transition-colors cursor-pointer"
+        className="p-1.5 rounded-lg text-emerald-600 dark:text-emerald-400 hover:opacity-80 hover:bg-[var(--bg-surface)] transition-colors cursor-pointer"
         title="Share quote to WhatsApp"
         aria-label="Share quote to WhatsApp"
       >

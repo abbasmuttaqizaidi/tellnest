@@ -50,6 +50,10 @@ import { ShareStoryModal } from '../components/ShareStoryModal'
 import { ReaderSkeleton } from '../components/ReaderSkeleton'
 import { LoreGlossaryTrigger } from '../components/reader/LoreGlossaryTrigger'
 import { parseLorePayload } from '../lib/lore/loreParser'
+import { StoryCodexReaderModal } from '../components/StoryCodexReaderModal'
+import type { StoryLoreEntity } from '../lib/lore/loreParser'
+import { getClientLoreBibleCache, setClientLoreBibleCache } from '../lib/lore/loreClientCache'
+import { getStoryLoreBibleServerFn } from '../server/writer'
 
 export const Route = createFileRoute('/read/$workId/$chapterId')({
   staleTime: 0,
@@ -565,6 +569,33 @@ function ReaderPage() {
   const [authorModalOpen, setAuthorModalOpen] = useState(false)
   const [isAudioOpen, setIsAudioOpen] = useState(false)
   const [shareModalOpen, setShareModalOpen] = useState(false)
+  const [isCodexModalOpen, setIsCodexModalOpen] = useState(false)
+  const [storyLore, setStoryLore] = useState<{ entities: StoryLoreEntity[]; loreTypes: string[] } | null>(() => {
+    return work?.id ? getClientLoreBibleCache(work.id) : null
+  })
+
+  useEffect(() => {
+    if (!work?.id) return
+    const cached = getClientLoreBibleCache(work.id)
+    if (cached) {
+      setStoryLore(cached)
+      return
+    }
+    let isMounted = true
+    getStoryLoreBibleServerFn({ data: { workId: work.id } })
+      .then((res) => {
+        if (isMounted && res) {
+          setStoryLore(res)
+          setClientLoreBibleCache(work.id, res)
+        }
+      })
+      .catch(() => {})
+    return () => {
+      isMounted = false
+    }
+  }, [work?.id])
+
+  const loreEntities = storyLore?.entities || []
   const [adminToken, setAdminToken] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
       return (
@@ -1271,7 +1302,7 @@ function ReaderPage() {
               {chapter.title}
             </h1>
 
-            {/* Desktop-Only Actions: Views Count Badge & Chapter Heart Button */}
+            {/* Desktop-Only Actions: Views Count Badge, Chapter Heart Button & Characters */}
             <div className="hidden sm:flex items-center shrink-0 pt-0.5 gap-2">
               <button
                 type="button"
@@ -1290,10 +1321,22 @@ function ReaderPage() {
                 chapterTitle={chapter.title}
                 variant="badge"
               />
+
+              {/* Characters Button */}
+              {(loreEntities.length > 0 || isAuthor) && (
+                <button
+                  type="button"
+                  onClick={() => setIsCodexModalOpen(true)}
+                  className="flex items-center justify-center px-2.5 py-1 rounded-md bg-[var(--ink-primary)] text-[var(--accent-contrast)] hover:opacity-90 text-[11px] font-mono font-medium border border-[var(--ink-primary)] transition-all cursor-pointer shadow-2xs select-none"
+                  title="View Characters & Story Codex"
+                >
+                  Characters
+                </button>
+              )}
             </div>
           </div>
 
-          {/* Mobile-Only Actions Row (Views Count & Like/Heart Directly Under Heading) */}
+          {/* Mobile-Only Actions Row (Views Count, Like/Heart & Characters Directly Under Heading) */}
           <div className="flex sm:hidden items-center gap-2 pt-1.5">
             <button
               type="button"
@@ -1312,6 +1355,18 @@ function ReaderPage() {
               chapterTitle={chapter.title}
               variant="badge"
             />
+
+            {/* Characters Button */}
+            {(loreEntities.length > 0 || isAuthor) && (
+              <button
+                type="button"
+                onClick={() => setIsCodexModalOpen(true)}
+                className="flex items-center justify-center px-2.5 py-1 rounded-md bg-[var(--ink-primary)] text-[var(--accent-contrast)] hover:opacity-90 text-[11px] font-mono font-medium border border-[var(--ink-primary)] transition-all cursor-pointer shadow-2xs select-none"
+                title="View Characters & Story Codex"
+              >
+                Characters
+              </button>
+            )}
           </div>
 
           {/* Mobile-Only Metadata (Writer Name, Min Reads & Words Directly After Heading & Actions) */}
@@ -1725,6 +1780,20 @@ function ReaderPage() {
           authorName={work.author?.name || 'HatchPen Author'}
           url={typeof window !== 'undefined' ? window.location.href : `https://hatchpen.com/read/${work.id}/${chapter.id}`}
           cover={work.cover}
+        />
+      )}
+
+      {/* Story Codex & Characters Modal */}
+      {work && (
+        <StoryCodexReaderModal
+          isOpen={isCodexModalOpen}
+          onClose={() => setIsCodexModalOpen(false)}
+          workId={work.id}
+          workSlug={getWorkSlug(work)}
+          chapters={work.chapters}
+          isAuthor={isAuthor}
+          initialEntities={loreEntities}
+          initialLoreTypes={storyLore?.loreTypes}
         />
       )}
 
