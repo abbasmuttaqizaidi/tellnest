@@ -619,14 +619,8 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
                 onClick={() => openAuthModal()}
                 className="inline-flex items-center gap-1.5 rounded-full bg-[#18181B] dark:bg-white text-white dark:text-[#18181B] px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-[13px] font-medium hover:opacity-90 transition-all shadow-xs cursor-pointer"
               >
-                {isWorksRoute ? (
-                  <>
-                    <span className="sm:hidden">Join</span>
-                    <span className="hidden sm:inline">Join HatchPen</span>
-                  </>
-                ) : (
-                  <span>Join HatchPen</span>
-                )}
+                <span className="sm:hidden">Join</span>
+                <span className="hidden sm:inline">Join HatchPen</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>

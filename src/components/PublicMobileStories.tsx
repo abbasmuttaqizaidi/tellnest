@@ -752,7 +752,7 @@ export function PublicMobileStories({
               }}
               className="inline-flex items-center justify-center rounded-full bg-[#18181B] text-white px-3 sm:px-3.5 py-1.5 text-xs font-medium hover:bg-black/85 active:scale-95 transition-all shadow-xs cursor-pointer"
             >
-              Join HatchPen
+              Join
             </button>
             <button
               type="button"
