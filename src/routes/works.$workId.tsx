@@ -71,27 +71,17 @@ export const Route = createFileRoute('/works/$workId')({
       }
     }
 
-    // 1. Fetch full work from Supabase
+    // 1. Fetch full work from Supabase (fast single query, decoupled from lore waterfall for instant TTFB)
     try {
       const dbWork = await getPublicWorkServerFn({ data: params.workId })
       if (dbWork) {
-        let loreBible = null
-        try {
-          loreBible = await getStoryLoreBibleServerFn({ data: { workId: dbWork.id || params.workId } })
-        } catch {
-          // Non-fatal if lore lookup encounters an error or empty state
-        }
-
         if (typeof window !== 'undefined') {
-          const cachePayload = { work: dbWork, loreBible, timestamp: Date.now() }
+          const cachePayload = { work: dbWork, loreBible: null, timestamp: Date.now() }
           clientStoryCache.set(cleanId, cachePayload)
           if (dbWork.id) clientStoryCache.set(dbWork.id.toLowerCase(), cachePayload)
           if (dbWork.slug) clientStoryCache.set(dbWork.slug.toLowerCase(), cachePayload)
-          if (loreBible && dbWork.id) {
-            setClientLoreBibleCache(dbWork.id, loreBible)
-          }
         }
-        return { work: dbWork, loreBible }
+        return { work: dbWork, loreBible: null }
       }
     } catch (e) {
       console.warn('[Route /works/$workId] Loader DB lookup error:', e)

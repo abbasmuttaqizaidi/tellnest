@@ -23,7 +23,7 @@ export interface PublicWorkDependencies {
 }
 
 const publicWorkCache = new Map<string, { data: any; timestamp: number }>()
-const PUBLIC_WORK_CACHE_TTL_MS = 60_000 // 60 seconds server-side cache
+const PUBLIC_WORK_CACHE_TTL_MS = 10 * 60 * 1000 // 10 minutes server-side cache
 
 export function clearPublicWorkCache(idOrSlug?: string) {
   if (idOrSlug) {
@@ -353,7 +353,13 @@ export async function executeGetPublicWork(
       publicWorkCache.set(mappedWork.id.toLowerCase(), { data: mappedWork, timestamp: Date.now() })
     }
     if (mappedWork.slug) {
-      publicWorkCache.set(mappedWork.slug.toLowerCase(), { data: mappedWork, timestamp: Date.now() })
+      const lowerSlug = mappedWork.slug.toLowerCase()
+      publicWorkCache.set(lowerSlug, { data: mappedWork, timestamp: Date.now() })
+      // Alias base semantic slug (e.g. 'the-cold-perimeter' for 'the-cold-perimeter-94a1') for 0ms lookup
+      const baseSlug = lowerSlug.replace(/-[a-f0-9]{4,8}$/i, '')
+      if (baseSlug && baseSlug !== lowerSlug && !publicWorkCache.has(baseSlug)) {
+        publicWorkCache.set(baseSlug, { data: mappedWork, timestamp: Date.now() })
+      }
     }
   }
 
@@ -672,9 +678,9 @@ export const publishWorkServerFn = createServerFn({ method: 'POST' })
   })
 
 const platformWorksCache = new Map<string, { data: any[]; timestamp: number }>()
-const PLATFORM_WORKS_CACHE_TTL_MS = 30_000 // 30 seconds server-side cache
+const PLATFORM_WORKS_CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes server-side cache
 const topShelfCache = new Map<string, { data: any[]; timestamp: number }>()
-const TOP_SHELF_CACHE_TTL_MS = 60_000 // 60 seconds server-side cache for Top Shelf
+const TOP_SHELF_CACHE_TTL_MS = 10 * 60 * 1000 // 10 minutes server-side cache for Top Shelf
 
 export function clearPlatformWorksCache() {
   platformWorksCache.clear()
@@ -2124,7 +2130,7 @@ export const getTopShelfServerFn = createServerFn({ method: 'GET' })
   })
 
 const trendingWorksCache = new Map<string, { data: any[]; timestamp: number }>()
-const TRENDING_WORKS_CACHE_TTL_MS = 30_000
+const TRENDING_WORKS_CACHE_TTL_MS = 10 * 60 * 1000 // 10 minutes server-side cache
 
 export async function executeGetTrendingWorks(
   options: { limit?: number; genre?: string } = {},
@@ -2222,7 +2228,7 @@ export const getTrendingWorksServerFn = createServerFn({ method: 'GET' })
   })
 
 const bingeableWorksCache = new Map<string, { data: any[]; timestamp: number }>()
-const BINGEABLE_WORKS_CACHE_TTL_MS = 30_000
+const BINGEABLE_WORKS_CACHE_TTL_MS = 10 * 60 * 1000 // 10 minutes server-side cache
 
 export async function executeGetBingeableWorks(
   options: { limit?: number; currentUserId?: string | null } = {},

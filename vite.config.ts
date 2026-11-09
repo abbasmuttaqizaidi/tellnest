@@ -28,6 +28,53 @@ const config = defineConfig({
     tanstackStart(),
     nitro({
       preset: 'vercel',
+      routeRules: {
+        '/': {
+          headers: {
+            'Cache-Control': 'public, max-age=0, s-maxage=60, stale-while-revalidate=86400',
+          },
+        },
+        '/works/**': {
+          headers: {
+            'Cache-Control': 'public, max-age=0, s-maxage=300, stale-while-revalidate=86400',
+          },
+        },
+        '/discover': {
+          headers: {
+            'Cache-Control': 'public, max-age=0, s-maxage=300, stale-while-revalidate=86400',
+          },
+        },
+        '/author/**': {
+          headers: {
+            'Cache-Control': 'public, max-age=0, s-maxage=300, stale-while-revalidate=86400',
+          },
+        },
+        '/browse/**': {
+          headers: {
+            'Cache-Control': 'public, max-age=0, s-maxage=300, stale-while-revalidate=86400',
+          },
+        },
+        '/genre/**': {
+          headers: {
+            'Cache-Control': 'public, max-age=0, s-maxage=300, stale-while-revalidate=86400',
+          },
+        },
+        '/category/**': {
+          headers: {
+            'Cache-Control': 'public, max-age=0, s-maxage=300, stale-while-revalidate=86400',
+          },
+        },
+        '/tag/**': {
+          headers: {
+            'Cache-Control': 'public, max-age=0, s-maxage=300, stale-while-revalidate=86400',
+          },
+        },
+        '/writing-contests': {
+          headers: {
+            'Cache-Control': 'public, max-age=0, s-maxage=120, stale-while-revalidate=86400',
+          },
+        },
+      },
       handlers: [
         {
           route: '/sitemap.xml',
