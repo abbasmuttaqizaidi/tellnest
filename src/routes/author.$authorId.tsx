@@ -704,7 +704,7 @@ function AuthorProfilePage() {
             )}
             {showFollowers && (
               <div className="flex items-baseline gap-1.5">
-                <span className="font-semibold text-sm sm:text-base text-[var(--ink-primary)]">{currentFollowersCount.toLocaleString()}</span>
+                <span className="font-semibold text-sm sm:text-base text-[var(--ink-primary)]">{(Number(currentFollowersCount) || 0).toLocaleString()}</span>
                 <span className="text-[10px] text-[var(--ink-muted)] uppercase tracking-wider">Followers</span>
               </div>
             )}

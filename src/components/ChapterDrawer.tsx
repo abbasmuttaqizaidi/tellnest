@@ -133,10 +133,10 @@ export default function ChapterDrawer({
                         <div className="mt-1 flex items-center gap-2 font-mono text-[10px] text-[var(--ink-faint)] whitespace-nowrap">
                           <span className="flex items-center gap-1 shrink-0">
                             <Clock className="h-3 w-3 shrink-0" />
-                            {ch.readTimeMinutes} min read
+                            {ch.readTimeMinutes ?? (ch as any).reading_time_minutes ?? 1} min read
                           </span>
                           <span className="shrink-0">•</span>
-                          <span className="shrink-0">{ch.wordCount.toLocaleString()} words</span>
+                          <span className="shrink-0">{Number(ch.wordCount ?? (ch as any).word_count ?? (ch.content ? ch.content.trim().split(/\s+/).filter(Boolean).length : 0)).toLocaleString()} words</span>
                         </div>
                       </div>
                     </div>

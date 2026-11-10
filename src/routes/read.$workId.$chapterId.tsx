@@ -1290,9 +1290,9 @@ function ReaderPage() {
                 by {work.author.showName !== false ? work.author.name : (work.author.showUsername !== false ? `@${work.author.handle}` : 'Author')}
               </Link>
               <span>•</span>
-              <span>{chapter.readTimeMinutes} min read</span>
+              <span>{chapter.readTimeMinutes ?? (chapter as any).reading_time_minutes ?? 1} min read</span>
               <span>•</span>
-              <span>{chapter.wordCount.toLocaleString()} words</span>
+              <span>{Number(chapter.wordCount ?? (chapter as any).word_count ?? (chapter.content ? chapter.content.trim().split(/\s+/).filter(Boolean).length : 0)).toLocaleString()} words</span>
             </div>
           </div>
 
@@ -1380,9 +1380,9 @@ function ReaderPage() {
               by {work.author.showName !== false ? work.author.name : (work.author.showUsername !== false ? `@${work.author.handle}` : 'Author')}
             </Link>
             <span>•</span>
-            <span>{chapter.readTimeMinutes} min read</span>
+            <span>{chapter.readTimeMinutes ?? (chapter as any).reading_time_minutes ?? 1} min read</span>
             <span>•</span>
-            <span>{chapter.wordCount.toLocaleString()} words</span>
+            <span>{Number(chapter.wordCount ?? (chapter as any).word_count ?? (chapter.content ? chapter.content.trim().split(/\s+/).filter(Boolean).length : 0)).toLocaleString()} words</span>
           </div>
 
           {chapter.subtitle && (

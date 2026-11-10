@@ -146,16 +146,35 @@ function AdminWorkEditorPage() {
 
   // 2. Resolve Work target (localWorkOverride first, then loaderData, then context, then mock/allWorks)
   const work = useMemo(() => {
-    if (localWorkOverride) return localWorkOverride
-    if (loaderData?.loadedWork) return loaderData.loadedWork as any
-    const fromAllWorks = allWorks.find(
-      (w) =>
-        w.id === workId ||
-        w.id.toLowerCase() === workId.toLowerCase() ||
-        (w.slug && w.slug.toLowerCase() === workId.toLowerCase()) ||
-        w.title.toLowerCase().replace(/[^a-z0-9]+/g, '-') === workId.toLowerCase()
-    )
-    return fromAllWorks || getWorkById(workId)
+    let resolvedWork: Work | null = null
+    if (localWorkOverride) resolvedWork = localWorkOverride
+    else if (loaderData?.loadedWork) resolvedWork = loaderData.loadedWork as any
+    else {
+      const fromAllWorks = allWorks.find(
+        (w) =>
+          w.id === workId ||
+          w.id.toLowerCase() === workId.toLowerCase() ||
+          (w.slug && w.slug.toLowerCase() === workId.toLowerCase()) ||
+          w.title.toLowerCase().replace(/[^a-z0-9]+/g, '-') === workId.toLowerCase()
+      )
+      resolvedWork = fromAllWorks || getWorkById(workId) || null
+    }
+
+    if (!resolvedWork) return null
+
+    // Defensive normalization: guarantee wordCount and readTimeMinutes are numeric on all chapters
+    if (Array.isArray(resolvedWork.chapters)) {
+      resolvedWork = {
+        ...resolvedWork,
+        chapters: resolvedWork.chapters.map((ch: any) => ({
+          ...ch,
+          wordCount: Number(ch.wordCount ?? ch.word_count ?? (ch.content ? ch.content.trim().split(/\s+/).filter(Boolean).length : 0)),
+          readTimeMinutes: Number(ch.readTimeMinutes ?? ch.reading_time_minutes ?? 1),
+        })),
+      }
+    }
+
+    return resolvedWork
   }, [localWorkOverride, loaderData?.loadedWork, workId, getWorkById, allWorks])
 
   // Track initial hydration to avoid resetting form while user is typing
@@ -1641,7 +1660,7 @@ function AdminWorkEditorPage() {
                                 {ch.title}
                               </div>
                               <div className="font-mono text-[10px] text-[var(--ink-muted)]">
-                                {ch.wordCount.toLocaleString()} words • {ch.readTimeMinutes} min read
+                                {Number(ch.wordCount ?? (ch as any).word_count ?? 0).toLocaleString()} words • {ch.readTimeMinutes ?? (ch as any).reading_time_minutes ?? 1} min read
                               </div>
                             </div>
                           </div>
@@ -1748,7 +1767,7 @@ function AdminWorkEditorPage() {
                       Act {ch.actNumber || computedActs.find((a) => a.id === ch.actId)?.number || 1}
                     </td>
                     <td className="py-3 px-4 text-[var(--ink-muted)]">
-                      {ch.wordCount.toLocaleString()} w • {ch.readTimeMinutes} min
+                      {Number(ch.wordCount ?? (ch as any).word_count ?? 0).toLocaleString()} w • {ch.readTimeMinutes ?? (ch as any).reading_time_minutes ?? 1} min
                     </td>
                     <td className="py-3 px-4 text-center">
                       <Badge variant="outline" size="sm" className="font-mono text-[9px] uppercase">

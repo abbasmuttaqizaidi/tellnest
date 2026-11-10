@@ -397,7 +397,7 @@ function WritingContestsPage() {
 
         <div className="space-y-2">
           <div className="font-serif sm:font-mono text-5xl sm:text-7xl md:text-8xl font-extrabold text-[var(--ink-primary)] tracking-tight leading-none">
-            {totalContestants.toLocaleString()}
+            {(Number(totalContestants) || 0).toLocaleString()}
           </div>
           <h2 className="font-serif text-lg sm:text-2xl md:text-3xl font-bold text-[var(--ink-primary)] max-w-lg mx-auto pt-1 sm:pt-2 leading-snug">
             Indie Authors Competing This Month

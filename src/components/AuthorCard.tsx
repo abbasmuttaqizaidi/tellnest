@@ -98,7 +98,7 @@ export default function AuthorCard({ author }: AuthorCardProps) {
           <BookOpen className="h-3 w-3" />
           {author.worksCount} Works
         </span>
-        <span>{author.followersCount.toLocaleString()} Followers</span>
+        <span>{(Number(author.followersCount) || 0).toLocaleString()} Followers</span>
         <span title={`${formatViewCount(author.totalReads, false)} Reads`}>
           {formatViewCount(author.totalReads, true)} Reads
         </span>

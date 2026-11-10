@@ -3091,7 +3091,7 @@ function SecretAdminPanelPage() {
                                 <div className="flex items-center gap-2.5 text-[11px] font-mono text-[var(--ink-muted)]">
                                   <span>{work.chapterCount} Parts</span>
                                   <span>•</span>
-                                  <span>{work.wordCount.toLocaleString()} w</span>
+                                  <span>{Number(work.wordCount ?? (work as any).word_count ?? 0).toLocaleString()} w</span>
                                   <span>•</span>
                                   <span className="inline-flex items-center gap-0.5" title={`${formatHeartCount(work.likeCount, false)} Hearts`}>
                                     <Heart className="h-2.5 w-2.5 fill-current text-[var(--ink-primary)]" />
@@ -4732,7 +4732,7 @@ function SecretAdminPanelPage() {
                         {/* Act View Count Pill */}
                         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--bg-surface)] border border-[var(--border-subtle)] font-mono text-xs font-bold text-[var(--ink-primary)] shadow-2xs">
                           <Eye className="h-3.5 w-3.5 text-[var(--ink-muted)]" />
-                          <span>{act.viewCount.toLocaleString()} views</span>
+                          <span>{(Number(act.viewCount) || 0).toLocaleString()} views</span>
                         </div>
                       </div>
 
@@ -4754,7 +4754,7 @@ function SecretAdminPanelPage() {
 
                             <div className="flex items-center gap-2 text-right">
                               <span className="text-[11px] font-semibold text-[var(--ink-secondary)]">
-                                {ch.viewCount.toLocaleString()} views
+                                {Number(ch.viewCount || 0).toLocaleString()} views
                               </span>
                             </div>
                           </div>

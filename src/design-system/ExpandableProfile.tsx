@@ -100,7 +100,7 @@ export const ExpandableProfile: React.FC<ExpandableProfileProps> = ({
           <p className="text-[10px] text-[var(--ink-muted)] uppercase">Works</p>
         </div>
         <div>
-          <p className="font-semibold text-[var(--ink-primary)]">{author.followersCount.toLocaleString()}</p>
+          <p className="font-semibold text-[var(--ink-primary)]">{(Number(author.followersCount) || 0).toLocaleString()}</p>
           <p className="text-[10px] text-[var(--ink-muted)] uppercase">Readers</p>
         </div>
         <div>

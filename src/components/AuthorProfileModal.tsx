@@ -218,7 +218,7 @@ export function AuthorProfileModal({
         </div>
         <div>
           <p className="font-serif text-sm sm:text-base font-bold text-[var(--ink-primary)]">
-            {currentFollowersCount.toLocaleString()}
+            {(Number(currentFollowersCount) || 0).toLocaleString()}
           </p>
           <p className="font-mono text-[9px] uppercase tracking-wider text-[var(--ink-muted)]">
             Followers
