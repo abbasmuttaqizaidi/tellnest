@@ -21,28 +21,7 @@ export function hasActiveClientSession(): boolean {
     return false
   }
 
-  // 2. Explicit HatchPen localStorage marker
-  if (localStorage.getItem('hatchpen_has_session') === 'true') {
-    return true
-  }
-
-  // 3. HatchPen explicit cookie marker
-  if (document.cookie.includes('hatchpen_has_session=true')) {
-    return true
-  }
-
-  // 4. Clerk Client User Action Timestamp cookie (__client_uat)
-  // Clerk sets this synchronously in document.cookie upon sign-in/sign-up
-  if (hasClerkUatCookie()) {
-    return true
-  }
-
-  // 5. Standard Clerk session token cookie
-  if (document.cookie.includes('__session')) {
-    return true
-  }
-
-  // 6. OAuth in-flight return signals (returning from Google/Clerk OAuth redirect)
+  // 2. OAuth in-flight return signals (returning from Google/Clerk OAuth redirect)
   if (
     sessionStorage.getItem('hatchpen_just_signed_up_google') === 'true' ||
     sessionStorage.getItem('hatchpen_oauth_in_flight') === 'true' ||
@@ -52,7 +31,25 @@ export function hasActiveClientSession(): boolean {
     return true
   }
 
-  return false
+  // 3. Clerk synchronous cookies:
+  // - __client_uat: Client User Action Timestamp set synchronously by Clerk upon login
+  // - __session: Clerk JWT session cookie
+  const hasClerkCookie = hasClerkUatCookie() || document.cookie.includes('__session')
+
+  // 4. Explicit HatchPen markers: Valid ONLY when backed by active Clerk cookies or OAuth return
+  if (localStorage.getItem('hatchpen_has_session') === 'true' || document.cookie.includes('hatchpen_has_session=true')) {
+    if (hasClerkCookie) {
+      return true
+    }
+    // Stale leftover from prior session: purge to prevent false positive
+    try {
+      localStorage.removeItem('hatchpen_has_session')
+      document.cookie = 'hatchpen_has_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
+    } catch {}
+    return false
+  }
+
+  return hasClerkCookie
 }
 
 export function markClientSessionActive(): void {

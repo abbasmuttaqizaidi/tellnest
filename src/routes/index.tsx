@@ -207,6 +207,13 @@ function HomePage() {
 
   // Hook 4: Active session verification grace timer
   React.useEffect(() => {
+    // If Clerk has verified user is signed out, immediately expire grace period and purge markers
+    if (isUserLoaded && !isSignedIn && hasClientSession) {
+      clearClientSession()
+      setSessionGraceExpired(true)
+      return
+    }
+
     if (hasClientSession && !isServerAuthenticated && !isSignedIn && !isExplicitlyLoggedOut) {
       // If an explicit OAuth return is in flight, allow up to 10s for slow mobile networks.
       // For general background verification, allow 5s.
@@ -224,7 +231,7 @@ function HomePage() {
       }, timeoutMs)
       return () => clearTimeout(timer)
     }
-  }, [hasClientSession, isServerAuthenticated, isSignedIn, isExplicitlyLoggedOut])
+  }, [hasClientSession, isServerAuthenticated, isSignedIn, isExplicitlyLoggedOut, isUserLoaded])
 
   // Hook 5: Ensure client session is marked active when user is signed in
   React.useEffect(() => {
@@ -282,15 +289,20 @@ function HomePage() {
     )
   }
 
-  // 5. Server authenticated or client session indicator active within grace window
-  if ((isServerAuthenticated || hasClientSession) && !sessionGraceExpired) {
-    return (
-      <React.Suspense fallback={<LoggedInHomeSkeleton />}>
-        <LoggedInHome loaderData={loaderData} />
-      </React.Suspense>
-    )
+  // 5. Definitively signed out / unauthenticated by Clerk
+  // When Clerk has completed client-side verification and confirms user is NOT signed in,
+  // immediately render PublicHome! Never flash or linger on LoggedInHome!
+  if (isUserLoaded && !isSignedIn) {
+    return <PublicHome loaderData={loaderData} />
   }
 
-  // 6. True unauthenticated public visitor
+  // 6. Pre-hydration / Clerk handshake in flight (!isUserLoaded):
+  // If server indicated an authenticated session or client has an active session cookie,
+  // show skeleton (never full LoggedInHome) while the handshake resolves.
+  if (!isUserLoaded && (isServerAuthenticated || hasClientSession) && !sessionGraceExpired) {
+    return <LoggedInHomeSkeleton />
+  }
+
+  // 7. True unauthenticated public visitor
   return <PublicHome loaderData={loaderData} />
 }
