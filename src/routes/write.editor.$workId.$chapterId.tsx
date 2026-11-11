@@ -15,6 +15,7 @@ import {
   RefreshCw,
   Plus,
   X,
+  Lock,
 } from 'lucide-react'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { generateMeta } from '../lib/seo'
@@ -78,6 +79,8 @@ function ChapterEditorPage() {
   const broadcastChannelRef = useRef<BroadcastChannel | null>(null)
 
   const work = loaderData?.work || getWorkById(workId)
+  const isContestLocked = Boolean((work as any)?.isContestLocked)
+  const contestTitle = (work as any)?.contestTitle as string | undefined
   const targetActIdFromSearch = search?.actId
   const [persistedChapterId, setPersistedChapterId] = useState<string | null>(null)
   const persistedChapterIdRef = useRef<string | null>(null)
@@ -355,6 +358,10 @@ function ChapterEditorPage() {
   }
 
   const handleActChange = async (newActId: string) => {
+    if (isContestLocked) {
+      showToast('This manuscript is participating in a contest and is locked against modifications.')
+      return
+    }
     setActId(newActId)
     latestStateRef.current.actId = newActId
     if (work && currentChapter) {
@@ -396,6 +403,10 @@ function ChapterEditorPage() {
 
   const handleQuickCreateNewChapter = (targetAct?: string) => {
     if (!work) return
+    if (isContestLocked) {
+      showToast('Adding new chapters is disabled for contest-participating manuscripts.')
+      return
+    }
     navigate({
       to: '/write/editor/$workId/$chapterId',
       params: { workId: work.id, chapterId: 'new' },
@@ -415,6 +426,7 @@ function ChapterEditorPage() {
   }
 
   const handleBannerChange = (newBannerUrl: string | null) => {
+    if (isContestLocked) return
     setBannerImage(newBannerUrl)
     setAutosaveStatus(checkIfDirty(title, subtitle, content, newBannerUrl) ? 'dirty' : 'saved')
     if (work && currentChapter) {
@@ -431,6 +443,7 @@ function ChapterEditorPage() {
 
   // Pure state updates on typing - strictly NO background autosave timers and NO browser storage
   const handleTitleChange = (newTitle: string) => {
+    if (isContestLocked) return
     setTitle(newTitle)
     setAutosaveStatus(checkIfDirty(newTitle, subtitle, content) ? 'dirty' : 'saved')
 
@@ -445,11 +458,13 @@ function ChapterEditorPage() {
   }
 
   const handleSubtitleChange = (newSub: string) => {
+    if (isContestLocked) return
     setSubtitle(newSub)
     setAutosaveStatus(checkIfDirty(title, newSub, content) ? 'dirty' : 'saved')
   }
 
   const handleContentChange = (newVal: string) => {
+    if (isContestLocked) return
     setContent(newVal)
     setAutosaveStatus(checkIfDirty(title, subtitle, newVal) ? 'dirty' : 'saved')
   }
@@ -457,6 +472,10 @@ function ChapterEditorPage() {
   // Explicit save: Only executed when user manually clicks Save button or presses Cmd+S / Ctrl+S
   const handleManualSave = async (force: boolean = false) => {
     if (!work || !currentChapter) return
+    if (isContestLocked) {
+      showToast('This manuscript is participating in a contest and is locked against modifications.')
+      return
+    }
     if (isSavingRef.current) return
     isSavingRef.current = true
 
@@ -691,6 +710,10 @@ function ChapterEditorPage() {
 
   const executePublish = async (chosenActId: string | null) => {
     setPublishActModalOpen(false)
+    if (isContestLocked) {
+      showToast('This manuscript is participating in a contest and is locked against modifications.')
+      return
+    }
     if (chosenActId) {
       setActId(chosenActId)
       latestStateRef.current.actId = chosenActId
@@ -807,6 +830,10 @@ function ChapterEditorPage() {
   }
 
   const executePublishBoth = async (chosenActId: string | null) => {
+    if (isContestLocked) {
+      showToast('This manuscript is participating in a contest and is locked against modifications.')
+      return
+    }
     if (isSavingRef.current) return
     if (!work || !currentChapter) return
 
@@ -939,6 +966,10 @@ function ChapterEditorPage() {
   }
 
   const handlePublish = async () => {
+    if (isContestLocked) {
+      showToast('This manuscript is participating in a contest and is locked against modifications.')
+      return
+    }
     if (isSavingRef.current) return
     if (!work || !currentChapter) return
 
@@ -1018,11 +1049,16 @@ function ChapterEditorPage() {
             <button
               type="button"
               onClick={() => handleQuickCreateNewChapter()}
-              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-medium text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] border border-[var(--border-subtle)] transition-colors cursor-pointer"
-              title="Add New Chapter"
+              disabled={isContestLocked}
+              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-medium border border-[var(--border-subtle)] transition-colors ${
+                isContestLocked
+                  ? 'opacity-50 cursor-not-allowed text-[var(--ink-faint)]'
+                  : 'text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] cursor-pointer'
+              }`}
+              title={isContestLocked ? 'Manuscript is locked: story is participating in a contest' : 'Add New Chapter'}
             >
-              <Plus className="h-3 w-3" />
-              <span>Add</span>
+              {isContestLocked ? <Lock className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+              <span>{isContestLocked ? 'Locked' : 'Add'}</span>
             </button>
           </div>
 
@@ -1196,6 +1232,8 @@ function ChapterEditorPage() {
           bannerImage={bannerImage}
           onBannerChange={handleBannerChange}
           savedSnapshot={savedSnapshot}
+          isContestLocked={isContestLocked}
+          contestTitle={contestTitle}
         />
       </div>
 

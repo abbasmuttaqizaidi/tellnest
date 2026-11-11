@@ -15,6 +15,7 @@ import {
   Trophy,
   Heart,
   ArrowRight,
+  Lock,
 } from 'lucide-react'
 import { deleteWriterWorkServerFn } from '../server/writer'
 import { getWriterContestStatusServerFn } from '../server/contests'
@@ -426,7 +427,7 @@ function WriterStudioPage() {
                     />
 
                     {/* Status Pill on Cover */}
-                    <div className="absolute top-2.5 left-2.5">
+                    <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 flex-wrap">
                       <span
                         className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold backdrop-blur-md shadow-xs ${
                           isPublished
@@ -438,6 +439,15 @@ function WriterStudioPage() {
                       >
                         {work.status}
                       </span>
+                      {work.isContestLocked && (
+                        <span
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-amber-500/90 text-amber-950 backdrop-blur-md shadow-xs"
+                          title={`Contest Locked: Entered in ${work.contestTitle || 'Writing Contest'}`}
+                        >
+                          <Lock className="h-2.5 w-2.5" />
+                          <span>Contest Locked</span>
+                        </span>
+                      )}
                     </div>
 
                     {/* Hover Overlay */}
@@ -485,14 +495,30 @@ function WriterStudioPage() {
                         Write
                       </Link>
 
-                      <button
-                        type="button"
-                        onClick={() => setDeleteWorkTarget(work)}
-                        className="p-1.5 rounded-lg text-[var(--ink-muted)] hover:text-red-600 hover:bg-red-500/10 transition-colors cursor-pointer shrink-0"
-                        title="Delete Story"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      {work.isContestLocked ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            showToast(
+                              `Cannot delete: "${work.title}" has been entered into ${work.contestTitle || 'the contest'}. Contest manuscripts cannot be deleted.`,
+                              'error'
+                            )
+                          }
+                          className="p-1.5 rounded-lg text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 transition-colors cursor-pointer shrink-0"
+                          title={`Contest Locked: Cannot delete "${work.title}"`}
+                        >
+                          <Lock className="h-4 w-4" />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setDeleteWorkTarget(work)}
+                          className="p-1.5 rounded-lg text-[var(--ink-muted)] hover:text-red-600 hover:bg-red-500/10 transition-colors cursor-pointer shrink-0"
+                          title="Delete Story"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -521,17 +547,31 @@ function WriterStudioPage() {
             </div>
 
             {/* Warning Banner */}
-            <div className="rounded-xl border border-red-500/30 bg-red-500/10 dark:bg-red-950/20 p-3.5 flex items-start gap-3 text-xs">
-              <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
-              <div className="space-y-1">
-                <p className="font-semibold text-red-700 dark:text-red-300">
-                  This action cannot be undone
-                </p>
-                <p className="text-[11px] leading-relaxed text-[var(--ink-secondary)]">
-                  This will permanently delete this manuscript, all its chapters, acts, reader comments, bookmarks, and statistics.
-                </p>
+            {deleteWorkTarget.isContestLocked ? (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 flex items-start gap-3 text-xs">
+                <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-semibold text-amber-800 dark:text-amber-300">
+                    Contest Participant Locked
+                  </p>
+                  <p className="text-[11px] leading-relaxed text-amber-900/80 dark:text-amber-200/80">
+                    This story has been entered into {deleteWorkTarget.contestTitle || 'the contest'}. Contest manuscripts are locked from deletion to maintain leaderboard and reader voting integrity.
+                  </p>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="rounded-xl border border-red-500/30 bg-red-500/10 dark:bg-red-950/20 p-3.5 flex items-start gap-3 text-xs">
+                <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-semibold text-red-700 dark:text-red-300">
+                    This action cannot be undone
+                  </p>
+                  <p className="text-[11px] leading-relaxed text-[var(--ink-secondary)]">
+                    This will permanently delete this manuscript, all its chapters, acts, reader comments, bookmarks, and statistics.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Modal Actions */}
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border-subtle)]">
@@ -541,17 +581,19 @@ function WriterStudioPage() {
                 onClick={() => setDeleteWorkTarget(null)}
                 className="px-4 py-2 rounded-lg text-xs font-medium text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
               >
-                Cancel
+                {deleteWorkTarget.isContestLocked ? 'Close' : 'Cancel'}
               </button>
-              <button
-                type="button"
-                disabled={isDeletingWork}
-                onClick={handleConfirmDeleteWork}
-                className="rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-700 shadow-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
-              >
-                {isDeletingWork && <span className="h-3.5 w-3.5 rounded-full border-2 border-white border-t-transparent animate-spin shrink-0" />}
-                <span>{isDeletingWork ? 'Deleting...' : 'Permanently Delete'}</span>
-              </button>
+              {!deleteWorkTarget.isContestLocked && (
+                <button
+                  type="button"
+                  disabled={isDeletingWork}
+                  onClick={handleConfirmDeleteWork}
+                  className="rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-700 shadow-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {isDeletingWork && <span className="h-3.5 w-3.5 rounded-full border-2 border-white border-t-transparent animate-spin shrink-0" />}
+                  <span>{isDeletingWork ? 'Deleting...' : 'Permanently Delete'}</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

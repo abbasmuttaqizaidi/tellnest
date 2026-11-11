@@ -53,6 +53,68 @@ async function resolveUserProfile(admin: any, clerkUserId: string) {
   return profile
 }
 
+/**
+ * Checks if a manuscript has participated in any writing contest.
+ * If entered into a contest (status in accepted, pending, winner), the manuscript
+ * is permanently locked against alterations and deletion to guarantee contest
+ * fairness, reader vote integrity, and leaderboard immutability.
+ */
+export async function checkWorkContestLock(
+  workId: string,
+  adminClient?: any
+): Promise<{ isLocked: boolean; reason?: string; contestTitle?: string }> {
+  if (!workId?.trim()) return { isLocked: false }
+  const admin = adminClient || createAdminClient()
+
+  let workUuid = workId.trim()
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(workUuid)
+  if (!isUuid) {
+    try {
+      const { data: wRow } = await admin
+        .from('works')
+        .select('id')
+        .eq('slug', workUuid.toLowerCase())
+        .maybeSingle()
+      if (wRow?.id) workUuid = wRow.id
+    } catch {}
+  }
+
+  try {
+    const query = admin
+      .from('contest_entries')
+      .select('id, contest_id, status, contests:contest_id(title, status)')
+      .eq('work_id', workUuid)
+
+    let res: any = null
+    if (typeof query?.in === 'function') {
+      const inQuery = query.in('status', ['accepted', 'pending', 'winner'])
+      res = typeof inQuery?.maybeSingle === 'function' ? await inQuery.maybeSingle() : await inQuery
+    } else if (typeof query?.maybeSingle === 'function') {
+      res = await query.maybeSingle()
+    } else if (query) {
+      res = await query
+    }
+
+    const entry = res?.data
+    if (
+      entry &&
+      (entry.contest_id || entry.contests) &&
+      ['accepted', 'pending', 'winner'].includes(entry.status)
+    ) {
+      const contestTitle = (entry.contests as any)?.title || 'Writing Contest'
+      return {
+        isLocked: true,
+        contestTitle,
+        reason: `This story has been entered into the "${contestTitle}". Contest manuscripts are locked to preserve fair reader voting and cannot be modified or deleted.`,
+      }
+    }
+  } catch (err: any) {
+    // Graceful fallback for mock unit tests or non-contest test tables
+  }
+
+  return { isLocked: false }
+}
+
 export interface WriterWorkListItem {
   id: string
   title: string
@@ -70,6 +132,8 @@ export interface WriterWorkListItem {
   firstChapterId?: string
   activeChapterId?: string
   chapters?: Chapter[]
+  isContestLocked?: boolean
+  contestTitle?: string | null
 }
 
 export interface GetWriterWorksResponse {
@@ -135,11 +199,32 @@ export const getWriterWorksServerFn = createServerFn({ method: 'GET' })
       throw new Error(error.message)
     }
 
+    // Query active contest submissions by this author to determine locked manuscripts
+    const contestWorkMap = new Map<string, { contestTitle: string; status: string }>()
+    try {
+      const { data: contestEntries } = await admin
+        .from('contest_entries')
+        .select('work_id, contest_id, status, contests:contest_id(title)')
+        .eq('author_id', profile.id)
+        .in('status', ['accepted', 'pending', 'winner'])
+
+      if (Array.isArray(contestEntries)) {
+        for (const ce of contestEntries) {
+          contestWorkMap.set(ce.work_id, {
+            contestTitle: (ce.contests as any)?.title || 'Writing Contest',
+            status: ce.status,
+          })
+        }
+      }
+    } catch {}
+
     let aggregatedReads = 0
     let aggregatedSaves = 0
     let activeDraftsCount = 0
 
     const works: WriterWorkListItem[] = (dbWorks || []).map((w: any) => {
+      const contestInfo = contestWorkMap.get(w.id)
+      const isContestLocked = Boolean(contestInfo)
       const catObj = Array.isArray(w.category) ? w.category[0] : w.category
       const viewCountNum = Number(w.view_count || 0)
       const saveCountNum = Number(w.save_count || 0)
@@ -200,6 +285,8 @@ export const getWriterWorksServerFn = createServerFn({ method: 'GET' })
         firstChapterId,
         activeChapterId,
         chapters: mappedChapters,
+        isContestLocked,
+        contestTitle: contestInfo?.contestTitle || null,
       }
     })
 
@@ -743,6 +830,9 @@ export const getWriterWorkDetailsServerFn = createServerFn({ method: 'GET' })
       : []
     const activityDetail = typeof dbWork.last_activity_detail === 'object' && dbWork.last_activity_detail ? dbWork.last_activity_detail : null
 
+    // Determine contest locking status
+    const contestLock = await checkWorkContestLock(dbWork.id, admin)
+
     return {
       id: dbWork.id,
       title: dbWork.title,
@@ -772,6 +862,8 @@ export const getWriterWorkDetailsServerFn = createServerFn({ method: 'GET' })
       ratingCount: 1,
       createdAt: dbWork.created_at ? new Date(dbWork.created_at).toLocaleDateString() : 'Recently',
       updatedAt: dbWork.updated_at ? new Date(dbWork.updated_at).toLocaleDateString() : 'Recently',
+      isContestLocked: contestLock.isLocked,
+      contestTitle: contestLock.contestTitle || null,
       author: {
         id: authorObj?.id || 'unknown',
         name: authorObj?.display_name || authorObj?.username || 'Author',
@@ -839,6 +931,15 @@ export async function executeSaveWriterChapter(data: SaveWriterChapterPayload, a
         const wRow = res?.data
         if (wRow?.slug) workSlug = wRow.slug
       } catch {}
+    }
+
+    // Verify contest lock: contest manuscripts are strictly immutable
+    const contestLock = await checkWorkContestLock(workUuid, admin)
+    if (contestLock.isLocked) {
+      throw new Error(
+        contestLock.reason ||
+          `Cannot modify this chapter: Manuscript has been entered into ${contestLock.contestTitle || 'a writing contest'} and is locked against changes.`
+      )
     }
 
     // 2. Check if chapter exists by ID (UUID check)
@@ -1088,6 +1189,15 @@ export const createWriterChapterServerFn = createServerFn({ method: 'POST' })
       if (wRow?.id) workUuid = wRow.id
     }
 
+    // Verify contest lock: contest manuscripts are strictly immutable
+    const contestLock = await checkWorkContestLock(workUuid, admin)
+    if (contestLock.isLocked) {
+      throw new Error(
+        contestLock.reason ||
+          `Cannot add chapters: Manuscript has been entered into ${contestLock.contestTitle || 'a writing contest'} and is locked against changes.`
+      )
+    }
+
     // 2. Determine next chapter number
     const { data: existingChs } = await admin
       .from('chapters')
@@ -1209,6 +1319,15 @@ export async function executeDeleteWriterChapter(
   if (!isWorkUuid) {
     const { data: wRow } = await admin.from('works').select('id').eq('slug', workUuid.toLowerCase()).maybeSingle()
     if (wRow?.id) workUuid = wRow.id
+  }
+
+  // Verify contest lock: contest manuscripts are strictly immutable
+  const contestLock = await checkWorkContestLock(workUuid, admin)
+  if (contestLock.isLocked) {
+    throw new Error(
+      contestLock.reason ||
+        `Cannot delete chapter: Manuscript has been entered into ${contestLock.contestTitle || 'a writing contest'} and is locked against changes.`
+    )
   }
 
   // 2. Fetch chapter to verify ownership and get title
@@ -1355,6 +1474,14 @@ export async function executeDeleteWriterWork(
     throw new Error('Unauthorized: You can only delete your own manuscripts.')
   }
 
+  // 4.5 Verify contest lock: contest manuscripts can never be deleted
+  const contestLock = await checkWorkContestLock(workUuid, admin)
+  if (contestLock.isLocked) {
+    throw new Error(
+      `Cannot delete this manuscript: "${workRow.title}" has been entered into ${contestLock.contestTitle || 'a writing contest'}. Contest manuscripts are permanently locked from deletion to maintain fair competition and reader rankings.`
+    )
+  }
+
   // 5. Delete the work row (ON DELETE CASCADE handles chapters, acts, bookmarks, progress, etc.)
   const { error: delErr } = await admin
     .from('works')
@@ -1434,6 +1561,15 @@ export const createWriterActServerFn = createServerFn({ method: 'POST' })
     if (!isWorkUuid) {
       const { data: wRow } = await admin.from('works').select('id').eq('slug', data.workId).maybeSingle()
       if (wRow?.id) workUuid = wRow.id
+    }
+
+    // Verify contest lock: contest manuscripts are strictly immutable
+    const contestLock = await checkWorkContestLock(workUuid, admin)
+    if (contestLock.isLocked) {
+      throw new Error(
+        contestLock.reason ||
+          `Cannot add acts: Manuscript has been entered into ${contestLock.contestTitle || 'a writing contest'} and is locked against changes.`
+      )
     }
 
     // 2. Determine act number safely (prevent duplicate key collision if an earlier act was deleted)
@@ -1526,6 +1662,22 @@ export const updateWriterActServerFn = createServerFn({ method: 'POST' })
     const admin = createAdminClient()
     const nowIso = new Date().toISOString()
 
+    // Verify contest lock if workId provided or resolve from act
+    let targetWorkId = data.workId?.trim()
+    if (!targetWorkId) {
+      const { data: actRow } = await admin.from('acts').select('work_id').eq('id', data.actId).maybeSingle()
+      if (actRow?.work_id) targetWorkId = actRow.work_id
+    }
+    if (targetWorkId) {
+      const contestLock = await checkWorkContestLock(targetWorkId, admin)
+      if (contestLock.isLocked) {
+        throw new Error(
+          contestLock.reason ||
+            `Cannot modify act: Manuscript has been entered into ${contestLock.contestTitle || 'a writing contest'} and is locked against changes.`
+        )
+      }
+    }
+
     const { data: updatedAct, error } = await admin
       .from('acts')
       .update({
@@ -1574,6 +1726,19 @@ export const deleteWriterActServerFn = createServerFn({ method: 'POST' })
       if (!isWorkUuid) {
         const { data: wRow } = await admin.from('works').select('id').eq('slug', workUuid.toLowerCase()).maybeSingle()
         if (wRow?.id) workUuid = wRow.id
+      }
+    } else {
+      const { data: actRow } = await admin.from('acts').select('work_id').eq('id', data.actId).maybeSingle()
+      if (actRow?.work_id) workUuid = actRow.work_id
+    }
+
+    if (workUuid) {
+      const contestLock = await checkWorkContestLock(workUuid, admin)
+      if (contestLock.isLocked) {
+        throw new Error(
+          contestLock.reason ||
+            `Cannot delete act: Manuscript has been entered into ${contestLock.contestTitle || 'a writing contest'} and is locked against changes.`
+        )
       }
     }
 
@@ -1647,6 +1812,15 @@ export async function executeWriterWorkPublication(
   if (!isUuid) {
     const { data: wRow } = await admin.from('works').select('id').eq('slug', workUuid.toLowerCase()).maybeSingle()
     if (wRow?.id) workUuid = wRow.id
+  }
+
+  // Verify contest lock: contest manuscripts cannot alter publication state
+  const contestLock = await checkWorkContestLock(workUuid, admin)
+  if (contestLock.isLocked) {
+    throw new Error(
+      contestLock.reason ||
+        `Cannot change publication settings: Manuscript has been entered into ${contestLock.contestTitle || 'a writing contest'} and is locked against changes.`
+    )
   }
 
   const { data: currentWork } = await admin
@@ -1807,6 +1981,15 @@ export async function executeWriterWorkCover(
     if (wRow?.id) workUuid = wRow.id
   }
 
+  // Verify contest lock: contest manuscripts cannot alter cover
+  const contestLock = await checkWorkContestLock(workUuid, admin)
+  if (contestLock.isLocked) {
+    throw new Error(
+      contestLock.reason ||
+        `Cannot change cover: Manuscript has been entered into ${contestLock.contestTitle || 'a writing contest'} and is locked against changes.`
+    )
+  }
+
   const { data: updatedWork, error } = await admin
     .from('works')
     .update({
@@ -1885,6 +2068,15 @@ export async function executeSaveWriterWorkMetadata(
   if (!isUuid) {
     const { data: wRow } = await admin.from('works').select('id, author_id').eq('slug', workUuid.toLowerCase()).maybeSingle()
     if (wRow?.id) workUuid = wRow.id
+  }
+
+  // Verify contest lock: contest manuscripts cannot modify metadata
+  const contestLock = await checkWorkContestLock(workUuid, admin)
+  if (contestLock.isLocked) {
+    throw new Error(
+      contestLock.reason ||
+        `Cannot update manuscript details: Manuscript has been entered into ${contestLock.contestTitle || 'a writing contest'} and is locked against changes.`
+    )
   }
 
   // Verify work exists
@@ -2357,6 +2549,15 @@ export async function executeSaveStoryLoreEntity(
     throw new Error('Unauthorized: You can only manage lore for your own manuscripts.')
   }
 
+  // Verify contest lock: lore synchronization alters chapter text and is locked
+  const contestLock = await checkWorkContestLock(workUuid, admin)
+  if (contestLock.isLocked) {
+    throw new Error(
+      contestLock.reason ||
+        `Cannot sync lore: Manuscript has been entered into ${contestLock.contestTitle || 'a writing contest'} and is locked against changes.`
+    )
+  }
+
   const nowIso = new Date().toISOString()
 
   let savedEntityId: string | undefined
@@ -2663,6 +2864,15 @@ export async function executeBulkLinkStoryLore(
     throw new Error('Unauthorized: You can only manage lore for your own manuscripts.')
   }
 
+  // Verify contest lock: lore modifications alter chapter text and are locked
+  const contestLock = await checkWorkContestLock(workUuid, admin)
+  if (contestLock.isLocked) {
+    throw new Error(
+      contestLock.reason ||
+        `Cannot link lore: Manuscript has been entered into ${contestLock.contestTitle || 'a writing contest'} and is locked against changes.`
+    )
+  }
+
   // Find entity definition from payload, table or chapters
   let entityType = (data.entityType || data.type || 'Character').trim()
   let description = (data.description || data.entityDescription || '').trim()
@@ -2821,6 +3031,15 @@ export async function executeSyncAllStoryLore(
 
   if (!workRow || workRow.author_id !== profile.id) {
     throw new Error('Unauthorized: You can only manage lore for your own manuscripts.')
+  }
+
+  // Verify contest lock: lore synchronization alters chapter text and is locked
+  const contestLock = await checkWorkContestLock(workUuid, admin)
+  if (contestLock.isLocked) {
+    throw new Error(
+      contestLock.reason ||
+        `Cannot sync lore: Manuscript has been entered into ${contestLock.contestTitle || 'a writing contest'} and is locked against changes.`
+    )
   }
 
   // 1. Fetch all chapters for this work
@@ -2991,6 +3210,15 @@ export async function executeBulkUnlinkStoryLore(
     throw new Error('Unauthorized: You can only manage lore for your own manuscripts.')
   }
 
+  // Verify contest lock: lore synchronization alters chapter text and is locked
+  const contestLock = await checkWorkContestLock(workUuid, admin)
+  if (contestLock.isLocked) {
+    throw new Error(
+      contestLock.reason ||
+        `Cannot sync lore: Manuscript has been entered into ${contestLock.contestTitle || 'a writing contest'} and is locked against changes.`
+    )
+  }
+
   let query = admin.from('chapters').select('id, content').eq('work_id', workUuid)
   if (data.chapterIds && data.chapterIds.length > 0) {
     query = query.in('id', data.chapterIds)
@@ -3117,6 +3345,15 @@ export async function executeDeleteStoryLoreEntity(
     throw new Error('Unauthorized: You can only manage lore for your own manuscripts.')
   }
 
+  // Verify contest lock: lore synchronization alters chapter text and is locked
+  const contestLock = await checkWorkContestLock(workUuid, admin)
+  if (contestLock.isLocked) {
+    throw new Error(
+      contestLock.reason ||
+        `Cannot sync lore: Manuscript has been entered into ${contestLock.contestTitle || 'a writing contest'} and is locked against changes.`
+    )
+  }
+
   try {
     await admin
       .from('story_lore_entities')
@@ -3209,6 +3446,15 @@ export async function executeImportStoryLoreCsv(
 
   if (!workRow || workRow.author_id !== profile.id) {
     throw new Error('Unauthorized: You can only manage lore for your own manuscripts.')
+  }
+
+  // Verify contest lock: lore synchronization alters chapter text and is locked
+  const contestLock = await checkWorkContestLock(workUuid, admin)
+  if (contestLock.isLocked) {
+    throw new Error(
+      contestLock.reason ||
+        `Cannot sync lore: Manuscript has been entered into ${contestLock.contestTitle || 'a writing contest'} and is locked against changes.`
+    )
   }
 
   // Parse CSV

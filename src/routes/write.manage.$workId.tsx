@@ -193,6 +193,8 @@ function WorkManagementPage() {
 
   const contextWork = getWorkById(workId)
   const work = loaderData?.work || contextWork || allWorks[0]
+  const isContestLocked = Boolean((work as any)?.isContestLocked)
+  const contestTitle = ((work as any)?.contestTitle as string) || 'Writing Contest'
 
   // Edit Story / Manuscript Metadata Modal State
   const [editStoryModalOpen, setEditStoryModalOpen] = useState(false)
@@ -217,6 +219,13 @@ function WorkManagementPage() {
   const [isSavingMetadata, setIsSavingMetadata] = useState(false)
 
   const openEditStoryModal = () => {
+    if (isContestLocked) {
+      showToast(
+        `Cannot modify details: "${work?.title}" is entered into ${contestTitle}. Contest manuscripts are permanently locked from modifications.`,
+        'error'
+      )
+      return
+    }
     setEditTitle(work?.title || '')
     setEditSubtitle(work?.subtitle || '')
     setEditDescription(work?.synopsis || work?.description || '')
@@ -302,6 +311,13 @@ function WorkManagementPage() {
 
   const handleSaveStoryDetails = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
+    if (isContestLocked) {
+      showToast(
+        `Cannot modify details: "${work.title}" has been entered into ${contestTitle}. Contest manuscripts are permanently locked against modifications.`,
+        'error'
+      )
+      return
+    }
     if (!editTitle.trim()) {
       showToast('Manuscript title cannot be empty')
       return
@@ -661,6 +677,14 @@ function WorkManagementPage() {
 
   const handleConfirmDeleteAct = async () => {
     if (!deleteActTarget) return
+    if (isContestLocked) {
+      showToast(
+        `Cannot delete acts: "${work.title}" has been entered into ${contestTitle}. Contest manuscripts are permanently locked against modifications.`,
+        'error'
+      )
+      setDeleteActTarget(null)
+      return
+    }
     setIsDeletingAct(true)
     const { id: actId, title: actTitle } = deleteActTarget
 
@@ -708,6 +732,13 @@ function WorkManagementPage() {
 
   const handleSaveAct = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (isContestLocked) {
+      showToast(
+        `Cannot modify acts: "${work.title}" has been entered into ${contestTitle}. Contest manuscripts are permanently locked against modifications.`,
+        'error'
+      )
+      return
+    }
     if (!actTitle.trim()) return
 
     const enteredTitle = actTitle.trim()
@@ -840,6 +871,13 @@ function WorkManagementPage() {
   }, [chapters, chapterFilter, chapterSort, searchQuery])
 
   const handleStartNewChapter = (chosenActId?: string) => {
+    if (isContestLocked) {
+      showToast(
+        `Cannot add chapters: "${work.title}" has been entered into ${contestTitle}. Contest manuscripts are permanently locked against modifications.`,
+        'error'
+      )
+      return
+    }
     setIsOpeningEditor(true)
     setAddDropdownOpen(false)
     setOpenActMenuId(null)
@@ -859,6 +897,13 @@ function WorkManagementPage() {
   }
 
   const handleDeleteChapter = async (chapterId: string, chapterTitle: string) => {
+    if (isContestLocked) {
+      showToast(
+        `Cannot delete chapters: "${work.title}" has been entered into ${contestTitle}. Contest manuscripts are permanently locked against modifications.`,
+        'error'
+      )
+      return
+    }
     if (
       !window.confirm(
         `Are you sure you want to delete "${chapterTitle}"? This cannot be undone.`
@@ -906,6 +951,13 @@ function WorkManagementPage() {
 
   const handleDeleteManuscript = async () => {
     if (!user?.id || !work?.id) return
+    if (isContestLocked) {
+      showToast(
+        `Cannot delete: "${work.title}" has been entered into ${contestTitle}. Contest manuscripts are permanently locked from deletion.`,
+        'error'
+      )
+      return
+    }
     try {
       setIsDeletingWork(true)
       await deleteWriterWorkServerFn({
@@ -927,6 +979,13 @@ function WorkManagementPage() {
   }
 
   const handleToggleStatus = async (chapterId: string) => {
+    if (isContestLocked) {
+      showToast(
+        `Cannot change chapter status: "${work.title}" has been entered into ${contestTitle}. Contest manuscripts are permanently locked against modifications.`,
+        'error'
+      )
+      return
+    }
     const targetChapter = chapters.find((c) => c.id === chapterId)
     if (!targetChapter) return
 
@@ -1098,12 +1157,21 @@ function WorkManagementPage() {
               />
               <button
                 type="button"
-                onClick={() => setCoverModalOpen(true)}
+                onClick={() => {
+                  if (isContestLocked) {
+                    showToast(
+                      `Cannot change cover: "${work?.title}" is entered into ${contestTitle}. Contest manuscripts are permanently locked from modifications.`,
+                      'error'
+                    )
+                    return
+                  }
+                  setCoverModalOpen(true)
+                }}
                 className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/60 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-mono cursor-pointer backdrop-blur-2xs"
-                title="Change Manuscript Cover"
+                title={isContestLocked ? 'Cover locked (Contest Participant)' : 'Change Manuscript Cover'}
               >
-                <Camera className="h-4 w-4" />
-                <span>Change</span>
+                {isContestLocked ? <Lock className="h-4 w-4 text-amber-300" /> : <Camera className="h-4 w-4" />}
+                <span>{isContestLocked ? 'Locked' : 'Change'}</span>
               </button>
             </div>
 
@@ -1153,6 +1221,13 @@ function WorkManagementPage() {
                     18+ Mature
                   </span>
                 )}
+
+                {isContestLocked && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-700 dark:text-amber-300 px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider">
+                    <Trophy className="h-3 w-3" />
+                    <span>Contest Locked</span>
+                  </span>
+                )}
               </div>
 
               {/* Manuscript Title with Quick Edit Button */}
@@ -1164,9 +1239,9 @@ function WorkManagementPage() {
                   type="button"
                   onClick={openEditStoryModal}
                   className="p-1 rounded-md text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer shrink-0"
-                  title="Edit Manuscript Details"
+                  title={isContestLocked ? 'Story details locked (Contest Participant)' : 'Edit Manuscript Details'}
                 >
-                  <Edit3 className="h-4 w-4" />
+                  {isContestLocked ? <Lock className="h-4 w-4 text-amber-500" /> : <Edit3 className="h-4 w-4" />}
                 </button>
               </div>
 
@@ -1291,19 +1366,36 @@ function WorkManagementPage() {
                 type="button"
                 onMouseEnter={preloadEditor}
                 onClick={() => {
+                  if (isContestLocked) {
+                    showToast(
+                      `Cannot add chapters or acts: "${work.title}" has been entered into ${contestTitle}. Contest manuscripts are permanently locked against modifications.`,
+                      'error'
+                    )
+                    return
+                  }
                   preloadEditor()
                   setAddDropdownOpen((prev) => !prev)
                 }}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-canvas)] hover:bg-[var(--bg-subtle)] px-3.5 py-2 text-xs font-semibold text-[var(--ink-primary)] shadow-2xs transition-colors cursor-pointer"
-                title="Add Chapter or Act"
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-3.5 py-2 text-xs font-semibold shadow-2xs transition-colors cursor-pointer ${
+                  isContestLocked
+                    ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                    : 'border-[var(--border-strong)] bg-[var(--bg-canvas)] hover:bg-[var(--bg-subtle)] text-[var(--ink-primary)]'
+                }`}
+                title={isContestLocked ? 'Add locked (Contest Participant)' : 'Add Chapter or Act'}
                 aria-expanded={addDropdownOpen}
               >
-                <Plus className="h-4 w-4 text-black dark:text-white" strokeWidth={2.5} />
-                <span>Add</span>
-                <ChevronDown className={`h-3 w-3 text-black dark:text-white transition-transform duration-150 ${addDropdownOpen ? 'rotate-180' : ''}`} />
+                {isContestLocked ? (
+                  <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                ) : (
+                  <Plus className="h-4 w-4 text-black dark:text-white" strokeWidth={2.5} />
+                )}
+                <span>{isContestLocked ? 'Locked' : 'Add'}</span>
+                {!isContestLocked && (
+                  <ChevronDown className={`h-3 w-3 text-black dark:text-white transition-transform duration-150 ${addDropdownOpen ? 'rotate-180' : ''}`} />
+                )}
               </button>
 
-              {addDropdownOpen && (
+              {addDropdownOpen && !isContestLocked && (
                 <div className="absolute right-0 top-full mt-1.5 w-44 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-1.5 shadow-xl z-30 animate-in fade-in zoom-in-95 duration-100">
                   <button
                     type="button"
@@ -1354,8 +1446,8 @@ function WorkManagementPage() {
                     }}
                     className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors text-left cursor-pointer"
                   >
-                    <Edit3 className="h-4 w-4 text-black dark:text-white shrink-0" />
-                    <span>Edit Details</span>
+                    {isContestLocked ? <Lock className="h-4 w-4 text-amber-500 shrink-0" /> : <Edit3 className="h-4 w-4 text-black dark:text-white shrink-0" />}
+                    <span>{isContestLocked ? 'Details (Locked)' : 'Edit Details'}</span>
                   </button>
 
                   {/* Visibility Settings */}
@@ -1363,6 +1455,10 @@ function WorkManagementPage() {
                     type="button"
                     onClick={() => {
                       setMoreMenuOpen(false)
+                      if (isContestLocked) {
+                        showToast(`Visibility is locked for contest participants: "${work.title}" must remain published.`, 'info')
+                        return
+                      }
                       openPubModal()
                     }}
                     className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors text-left cursor-pointer"
@@ -1389,12 +1485,23 @@ function WorkManagementPage() {
                     type="button"
                     onClick={() => {
                       setMoreMenuOpen(false)
+                      if (isContestLocked) {
+                        showToast(
+                          `Cannot delete: "${work.title}" is entered into ${contestTitle}. Contest manuscripts are permanently locked from deletion.`,
+                          'error'
+                        )
+                        return
+                      }
                       setDeleteWorkModalOpen(true)
                     }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-500/10 transition-colors text-left cursor-pointer"
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left cursor-pointer ${
+                      isContestLocked
+                        ? 'text-amber-700 dark:text-amber-400 hover:bg-amber-500/10'
+                        : 'text-red-600 dark:text-red-400 hover:bg-red-500/10'
+                    }`}
                   >
-                    <Trash2 className="h-4 w-4 shrink-0" />
-                    <span>Delete Manuscript</span>
+                    {isContestLocked ? <Lock className="h-4 w-4 shrink-0" /> : <Trash2 className="h-4 w-4 shrink-0" />}
+                    <span>{isContestLocked ? 'Contest Locked' : 'Delete Manuscript'}</span>
                   </button>
                 </div>
               )}
@@ -1404,8 +1511,36 @@ function WorkManagementPage() {
         </div>
       </div>
 
-      {/* Contest Eligibility Discovery Banner */}
-      {isEligibleForContestMonth && (
+      {/* Contest Locked / Contest Eligibility Discovery Banner */}
+      {isContestLocked ? (
+        <div className="my-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 text-xs">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-300 shrink-0">
+              <Trophy className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="font-semibold text-sm text-amber-950 dark:text-amber-100">
+                  Active Contest Participant — Story Permanently Locked
+                </p>
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-800 dark:text-amber-200 px-2 py-0.5 font-mono text-[9px] uppercase font-bold">
+                  <Lock className="w-2.5 h-2.5" /> Locked
+                </span>
+              </div>
+              <p className="text-[11px] text-amber-800/90 dark:text-amber-300/90 mt-0.5 leading-relaxed">
+                "{work.title}" has been entered into the {contestTitle}. Contest rules forbid deleting or modifying submitted stories to preserve reader likes and voting integrity.
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/writing-contests"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold no-underline transition-colors shrink-0 shadow-xs"
+          >
+            <span>View Contest</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+      ) : isEligibleForContestMonth ? (
         <div className="my-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 text-xs">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 shrink-0">
@@ -1428,7 +1563,7 @@ function WorkManagementPage() {
             <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
-      )}
+      ) : null}
 
       {/* Chapters Folio Workspace */}
       <div className="space-y-4">
@@ -2036,14 +2171,16 @@ function WorkManagementPage() {
                       </Link>
 
                       {/* Delete Chapter */}
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteChapter(ch.id, ch.title)}
-                        className="p-1.5 text-[var(--ink-muted)] hover:text-red-600 rounded hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
-                        title="Delete Chapter"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      {!isContestLocked && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteChapter(ch.id, ch.title)}
+                          className="p-1.5 text-[var(--ink-muted)] hover:text-red-600 rounded hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+                          title="Delete Chapter"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -2052,26 +2189,44 @@ function WorkManagementPage() {
           </div>
         )}
 
-        {/* Danger Zone: Delete Manuscript */}
-        <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-8">
-          <div className="space-y-1">
-            <h3 className="font-serif text-sm font-semibold text-red-600 dark:text-red-400 flex items-center gap-2">
-              <Trash2 className="h-4 w-4" />
-              <span>Danger Zone: Delete Manuscript</span>
-            </h3>
-            <p className="text-xs text-[var(--ink-secondary)]">
-              Permanently delete this manuscript, including all acts, chapters, reader progress, and statistics. This action is irreversible.
-            </p>
+        {/* Danger Zone: Delete Manuscript / Contest Locked */}
+        {isContestLocked ? (
+          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-8">
+            <div className="space-y-1">
+              <h3 className="font-serif text-sm font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-2">
+                <Lock className="h-4 w-4" />
+                <span>Deletion Locked: Contest Participant</span>
+              </h3>
+              <p className="text-xs text-[var(--ink-secondary)] leading-relaxed">
+                "{work.title}" has been entered into the {contestTitle}. Contest rules forbid deleting or modifying active submissions to preserve fair reader voting and leaderboard rankings.
+              </p>
+            </div>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-900 dark:text-amber-100 text-xs font-mono font-bold shrink-0">
+              <Lock className="h-3.5 w-3.5" />
+              <span>Locked from Deletion</span>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={() => setDeleteWorkModalOpen(true)}
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer shrink-0"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            <span>Delete Manuscript</span>
-          </button>
-        </div>
+        ) : (
+          <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-8">
+            <div className="space-y-1">
+              <h3 className="font-serif text-sm font-semibold text-red-600 dark:text-red-400 flex items-center gap-2">
+                <Trash2 className="h-4 w-4" />
+                <span>Danger Zone: Delete Manuscript</span>
+              </h3>
+              <p className="text-xs text-[var(--ink-secondary)]">
+                Permanently delete this manuscript, including all acts, chapters, reader progress, and statistics. This action is irreversible.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setDeleteWorkModalOpen(true)}
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer shrink-0"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span>Delete Manuscript</span>
+            </button>
+          </div>
+        )}
 
       </div>
 
@@ -3055,17 +3210,31 @@ function WorkManagementPage() {
             </div>
 
             {/* Warning Banner */}
-            <div className="rounded-xl border border-red-500/30 bg-red-500/10 dark:bg-red-950/20 p-3.5 flex items-start gap-3 text-xs">
-              <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
-              <div className="space-y-1">
-                <p className="font-semibold text-red-700 dark:text-red-300">
-                  This action cannot be undone
-                </p>
-                <p className="text-[11px] leading-relaxed text-[var(--ink-secondary)]">
-                  This will permanently delete this manuscript, all {chapters.length} chapter(s), {acts.length} act(s), lore hyperlinks, comments, bookmarks, and reader analytics.
-                </p>
+            {isContestLocked ? (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 flex items-start gap-3 text-xs">
+                <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-semibold text-amber-900 dark:text-amber-200">
+                    Contest Participant Locked
+                  </p>
+                  <p className="text-[11px] leading-relaxed text-amber-900/80 dark:text-amber-200/80">
+                    This story has been entered into {contestTitle}. Contest manuscripts are permanently locked from deletion to maintain leaderboard and reader voting integrity.
+                  </p>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="rounded-xl border border-red-500/30 bg-red-500/10 dark:bg-red-950/20 p-3.5 flex items-start gap-3 text-xs">
+                <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-semibold text-red-700 dark:text-red-300">
+                    This action cannot be undone
+                  </p>
+                  <p className="text-[11px] leading-relaxed text-[var(--ink-secondary)]">
+                    This will permanently delete this manuscript, all {chapters.length} chapter(s), {acts.length} act(s), lore hyperlinks, comments, bookmarks, and reader analytics.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Modal Actions */}
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border-subtle)]">
@@ -3075,17 +3244,19 @@ function WorkManagementPage() {
                 onClick={() => setDeleteWorkModalOpen(false)}
                 className="px-4 py-2 rounded-lg text-xs font-medium text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
               >
-                Cancel
+                {isContestLocked ? 'Close' : 'Cancel'}
               </button>
-              <button
-                type="button"
-                disabled={isDeletingWork}
-                onClick={handleDeleteManuscript}
-                className="rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-700 shadow-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
-              >
-                {isDeletingWork && <span className="h-3.5 w-3.5 rounded-full border-2 border-white border-t-transparent animate-spin shrink-0" />}
-                <span>{isDeletingWork ? 'Deleting...' : 'Permanently Delete'}</span>
-              </button>
+              {!isContestLocked && (
+                <button
+                  type="button"
+                  disabled={isDeletingWork}
+                  onClick={handleDeleteManuscript}
+                  className="rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-700 shadow-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {isDeletingWork && <span className="h-3.5 w-3.5 rounded-full border-2 border-white border-t-transparent animate-spin shrink-0" />}
+                  <span>{isDeletingWork ? 'Deleting...' : 'Permanently Delete'}</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

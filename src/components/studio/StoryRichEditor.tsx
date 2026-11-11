@@ -32,6 +32,7 @@ import {
   BookOpen,
   Tag,
   Link2,
+  Lock,
 } from 'lucide-react'
 import Link from '@tiptap/extension-link'
 import { ChapterDiffViewer } from './ChapterDiffViewer'
@@ -82,6 +83,8 @@ export interface StoryRichEditorProps {
     content: string
     bannerImage?: string | null
   }
+  isContestLocked?: boolean
+  contestTitle?: string
 }
 
 // Markdown parser helpers for Live Reader Preview
@@ -348,6 +351,8 @@ export function StoryRichEditor({
   bannerImage,
   onBannerChange,
   savedSnapshot,
+  isContestLocked = false,
+  contestTitle,
 }: StoryRichEditorProps) {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [viewMode, setViewMode] = useState<'write' | 'split' | 'preview'>('write')
@@ -448,6 +453,7 @@ export function StoryRichEditor({
 
   // TipTap WYSIWYG instance setup
   const editor = useEditor({
+    editable: !isContestLocked,
     extensions: [
       StarterKit.configure({
         link: false,
@@ -537,6 +543,13 @@ export function StoryRichEditor({
     }
   }, [content, editor])
 
+  // Synchronize editor editable state when contest lock is active
+  useEffect(() => {
+    if (editor) {
+      editor.setEditable(!isContestLocked)
+    }
+  }, [editor, isContestLocked])
+
   // Real-time word count & read time calculation
   const wordCount = useMemo(() => {
     if (!editor) {
@@ -598,7 +611,9 @@ export function StoryRichEditor({
       if (modifier) {
         if (e.key.toLowerCase() === 's') {
           e.preventDefault()
-          onManualSave()
+          if (!isContestLocked) {
+            onManualSave()
+          }
           return
         }
 
@@ -990,14 +1005,28 @@ export function StoryRichEditor({
             {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
           </button>
 
-          {/* Manual Save Button - Always enabled, white bg with black border */}
+          {/* Manual Save Button - Disabled when contest locked */}
           <button
             type="button"
-            onClick={onManualSave}
-            className="inline-flex items-center justify-center gap-1.5 rounded px-3 py-1.5 text-xs font-semibold shadow-xs transition-all bg-white text-black border border-black hover:bg-neutral-50 active:bg-neutral-100 cursor-pointer select-none"
-            title="Save Chapter (Cmd+S / Ctrl+S)"
+            onClick={isContestLocked ? undefined : onManualSave}
+            disabled={isContestLocked || autosaveStatus === 'saving'}
+            className={
+              isContestLocked
+                ? 'inline-flex items-center justify-center gap-1.5 rounded px-3 py-1.5 text-xs font-semibold shadow-xs transition-all bg-[var(--bg-subtle)] text-[var(--ink-faint)] border border-[var(--border-subtle)] cursor-not-allowed select-none opacity-60'
+                : 'inline-flex items-center justify-center gap-1.5 rounded px-3 py-1.5 text-xs font-semibold shadow-xs transition-all bg-white text-black border border-black hover:bg-neutral-50 active:bg-neutral-100 cursor-pointer select-none'
+            }
+            title={
+              isContestLocked
+                ? 'Manuscript is locked: story is participating in an active contest'
+                : 'Save Chapter (Cmd+S / Ctrl+S)'
+            }
           >
-            {autosaveStatus === 'saving' ? (
+            {isContestLocked ? (
+              <>
+                <Lock className="h-3 w-3 shrink-0" />
+                <span>Locked</span>
+              </>
+            ) : autosaveStatus === 'saving' ? (
               <>
                 <span className="h-3 w-3 rounded-full border-2 border-black border-t-transparent animate-spin shrink-0" />
                 <span>Saving...</span>
@@ -1007,25 +1036,37 @@ export function StoryRichEditor({
             )}
           </button>
 
-          {/* Publish Button - Always enabled so authors can publish directly */}
+          {/* Publish Button - Disabled when contest locked or saving */}
           {onPublish && (
-            <button
-              type="button"
-              onClick={onPublish}
-              disabled={autosaveStatus === 'saving'}
-              title={
-                autosaveStatus === 'saving'
-                  ? 'Saving changes...'
-                  : 'Publish chapter'
-              }
-              className={`rounded px-3 py-1.5 text-xs font-semibold shadow-xs transition-all ${
-                autosaveStatus === 'saving'
-                  ? 'bg-[var(--bg-subtle)] text-[var(--ink-faint)] border border-[var(--border-subtle)] cursor-not-allowed opacity-60 select-none'
-                  : 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] hover:opacity-90 cursor-pointer'
-              }`}
-            >
-              Publish
-            </button>
+            isContestLocked ? (
+              <button
+                type="button"
+                disabled
+                title="Manuscript is locked: story is participating in an active contest"
+                className="inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-semibold shadow-xs bg-[var(--bg-subtle)] text-[var(--ink-faint)] border border-[var(--border-subtle)] cursor-not-allowed opacity-60 select-none"
+              >
+                <Lock className="h-3 w-3 shrink-0" />
+                <span>Publish</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onPublish}
+                disabled={autosaveStatus === 'saving'}
+                title={
+                  autosaveStatus === 'saving'
+                    ? 'Saving changes...'
+                    : 'Publish chapter'
+                }
+                className={`rounded px-3 py-1.5 text-xs font-semibold shadow-xs transition-all ${
+                  autosaveStatus === 'saving'
+                    ? 'bg-[var(--bg-subtle)] text-[var(--ink-faint)] border border-[var(--border-subtle)] cursor-not-allowed opacity-60 select-none'
+                    : 'bg-[var(--ink-primary)] text-[var(--accent-contrast)] hover:opacity-90 cursor-pointer'
+                }`}
+              >
+                Publish
+              </button>
+            )
           )}
         </div>
       </header>
@@ -1114,6 +1155,21 @@ export function StoryRichEditor({
           {/* Live WYSIWYG Drafting Column */}
           {(viewMode === 'write' || viewMode === 'split') && (
             <div className={`w-full ${viewMode === 'split' ? '' : 'max-w-3xl'} space-y-6`}>
+              {/* Contest Locked Banner */}
+              {isContestLocked && (
+                <div className="flex items-start gap-3 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs font-mono shadow-xs">
+                  <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <div className="font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                      Contest Manuscript Locked
+                    </div>
+                    <p className="text-[11px] leading-relaxed opacity-90">
+                      This story is entered in {contestTitle ? <span className="font-semibold underline underline-offset-2">{contestTitle}</span> : 'an active contest'}. Prose edits, chapter additions, and deletions are permanently disabled to ensure reader voting and leaderboard integrity.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Chapter Banner Area */}
               <div className="relative group">
                 {bannerImage ? (
@@ -1123,27 +1179,29 @@ export function StoryRichEditor({
                       alt="Chapter Banner"
                       className="w-full h-full object-cover object-center"
                     />
-                    <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 opacity-90 group-hover:opacity-100 transition-opacity">
-                      <button
-                        type="button"
-                        onClick={() => setIsBannerModalOpen(true)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-black/75 hover:bg-black text-white text-xs font-mono backdrop-blur-md border border-white/20 transition-all cursor-pointer shadow-xs"
-                        title="Change Chapter Banner"
-                      >
-                        <ImageIcon className="h-3.5 w-3.5" />
-                        <span>Change Banner</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onBannerChange?.(null)}
-                        className="p-1 rounded-md bg-black/75 hover:bg-rose-600 text-white text-xs backdrop-blur-md border border-white/20 transition-colors cursor-pointer shadow-xs"
-                        title="Remove Banner"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
+                    {!isContestLocked && (
+                      <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 opacity-90 group-hover:opacity-100 transition-opacity">
+                        <button
+                          type="button"
+                          onClick={() => setIsBannerModalOpen(true)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-black/75 hover:bg-black text-white text-xs font-mono backdrop-blur-md border border-white/20 transition-all cursor-pointer shadow-xs"
+                          title="Change Chapter Banner"
+                        >
+                          <ImageIcon className="h-3.5 w-3.5" />
+                          <span>Change Banner</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onBannerChange?.(null)}
+                          className="p-1 rounded-md bg-black/75 hover:bg-rose-600 text-white text-xs backdrop-blur-md border border-white/20 transition-colors cursor-pointer shadow-xs"
+                          title="Remove Banner"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
-                ) : (
+                ) : !isContestLocked ? (
                   <button
                     type="button"
                     onClick={() => setIsBannerModalOpen(true)}
@@ -1152,7 +1210,7 @@ export function StoryRichEditor({
                     <ImageIcon className="h-3.5 w-3.5" />
                     <span>Add Chapter Banner</span>
                   </button>
-                )}
+                ) : null}
               </div>
 
               {/* Chapter Header Elements */}
@@ -1167,8 +1225,11 @@ export function StoryRichEditor({
                     <select
                       value={actId || ''}
                       onChange={(e) => onActChange?.(e.target.value)}
-                      className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-2.5 py-1 text-xs font-mono text-[var(--ink-primary)] hover:border-[var(--border-strong)] focus:outline-none focus:border-[var(--ink-primary)] cursor-pointer"
-                      title="Assign chapter to a Dramatic Act"
+                      disabled={isContestLocked}
+                      className={`rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-2.5 py-1 text-xs font-mono text-[var(--ink-primary)] ${
+                        isContestLocked ? 'opacity-60 cursor-not-allowed' : 'hover:border-[var(--border-strong)] focus:outline-none focus:border-[var(--ink-primary)] cursor-pointer'
+                      }`}
+                      title={isContestLocked ? 'Dramatic acts are locked for contest manuscripts' : 'Assign chapter to a Dramatic Act'}
                       aria-label="Dramatic Act Selection"
                     >
                       <option value="">No Act (Unassigned)</option>
@@ -1185,16 +1246,24 @@ export function StoryRichEditor({
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
+                  disabled={isContestLocked}
+                  readOnly={isContestLocked}
                   placeholder="Chapter Title..."
-                  className="w-full font-serif text-3xl sm:text-4xl lg:text-5xl font-semibold text-[var(--ink-primary)] bg-transparent border-none focus:outline-none placeholder-[var(--ink-faint)] leading-tight"
+                  className={`w-full font-serif text-3xl sm:text-4xl lg:text-5xl font-semibold text-[var(--ink-primary)] bg-transparent border-none focus:outline-none placeholder-[var(--ink-faint)] leading-tight ${
+                    isContestLocked ? 'cursor-default opacity-90' : ''
+                  }`}
                 />
 
                 <input
                   type="text"
                   value={subtitle}
                   onChange={(e) => setSubtitle(e.target.value)}
+                  disabled={isContestLocked}
+                  readOnly={isContestLocked}
                   placeholder="Optional chapter subtitle or epigraph..."
-                  className="w-full font-serif text-base italic text-[var(--ink-muted)] bg-transparent border-none focus:outline-none placeholder-[var(--ink-faint)]"
+                  className={`w-full font-serif text-base italic text-[var(--ink-muted)] bg-transparent border-none focus:outline-none placeholder-[var(--ink-faint)] ${
+                    isContestLocked ? 'cursor-default opacity-90' : ''
+                  }`}
                 />
               </div>
 
