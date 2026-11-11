@@ -8,12 +8,21 @@
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "public, max-age=0, s-maxage=60, stale-while-revalidate=86400"
+          "value": "public, max-age=0, s-maxage=300, stale-while-revalidate=86400"
         }
       ]
     },
     {
-      "source": "/(works/.*|discover|author/.*|browse/.*|genre/.*|category/.*|tag/.*|writing-contests)",
+      "source": "/works/.*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, s-maxage=600, stale-while-revalidate=86400"
+        }
+      ]
+    },
+    {
+      "source": "/(discover|author/.*|browse/.*|genre/.*|category/.*|tag/.*|writing-contests)",
       "headers": [
         {
           "key": "Cache-Control",

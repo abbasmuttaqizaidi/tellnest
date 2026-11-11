@@ -78,7 +78,7 @@ export const Route = createFileRoute('/admin-work-editor/$workId')({
     }
 
     try {
-      const publicDbWork = await getPublicWorkServerFn({ data: params.workId })
+      const publicDbWork = await getPublicWorkServerFn({ data: { workId: params.workId, includeContent: true } })
       if (publicDbWork) return { loadedWork: publicDbWork }
     } catch {}
 
@@ -871,7 +871,7 @@ function AdminWorkEditorPage() {
         await loadLoreBibleFromDb()
         await loadActsFromDb(adminToken)
         try {
-          const dbWork = await getPublicWorkServerFn({ data: work.id })
+          const dbWork = await getPublicWorkServerFn({ data: { workId: work.id, includeContent: true } })
           if (dbWork) setLocalWorkOverride(dbWork)
         } catch {}
         await reloadWorksFromDb()
@@ -903,7 +903,7 @@ function AdminWorkEditorPage() {
         await loadLoreBibleFromDb()
         await loadActsFromDb(adminToken)
         try {
-          const dbWork = await getPublicWorkServerFn({ data: work.id })
+          const dbWork = await getPublicWorkServerFn({ data: { workId: work.id, includeContent: true } })
           if (dbWork) setLocalWorkOverride(dbWork)
         } catch {}
         await reloadWorksFromDb()
@@ -936,7 +936,7 @@ function AdminWorkEditorPage() {
         await loadLoreBibleFromDb()
         await loadActsFromDb(adminToken)
         try {
-          const dbWork = await getPublicWorkServerFn({ data: work.id })
+          const dbWork = await getPublicWorkServerFn({ data: { workId: work.id, includeContent: true } })
           if (dbWork) setLocalWorkOverride(dbWork)
         } catch {}
         await reloadWorksFromDb()
@@ -971,7 +971,7 @@ function AdminWorkEditorPage() {
       await loadActsFromDb(adminToken)
       if (work?.id) {
         try {
-          const dbWork = await getPublicWorkServerFn({ data: work.id })
+          const dbWork = await getPublicWorkServerFn({ data: { workId: work.id, includeContent: true } })
           if (dbWork) setLocalWorkOverride(dbWork)
         } catch {}
         await reloadWorksFromDb()

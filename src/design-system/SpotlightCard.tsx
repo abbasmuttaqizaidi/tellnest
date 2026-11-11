@@ -1,5 +1,6 @@
 import React from 'react'
 import { motion } from 'framer-motion'
+import { BookOpen, ArrowRight, Bookmark, Play, Quote, Library } from 'lucide-react'
 import { TAPS } from './tokens'
 
 export type SpotlightCardVariant =
@@ -169,7 +170,7 @@ export const SpotlightCard: React.FC<SpotlightCardProps> = ({
             <img src={imageUrl} alt={title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-[var(--color-secondary)]">
-              <span className="material-symbols-outlined text-[20px]">auto_stories</span>
+              <BookOpen className="w-5 h-5" />
             </div>
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
@@ -196,9 +197,7 @@ export const SpotlightCard: React.FC<SpotlightCardProps> = ({
           </div>
           <div className="flex items-center justify-between text-[11px] text-[var(--color-secondary)]">
             <span className="truncate">{subtitle || meta}</span>
-            <span className="material-symbols-outlined text-[15px] group-hover:translate-x-0.5 transition-transform shrink-0">
-              arrow_forward
-            </span>
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform shrink-0" />
           </div>
         </div>
       </motion.div>
@@ -235,9 +234,9 @@ export const SpotlightCard: React.FC<SpotlightCardProps> = ({
 
           <div className="w-9 h-9 rounded-lg bg-[var(--color-surface-container-low)] flex items-center justify-center shrink-0 text-[var(--color-on-surface)]">
             {icon ? (
-              typeof icon === 'string' ? <span className="material-symbols-outlined text-[18px]">{icon}</span> : icon
+              typeof icon === 'string' ? <span className="text-[14px] font-mono">{icon}</span> : icon
             ) : (
-              <span className="material-symbols-outlined text-[18px]">bookmark</span>
+              <Bookmark className="w-4 h-4" />
             )}
           </div>
         </div>
@@ -269,7 +268,7 @@ export const SpotlightCard: React.FC<SpotlightCardProps> = ({
           <div className="flex items-center gap-3 min-w-0 flex-1">
             {/* Play Button Icon */}
             <div className="w-8 h-8 rounded-full bg-[var(--ink-primary)] text-[var(--accent-contrast)] flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
-              <span className="material-symbols-outlined text-[18px]">play_arrow</span>
+              <Play className="w-4 h-4 fill-current ml-0.5" />
             </div>
 
             <div className="min-w-0 flex-1">
@@ -336,16 +335,16 @@ export const SpotlightCard: React.FC<SpotlightCardProps> = ({
             <div className="w-8 h-8 rounded-lg bg-[var(--color-surface-container-low)] flex items-center justify-center shrink-0 text-[var(--color-on-surface)]">
               {icon ? (
                 typeof icon === 'string' ? (
-                  <span className="material-symbols-outlined text-[18px]">{icon}</span>
+                  <span className="text-[14px] font-mono">{icon}</span>
                 ) : (
                   icon
                 )
               ) : variant === 'reading-progress' ? (
-                <span className="material-symbols-outlined text-[18px]">menu_book</span>
+                <BookOpen className="w-4 h-4" />
               ) : variant === 'dispatch' ? (
-                <span className="material-symbols-outlined text-[18px]">format_quote</span>
+                <Quote className="w-4 h-4" />
               ) : (
-                <span className="material-symbols-outlined text-[18px]">local_library</span>
+                <Library className="w-4 h-4" />
               )}
             </div>
           )}
@@ -376,9 +375,7 @@ export const SpotlightCard: React.FC<SpotlightCardProps> = ({
             </span>
           )}
           {variant === 'reading-progress' && (
-            <span className="material-symbols-outlined text-[16px] text-[var(--color-secondary)] group-hover:translate-x-0.5 transition-transform">
-              arrow_forward
-            </span>
+            <ArrowRight className="w-4 h-4 text-[var(--color-secondary)] group-hover:translate-x-0.5 transition-transform" />
           )}
         </div>
       </div>

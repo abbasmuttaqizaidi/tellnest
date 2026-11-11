@@ -1276,7 +1276,7 @@ function WorkDetailPage() {
               content: (
                 <div className="space-y-3 pt-2">
                   <p className="text-xs text-[var(--ink-secondary)] leading-relaxed">
-                    {getCleanChapterSnippet(chapter.content || '', 220)}
+                    {chapter.excerpt || getCleanChapterSnippet(chapter.content || '', 220)}
                   </p>
                   <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 pt-2 border-t border-[var(--border-subtle)]/50">
                     <div className="flex items-center gap-2 font-mono text-[11px] text-[var(--ink-muted)] whitespace-nowrap">

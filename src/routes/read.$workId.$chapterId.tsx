@@ -63,7 +63,7 @@ export const Route = createFileRoute('/read/$workId/$chapterId')({
   loader: async ({ params }) => {
     // 1. Fetch full public work from Supabase
     try {
-      const dbWork = await getPublicWorkServerFn({ data: params.workId })
+      const dbWork = await getPublicWorkServerFn({ data: { workId: params.workId, includeContent: true } })
       if (dbWork && dbWork.chapters?.length) {
         const chapter = findReaderChapter(dbWork.chapters, params.chapterId)
         if (chapter) return { work: dbWork }

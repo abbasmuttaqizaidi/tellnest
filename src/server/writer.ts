@@ -13,6 +13,7 @@ import {
   unlinkAllOccurrences,
   linkMultipleEntities,
   stripLoreToPlainText,
+  getCleanChapterSnippet,
   type LoreEntity,
   type StoryLoreEntity,
 } from '../lib/lore/loreParser.ts'
@@ -673,6 +674,7 @@ export async function executeCreateWriterWork(
       slug: `chapter-1-${uniqueSuffix}`,
       subtitle: data.subtitle?.trim() || 'The Beginning',
       content: initialChapterContent,
+      excerpt: getCleanChapterSnippet(initialChapterContent, 250),
       word_count: initialWordCount,
       reading_time_minutes: initialReadingTime,
       status: 'draft',
@@ -985,6 +987,7 @@ export async function executeSaveWriterChapter(data: SaveWriterChapterPayload, a
       }
       if (hasContent) {
         updateData.content = cleanContent
+        updateData.excerpt = getCleanChapterSnippet(cleanContent, 250)
         updateData.word_count = wordCount
         updateData.reading_time_minutes = readingTime
       }
@@ -1239,6 +1242,7 @@ export const createWriterChapterServerFn = createServerFn({ method: 'POST' })
         slug,
         subtitle: data.subtitle?.trim() || '',
         content: cleanContent,
+        excerpt: getCleanChapterSnippet(cleanContent, 250),
         word_count: wordCount,
         reading_time_minutes: readingTime,
         banner_image_path: data.bannerImage?.trim() || null,

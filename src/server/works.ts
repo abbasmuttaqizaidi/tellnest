@@ -13,6 +13,7 @@ import { GLOBAL_CATEGORIES, GLOBAL_GENRES, SUGGESTED_TAGS, slugify } from '../li
 import { isWorkIndexable } from './sitemap.ts'
 import { isWorkBingeable } from '../lib/recommendations/bingeable.ts'
 import { filterAndOrderNewVoicesStories } from '../lib/recommendations/newVoices.ts'
+import { getCleanChapterSnippet } from '../lib/lore/loreParser.ts'
 
 /**
  * Server Function: Get a full public work (with acts and chapters) by id or slug.
@@ -20,6 +21,7 @@ import { filterAndOrderNewVoicesStories } from '../lib/recommendations/newVoices
  */
 export interface PublicWorkDependencies {
   supabaseClient?: any
+  includeChapterContent?: boolean
 }
 
 const publicWorkCache = new Map<string, { data: any; timestamp: number }>()
@@ -28,11 +30,16 @@ const PUBLIC_WORK_CACHE_TTL_MS = 10 * 60 * 1000 // 10 minutes server-side cache
 export function clearPublicWorkCache(idOrSlug?: string) {
   if (idOrSlug) {
     const clean = idOrSlug.trim().toLowerCase()
-    publicWorkCache.delete(clean)
     for (const [key, entry] of publicWorkCache.entries()) {
       const dataId = entry.data?.id ? String(entry.data.id).toLowerCase() : null
       const dataSlug = entry.data?.slug ? String(entry.data.slug).toLowerCase() : null
-      if (key === clean || dataId === clean || dataSlug === clean) {
+      if (
+        key === clean ||
+        key.startsWith(`${clean}:`) ||
+        dataId === clean ||
+        dataSlug === clean ||
+        (dataSlug && dataSlug.startsWith(clean))
+      ) {
         publicWorkCache.delete(key)
       }
     }
@@ -40,6 +47,8 @@ export function clearPublicWorkCache(idOrSlug?: string) {
     publicWorkCache.clear()
   }
 }
+
+export const invalidatePublicWorkCache = clearPublicWorkCache
 
 /**
  * Core business logic: Fetch a public or unlisted published work by ID or slug.
@@ -60,11 +69,22 @@ export async function executeGetPublicWork(
   }
   const clean = idOrSlug.trim().toLowerCase()
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clean)
+  const includeContent = Boolean(dependencies.includeChapterContent)
 
   if (!dependencies.supabaseClient) {
-    const cached = publicWorkCache.get(clean)
-    if (cached && Date.now() - cached.timestamp < PUBLIC_WORK_CACHE_TTL_MS) {
-      return cached.data
+    const cachedFull = publicWorkCache.get(`${clean}:full`)
+    if (cachedFull && Date.now() - cachedFull.timestamp < PUBLIC_WORK_CACHE_TTL_MS) {
+      return cachedFull.data
+    }
+    if (!includeContent) {
+      const cachedLean = publicWorkCache.get(`${clean}:lean`)
+      if (cachedLean && Date.now() - cachedLean.timestamp < PUBLIC_WORK_CACHE_TTL_MS) {
+        return cachedLean.data
+      }
+      const cached = publicWorkCache.get(clean)
+      if (cached && Date.now() - cached.timestamp < PUBLIC_WORK_CACHE_TTL_MS) {
+        return cached.data
+      }
     }
   }
 
@@ -74,48 +94,8 @@ export async function executeGetPublicWork(
     client = supabase
   }
 
-  let query = client
-    .from('works')
-    .select(`
-      id,
-      title,
-      slug,
-      description,
-      cover_image_path,
-      language,
-      status,
-      visibility,
-      publication_status,
-      is_indexable,
-      word_count,
-      chapter_count,
-      reading_time_minutes,
-      view_count,
-      like_count,
-      save_count,
-      impression_count,
-      created_at,
-      updated_at,
-      last_activity_at,
-      author:profiles!works_author_id_fkey(
-        id,
-        username,
-        display_name,
-        avatar_path,
-        bio
-      ),
-      category:categories(id, name, slug),
-      work_genres (genres (id, name, slug)),
-      acts(
-        id,
-        work_id,
-        act_number,
-        title,
-        slug,
-        description,
-        status
-      ),
-      chapters(
+  const chapterSelect = includeContent
+    ? `chapters(
         id,
         work_id,
         act_id,
@@ -123,6 +103,7 @@ export async function executeGetPublicWork(
         title,
         subtitle,
         slug,
+        excerpt,
         content,
         word_count,
         reading_time_minutes,
@@ -131,8 +112,70 @@ export async function executeGetPublicWork(
         banner_image_path,
         view_count,
         published_at
-      )
-    `)
+      )`
+    : `chapters(
+        id,
+        work_id,
+        act_id,
+        chapter_number,
+        title,
+        subtitle,
+        slug,
+        excerpt,
+        word_count,
+        reading_time_minutes,
+        status,
+        is_indexable,
+        banner_image_path,
+        view_count,
+        published_at
+      )`
+
+  const workSelectQuery = `
+    id,
+    title,
+    slug,
+    description,
+    cover_image_path,
+    language,
+    status,
+    visibility,
+    publication_status,
+    is_indexable,
+    word_count,
+    chapter_count,
+    reading_time_minutes,
+    view_count,
+    like_count,
+    save_count,
+    impression_count,
+    created_at,
+    updated_at,
+    last_activity_at,
+    author:profiles!works_author_id_fkey(
+      id,
+      username,
+      display_name,
+      avatar_path,
+      bio
+    ),
+    category:categories(id, name, slug),
+    work_genres (genres (id, name, slug)),
+    acts(
+      id,
+      work_id,
+      act_number,
+      title,
+      slug,
+      description,
+      status
+    ),
+    ${chapterSelect}
+  `
+
+  let query = client
+    .from('works')
+    .select(workSelectQuery)
     .in('visibility', ['public', 'unlisted'])
     .eq('publication_status', 'published')
 
@@ -148,63 +191,7 @@ export async function executeGetPublicWork(
     // Graceful fallback for semantic slugs without the random hash suffix (e.g. "the-cold-perimeter" -> "the-cold-perimeter-94a1")
     const fallbackRes = await client
       .from('works')
-      .select(`
-        id,
-        title,
-        slug,
-        description,
-        cover_image_path,
-        language,
-        status,
-        visibility,
-        publication_status,
-        is_indexable,
-        word_count,
-        chapter_count,
-        reading_time_minutes,
-        view_count,
-        like_count,
-        save_count,
-        impression_count,
-        created_at,
-        updated_at,
-        last_activity_at,
-        author:profiles!works_author_id_fkey(
-          id,
-          username,
-          display_name,
-          avatar_path,
-          bio
-        ),
-        category:categories(id, name, slug),
-        work_genres (genres (id, name, slug)),
-        acts(
-          id,
-          work_id,
-          act_number,
-          title,
-          slug,
-          description,
-          status
-        ),
-        chapters(
-          id,
-          work_id,
-          act_id,
-          chapter_number,
-          title,
-          subtitle,
-          slug,
-          content,
-          word_count,
-          reading_time_minutes,
-          status,
-          is_indexable,
-          banner_image_path,
-          view_count,
-          published_at
-        )
-      `)
+      .select(workSelectQuery)
       .in('visibility', ['public', 'unlisted'])
       .eq('publication_status', 'published')
       .ilike('slug', `${clean}-%`)
@@ -262,6 +249,7 @@ export async function executeGetPublicWork(
     .sort((a: any, b: any) => (a.chapter_number || 0) - (b.chapter_number || 0))
     .map((ch: any) => {
       const parentAct = mappedActs.find((a: any) => a.id === ch.act_id)
+      const excerpt = ch.excerpt || (ch.content ? getCleanChapterSnippet(ch.content, 250) : '')
       return {
         id: ch.id,
         number: ch.chapter_number,
@@ -278,7 +266,8 @@ export async function executeGetPublicWork(
         readTimeMinutes: ch.reading_time_minutes || 1,
         viewCount: Number(ch.view_count || 0),
         publishedAt: ch.published_at ? new Date(ch.published_at).toLocaleDateString() : undefined,
-        content: ch.content || '',
+        excerpt,
+        content: ch.content || excerpt || '',
       }
     })
 
@@ -348,17 +337,25 @@ export async function executeGetPublicWork(
   }
 
   if (!dependencies.supabaseClient && mappedWork) {
-    publicWorkCache.set(clean, { data: mappedWork, timestamp: Date.now() })
+    const cacheTag = includeContent ? 'full' : 'lean'
+    publicWorkCache.set(`${clean}:${cacheTag}`, { data: mappedWork, timestamp: Date.now() })
+    if (!includeContent) {
+      publicWorkCache.set(clean, { data: mappedWork, timestamp: Date.now() })
+    }
     if (mappedWork.id) {
-      publicWorkCache.set(mappedWork.id.toLowerCase(), { data: mappedWork, timestamp: Date.now() })
+      const lowerId = mappedWork.id.toLowerCase()
+      publicWorkCache.set(`${lowerId}:${cacheTag}`, { data: mappedWork, timestamp: Date.now() })
+      if (!includeContent) publicWorkCache.set(lowerId, { data: mappedWork, timestamp: Date.now() })
     }
     if (mappedWork.slug) {
       const lowerSlug = mappedWork.slug.toLowerCase()
-      publicWorkCache.set(lowerSlug, { data: mappedWork, timestamp: Date.now() })
+      publicWorkCache.set(`${lowerSlug}:${cacheTag}`, { data: mappedWork, timestamp: Date.now() })
+      if (!includeContent) publicWorkCache.set(lowerSlug, { data: mappedWork, timestamp: Date.now() })
       // Alias base semantic slug (e.g. 'the-cold-perimeter' for 'the-cold-perimeter-94a1') for 0ms lookup
       const baseSlug = lowerSlug.replace(/-[a-f0-9]{4,8}$/i, '')
-      if (baseSlug && baseSlug !== lowerSlug && !publicWorkCache.has(baseSlug)) {
-        publicWorkCache.set(baseSlug, { data: mappedWork, timestamp: Date.now() })
+      if (baseSlug && baseSlug !== lowerSlug) {
+        publicWorkCache.set(`${baseSlug}:${cacheTag}`, { data: mappedWork, timestamp: Date.now() })
+        if (!includeContent) publicWorkCache.set(baseSlug, { data: mappedWork, timestamp: Date.now() })
       }
     }
   }
@@ -371,14 +368,20 @@ export async function executeGetPublicWork(
  * Used by Route loader, SSR head, and Reader components so DB works are instantly resolved without flash or 404.
  */
 export const getPublicWorkServerFn = createServerFn({ method: 'GET' })
-  .validator((idOrSlug: string) => {
-    if (typeof idOrSlug !== 'string' || !idOrSlug.trim()) {
-      throw new Error('Valid work id or slug is required')
+  .validator((input: string | { workId: string; includeContent?: boolean }) => {
+    if (typeof input === 'string') {
+      if (!input.trim()) {
+        throw new Error('Valid work id or slug is required')
+      }
+      return { workId: input.trim(), includeContent: false }
     }
-    return idOrSlug.trim()
+    if (input && typeof input.workId === 'string' && input.workId.trim()) {
+      return { workId: input.workId.trim(), includeContent: Boolean(input.includeContent) }
+    }
+    throw new Error('Valid work id or slug is required')
   })
-  .handler(async ({ data: idOrSlug }) => {
-    return await executeGetPublicWork(idOrSlug)
+  .handler(async ({ data }) => {
+    return await executeGetPublicWork(data.workId, { includeChapterContent: data.includeContent })
   })
 
 /**
@@ -2058,13 +2061,10 @@ export async function executeGetTopShelf(
       .select(LEAN_WORK_CARD_COLUMNS)
       .eq('visibility', 'public')
       .eq('publication_status', 'published')
-      .neq('status', 'cancelled')
-      .neq('status', 'draft')
       .gt('save_count', 0)
       .order('save_count', { ascending: false })
       .order('like_count', { ascending: false })
       .order('view_count', { ascending: false })
-      .order('published_at', { ascending: false })
       .limit(limit)
 
     if (options.currentUserProfileId) {
@@ -2159,15 +2159,6 @@ export async function executeGetTrendingWorks(
       .select(LEAN_WORK_CARD_COLUMNS)
       .eq('visibility', 'public')
       .eq('publication_status', 'published')
-      .neq('status', 'cancelled')
-      .neq('status', 'draft')
-
-    // If active trending snapshot exists, query snapshot
-    let activeTrendingSnapshot: any = null
-    try {
-      const { getActiveTrendingSnapshot } = await import('./trendingEngine.ts')
-      activeTrendingSnapshot = await getActiveTrendingSnapshot(admin)
-    } catch {}
 
     const { data: supaRows, error: supaErr } = await query
       .order('trending_marked_by_admin', { ascending: false })
@@ -2257,13 +2248,11 @@ export async function executeGetBingeableWorks(
       .select(LEAN_WORK_CARD_COLUMNS)
       .eq('visibility', 'public')
       .eq('publication_status', 'published')
-      .neq('status', 'cancelled')
-      .neq('status', 'draft')
       .gte('chapter_count', 1)
       .lte('chapter_count', 2)
+      .order('chapter_count', { ascending: true })
       .order('like_count', { ascending: false })
       .order('view_count', { ascending: false })
-      .order('published_at', { ascending: false })
       .limit(limit * 2)
 
     const { data: supaRows, error: supaErr } = await query
