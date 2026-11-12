@@ -315,21 +315,6 @@ export default function PublicHome({ loaderData }: PublicHomeProps = {}) {
             
             {/* Left Content Region (38-42% desktop width) */}
             <div className="lg:col-span-5 flex flex-col justify-center">
-              
-              {/* Category / Mission Eyebrow Tag & Active Contest Pill */}
-              <div className="flex flex-wrap items-center gap-2 mb-4">
-                <span className="inline-block px-3 py-1 rounded-full bg-[#EAE4D8]/80 dark:bg-neutral-800 text-[#5A544C] dark:text-[#D4D4D8] text-[11px] font-semibold tracking-wider uppercase">
-                  HatchPen — A Serialized Fiction Retreat
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setIsContestModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#18181B] hover:bg-black dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-[#18181B] text-[11px] font-medium cursor-pointer transition-all shadow-xs"
-                >
-                  <span>Writing Contest — ₹2k</span>
-                </button>
-              </div>
-
               {/* Signature Headline */}
               <h1 className="text-[44px] sm:text-[56px] lg:text-[58px] xl:text-[64px] font-black tracking-[-0.035em] leading-[0.96] text-[#201F1D] dark:text-[#F4F4F5] uppercase mb-5">
                 A QUIETER<br />
