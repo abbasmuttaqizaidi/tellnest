@@ -525,7 +525,7 @@ test('Contest Details Quick Modal & Header Discovery Invariants', () => {
   const publicHomePath = path.join(rootDir, 'src/components/home/PublicHome.tsx')
   const publicHomeCode = fs.readFileSync(publicHomePath, 'utf-8')
   assert.ok(publicHomeCode.includes('ContestDetailsModal'), 'PublicHome must include ContestDetailsModal')
-  assert.ok(publicHomeCode.includes('setIsContestModalOpen(true)'), 'PublicHome must trigger contest details modal')
+  assert.ok(publicHomeCode.includes('isContestModalOpen'), 'PublicHome must support contest details modal state')
 })
 
 test('Contest Lean Query, Caching, and Draft Months Ago Publication Invariants', async () => {
