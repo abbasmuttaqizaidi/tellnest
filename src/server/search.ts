@@ -113,10 +113,13 @@ export async function executeGlobalSearch({
   const lowerQuery = clean.toLowerCase()
   const isParameterVariant = lowerQuery.includes('parameter')
   const isPerimeterVariant = lowerQuery.includes('perimeter')
+  const isBrandQuery = lowerQuery === 'hatchpen' || lowerQuery === 'hatch pen' || lowerQuery.startsWith('hatchpen') || lowerQuery.startsWith('hatch pen')
+  const SIGNATURE_BRAND_TITLES = ['season we fell', 'pleasure after dark', 'apartment 407']
 
   const matchesTitle = (title: string) => {
     if (!title) return false
     const t = title.toLowerCase()
+    if (isBrandQuery && SIGNATURE_BRAND_TITLES.some((sig) => t.includes(sig) || sig.includes(t))) return true
     if (t.includes(lowerQuery)) return true
     if (isParameterVariant && t.includes(lowerQuery.replace(/parameter/g, 'perimeter'))) return true
     if (isPerimeterVariant && t.includes(lowerQuery.replace(/perimeter/g, 'parameter'))) return true
@@ -423,7 +426,9 @@ export async function executeGlobalSearch({
         .eq('visibility', 'public')
         .eq('publication_status', 'published')
 
-      if (isParameterVariant) {
+      if (isBrandQuery) {
+        worksQuery = worksQuery.or(`title.ilike.%season we fell%,title.ilike.%pleasure after dark%,title.ilike.%apartment 407%,title.ilike.%${sanitized}%,description.ilike.%${sanitized}%`)
+      } else if (isParameterVariant) {
         const altSanitized = sanitized.replace(/parameter/gi, 'perimeter')
         worksQuery = worksQuery.or(`title.ilike.%${sanitized}%,description.ilike.%${sanitized}%,title.ilike.%${altSanitized}%`)
       } else {

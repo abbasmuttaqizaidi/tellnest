@@ -16,6 +16,7 @@ import {
   adminSendEmailServerFn,
   adminUpdateWorkCoverServerFn,
   adminToggleWorkTrendingServerFn,
+  adminToggleWorkHatchpenHitServerFn,
   adminReassignWorkServerFn,
   type AdminUser,
   type AdminDashboardData,
@@ -91,6 +92,7 @@ import {
   Radio,
   Zap,
   Trophy,
+  Flame,
 } from 'lucide-react'
 
 import { generateMeta } from '../lib/seo'
@@ -614,6 +616,32 @@ function SecretAdminPanelPage() {
   }
 
   const [togglingTrendingWorkId, setTogglingTrendingWorkId] = useState<string | null>(null)
+  const [togglingHitWorkId, setTogglingHitWorkId] = useState<string | null>(null)
+
+  const handleToggleHatchpenHit = async (work: AdminWorkRow) => {
+    if (!adminToken) return
+    const nextVal = !work.isHatchpenHit
+    setTogglingHitWorkId(work.id)
+    try {
+      await adminToggleWorkHatchpenHitServerFn({
+        data: {
+          adminToken,
+          workId: work.id,
+          isHit: nextVal,
+        },
+      })
+      setAdminWorks((prev) =>
+        prev.map((w) => (w.id === work.id ? { ...w, isHatchpenHit: nextVal } : w))
+      )
+      reloadWorksFromDb()
+      showToast(nextVal ? `"${work.title}" marked as HatchPen Hit!` : `"${work.title}" removed from HatchPen Hits`)
+    } catch (err: any) {
+      console.error('[handleToggleHatchpenHit] Error:', err)
+      showToast(err?.message || 'Failed to update HatchPen Hit status')
+    } finally {
+      setTogglingHitWorkId(null)
+    }
+  }
 
   const handleToggleTrending = async (work: AdminWorkRow) => {
     if (!adminToken) return
@@ -2326,7 +2354,7 @@ function SecretAdminPanelPage() {
                   <th className="py-3 px-4 font-semibold text-right">No. of Views</th>
                   <th className="py-3 px-4 font-semibold text-right">Hearts</th>
                   <th className="py-3 px-4 font-semibold text-right">Saves</th>
-                  <th className="py-3 px-4 font-semibold text-center">Trending</th>
+                  <th className="py-3 px-4 font-semibold text-center">Pin / Hit</th>
                   <th className="py-3 px-4 font-semibold text-center">Status</th>
                   <th className="py-3 px-4 font-semibold text-right">Action</th>
                 </tr>
@@ -2486,26 +2514,47 @@ function SecretAdminPanelPage() {
                         </button>
                       </td>
 
-                      {/* 4.75. Trending Admin Pin Override Toggle */}
+                      {/* 4.75. Trending Admin Pin & HatchPen Hit Override Toggles */}
                       <td className="py-3 px-4 text-center">
-                        <button
-                          type="button"
-                          disabled={togglingTrendingWorkId === work.id}
-                          onClick={() => handleToggleTrending(work)}
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-mono transition-all cursor-pointer border ${
-                            work.trendingMarkedByAdmin
-                              ? 'bg-amber-500/15 text-amber-500 border-amber-500/40 hover:bg-amber-500/25 shadow-xs font-semibold'
-                              : 'bg-[var(--bg-subtle)] text-[var(--ink-muted)] border-[var(--border-subtle)] hover:text-[var(--ink-primary)] hover:border-[var(--border-strong)]'
-                          }`}
-                          title={
-                            work.trendingMarkedByAdmin
-                              ? `Pinned by Admin to Trending • Click to Unpin "${work.title}"`
-                              : `Click to Force Pin "${work.title}" to Trending (Bypasses all algorithmic checks)`
-                          }
-                        >
-                          <TrendingUp className={`h-3 w-3 ${work.trendingMarkedByAdmin ? 'text-amber-500' : 'text-[var(--ink-faint)]'}`} />
-                          <span>{work.trendingMarkedByAdmin ? 'Pinned' : 'Pin'}</span>
-                        </button>
+                        <div className="inline-flex items-center gap-1.5 justify-center">
+                          <button
+                            type="button"
+                            disabled={togglingTrendingWorkId === work.id}
+                            onClick={() => handleToggleTrending(work)}
+                            className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-mono transition-all cursor-pointer border ${
+                              work.trendingMarkedByAdmin
+                                ? 'bg-amber-500/15 text-amber-500 border-amber-500/40 hover:bg-amber-500/25 shadow-xs font-semibold'
+                                : 'bg-[var(--bg-subtle)] text-[var(--ink-muted)] border-[var(--border-subtle)] hover:text-[var(--ink-primary)] hover:border-[var(--border-strong)]'
+                            }`}
+                            title={
+                              work.trendingMarkedByAdmin
+                                ? `Pinned by Admin to Trending • Click to Unpin "${work.title}"`
+                                : `Click to Force Pin "${work.title}" to Trending (Bypasses all algorithmic checks)`
+                            }
+                          >
+                            <TrendingUp className={`h-3 w-3 ${work.trendingMarkedByAdmin ? 'text-amber-500' : 'text-[var(--ink-faint)]'}`} />
+                            <span>{work.trendingMarkedByAdmin ? 'Pinned' : 'Pin'}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={togglingHitWorkId === work.id}
+                            onClick={() => handleToggleHatchpenHit(work)}
+                            className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-mono transition-all cursor-pointer border ${
+                              work.isHatchpenHit
+                                ? 'bg-rose-500/15 text-rose-500 border-rose-500/40 hover:bg-rose-500/25 shadow-xs font-semibold'
+                                : 'bg-[var(--bg-subtle)] text-[var(--ink-muted)] border-[var(--border-subtle)] hover:text-[var(--ink-primary)] hover:border-[var(--border-strong)]'
+                            }`}
+                            title={
+                              work.isHatchpenHit
+                                ? `Featured in HatchPen Hits • Click to remove "${work.title}"`
+                                : `Click to feature "${work.title}" in HatchPen Hits`
+                            }
+                          >
+                            <Flame className={`h-3 w-3 ${work.isHatchpenHit ? 'text-rose-500' : 'text-[var(--ink-faint)]'}`} />
+                            <span>{work.isHatchpenHit ? 'Hit' : 'Hit'}</span>
+                          </button>
+                        </div>
                       </td>
 
                       {/* 5. Status */}

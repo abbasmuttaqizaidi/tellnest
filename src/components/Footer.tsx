@@ -37,6 +37,9 @@ export default function Footer() {
   ]
 
   const FEATURED_STORIES = [
+    { slug: 'the-season-we-fell', title: 'The Season We Fell' },
+    { slug: 'pleasure-after-dark', title: 'Pleasure After Dark' },
+    { slug: 'apartment-407', title: 'Apartment 407' },
     { slug: 'the-night-with-my-best-friend-s-daddy', title: "The Night With My Best Friend's Daddy" },
     { slug: 'the-girl-who-saw', title: 'The Girl Who Saw' },
     { slug: 'the-apology-she-was-never-supposed-to-hear', title: 'The Apology She Was Never Supposed to Hear' },
@@ -145,6 +148,14 @@ export default function Footer() {
                   className="hover:text-[var(--ink-primary)] transition-colors no-underline text-inherit text-[11px] sm:text-xs py-0.5 inline-block"
                 >
                   Wattpad Alternative
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/hatchpen-hits"
+                  className="hover:text-[var(--ink-primary)] transition-colors no-underline text-inherit text-[11px] sm:text-xs py-0.5 inline-block font-medium text-rose-600 dark:text-rose-400"
+                >
+                  HatchPen Hits (Top Serials)
                 </Link>
               </li>
               <li>

@@ -18,6 +18,7 @@ import {
   Moon,
   Menu,
   Trophy,
+  Flame,
 } from 'lucide-react'
 import { useUser } from '@clerk/react'
 import { useApp } from '../context/AppContext'
@@ -80,6 +81,7 @@ export function RouteHeader({ title, subtitle, rightExtra, className = '' }: Rou
   const routeOptions = [
     { name: 'Home', path: '/', icon: Home, description: 'Daily curated stories & feed' },
     { name: 'Discover', path: '/discover', icon: Compass, description: 'Catalog & editorial collections' },
+    { name: 'Hits', path: '/hatchpen-hits', icon: Flame, description: 'Viral stories & reader hits' },
     { name: 'Contest', path: '/writing-contests', icon: Trophy, description: '₹2,000 monthly cash prize & live stats' },
     { name: 'Following', path: '/following', icon: Users, description: 'Updates from followed writers' },
     { name: 'Search', path: '/search', icon: Search, description: 'Search manuscripts & authors' },

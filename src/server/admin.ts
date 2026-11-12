@@ -2285,6 +2285,7 @@ export interface AdminWorkRow {
   saveCount: number
   status: string
   trendingMarkedByAdmin: boolean
+  isHatchpenHit?: boolean
 }
 
 export interface AdminWorksResponse {
@@ -2335,6 +2336,7 @@ export const getAdminWorksServerFn = createServerFn({ method: 'GET' })
           save_count,
           status,
           trending_marked_by_admin,
+          collections,
           author:profiles(
             id,
             display_name,
@@ -2372,6 +2374,7 @@ export const getAdminWorksServerFn = createServerFn({ method: 'GET' })
           saveCount: Number(w.save_count || 0),
           status: w.status || 'Ongoing',
           trendingMarkedByAdmin: Boolean(w.trending_marked_by_admin),
+          isHatchpenHit: Array.isArray(w.collections) && w.collections.includes('hatchpen_hits'),
         }
       })
 
@@ -2884,6 +2887,74 @@ export const adminToggleWorkTrendingServerFn = createServerFn({ method: 'POST' }
       workId: data.workId,
       isTrending: data.isTrending,
     }
+  })
+
+export interface AdminToggleWorkHatchpenHitPayload {
+  adminToken: string
+  workId: string
+  isHit: boolean
+}
+
+export async function executeAdminToggleWorkHatchpenHit(data: AdminToggleWorkHatchpenHitPayload) {
+  if (!data.adminToken) throw new Error('Admin authorization token is required')
+  if (!data.workId?.trim()) throw new Error('Work ID is required')
+  if (!isValidAdminToken(data.adminToken)) {
+    throw new Error('Unauthorized: Invalid or expired administration key')
+  }
+  const admin = createAdminClient()
+
+  const { data: wRow, error: fetchErr } = await admin
+    .from('works')
+    .select('id, collections')
+    .eq('id', data.workId)
+    .maybeSingle()
+
+  if (fetchErr) {
+    console.error('[executeAdminToggleWorkHatchpenHit] Fetch error:', fetchErr.message)
+    throw new Error(fetchErr.message)
+  }
+
+  let currentCollections: string[] = Array.isArray(wRow?.collections) ? [...wRow.collections] : []
+  if (data.isHit) {
+    if (!currentCollections.includes('hatchpen_hits')) {
+      currentCollections.push('hatchpen_hits')
+    }
+  } else {
+    currentCollections = currentCollections.filter((c) => c !== 'hatchpen_hits')
+  }
+
+  const { error: updateErr } = await admin
+    .from('works')
+    .update({ collections: currentCollections })
+    .eq('id', data.workId)
+
+  if (updateErr) {
+    console.error('[executeAdminToggleWorkHatchpenHit] Update error:', updateErr.message)
+    throw new Error(updateErr.message)
+  }
+
+  try {
+    const { clearHatchpenHitsCache } = await import('./hatchpenHits.ts')
+    clearHatchpenHitsCache()
+  } catch {
+    // cache clearing resilience
+  }
+
+  return {
+    success: true,
+    workId: data.workId,
+    isHit: data.isHit,
+  }
+}
+
+export const adminToggleWorkHatchpenHitServerFn = createServerFn({ method: 'POST' })
+  .validator((params: AdminToggleWorkHatchpenHitPayload) => {
+    if (!params.adminToken) throw new Error('Admin authorization token is required')
+    if (!params.workId?.trim()) throw new Error('Work ID is required')
+    return params
+  })
+  .handler(async ({ data }) => {
+    return await executeAdminToggleWorkHatchpenHit(data)
   })
 
 // ==========================================

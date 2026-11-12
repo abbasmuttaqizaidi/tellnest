@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as DesignSystemRouteImport } from './routes/design-system'
 import { Route as DiscoverRouteImport } from './routes/discover'
 import { Route as FollowingRouteImport } from './routes/following'
+import { Route as HatchpenHitsRouteImport } from './routes/hatchpen-hits'
 import { Route as LibraryRouteImport } from './routes/library'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as NotificationsRouteImport } from './routes/notifications'
@@ -59,6 +60,11 @@ const DiscoverRoute = DiscoverRouteImport.update({
 const FollowingRoute = FollowingRouteImport.update({
   id: '/following',
   path: '/following',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HatchpenHitsRoute = HatchpenHitsRouteImport.update({
+  id: '/hatchpen-hits',
+  path: '/hatchpen-hits',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LibraryRoute = LibraryRouteImport.update({
@@ -204,6 +210,7 @@ export interface FileRoutesByFullPath {
   '/design-system': typeof DesignSystemRoute
   '/discover': typeof DiscoverRoute
   '/following': typeof FollowingRoute
+  '/hatchpen-hits': typeof HatchpenHitsRoute
   '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
@@ -237,6 +244,7 @@ export interface FileRoutesByTo {
   '/design-system': typeof DesignSystemRoute
   '/discover': typeof DiscoverRoute
   '/following': typeof FollowingRoute
+  '/hatchpen-hits': typeof HatchpenHitsRoute
   '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
@@ -271,6 +279,7 @@ export interface FileRoutesById {
   '/design-system': typeof DesignSystemRoute
   '/discover': typeof DiscoverRoute
   '/following': typeof FollowingRoute
+  '/hatchpen-hits': typeof HatchpenHitsRoute
   '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
@@ -306,6 +315,7 @@ export interface FileRouteTypes {
     | '/design-system'
     | '/discover'
     | '/following'
+    | '/hatchpen-hits'
     | '/library'
     | '/login'
     | '/notifications'
@@ -339,6 +349,7 @@ export interface FileRouteTypes {
     | '/design-system'
     | '/discover'
     | '/following'
+    | '/hatchpen-hits'
     | '/library'
     | '/login'
     | '/notifications'
@@ -372,6 +383,7 @@ export interface FileRouteTypes {
     | '/design-system'
     | '/discover'
     | '/following'
+    | '/hatchpen-hits'
     | '/library'
     | '/login'
     | '/notifications'
@@ -406,6 +418,7 @@ export interface RootRouteChildren {
   DesignSystemRoute: typeof DesignSystemRoute
   DiscoverRoute: typeof DiscoverRoute
   FollowingRoute: typeof FollowingRoute
+  HatchpenHitsRoute: typeof HatchpenHitsRoute
   LibraryRoute: typeof LibraryRoute
   LoginRoute: typeof LoginRoute
   NotificationsRoute: typeof NotificationsRoute
@@ -463,6 +476,13 @@ declare module '@tanstack/react-router' {
       path: '/following'
       fullPath: '/following'
       preLoaderRoute: typeof FollowingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/hatchpen-hits': {
+      id: '/hatchpen-hits'
+      path: '/hatchpen-hits'
+      fullPath: '/hatchpen-hits'
+      preLoaderRoute: typeof HatchpenHitsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/library': {
@@ -662,6 +682,7 @@ const rootRouteChildren: RootRouteChildren = {
   DesignSystemRoute: DesignSystemRoute,
   DiscoverRoute: DiscoverRoute,
   FollowingRoute: FollowingRoute,
+  HatchpenHitsRoute: HatchpenHitsRoute,
   LibraryRoute: LibraryRoute,
   LoginRoute: LoginRoute,
   NotificationsRoute: NotificationsRoute,

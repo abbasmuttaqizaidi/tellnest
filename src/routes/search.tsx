@@ -11,7 +11,10 @@ import {
   ArrowLeft, 
   Check, 
   X,
-  Loader2
+  Loader2,
+  Flame,
+  Trophy,
+  Compass,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { generateMeta } from '../lib/seo'
@@ -94,6 +97,11 @@ function matchesTitle(title: string | undefined | null, q: string): boolean {
   if (!title || !q) return false
   const t = title.toLowerCase()
   const lowerQ = q.toLowerCase().replace(/["'“”]/g, '').trim()
+  const isBrandQuery = lowerQ === 'hatchpen' || lowerQ === 'hatch pen' || lowerQ.startsWith('hatchpen') || lowerQ.startsWith('hatch pen')
+  if (isBrandQuery) {
+    const brandTitles = ['season we fell', 'pleasure after dark', 'apartment 407']
+    if (brandTitles.some((sig) => t.includes(sig) || sig.includes(t))) return true
+  }
   if (t.includes(lowerQ)) return true
   if (lowerQ.includes('parameter') && t.includes(lowerQ.replace(/parameter/g, 'perimeter'))) return true
   if (lowerQ.includes('perimeter') && t.includes(lowerQ.replace(/perimeter/g, 'parameter'))) return true
@@ -406,6 +414,11 @@ function SearchPage() {
     } else {
       if (!trimmed) {
         handleClear()
+        return
+      }
+      const lower = trimmed.toLowerCase()
+      if (lower === 'hatchpen hits' || lower === 'hatch pen hits') {
+        navigate({ to: '/hatchpen-hits' as any })
         return
       }
       if (trimmed.length < 2) {
@@ -1264,6 +1277,55 @@ function SearchPage() {
             {/* Genre / Stories Results */}
             {searchMode !== 'author' && (
               <>
+                {/* Brand Navigation Hub for "HatchPen" queries */}
+                {submittedQuery.toLowerCase().trim().includes('hatchpen') && (
+                  <div className="mb-6 p-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-2xs space-y-3">
+                    <p className="text-xs font-mono uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
+                      Featured HatchPen Destinations
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <Link
+                        to="/hatchpen-hits"
+                        className="flex items-center gap-3 p-3 rounded-lg border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 transition-colors text-inherit no-underline group"
+                      >
+                        <div className="h-8 w-8 rounded-full bg-rose-500/10 text-rose-500 flex items-center justify-center shrink-0">
+                          <Flame className="w-4 h-4 fill-rose-500" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-[var(--ink-primary)] group-hover:underline">HatchPen Hits</p>
+                          <p className="text-[10px] text-[var(--ink-muted)] truncate">Top viral novels &amp; reader hits</p>
+                        </div>
+                      </Link>
+
+                      <Link
+                        to="/writing-contests"
+                        className="flex items-center gap-3 p-3 rounded-lg border border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 transition-colors text-inherit no-underline group"
+                      >
+                        <div className="h-8 w-8 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
+                          <Trophy className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-[var(--ink-primary)] group-hover:underline">Writing Contests</p>
+                          <p className="text-[10px] text-[var(--ink-muted)] truncate">₹2,000 cash prize &amp; live stats</p>
+                        </div>
+                      </Link>
+
+                      <Link
+                        to="/discover"
+                        className="flex items-center gap-3 p-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-subtle)] hover:bg-[var(--bg-surface)] transition-colors text-inherit no-underline group"
+                      >
+                        <div className="h-8 w-8 rounded-full bg-[var(--bg-canvas)] text-[var(--ink-primary)] border border-[var(--border-subtle)] flex items-center justify-center shrink-0">
+                          <Compass className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-[var(--ink-primary)] group-hover:underline">Discover Catalog</p>
+                          <p className="text-[10px] text-[var(--ink-muted)] truncate">Explore all manuscripts &amp; genres</p>
+                        </div>
+                      </Link>
+                    </div>
+                  </div>
+                )}
+
                 {/* Header & Category Filter for Stories */}
                 <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-[var(--border-subtle)]">
                   <div className="flex items-center gap-2">

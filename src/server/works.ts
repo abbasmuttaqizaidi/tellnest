@@ -1565,6 +1565,14 @@ export const BROWSE_COLLECTIONS: Record<string, BrowseCollectionInfo> = {
     keywords: ['found family tropes', 'ensemble cast stories', 'found family fiction', 'read online free', 'HatchPen'],
     accentLetter: 'F',
   },
+  'hatchpen-hits': {
+    slug: 'hatchpen-hits',
+    name: 'HatchPen Hits',
+    headline: 'Most Celebrated & Viral Indie Web Novels',
+    description: 'Explore the most viral and celebrated serialized novels on HatchPen, handpicked by editors and readers including The Season We Fell, Pleasure After Dark, and Apartment 407. Read free chapter by chapter with zero paywalls.',
+    keywords: ['hatchpen hits', 'hatchpen top stories', 'the season we fell', 'pleasure after dark', 'apartment 407', 'viral web novels', 'best serialized fiction', 'free indie books', 'HatchPen'],
+    accentLetter: 'H',
+  },
 }
 
 /**
@@ -1585,6 +1593,16 @@ export async function executeGetBrowseCollectionData(
   const collection = BROWSE_COLLECTIONS[normalized] || null
   if (!collection) {
     return { collection: null, works: [], isNotFound: true }
+  }
+
+  if (normalized === 'hatchpen-hits') {
+    const { executeGetHatchpenHits } = await import('./hatchpenHits.ts')
+    const hitsData = await executeGetHatchpenHits()
+    return {
+      collection,
+      works: hitsData.works,
+      isNotFound: false,
+    }
   }
 
   const allWorks = await executeGetPlatformWorks(dependencies)
@@ -1710,6 +1728,12 @@ export async function executeGetBrowseCollectionData(
       if (filteredWorks.length === 0) {
         filteredWorks = indexableWorks.filter((w: any) => (w.genre || '').toLowerCase().includes('coming') || (w.genre || '').toLowerCase().includes('adventure')).slice(0, 12)
       }
+      break
+    }
+    case 'hatchpen-hits': {
+      const { executeGetHatchpenHits } = await import('./hatchpenHits.ts')
+      const hitsData = await executeGetHatchpenHits()
+      filteredWorks = hitsData.works
       break
     }
     case 'free-web-novels':
@@ -2911,4 +2935,6 @@ export const getCloudinaryPlatformAssetsServerFn = createServerFn({ method: 'GET
       return { assets: [] }
     }
   })
+
+export { getHatchpenHitsServerFn, executeGetHatchpenHits, type HatchpenHitWork, type HatchpenHitsResponse } from './hatchpenHits.ts'
 

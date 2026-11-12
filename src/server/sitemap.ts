@@ -285,7 +285,12 @@ export async function buildSitemapEntries(options?: BuildSitemapOptions): Promis
     console.warn('[buildSitemapEntries] Unexpected error retrieving database sitemap entries:', err?.message || err)
   }
 
-  // 3. Curated Editorial & Search Intent Collections (/browse/$collection, /wattpad-alternative, /writing-contests)
+  // 3. Curated Editorial & Search Intent Collections (/browse/$collection, /wattpad-alternative, /writing-contests, /hatchpen-hits)
+  addEntry({
+    loc: `${CANONICAL_BASE_URL}/hatchpen-hits`,
+    changefreq: 'daily',
+    priority: 0.95,
+  })
   addEntry({
     loc: `${CANONICAL_BASE_URL}/wattpad-alternative`,
     changefreq: 'weekly',
@@ -298,6 +303,7 @@ export async function buildSitemapEntries(options?: BuildSitemapOptions): Promis
   })
 
   const BROWSE_COLLECTION_SLUGS = [
+    'hatchpen-hits',
     'bingeable-reads',
     'new-voices',
     'completed-stories',

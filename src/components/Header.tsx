@@ -21,6 +21,7 @@ import {
   ArrowRight,
   Home,
   Trophy,
+  Flame,
 } from 'lucide-react'
 import { useUser, useClerk } from '@clerk/react'
 import { useApp } from '../context/AppContext'
@@ -308,6 +309,15 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
                 Discover
               </Link>
               <Link
+                to="/hatchpen-hits"
+                preload="intent"
+                className={`px-3 py-1.5 rounded transition-colors hover:text-[var(--ink-primary)] ${
+                  currentPath.startsWith('/hatchpen-hits') ? 'text-[var(--ink-primary)] font-semibold' : ''
+                }`}
+              >
+                Hits
+              </Link>
+              <Link
                 to="/search"
                 preload="intent"
                 onClick={(e) => {
@@ -422,6 +432,12 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
                   }
                   const trimmed = q.trim()
                   if (!trimmed) return
+                  const lower = trimmed.toLowerCase()
+                  if (lower === 'hatchpen hits' || lower === 'hatch pen hits') {
+                    navigate({ to: '/hatchpen-hits' as any })
+                    setIsNavSearchOpen(false)
+                    return
+                  }
                   if (trimmed.length < 2) {
                     showToast('Please enter at least 2 letters to search.')
                     return
@@ -685,6 +701,16 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
             >
               <Compass className="h-4 w-4" />
               <span>Discover</span>
+            </Link>
+
+            <Link
+              to="/hatchpen-hits"
+              preload="intent"
+              onClick={() => setMobileDrawerOpen(false)}
+              className="flex items-center gap-2 py-1.5 px-2.5 rounded-lg text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
+            >
+              <Flame className="h-4 w-4 text-rose-500" />
+              <span>HatchPen Hits</span>
             </Link>
 
             {/* Active Contest Link in Mobile Drawer */}
