@@ -270,116 +270,11 @@ function HatchpenHitsPage() {
               <em className="text-[var(--ink-primary)] font-semibold not-italic">Apartment 407</em>. Read free with zero coins or paywalls.
             </p>
           </div>
-
-          {/* Quick Platform Metrics */}
-          <div className="flex items-center gap-3 sm:gap-4 shrink-0 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-3 sm:p-4 shadow-2xs">
-            <div className="text-center px-2">
-              <p className="text-xl sm:text-2xl font-serif font-bold text-[var(--ink-primary)]">
-                {works.length}
-              </p>
-              <p className="text-[10px] sm:text-xs text-[var(--ink-muted)] uppercase tracking-wider font-mono">
-                Hits
-              </p>
-            </div>
-            <div className="h-8 w-px bg-[var(--border-subtle)]" />
-            <div className="text-center px-2">
-              <p className="text-xl sm:text-2xl font-serif font-bold text-emerald-600 dark:text-emerald-400">
-                100%
-              </p>
-              <p className="text-[10px] sm:text-xs text-[var(--ink-muted)] uppercase tracking-wider font-mono">
-                Free
-              </p>
-            </div>
-            <div className="h-8 w-px bg-[var(--border-subtle)]" />
-            <div className="text-center px-2">
-              <p className="text-xl sm:text-2xl font-serif font-bold text-[var(--ink-primary)]">
-                0
-              </p>
-              <p className="text-[10px] sm:text-xs text-[var(--ink-muted)] uppercase tracking-wider font-mono">
-                Coins
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Sitelink Destinations (Internal Link Architecture) */}
-        <div className="mt-8 pt-6 border-t border-[var(--border-subtle)] flex flex-wrap items-center gap-2">
-          <span className="text-xs font-mono text-[var(--ink-muted)] mr-2">Featured Hubs:</span>
-          <Link
-            to="/writing-contests"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] border border-[var(--border-subtle)] hover:border-[var(--border-strong)] transition-all no-underline text-[var(--ink-primary)]"
-          >
-            <Trophy className="w-3.5 h-3.5 text-amber-500" />
-            <span>₹2,000 Writing Contest</span>
-          </Link>
-          <Link
-            to="/discover"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] border border-[var(--border-subtle)] hover:border-[var(--border-strong)] transition-all no-underline text-[var(--ink-primary)]"
-          >
-            <Compass className="w-3.5 h-3.5 text-[var(--ink-muted)]" />
-            <span>Discover Catalog</span>
-          </Link>
-          <Link
-            to="/browse/$collection"
-            params={{ collection: 'bingeable-reads' }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] border border-[var(--border-subtle)] hover:border-[var(--border-strong)] transition-all no-underline text-[var(--ink-primary)]"
-          >
-            <BookOpen className="w-3.5 h-3.5 text-[var(--ink-muted)]" />
-            <span>Bingeable Reads</span>
-          </Link>
-          <Link
-            to="/browse/$collection"
-            params={{ collection: 'new-voices' }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] border border-[var(--border-subtle)] hover:border-[var(--border-strong)] transition-all no-underline text-[var(--ink-primary)]"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-[var(--ink-muted)]" />
-            <span>New Voices Showcase</span>
-          </Link>
         </div>
       </header>
 
       {/* 3. Catalog Controls (Search & Category Filter) */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-[var(--border-subtle)]">
-          {/* In-page search */}
-          <div className="w-full sm:w-80">
-            <AnimatedSearch
-              placeholder="Search HatchPen Hits..."
-              value={searchQuery}
-              onChange={setSearchQuery}
-            />
-          </div>
-
-          {/* Category Filter */}
-          <div className="flex items-center gap-2">
-            <FilterDisclosure
-              label="Category"
-              activeId={selectedCategory}
-              onChange={setSelectedCategory}
-              items={[
-                { id: 'all', label: 'All Categories', badge: works.length },
-                ...availableCategories.map((c) => ({
-                  id: c.slug,
-                  label: c.name,
-                  badge: c.count,
-                })),
-              ]}
-            />
-            {(selectedCategory !== 'all' || searchQuery.trim()) && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedCategory('all')
-                  setSearchQuery('')
-                }}
-                className="text-xs font-mono text-[var(--ink-muted)] hover:text-[var(--ink-primary)] px-2 py-1 transition-colors cursor-pointer"
-              >
-                Reset
-              </button>
-            )}
-          </div>
-        </div>
-
         {/* 4. Stories Grid */}
         <div className="pt-6">
           {filteredWorks.length === 0 ? (
