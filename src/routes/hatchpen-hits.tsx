@@ -7,7 +7,6 @@ import {
   ChevronRight,
   ChevronDown,
   HelpCircle,
-  Clock,
   Eye,
   Feather,
 } from 'lucide-react'
@@ -198,7 +197,7 @@ function HatchpenHitsPage() {
     setActiveIndex((prev) => (prev === works.length - 1 ? 0 : prev + 1))
   }, [works.length])
 
-  // Automatically sync horizontal filmstrip scroll position on mobile when active slide changes
+  // Automatically sync horizontal filmstrip scroll position on desktop when active slide changes
   useEffect(() => {
     if (!filmstripRef.current) return
     const activeBtn = filmstripRef.current.children[activeIndex] as HTMLElement | undefined
@@ -335,7 +334,7 @@ function HatchpenHitsPage() {
 
             {/* Slide Stage Container */}
             <div className="w-full relative z-10">
-              {/* MOBILE COMPACT VIEW (< lg): Ergonomic two-column card layout that fits mobile screen without scrolling */}
+              {/* MOBILE COMPACT VIEW (< lg): Ergonomic card layout that fits mobile screen without scrolling */}
               <div className="block lg:hidden">
                 <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 sm:p-6 shadow-xs">
                   {/* Top Row: Compact Book Cover + Essential Story Dossier */}
@@ -357,17 +356,20 @@ function HatchpenHitsPage() {
                         containerClassName="w-full h-full"
                         className="w-full h-full object-cover"
                       />
-                      <div className="absolute top-1.5 left-1.5 bg-[var(--ink-primary)] text-[var(--accent-contrast)] px-1.5 py-0.5 text-[8px] font-mono tracking-wider rounded">
-                        Nº {String(activeIndex + 1).padStart(2, '0')}
-                      </div>
                     </Link>
 
                     {/* Compact Dossier Header */}
                     <div className="flex-1 min-w-0 space-y-1.5">
                       <div className="flex items-center gap-1.5 text-[10px] font-mono text-[var(--ink-muted)] uppercase tracking-wider">
-                        <span>Folio {String(activeIndex + 1).padStart(2, '0')}</span>
-                        <span>•</span>
-                        <span className="truncate text-[var(--ink-secondary)]">{activeWork.genre || 'Fiction'}</span>
+                        <span className="truncate text-[var(--ink-secondary)] font-medium">
+                          {activeWork.genre || activeWork.category || 'Fiction'}
+                        </span>
+                        {activeWork.status && (
+                          <>
+                            <span>•</span>
+                            <span className="text-[var(--ink-muted)]">{activeWork.status}</span>
+                          </>
+                        )}
                       </div>
 
                       <h1 className="font-serif text-lg sm:text-2xl font-bold tracking-tight text-[var(--ink-primary)] leading-tight line-clamp-2">
@@ -392,21 +394,13 @@ function HatchpenHitsPage() {
                         </Link>
                       </p>
 
-                      {/* Quick Meta */}
-                      <div className="flex items-center gap-3 pt-1 text-[11px] font-mono text-[var(--ink-muted)]">
-                        {activeWork.readingTimeMinutes > 0 && (
-                          <div className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            <span>{activeWork.readingTimeMinutes}m</span>
-                          </div>
-                        )}
-                        {Number(activeWork.viewCount) > 0 && (
-                          <div className="flex items-center gap-1">
-                            <Eye className="w-3 h-3" />
-                            <span>{formatViewCount(activeWork.viewCount)}</span>
-                          </div>
-                        )}
-                      </div>
+                      {/* Quick Meta: Readers Count */}
+                      {Number(activeWork.viewCount) > 0 && (
+                        <div className="flex items-center gap-1 pt-1 text-[11px] font-mono text-[var(--ink-muted)]">
+                          <Eye className="w-3 h-3" />
+                          <span>{formatViewCount(activeWork.viewCount)} readers</span>
+                        </div>
+                      )}
 
                       {/* Direct CTA Button */}
                       <div className="pt-2">
@@ -452,12 +446,11 @@ function HatchpenHitsPage() {
                     </div>
 
                     <div className="flex items-center gap-2 font-mono text-[11px] text-[var(--ink-muted)]">
-                      <span>Swipe with thumb</span>
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
                           onClick={goToPrev}
-                          aria-label="Previous Folio"
+                          aria-label="Previous story"
                           className="w-7 h-7 rounded border border-[var(--border-subtle)] bg-[var(--bg-canvas)] flex items-center justify-center text-[var(--ink-primary)] active:bg-[var(--bg-subtle)] cursor-pointer"
                         >
                           <ChevronLeft className="w-3.5 h-3.5" />
@@ -465,7 +458,7 @@ function HatchpenHitsPage() {
                         <button
                           type="button"
                           onClick={goToNext}
-                          aria-label="Next Folio"
+                          aria-label="Next story"
                           className="w-7 h-7 rounded border border-[var(--border-subtle)] bg-[var(--bg-canvas)] flex items-center justify-center text-[var(--ink-primary)] active:bg-[var(--bg-subtle)] cursor-pointer"
                         >
                           <ChevronRight className="w-3.5 h-3.5" />
@@ -502,10 +495,6 @@ function HatchpenHitsPage() {
                         containerClassName="w-full h-full"
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                       />
-
-                      <div className="absolute top-3 left-3 bg-[var(--ink-primary)] text-[var(--accent-contrast)] px-2.5 py-1 text-[10px] font-mono tracking-widest uppercase rounded shadow-xs">
-                        Folio Nº {String(activeIndex + 1).padStart(2, '0')}
-                      </div>
                     </Link>
                   </div>
                 </div>
@@ -513,11 +502,7 @@ function HatchpenHitsPage() {
                 {/* Right Column: Editorial Dossier & Controls */}
                 <div className="col-span-7 space-y-6">
                   <div className="flex flex-wrap items-center gap-2.5">
-                    <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-[var(--ink-muted)]">
-                      Folio Nº {String(activeIndex + 1).padStart(2, '0')} of {String(works.length).padStart(2, '0')}
-                    </span>
-                    <span className="text-[var(--ink-muted)] text-xs">•</span>
-                    <span className="text-xs font-mono uppercase tracking-wider text-[var(--ink-secondary)]">
+                    <span className="text-xs font-mono uppercase tracking-wider text-[var(--ink-secondary)] font-medium">
                       {activeWork.genre || activeWork.category || 'Fiction'}
                     </span>
                     {activeWork.status && (
@@ -559,12 +544,6 @@ function HatchpenHitsPage() {
                   )}
 
                   <div className="pt-3 flex flex-wrap items-center gap-6 text-xs font-mono text-[var(--ink-muted)] border-t border-[var(--border-subtle)]">
-                    {activeWork.readingTimeMinutes > 0 && (
-                      <div className="flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5" />
-                        <span>{activeWork.readingTimeMinutes} min read</span>
-                      </div>
-                    )}
                     {activeWork.wordCount > 0 && (
                       <div className="flex items-center gap-1.5">
                         <BookOpen className="w-3.5 h-3.5" />
@@ -594,7 +573,7 @@ function HatchpenHitsPage() {
                       <button
                         type="button"
                         onClick={goToPrev}
-                        aria-label="Previous Folio"
+                        aria-label="Previous story"
                         className="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-surface)] text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
                       >
                         <ChevronLeft className="w-4 h-4" />
@@ -605,7 +584,7 @@ function HatchpenHitsPage() {
                       <button
                         type="button"
                         onClick={goToNext}
-                        aria-label="Next Folio"
+                        aria-label="Next story"
                         className="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-surface)] text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
                       >
                         <ChevronRight className="w-4 h-4" />
@@ -617,12 +596,12 @@ function HatchpenHitsPage() {
             </div>
           </div>
 
-          {/* 4. Horizontal Scrollable Filmstrip Tabs (One-Row Thumb Scroll on Mobile + Grid on Desktop) */}
-          <div className="border-t border-[var(--border-subtle)] bg-[var(--bg-surface)]">
+          {/* 4. Horizontal Scrollable Filmstrip Tabs (Desktop Only: hidden on mobile) */}
+          <div className="hidden lg:block border-t border-[var(--border-subtle)] bg-[var(--bg-surface)]">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3">
               <div
                 ref={filmstripRef}
-                className="flex lg:grid lg:grid-cols-5 gap-2 sm:gap-3 overflow-x-auto no-scrollbar scroll-smooth snap-x"
+                className="grid grid-cols-5 gap-3"
               >
                 {works.map((work, idx) => {
                   const isActive = idx === activeIndex
@@ -632,7 +611,7 @@ function HatchpenHitsPage() {
                       key={work.id}
                       type="button"
                       onClick={() => setActiveIndex(idx)}
-                      className={`shrink-0 min-w-[140px] sm:min-w-[170px] lg:min-w-0 lg:w-full text-left p-2.5 sm:p-3 rounded-lg border transition-all cursor-pointer snap-start ${
+                      className={`w-full text-left p-2.5 sm:p-3 rounded-lg border transition-all cursor-pointer ${
                         isActive
                           ? 'border-[var(--ink-primary)] bg-[var(--bg-canvas)] shadow-2xs'
                           : 'border-transparent bg-transparent hover:bg-[var(--bg-subtle)] text-[var(--ink-muted)]'
@@ -640,7 +619,7 @@ function HatchpenHitsPage() {
                     >
                       <div className="flex items-center justify-between text-[10px] font-mono mb-1">
                         <span className={isActive ? 'text-[var(--ink-primary)] font-bold' : 'text-[var(--ink-muted)]'}>
-                          Nº {folioNumber}
+                          {folioNumber}
                         </span>
                         <span className="truncate ml-1 text-[9px] uppercase tracking-wider text-[var(--ink-muted)]">
                           {work.genre || 'Story'}
@@ -664,9 +643,9 @@ function HatchpenHitsPage() {
         </section>
       )}
 
-      {/* 5. Complete Folio Archive (Full SEO Internal Linking & Indexing) */}
+      {/* 5. Complete Folio Archive (Desktop Only: hidden on mobile) */}
       {works.length > 0 && (
-        <section className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16">
+        <section className="hidden md:block max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16">
           <div className="flex items-center justify-between pb-3 sm:pb-4 border-b border-[var(--border-subtle)] mb-6 sm:mb-8">
             <div>
               <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-[var(--ink-muted)]">
@@ -691,7 +670,7 @@ function HatchpenHitsPage() {
                 >
                   <div className="flex items-start sm:items-center gap-3.5 sm:gap-4">
                     <span className="font-mono text-xs text-[var(--ink-muted)] pt-0.5 sm:pt-0 shrink-0">
-                      Nº {folioNumber}
+                      {folioNumber}
                     </span>
                     <div>
                       <h3 className="font-serif text-base sm:text-lg font-bold text-[var(--ink-primary)] group-hover:underline decoration-1">
