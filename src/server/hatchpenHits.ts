@@ -75,10 +75,12 @@ function matchesSignatureTitle(title: string | null | undefined): boolean {
   return SIGNATURE_HIT_TITLES.some((sig) => lower.includes(sig) || sig.includes(lower))
 }
 
-const hasSupabaseAdmin = Boolean(
-  (typeof process !== 'undefined' && process.env?.SUPABASE_SERVICE_ROLE_KEY && process.env?.SUPABASE_SERVICE_ROLE_KEY !== 'placeholder-service-key') ||
-  (typeof import.meta !== 'undefined' && (import.meta as any).env?.SUPABASE_SERVICE_ROLE_KEY && (import.meta as any).env?.SUPABASE_SERVICE_ROLE_KEY !== 'placeholder-service-key')
-)
+function checkHasSupabaseAdmin(): boolean {
+  return Boolean(
+    (typeof process !== 'undefined' && process.env?.SUPABASE_SERVICE_ROLE_KEY && process.env?.SUPABASE_SERVICE_ROLE_KEY !== 'placeholder-service-key') ||
+    (typeof import.meta !== 'undefined' && (import.meta as any).env?.SUPABASE_SERVICE_ROLE_KEY && (import.meta as any).env?.SUPABASE_SERVICE_ROLE_KEY !== 'placeholder-service-key')
+  )
+}
 
 /**
  * Executes the HatchPen Hits query against Supabase with in-memory fallback.
@@ -92,12 +94,14 @@ export async function executeGetHatchpenHits(): Promise<HatchpenHitsResponse> {
 
   let rawWorks: any[] = []
 
-  if (hasSupabaseAdmin) {
+  const hasAdmin = checkHasSupabaseAdmin()
+
+  if (hasAdmin) {
     try {
       const { createAdminClient } = await import('../lib/supabase/server.ts')
       const admin = createAdminClient()
 
-      // 1. Fetch works marked with collections @> ['hatchpen_hits'] OR signature titles
+      // 1. Fetch ONLY works explicitly curated by admin with curated_collections containing 'hatchpen_hits'
       const { data: dbWorks, error } = await admin
         .from('works')
         .select(`
@@ -143,11 +147,11 @@ export async function executeGetHatchpenHits(): Promise<HatchpenHitsResponse> {
             )
           )
         `)
+        .contains('curated_collections', ['hatchpen_hits'])
         .eq('visibility', 'public')
         .eq('publication_status', 'published')
         .eq('is_indexable', true)
         .order('view_count', { ascending: false })
-        .limit(50)
 
       if (!error && Array.isArray(dbWorks)) {
         rawWorks = dbWorks
@@ -157,9 +161,7 @@ export async function executeGetHatchpenHits(): Promise<HatchpenHitsResponse> {
     }
   }
 
-  // Filter for:
-  // 1. Admin-tagged collections containing 'hatchpen_hits'
-  // 2. OR Signature editorial titles (The Season We Fell, Pleasure After Dark, Apartment 407)
+  // Filter strictly for works admin curated into 'hatchpen_hits'
   let hits = rawWorks.filter((w: any) => {
     if (!isWorkIndexable(w)) return false
     if (isReligiousWork(w)) return false
@@ -169,43 +171,28 @@ export async function executeGetHatchpenHits(): Promise<HatchpenHitsResponse> {
       : Array.isArray(w.collections)
       ? w.collections
       : []
-    const isTaggedHit = cols.includes('hatchpen_hits')
-    const isSignature = matchesSignatureTitle(w.title)
-
-    return isTaggedHit || isSignature
+    return cols.includes('hatchpen_hits')
   })
 
-  // Offline / Mock fallback if DB returned 0 hits
-  if (hits.length === 0) {
+  // Offline / Mock fallback ONLY when DB is unavailable or returns 0 in offline testing
+  if (hits.length === 0 && !hasAdmin) {
     hits = WORKS.filter((w) => {
       if (isReligiousWork(w)) return false
-      const isSignature = matchesSignatureTitle(w.title)
       const cols: string[] = Array.isArray((w as any).curated_collections)
         ? (w as any).curated_collections
         : Array.isArray(w.collections)
         ? w.collections
         : []
-      return isSignature || cols.includes('hatchpen_hits') || w.featured || w.editorPick
-    }).slice(0, 12)
+      return cols.includes('hatchpen_hits')
+    })
+
+    if (hits.length === 0) {
+      hits = WORKS.filter((w) => !isReligiousWork(w) && (w.featured || w.editorPick)).slice(0, 3)
+    }
   }
 
-  // Sort: Explicit tagged hits and signature titles first, then by view_count
+  // Sort by view_count
   hits.sort((a, b) => {
-    const aCols: string[] = Array.isArray((a as any).curated_collections)
-      ? (a as any).curated_collections
-      : Array.isArray(a.collections)
-      ? a.collections
-      : []
-    const bCols: string[] = Array.isArray((b as any).curated_collections)
-      ? (b as any).curated_collections
-      : Array.isArray(b.collections)
-      ? b.collections
-      : []
-    const aHit = aCols.includes('hatchpen_hits') || matchesSignatureTitle(a.title)
-    const bHit = bCols.includes('hatchpen_hits') || matchesSignatureTitle(b.title)
-
-    if (aHit && !bHit) return -1
-    if (!aHit && bHit) return 1
     return Number(b.view_count || b.viewCount || 0) - Number(a.view_count || a.viewCount || 0)
   })
 
