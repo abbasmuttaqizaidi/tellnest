@@ -30,22 +30,10 @@ export interface DiscoverLoaderData {
 
 const PAGE_SIZE = 12
 
-function DiscoverPageSkeleton() {
-  return (
-    <div className="py-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 animate-pulse">
-      <div className="h-8 w-48 bg-[var(--bg-subtle)] rounded-lg" />
-      <div className="h-10 w-full max-w-md bg-[var(--bg-subtle)] rounded-full" />
-      <DiscoverGridSkeleton count={12} />
-    </div>
-  )
-}
-
 export const Route = createFileRoute('/discover')({
   // In-Memory SWR (Desktop & Mobile): Keeps data fresh in RAM for 30s; instant 0ms navigation
   staleTime: 30_000,
   gcTime: 1000 * 60 * 5,
-  pendingMs: 0,
-  pendingComponent: DiscoverPageSkeleton,
   validateSearch: (search: Record<string, unknown>): DiscoverRouteSearch => {
     const rawTab = typeof search.tab === 'string' ? search.tab : ''
     const validTabs = ['all', 'new_chapters', 'new_this_week', 'trending', 'rising']
@@ -158,7 +146,13 @@ function DiscoverPage() {
   const navigate = Route.useNavigate()
 
   // Track reactive router loading state during HTTP server transitions
-  const isTransitioning = useRouterState({ select: (s) => s.status === 'pending' })
+  const isTransitioning = useRouterState({ select: (s) => s.status === 'pending' || s.isLoading })
+  const pendingSearch = useRouterState({
+    select: (s) => (s.status === 'pending' || s.isLoading ? (s.location.search as DiscoverRouteSearch) : null),
+  })
+
+  // Optimistic search state: reflects newly clicked tab/filters instantly while story cards load
+  const effectiveSearch = isTransitioning && pendingSearch ? pendingSearch : routeSearch
 
   // Taxonomy resolution: Server loader taxonomy preferred, AppContext as secondary
   const categories = loaderData?.taxonomy?.categories?.length ? loaderData.taxonomy.categories : appCategories
@@ -170,16 +164,16 @@ function DiscoverPage() {
   const totalWorks = paginatedData?.totalCount ?? 0
   const totalPages = Math.max(1, paginatedData?.totalPages ?? 1)
 
-  const activeTab = routeSearch.tab || 'all'
-  const selectedCategory = routeSearch.category || 'all'
-  const selectedGenre = routeSearch.genre || 'all'
-  const selectedStatus = routeSearch.status || 'all'
-  const currentPage = routeSearch.page || 1
+  const activeTab = effectiveSearch.tab || 'all'
+  const selectedCategory = effectiveSearch.category || 'all'
+  const selectedGenre = effectiveSearch.genre || 'all'
+  const selectedStatus = effectiveSearch.status || 'all'
+  const currentPage = effectiveSearch.page || 1
   const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages)
-  const activeSearchQuery = routeSearch.q || ''
+  const activeSearchQuery = effectiveSearch.q || ''
 
-  // Loading state: Skeleton triggers on HTTP router transition or clerk initial hydration
-  const isLoading = isTransitioning || !isLoaded
+  // Loading state: Story cards skeleton triggers only during background router data fetching
+  const isLoading = isTransitioning
 
   // Fast-keystroke local input state with zero typing latency
   const [searchInput, setSearchInput] = useState<string>(activeSearchQuery)
