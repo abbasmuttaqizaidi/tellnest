@@ -2336,7 +2336,7 @@ export const getAdminWorksServerFn = createServerFn({ method: 'GET' })
           save_count,
           status,
           trending_marked_by_admin,
-          collections,
+          curated_collections,
           author:profiles(
             id,
             display_name,
@@ -2415,7 +2415,9 @@ export const getAdminWorksServerFn = createServerFn({ method: 'GET' })
           saveCount,
           status: w.status || 'Ongoing',
           trendingMarkedByAdmin: Boolean(w.trending_marked_by_admin),
-          isHatchpenHit: Array.isArray(w.collections) && w.collections.includes('hatchpen_hits'),
+          isHatchpenHit:
+            (Array.isArray(w.curated_collections) && w.curated_collections.includes('hatchpen_hits')) ||
+            (Array.isArray(w.collections) && w.collections.includes('hatchpen_hits')),
         }
       })
 
@@ -2955,34 +2957,41 @@ export async function executeAdminToggleWorkHatchpenHit(data: AdminToggleWorkHat
   }
   const admin = createAdminClient()
 
-  const { data: wRow, error: fetchErr } = await admin
-    .from('works')
-    .select('id, collections')
-    .eq('id', data.workId)
-    .maybeSingle()
+  // 1. Resolve work row by UUID, ID, or slug in the 'works' table
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.workId)
+  let query = admin.from('works').select('id, curated_collections')
+  if (isUuid) {
+    query = query.eq('id', data.workId)
+  } else {
+    query = query.or(`id.eq.${data.workId},slug.eq.${data.workId}`)
+  }
+
+  const { data: wRow, error: fetchErr } = await query.maybeSingle()
 
   if (fetchErr) {
     console.error('[executeAdminToggleWorkHatchpenHit] Fetch error:', fetchErr.message)
     throw new Error(fetchErr.message)
   }
 
-  let currentCollections: string[] = Array.isArray(wRow?.collections) ? [...wRow.collections] : []
-  if (data.isHit) {
-    if (!currentCollections.includes('hatchpen_hits')) {
-      currentCollections.push('hatchpen_hits')
+  if (wRow?.id) {
+    let currentCollections: string[] = Array.isArray(wRow?.curated_collections) ? [...wRow.curated_collections] : []
+    if (data.isHit) {
+      if (!currentCollections.includes('hatchpen_hits')) {
+        currentCollections.push('hatchpen_hits')
+      }
+    } else {
+      currentCollections = currentCollections.filter((c) => c !== 'hatchpen_hits')
     }
-  } else {
-    currentCollections = currentCollections.filter((c) => c !== 'hatchpen_hits')
-  }
 
-  const { error: updateErr } = await admin
-    .from('works')
-    .update({ collections: currentCollections })
-    .eq('id', data.workId)
+    const { error: updateErr } = await admin
+      .from('works')
+      .update({ curated_collections: currentCollections })
+      .eq('id', wRow.id)
 
-  if (updateErr) {
-    console.error('[executeAdminToggleWorkHatchpenHit] Update error:', updateErr.message)
-    throw new Error(updateErr.message)
+    if (updateErr) {
+      console.error('[executeAdminToggleWorkHatchpenHit] Update error:', updateErr.message)
+      throw new Error(updateErr.message)
+    }
   }
 
   try {
@@ -2996,6 +3005,7 @@ export async function executeAdminToggleWorkHatchpenHit(data: AdminToggleWorkHat
     success: true,
     workId: data.workId,
     isHit: data.isHit,
+    message: data.isHit ? 'Story added to HatchPen Hits' : 'Story removed from HatchPen Hits',
   }
 }
 

@@ -114,7 +114,7 @@ export async function executeGetHatchpenHits(): Promise<HatchpenHitsResponse> {
           visibility,
           publication_status,
           is_indexable,
-          collections,
+          curated_collections,
           published_at,
           created_at,
           profiles:author_id (
@@ -164,7 +164,11 @@ export async function executeGetHatchpenHits(): Promise<HatchpenHitsResponse> {
     if (!isWorkIndexable(w)) return false
     if (isReligiousWork(w)) return false
 
-    const cols: string[] = Array.isArray(w.collections) ? w.collections : []
+    const cols: string[] = Array.isArray(w.curated_collections)
+      ? w.curated_collections
+      : Array.isArray(w.collections)
+      ? w.collections
+      : []
     const isTaggedHit = cols.includes('hatchpen_hits')
     const isSignature = matchesSignatureTitle(w.title)
 
@@ -176,15 +180,27 @@ export async function executeGetHatchpenHits(): Promise<HatchpenHitsResponse> {
     hits = WORKS.filter((w) => {
       if (isReligiousWork(w)) return false
       const isSignature = matchesSignatureTitle(w.title)
-      const cols: string[] = Array.isArray(w.collections) ? w.collections : []
+      const cols: string[] = Array.isArray((w as any).curated_collections)
+        ? (w as any).curated_collections
+        : Array.isArray(w.collections)
+        ? w.collections
+        : []
       return isSignature || cols.includes('hatchpen_hits') || w.featured || w.editorPick
     }).slice(0, 12)
   }
 
   // Sort: Explicit tagged hits and signature titles first, then by view_count
   hits.sort((a, b) => {
-    const aCols: string[] = Array.isArray(a.collections) ? a.collections : []
-    const bCols: string[] = Array.isArray(b.collections) ? b.collections : []
+    const aCols: string[] = Array.isArray((a as any).curated_collections)
+      ? (a as any).curated_collections
+      : Array.isArray(a.collections)
+      ? a.collections
+      : []
+    const bCols: string[] = Array.isArray((b as any).curated_collections)
+      ? (b as any).curated_collections
+      : Array.isArray(b.collections)
+      ? b.collections
+      : []
     const aHit = aCols.includes('hatchpen_hits') || matchesSignatureTitle(a.title)
     const bHit = bCols.includes('hatchpen_hits') || matchesSignatureTitle(b.title)
 

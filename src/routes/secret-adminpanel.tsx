@@ -1124,7 +1124,11 @@ function SecretAdminPanelPage() {
         saveCount,
         status: w.status,
         trendingMarkedByAdmin: Boolean((w as any).trendingMarkedByAdmin || (w as any).trending_marked_by_admin),
-        isHatchpenHit: Boolean((w as any).isHatchpenHit || (Array.isArray((w as any).collections) && (w as any).collections.includes('hatchpen_hits'))),
+        isHatchpenHit: Boolean(
+          (w as any).isHatchpenHit ||
+          (Array.isArray((w as any).curated_collections) && (w as any).curated_collections.includes('hatchpen_hits')) ||
+          (Array.isArray((w as any).collections) && (w as any).collections.includes('hatchpen_hits'))
+        ),
       }
     })
 
