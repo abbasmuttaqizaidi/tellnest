@@ -1,8 +1,10 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import {
   BookOpen,
   ArrowRight,
+  ChevronLeft,
+  ChevronRight,
   ChevronDown,
   HelpCircle,
   Clock,
@@ -173,10 +175,54 @@ export const Route = createFileRoute('/hatchpen-hits')({
 function HatchpenHitsPage() {
   const loaderData = Route.useLoaderData()
   const works: HatchpenHitWork[] = useMemo(() => loaderData.works || [], [loaderData.works])
+  const [activeIndex, setActiveIndex] = useState(0)
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null)
 
-  const leadWork = works[0]
-  const rosterWorks = useMemo(() => works.slice(1), [works])
+  // Touch swipe support for mobile
+  const [touchStartX, setTouchStartX] = useState<number | null>(null)
+  const [touchEndX, setTouchEndX] = useState<number | null>(null)
+
+  const activeWork = works[activeIndex] || works[0]
+
+  const goToPrev = useCallback(() => {
+    if (works.length === 0) return
+    setActiveIndex((prev) => (prev === 0 ? works.length - 1 : prev - 1))
+  }, [works.length])
+
+  const goToNext = useCallback(() => {
+    if (works.length === 0) return
+    setActiveIndex((prev) => (prev === works.length - 1 ? 0 : prev + 1))
+  }, [works.length])
+
+  // Keyboard navigation (ArrowLeft & ArrowRight)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (e.key === 'ArrowLeft') goToPrev()
+      if (e.key === 'ArrowRight') goToNext()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [goToPrev, goToNext])
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchEndX(null)
+    setTouchStartX(e.targetTouches[0].clientX)
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEndX(e.targetTouches[0].clientX)
+  }
+
+  const handleTouchEnd = () => {
+    if (!touchStartX || !touchEndX) return
+    const distance = touchStartX - touchEndX
+    if (distance > 50) {
+      goToNext()
+    } else if (distance < -50) {
+      goToPrev()
+    }
+  }
 
   const faqs = [
     {
@@ -202,43 +248,23 @@ function HatchpenHitsPage() {
       {/* 1. Breadcrumbs */}
       <nav
         aria-label="Breadcrumbs"
-        className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-5 pb-2 text-xs flex items-center gap-1.5 text-[var(--ink-muted)]"
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-2 text-xs flex items-center justify-between text-[var(--ink-muted)] border-b border-[var(--border-subtle)]"
       >
-        <Link to="/" className="hover:text-[var(--ink-primary)] transition-colors no-underline">
-          Home
-        </Link>
-        <span>/</span>
-        <span className="text-[var(--ink-primary)] font-medium">HatchPen Hits</span>
+        <div className="flex items-center gap-1.5">
+          <Link to="/" className="hover:text-[var(--ink-primary)] transition-colors no-underline">
+            Home
+          </Link>
+          <span>/</span>
+          <span className="text-[var(--ink-primary)] font-medium">HatchPen Hits</span>
+        </div>
+        <div className="font-mono text-[11px] uppercase tracking-wider text-[var(--ink-muted)] hidden sm:block">
+          Curated Editorial Folio
+        </div>
       </nav>
 
-      {/* 2. Editorial Folio Monograph Header */}
-      <header className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-12 sm:pt-10 sm:pb-16 text-center">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full border border-[var(--border-strong)] bg-[var(--bg-surface)] text-[var(--ink-secondary)] text-[11px] font-mono uppercase tracking-[0.22em] mb-5 shadow-2xs">
-          <span>Editorial Curations</span>
-          <span className="text-[var(--ink-muted)]">•</span>
-          <span>Exclusive Folio</span>
-        </div>
-
-        <h1 className="font-serif text-4xl sm:text-6xl lg:text-7xl font-normal tracking-tight text-[var(--ink-primary)] leading-[1.08]">
-          HatchPen Hits
-        </h1>
-
-        <p className="mt-5 font-serif text-lg sm:text-2xl text-[var(--ink-secondary)] max-w-2xl mx-auto leading-relaxed">
-          Our definitive canon of standout serialized fiction — hand-selected for craft, emotional resonance, and reader devotion.
-        </p>
-
-        <div className="mt-8 flex items-center justify-center gap-3 sm:gap-4 text-xs font-mono text-[var(--ink-muted)]">
-          <span>Curated Edition</span>
-          <span className="w-1 h-1 rounded-full bg-[var(--border-strong)]" />
-          <span>{works.length} {works.length === 1 ? 'Work' : 'Works'} Spotlighted</span>
-          <span className="w-1 h-1 rounded-full bg-[var(--border-strong)]" />
-          <span>Zero Paywalls</span>
-        </div>
-      </header>
-
-      {/* 3. Empty State Fallback (If no works are curated yet) */}
-      {works.length === 0 && (
-        <section className="max-w-3xl mx-auto px-4 py-16 text-center">
+      {/* 2. Empty State Fallback (If no works are curated) */}
+      {works.length === 0 ? (
+        <section className="max-w-3xl mx-auto px-4 py-24 text-center">
           <div className="p-8 sm:p-12 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] space-y-4">
             <BookOpen className="w-8 h-8 text-[var(--ink-muted)] mx-auto stroke-[1.5]" />
             <h2 className="font-serif text-2xl font-bold text-[var(--ink-primary)]">
@@ -258,241 +284,290 @@ function HatchpenHitsPage() {
             </div>
           </div>
         </section>
-      )}
+      ) : (
+        /* 3. Bespoke Full-Page Editorial Slider Stage */
+        <section
+          className="relative overflow-hidden border-b border-[var(--border-subtle)]"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          {/* Main Stage Viewport */}
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16 min-h-[580px] sm:min-h-[640px] lg:min-h-[700px] flex items-center relative">
+            {/* Giant Background Watermark Numeral */}
+            <div
+              aria-hidden="true"
+              className="absolute right-4 lg:right-12 top-1/2 -translate-y-1/2 font-serif text-[180px] sm:text-[260px] lg:text-[340px] font-normal leading-none text-[var(--ink-muted)]/[0.04] select-none pointer-events-none transition-all duration-700"
+            >
+              {String(activeIndex + 1).padStart(2, '0')}
+            </div>
 
-      {/* 4. Flagship Lead Title (Folio Nº 01) */}
-      {leadWork && (
-        <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-14 sm:pb-20">
-          <div className="relative rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 sm:p-10 lg:p-12 shadow-xs transition-shadow">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-12 items-center">
-              {/* Cover Art Presentation */}
-              <div className="md:col-span-5 flex justify-center">
-                <Link
-                  to="/works/$workId"
-                  params={{ workId: leadWork.slug || leadWork.id }}
-                  preload="intent"
-                  className="group relative block w-full max-w-[280px] sm:max-w-[320px] aspect-[2/3] rounded-lg overflow-hidden border border-[var(--border-strong)] shadow-md hover:shadow-xl transition-all duration-300"
-                >
-                  <OptimizedImage
-                    src={leadWork.cover}
-                    alt={`${leadWork.title} by ${leadWork.author.name}`}
-                    width={480}
-                    height={720}
-                    priority
-                    containerClassName="w-full h-full"
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            {/* Slide Stage Grid */}
+            <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center relative z-10">
+              {/* Left Column: Book Artistry & Dimensional Presentation */}
+              <div className="lg:col-span-5 flex flex-col items-center justify-center">
+                <div className="relative group w-full max-w-[280px] sm:max-w-[340px] lg:max-w-[380px]">
+                  {/* Subtle Book Spine / Depth Backdrop */}
+                  <div
+                    aria-hidden="true"
+                    className="absolute inset-0 translate-x-3 translate-y-3 rounded-lg bg-[var(--border-strong)]/40 -z-10"
                   />
-                  {/* Discreet editorial rank marker */}
-                  <div className="absolute top-3 left-3 bg-[var(--ink-primary)] text-[var(--accent-contrast)] px-2.5 py-1 text-[10px] font-mono tracking-widest uppercase rounded">
-                    Folio Nº 01
-                  </div>
-                </Link>
+
+                  {/* Main Book Cover with Fine Hairline Border & Depth */}
+                  <Link
+                    to="/works/$workId"
+                    params={{ workId: activeWork.slug || activeWork.id }}
+                    preload="intent"
+                    className="block aspect-[2/3] w-full rounded-lg overflow-hidden border border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-xl hover:shadow-2xl transition-all duration-300 relative"
+                  >
+                    <OptimizedImage
+                      key={activeWork.id}
+                      src={activeWork.cover}
+                      alt={`${activeWork.title} by ${activeWork.author.name}`}
+                      width={520}
+                      height={780}
+                      priority
+                      containerClassName="w-full h-full"
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    />
+
+                    {/* Discreet Monospaced Folio Badge */}
+                    <div className="absolute top-3 left-3 bg-[var(--ink-primary)] text-[var(--accent-contrast)] px-2.5 py-1 text-[10px] font-mono tracking-widest uppercase rounded shadow-xs">
+                      Folio Nº {String(activeIndex + 1).padStart(2, '0')}
+                    </div>
+                  </Link>
+                </div>
               </div>
 
-              {/* Editorial Dossier */}
-              <div className="md:col-span-7 space-y-5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[var(--ink-muted)]">
-                    Flagship Spotlight
+              {/* Right Column: Editorial Dossier & Controls */}
+              <div className="lg:col-span-7 space-y-6">
+                {/* Header Tagline & Curated Marker */}
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-[var(--ink-muted)]">
+                    Folio Nº {String(activeIndex + 1).padStart(2, '0')} of {String(works.length).padStart(2, '0')}
                   </span>
                   <span className="text-[var(--ink-muted)] text-xs">•</span>
                   <span className="text-xs font-mono uppercase tracking-wider text-[var(--ink-secondary)]">
-                    {leadWork.genre || leadWork.category || 'Fiction'}
+                    {activeWork.genre || activeWork.category || 'Fiction'}
                   </span>
-                  {leadWork.status && (
+                  {activeWork.status && (
                     <>
                       <span className="text-[var(--ink-muted)] text-xs">•</span>
                       <span className="text-xs font-mono text-[var(--ink-muted)]">
-                        {leadWork.status}
+                        {activeWork.status}
                       </span>
                     </>
                   )}
                 </div>
 
-                <h2 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-[var(--ink-primary)] leading-[1.14]">
+                {/* Stately Title */}
+                <h1 className="font-serif text-3xl sm:text-5xl lg:text-6xl font-normal tracking-tight text-[var(--ink-primary)] leading-[1.1]">
                   <Link
                     to="/works/$workId"
-                    params={{ workId: leadWork.slug || leadWork.id }}
+                    params={{ workId: activeWork.slug || activeWork.id }}
                     preload="intent"
                     className="hover:underline decoration-1 underline-offset-4 text-[var(--ink-primary)] no-underline"
                   >
-                    {leadWork.title}
+                    {activeWork.title}
                   </Link>
-                </h2>
+                </h1>
 
+                {/* Author Byline */}
                 <p className="text-sm sm:text-base font-serif text-[var(--ink-muted)]">
-                  by{' '}
+                  Written by{' '}
                   <Link
                     to="/authors/$authorId"
-                    params={{ authorId: leadWork.author.handle || leadWork.author.id }}
+                    params={{ authorId: activeWork.author.handle || activeWork.author.id }}
                     className="text-[var(--ink-primary)] font-medium hover:underline decoration-1"
                   >
-                    {leadWork.author.name}
+                    {activeWork.author.name}
                   </Link>
                 </p>
 
-                {leadWork.synopsis && (
-                  <p className="font-serif text-base sm:text-lg text-[var(--ink-secondary)] leading-relaxed line-clamp-4">
-                    {leadWork.synopsis}
+                {/* Rich Synopsis Excerpt */}
+                {activeWork.synopsis && (
+                  <p className="font-serif text-base sm:text-lg text-[var(--ink-secondary)] leading-relaxed line-clamp-4 sm:line-clamp-5 max-w-2xl">
+                    {activeWork.synopsis}
                   </p>
                 )}
 
-                {/* Subdued Reading Metadata */}
+                {/* Curated Reading Metadata */}
                 <div className="pt-3 flex flex-wrap items-center gap-6 text-xs font-mono text-[var(--ink-muted)] border-t border-[var(--border-subtle)]">
-                  {leadWork.readingTimeMinutes > 0 && (
+                  {activeWork.readingTimeMinutes > 0 && (
                     <div className="flex items-center gap-1.5">
                       <Clock className="w-3.5 h-3.5" />
-                      <span>{leadWork.readingTimeMinutes} min read</span>
+                      <span>{activeWork.readingTimeMinutes} min read</span>
                     </div>
                   )}
-                  {leadWork.wordCount > 0 && (
+                  {activeWork.wordCount > 0 && (
                     <div className="flex items-center gap-1.5">
                       <BookOpen className="w-3.5 h-3.5" />
-                      <span>{leadWork.wordCount.toLocaleString()} words</span>
+                      <span>{activeWork.wordCount.toLocaleString()} words</span>
                     </div>
                   )}
-                  {Number(leadWork.viewCount) > 0 && (
+                  {Number(activeWork.viewCount) > 0 && (
                     <div className="flex items-center gap-1.5">
                       <Eye className="w-3.5 h-3.5" />
-                      <span>{formatViewCount(leadWork.viewCount)} readers</span>
+                      <span>{formatViewCount(activeWork.viewCount)} readers</span>
                     </div>
                   )}
                 </div>
 
-                {/* Editorial CTAs */}
-                <div className="pt-2 flex flex-wrap items-center gap-3">
-                  <Link
-                    to="/works/$workId"
-                    params={{ workId: leadWork.slug || leadWork.id }}
-                    preload="intent"
-                    className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-sm font-medium hover:opacity-90 transition-opacity no-underline shadow-xs"
-                  >
-                    <span>Begin Reading</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </Link>
+                {/* Action CTA & Navigation Controls */}
+                <div className="pt-2 flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Link
+                      to="/works/$workId"
+                      params={{ workId: activeWork.slug || activeWork.id }}
+                      preload="intent"
+                      className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-[var(--ink-primary)] text-[var(--accent-contrast)] text-sm font-medium hover:opacity-90 transition-opacity no-underline shadow-xs"
+                    >
+                      <span>Begin Reading</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </Link>
+                  </div>
+
+                  {/* Bespoke Pagination Controls */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={goToPrev}
+                      aria-label="Previous Folio"
+                      className="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-surface)] text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <span className="font-mono text-xs text-[var(--ink-muted)] px-2">
+                      {String(activeIndex + 1).padStart(2, '0')} / {String(works.length).padStart(2, '0')}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={goToNext}
+                      aria-label="Next Folio"
+                      className="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-surface)] text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Interactive Literary Filmstrip Tabs */}
+          <div className="border-t border-[var(--border-subtle)] bg-[var(--bg-surface)]">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
+                {works.map((work, idx) => {
+                  const isActive = idx === activeIndex
+                  const folioNumber = String(idx + 1).padStart(2, '0')
+                  return (
+                    <button
+                      key={work.id}
+                      type="button"
+                      onClick={() => setActiveIndex(idx)}
+                      className={`text-left p-3 rounded-lg border transition-all cursor-pointer ${
+                        isActive
+                          ? 'border-[var(--ink-primary)] bg-[var(--bg-canvas)] shadow-2xs'
+                          : 'border-transparent bg-transparent hover:bg-[var(--bg-subtle)] text-[var(--ink-muted)]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-[10px] font-mono mb-1">
+                        <span className={isActive ? 'text-[var(--ink-primary)] font-bold' : 'text-[var(--ink-muted)]'}>
+                          Nº {folioNumber}
+                        </span>
+                        <span className="truncate ml-1 text-[9px] uppercase tracking-wider text-[var(--ink-muted)]">
+                          {work.genre || 'Story'}
+                        </span>
+                      </div>
+                      <p
+                        className={`text-xs font-serif truncate ${
+                          isActive
+                            ? 'text-[var(--ink-primary)] font-medium'
+                            : 'text-[var(--ink-secondary)]'
+                        }`}
+                      >
+                        {work.title}
+                      </p>
+                    </button>
+                  )
+                })}
               </div>
             </div>
           </div>
         </section>
       )}
 
-      {/* 5. Curated Folio Roster (Folio Nº 02 to Nº 06) */}
-      {rosterWorks.length > 0 && (
-        <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
+      {/* 4. Complete Folio Archive (All 5 Works for Crawlers & Extended Reading) */}
+      {works.length > 0 && (
+        <section className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="flex items-center justify-between pb-4 border-b border-[var(--border-subtle)] mb-8">
             <div>
               <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-[var(--ink-muted)]">
-                The Roster
+                The Curated Folio Index
               </span>
               <h2 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--ink-primary)] mt-1">
-                Curated Folio Selections
+                Anthology Overview
               </h2>
             </div>
             <span className="font-mono text-xs text-[var(--ink-muted)]">
-              Folios Nº 02 – Nº {String(works.length).padStart(2, '0')}
+              {works.length} Curated Stories
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
-            {rosterWorks.map((work, index) => {
-              const folioNumber = String(index + 2).padStart(2, '0')
+          <div className="divide-y divide-[var(--border-subtle)]">
+            {works.map((work, idx) => {
+              const folioNumber = String(idx + 1).padStart(2, '0')
               return (
-                <article
+                <div
                   key={work.id}
-                  className="group relative flex flex-col sm:flex-row gap-5 p-5 sm:p-6 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:border-[var(--border-strong)] transition-all duration-200"
+                  className="py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group"
                 >
-                  {/* Book Cover */}
-                  <Link
-                    to="/works/$workId"
-                    params={{ workId: work.slug || work.id }}
-                    preload="intent"
-                    className="relative aspect-[2/3] w-28 sm:w-32 shrink-0 rounded-md overflow-hidden border border-[var(--border-subtle)] shadow-xs mx-auto sm:mx-0 group-hover:shadow-md transition-shadow"
-                  >
-                    <OptimizedImage
-                      src={work.cover}
-                      alt={`${work.title} by ${work.author.name}`}
-                      width={240}
-                      height={360}
-                      containerClassName="w-full h-full"
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                    />
-                    <div className="absolute top-2 left-2 bg-[var(--ink-primary)] text-[var(--accent-contrast)] px-1.5 py-0.5 text-[9px] font-mono tracking-wider rounded">
+                  <div className="flex items-start sm:items-center gap-4">
+                    <span className="font-mono text-xs text-[var(--ink-muted)] pt-0.5 sm:pt-0 shrink-0">
                       Nº {folioNumber}
-                    </div>
-                  </Link>
-
-                  {/* Dossier */}
-                  <div className="flex-1 flex flex-col justify-between space-y-3">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--ink-muted)]">
-                          {work.genre || work.category || 'Fiction'}
-                        </span>
-                        <span className="text-[10px] font-mono text-[var(--ink-muted)]">
-                          {work.status || 'Serialized'}
-                        </span>
-                      </div>
-
-                      <h3 className="font-serif text-xl sm:text-2xl font-bold tracking-tight text-[var(--ink-primary)] leading-snug">
+                    </span>
+                    <div>
+                      <h3 className="font-serif text-lg font-bold text-[var(--ink-primary)] group-hover:underline decoration-1">
                         <Link
                           to="/works/$workId"
                           params={{ workId: work.slug || work.id }}
                           preload="intent"
-                          className="hover:underline decoration-1 underline-offset-2 text-[var(--ink-primary)] no-underline"
+                          className="no-underline text-[var(--ink-primary)]"
                         >
                           {work.title}
                         </Link>
                       </h3>
-
-                      <p className="text-xs sm:text-sm font-serif text-[var(--ink-muted)]">
-                        by{' '}
-                        <Link
-                          to="/authors/$authorId"
-                          params={{ authorId: work.author.handle || work.author.id }}
-                          className="text-[var(--ink-primary)] font-medium hover:underline decoration-1"
-                        >
-                          {work.author.name}
-                        </Link>
+                      <p className="text-xs text-[var(--ink-muted)] font-serif mt-0.5">
+                        by {work.author.name} • {work.genre || 'Fiction'}
                       </p>
-
-                      {work.synopsis && (
-                        <p className="text-xs sm:text-sm font-serif text-[var(--ink-secondary)] leading-relaxed line-clamp-3">
-                          {work.synopsis}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Card Footer: Metadata & Action */}
-                    <div className="pt-3 border-t border-[var(--border-subtle)] flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-3 text-[11px] font-mono text-[var(--ink-muted)]">
-                        {work.readingTimeMinutes > 0 && (
-                          <span>{work.readingTimeMinutes}m read</span>
-                        )}
-                        {Number(work.viewCount) > 0 && (
-                          <span>{formatViewCount(work.viewCount)} readers</span>
-                        )}
-                      </div>
-
-                      <Link
-                        to="/works/$workId"
-                        params={{ workId: work.slug || work.id }}
-                        preload="intent"
-                        className="inline-flex items-center gap-1 text-xs font-mono font-medium text-[var(--ink-primary)] group-hover:translate-x-0.5 transition-transform no-underline"
-                      >
-                        <span>Read</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </Link>
                     </div>
                   </div>
-                </article>
+
+                  <div className="flex items-center gap-4 shrink-0 sm:self-center">
+                    {Number(work.viewCount) > 0 && (
+                      <span className="text-xs font-mono text-[var(--ink-muted)] hidden md:inline">
+                        {formatViewCount(work.viewCount)} readers
+                      </span>
+                    )}
+                    <Link
+                      to="/works/$workId"
+                      params={{ workId: work.slug || work.id }}
+                      preload="intent"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-[var(--border-subtle)] hover:border-[var(--border-strong)] text-xs font-mono text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors no-underline"
+                    >
+                      <span>Read Folio</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </Link>
+                  </div>
+                </div>
               )
             })}
           </div>
         </section>
       )}
 
-      {/* 6. Editorial FAQ Section */}
+      {/* 5. Editorial FAQ Section */}
       <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 border-t border-[var(--border-subtle)]">
         <div className="text-center mb-8 space-y-2">
           <div className="inline-flex items-center gap-1.5 text-xs font-mono text-[var(--ink-muted)] uppercase tracking-wider">
@@ -532,7 +607,7 @@ function HatchpenHitsPage() {
         </div>
       </section>
 
-      {/* 7. Submissions & Creator Consideration */}
+      {/* 6. Submissions & Creator Consideration */}
       <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
         <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-8 sm:p-12 text-center space-y-4 shadow-xs">
           <div className="inline-flex items-center justify-center w-11 h-11 rounded-full bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--ink-primary)] mx-auto">
