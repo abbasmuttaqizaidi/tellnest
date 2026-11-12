@@ -2345,18 +2345,18 @@ function SecretAdminPanelPage() {
 
           {/* Lightweight Works Table (50 per page: Title, Author, Posted, Views) */}
           <div className="overflow-x-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-xs">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse min-w-[1240px]">
               <thead>
-                <tr className="border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)] text-[11px] font-mono uppercase tracking-wider text-[var(--ink-muted)]">
-                  <th className="py-3 px-4 font-semibold">Title</th>
-                  <th className="py-3 px-4 font-semibold">Author</th>
-                  <th className="py-3 px-4 font-semibold">Posted</th>
-                  <th className="py-3 px-4 font-semibold text-right">No. of Views</th>
-                  <th className="py-3 px-4 font-semibold text-right">Hearts</th>
-                  <th className="py-3 px-4 font-semibold text-right">Saves</th>
-                  <th className="py-3 px-4 font-semibold text-center">Pin / Hit</th>
-                  <th className="py-3 px-4 font-semibold text-center">Status</th>
-                  <th className="py-3 px-4 font-semibold text-right">Action</th>
+                <tr className="sticky top-0 z-10 border-b border-[var(--border-strong)] bg-[var(--bg-subtle)] text-[11px] font-mono uppercase tracking-wider text-[var(--ink-secondary)] shadow-2xs">
+                  <th className="py-3 px-4 font-semibold min-w-[340px] w-[35%]">Title &amp; Manuscript</th>
+                  <th className="py-3 px-4 font-semibold min-w-[180px]">Author</th>
+                  <th className="py-3 px-4 font-semibold min-w-[110px] whitespace-nowrap">Posted</th>
+                  <th className="py-3 px-4 font-semibold text-right min-w-[125px]">No. of Views</th>
+                  <th className="py-3 px-4 font-semibold text-right min-w-[105px]">Hearts</th>
+                  <th className="py-3 px-4 font-semibold text-right min-w-[105px]">Saves</th>
+                  <th className="py-3 px-4 font-semibold text-center min-w-[155px]">Pin / Hit</th>
+                  <th className="py-3 px-4 font-semibold text-center min-w-[100px]">Status</th>
+                  <th className="py-3 px-4 font-semibold text-right min-w-[230px]">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border-subtle)] text-xs font-mono">
@@ -2377,15 +2377,15 @@ function SecretAdminPanelPage() {
                   filteredAdminWorks.map((work) => (
                     <tr
                       key={work.id}
-                      className="hover:bg-[var(--bg-subtle)]/60 transition-colors"
+                      className="hover:bg-[var(--bg-subtle)]/70 transition-colors"
                     >
                       {/* 1. Title + Cover */}
-                      <td className="py-3 px-4 font-serif text-sm font-semibold text-[var(--ink-primary)]">
-                        <div className="flex items-center gap-3">
+                      <td className="py-3.5 px-4 font-serif text-sm font-semibold text-[var(--ink-primary)] min-w-[340px] w-[35%]">
+                        <div className="flex items-start gap-3.5">
                           <button
                             type="button"
                             onClick={() => openChangeCoverModal(work)}
-                            className="relative h-11 w-8 shrink-0 rounded overflow-hidden border border-[var(--border-subtle)] hover:border-[var(--ink-primary)] transition-all group/cover cursor-pointer bg-[var(--bg-subtle)]"
+                            className="relative h-12 w-9 shrink-0 rounded-md overflow-hidden border border-[var(--border-subtle)] hover:border-[var(--ink-primary)] transition-all group/cover cursor-pointer bg-[var(--bg-subtle)] shadow-2xs mt-0.5"
                             title="Click to change story cover image"
                           >
                             {work.cover ? (
@@ -2396,43 +2396,50 @@ function SecretAdminPanelPage() {
                               />
                             ) : (
                               <div className="h-full w-full flex items-center justify-center text-[var(--ink-muted)]">
-                                <BookOpen className="h-3 w-3" />
+                                <BookOpen className="h-3.5 w-3.5" />
                               </div>
                             )}
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/cover:opacity-100 transition-opacity flex items-center justify-center text-white">
-                              <Camera className="h-3 w-3" />
+                              <Camera className="h-3.5 w-3.5" />
                             </div>
                           </button>
 
-                          <Link
-                            to="/admin-work-editor/$workId"
-                            params={{ workId: work.id }}
-                            className="flex items-center gap-1.5 hover:underline text-[var(--ink-primary)] cursor-pointer"
-                            title="Open Admin Manuscript Editor"
-                          >
-                            <span className="line-clamp-1">{work.title}</span>
-                          </Link>
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <Link
+                              to="/admin-work-editor/$workId"
+                              params={{ workId: work.id }}
+                              className="block hover:underline text-[var(--ink-primary)] font-serif text-sm font-semibold leading-snug cursor-pointer"
+                              title={`Open Admin Manuscript Editor for "${work.title}"`}
+                            >
+                              <span className="line-clamp-2">{work.title}</span>
+                            </Link>
+                            <div className="flex items-center gap-2 text-[10px] font-mono text-[var(--ink-muted)]">
+                              <span className="truncate max-w-[220px]" title={work.slug || work.id}>
+                                /{work.slug || work.id}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       </td>
 
                       {/* 2. Author */}
-                      <td className="py-3 px-4 text-[var(--ink-primary)]">
-                        <div className="flex items-center gap-2">
+                      <td className="py-3.5 px-4 text-[var(--ink-primary)] min-w-[180px]">
+                        <div className="flex items-center gap-2.5">
                           <UnisexAvatar
                             src={work.author.avatar || undefined}
                             name={work.author.name}
                             size="sm"
                           />
-                          <div>
-                            <div className="font-medium text-[var(--ink-primary)] leading-tight flex items-center gap-1.5">
-                              <span>{work.author.name}</span>
+                          <div className="min-w-0">
+                            <div className="font-medium text-xs text-[var(--ink-primary)] leading-tight flex items-center gap-1.5 truncate">
+                              <span className="truncate">{work.author.name}</span>
                               {work.author.isMock && (
-                                <span className="inline-block px-1 rounded text-[9px] font-mono font-semibold bg-purple-100 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300">
+                                <span className="inline-block px-1 rounded text-[9px] font-mono font-semibold bg-purple-100 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300 shrink-0">
                                   Mock
                                 </span>
                               )}
                             </div>
-                            <div className="text-[10px] text-[var(--ink-muted)] font-mono">
+                            <div className="text-[10px] text-[var(--ink-muted)] font-mono truncate">
                               @{work.author.handle}
                             </div>
                           </div>
@@ -2440,9 +2447,9 @@ function SecretAdminPanelPage() {
                       </td>
 
                       {/* 3. Posted */}
-                      <td className="py-3 px-4 text-[var(--ink-muted)] text-[11px] whitespace-nowrap">
+                      <td className="py-3.5 px-4 text-[var(--ink-muted)] text-[11px] whitespace-nowrap min-w-[110px]">
                         <div className="flex items-center gap-1.5">
-                          <Clock className="h-3 w-3 text-[var(--ink-faint)]" />
+                          <Clock className="h-3 w-3 text-[var(--ink-faint)] shrink-0" />
                           <span>
                             {work.postedAt ? new Date(work.postedAt).toLocaleDateString('en-US', {
                               year: 'numeric',
@@ -2454,14 +2461,14 @@ function SecretAdminPanelPage() {
                       </td>
 
                       {/* 4. No. of Views & Impressions (Interactive Trigger for Acts Breakdown Popup) */}
-                      <td className="py-3 px-4 text-right">
+                      <td className="py-3.5 px-4 text-right min-w-[125px]">
                         <button
                           type="button"
                           onClick={() => openActsAnalyticsModal(work)}
                           className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-mono font-semibold text-[var(--ink-primary)] bg-[var(--bg-subtle)] border border-[var(--border-subtle)] hover:border-[var(--ink-primary)] hover:bg-[var(--bg-surface)] hover:shadow-xs transition-all cursor-pointer group"
                           title={`${work.viewCount.toLocaleString()} reads • ${(work.impressionCount || 0).toLocaleString()} impressions • Click to view Acts & Chapters breakdown`}
                         >
-                          <Eye className="h-3.5 w-3.5 text-[var(--ink-muted)] group-hover:text-[var(--ink-primary)] transition-colors" />
+                          <Eye className="h-3.5 w-3.5 text-[var(--ink-muted)] group-hover:text-[var(--ink-primary)] transition-colors shrink-0" />
                           <div className="text-right leading-tight">
                             <div>{work.viewCount.toLocaleString()} <span className="text-[9px] text-[var(--ink-faint)] font-sans">reads</span></div>
                             <div className="text-[9px] text-[var(--ink-faint)] font-sans font-normal">{(work.impressionCount || 0).toLocaleString()} impr</div>
@@ -2473,7 +2480,7 @@ function SecretAdminPanelPage() {
                       </td>
 
                       {/* 4.5. Hearts (Interactive Trigger for Hearts Breakdown Popup) */}
-                      <td className="py-3 px-4 text-right">
+                      <td className="py-3.5 px-4 text-right min-w-[105px]">
                         <button
                           type="button"
                           onClick={() => {
@@ -2487,7 +2494,7 @@ function SecretAdminPanelPage() {
                           className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-mono font-semibold text-[var(--ink-primary)] bg-[var(--bg-subtle)] border border-[var(--border-subtle)] hover:border-[var(--ink-primary)] hover:bg-[var(--bg-surface)] hover:shadow-xs transition-all cursor-pointer group"
                           title={`${formatHeartCount(work.likeCount, false)} hearts • Click to adjust`}
                         >
-                          <Heart className="h-3.5 w-3.5 fill-current text-[var(--ink-primary)] group-hover:scale-110 transition-transform" />
+                          <Heart className="h-3.5 w-3.5 fill-current text-[var(--ink-primary)] group-hover:scale-110 transition-transform shrink-0" />
                           <span>{formatHeartCount(work.likeCount, true)}</span>
                           <span className="text-[10px] text-[var(--ink-faint)] group-hover:text-[var(--ink-muted)] font-sans">
                             adjust ↗
@@ -2496,7 +2503,7 @@ function SecretAdminPanelPage() {
                       </td>
 
                       {/* 4.6. Saves (Interactive Trigger for Library Saves Adjustment Modal) */}
-                      <td className="py-3 px-4 text-right">
+                      <td className="py-3.5 px-4 text-right min-w-[105px]">
                         <button
                           type="button"
                           onClick={() => {
@@ -2506,7 +2513,7 @@ function SecretAdminPanelPage() {
                           className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-mono font-semibold text-[var(--ink-primary)] bg-[var(--bg-subtle)] border border-[var(--border-subtle)] hover:border-[var(--ink-primary)] hover:bg-[var(--bg-surface)] hover:shadow-xs transition-all cursor-pointer group"
                           title={`${((work as any).saveCount ?? (work as any).totalSaves ?? 0).toLocaleString()} library saves • Click to adjust`}
                         >
-                          <Bookmark className="h-3.5 w-3.5 fill-current text-[var(--ink-primary)] group-hover:scale-110 transition-transform" />
+                          <Bookmark className="h-3.5 w-3.5 fill-current text-[var(--ink-primary)] group-hover:scale-110 transition-transform shrink-0" />
                           <span>{((work as any).saveCount ?? (work as any).totalSaves ?? 0).toLocaleString()}</span>
                           <span className="text-[10px] text-[var(--ink-faint)] group-hover:text-[var(--ink-muted)] font-sans">
                             adjust ↗
@@ -2515,7 +2522,7 @@ function SecretAdminPanelPage() {
                       </td>
 
                       {/* 4.75. Trending Admin Pin & HatchPen Hit Override Toggles */}
-                      <td className="py-3 px-4 text-center">
+                      <td className="py-3.5 px-4 text-center min-w-[155px]">
                         <div className="inline-flex items-center gap-1.5 justify-center">
                           <button
                             type="button"
@@ -2558,7 +2565,7 @@ function SecretAdminPanelPage() {
                       </td>
 
                       {/* 5. Status */}
-                      <td className="py-3 px-4 text-center">
+                      <td className="py-3.5 px-4 text-center min-w-[100px]">
                         <Badge
                           variant="outline"
                           size="sm"
@@ -2569,32 +2576,12 @@ function SecretAdminPanelPage() {
                       </td>
 
                       {/* 6. Action */}
-                      <td className="py-3 px-4 text-right">
+                      <td className="py-3.5 px-4 text-right min-w-[230px]">
                         <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => openChangeCoverModal(work)}
-                            className="inline-flex items-center gap-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2 py-1 text-[11px] font-mono font-medium text-[var(--ink-primary)] hover:border-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] cursor-pointer"
-                            title={`Change cover image for "${work.title}"`}
-                          >
-                            <Camera className="h-3 w-3 text-[var(--ink-muted)]" />
-                            <span>Cover</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => openReassignModal(work)}
-                            className="inline-flex items-center gap-1 rounded border border-purple-500/30 bg-purple-500/10 px-2 py-1 text-[11px] font-mono font-medium text-purple-400 hover:bg-purple-500/20 hover:border-purple-500/50 cursor-pointer"
-                            title={`Reassign ownership of "${work.title}" to another author`}
-                          >
-                            <UserCheck className="h-3 w-3" />
-                            <span>Reassign</span>
-                          </button>
-
                           <Link
                             to="/admin-work-editor/$workId"
                             params={{ workId: work.id }}
-                            className="inline-flex items-center gap-1 rounded border border-[var(--border-strong)] bg-[var(--bg-surface)] px-2 py-1 text-[11px] font-mono font-medium text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] no-underline cursor-pointer"
+                            className="inline-flex items-center gap-1 rounded border border-[var(--border-strong)] bg-[var(--bg-surface)] px-2.5 py-1 text-[11px] font-mono font-medium text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] no-underline cursor-pointer shadow-2xs"
                             title="Edit manuscript fields, acts, and chapters"
                           >
                             <Edit className="h-3 w-3" />
@@ -2617,8 +2604,27 @@ function SecretAdminPanelPage() {
                             className="h-7 px-2 text-[10px]"
                             title={`Add chapter to ${work.title}`}
                           >
-                            Add Part
+                            Part
                           </Button>
+
+                          <button
+                            type="button"
+                            onClick={() => openChangeCoverModal(work)}
+                            className="inline-flex items-center gap-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2 py-1 text-[11px] font-mono font-medium text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:border-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] cursor-pointer"
+                            title={`Change cover image for "${work.title}"`}
+                          >
+                            <Camera className="h-3 w-3" />
+                            <span>Cover</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => openReassignModal(work)}
+                            className="inline-flex items-center gap-1 rounded border border-purple-500/30 bg-purple-500/10 px-2 py-1 text-[11px] font-mono font-medium text-purple-400 hover:bg-purple-500/20 hover:border-purple-500/50 cursor-pointer"
+                            title={`Reassign ownership of "${work.title}" to another author`}
+                          >
+                            <UserCheck className="h-3 w-3" />
+                          </button>
                         </div>
                       </td>
                     </tr>
