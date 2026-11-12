@@ -1096,9 +1096,7 @@ function SecretAdminPanelPage() {
       }
 
       const rawImpressions = Number((w as any).impressionCount ?? (w as any).impression_count ?? 0)
-      const impressionCount = rawImpressions > 0
-        ? rawImpressions
-        : (parsedViews > 0 ? Math.round(parsedViews * 1.38 + 14) : 0)
+      const impressionCount = rawImpressions
 
       const saveCount = Number(
         (w as any).saveCount ??
@@ -2477,29 +2475,21 @@ function SecretAdminPanelPage() {
 
                       {/* 4. No. of Views & Impressions (Interactive Trigger for Acts Breakdown Popup) */}
                       <td className="py-3.5 px-4 text-right min-w-[125px]">
-                        {(() => {
-                          const effectiveImpr = Math.max(
-                            Number(work.impressionCount || 0),
-                            work.viewCount > 0 ? Math.round(work.viewCount * 1.35) : 0
-                          )
-                          return (
-                            <button
-                              type="button"
-                              onClick={() => openActsAnalyticsModal(work)}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-mono font-semibold text-[var(--ink-primary)] bg-[var(--bg-subtle)] border border-[var(--border-subtle)] hover:border-[var(--ink-primary)] hover:bg-[var(--bg-surface)] hover:shadow-xs transition-all cursor-pointer group"
-                              title={`${work.viewCount.toLocaleString()} reads • ${effectiveImpr.toLocaleString()} impressions • Click to view Acts & Chapters breakdown`}
-                            >
-                              <Eye className="h-3.5 w-3.5 text-[var(--ink-muted)] group-hover:text-[var(--ink-primary)] transition-colors shrink-0" />
-                              <div className="text-right leading-tight">
-                                <div>{work.viewCount.toLocaleString()} <span className="text-[9px] text-[var(--ink-faint)] font-sans">reads</span></div>
-                                <div className="text-[9px] text-[var(--ink-faint)] font-sans font-normal">{effectiveImpr.toLocaleString()} impr</div>
-                              </div>
-                              <span className="text-[10px] text-[var(--ink-faint)] group-hover:text-[var(--ink-muted)] font-sans">
-                                ↗
-                              </span>
-                            </button>
-                          )
-                        })()}
+                        <button
+                          type="button"
+                          onClick={() => openActsAnalyticsModal(work)}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-mono font-semibold text-[var(--ink-primary)] bg-[var(--bg-subtle)] border border-[var(--border-subtle)] hover:border-[var(--ink-primary)] hover:bg-[var(--bg-surface)] hover:shadow-xs transition-all cursor-pointer group"
+                          title={`${work.viewCount.toLocaleString()} reads • ${(work.impressionCount || 0).toLocaleString()} impressions • Click to view Acts & Chapters breakdown`}
+                        >
+                          <Eye className="h-3.5 w-3.5 text-[var(--ink-muted)] group-hover:text-[var(--ink-primary)] transition-colors shrink-0" />
+                          <div className="text-right leading-tight">
+                            <div>{work.viewCount.toLocaleString()} <span className="text-[9px] text-[var(--ink-faint)] font-sans">reads</span></div>
+                            <div className="text-[9px] text-[var(--ink-faint)] font-sans font-normal">{(work.impressionCount || 0).toLocaleString()} impr</div>
+                          </div>
+                          <span className="text-[10px] text-[var(--ink-faint)] group-hover:text-[var(--ink-muted)] font-sans">
+                            ↗
+                          </span>
+                        </button>
                       </td>
 
                       {/* 4.5. Hearts (Interactive Trigger for Hearts Breakdown Popup) */}

@@ -2384,15 +2384,10 @@ export const getAdminWorksServerFn = createServerFn({ method: 'GET' })
             m.title.toLowerCase().trim() === (w.title || '').toLowerCase().trim()
         )
 
-        // Impressions:
-        // Use DB impression_count if > 0.
-        // If unpopulated (0 or null), compute realistic impressions based on views or canonical mock impressions
+        // Impressions: Direct raw impression_count from DB (or mock impressionCount if mock work)
         const dbImpressions = Number(w.impression_count || 0)
         const mockImpressions = Number(matchedMock?.impressionCount || (matchedMock as any)?.impression_count || 0)
-        const computedImpressions = viewCount > 0 ? Math.round(viewCount * 1.38 + 14) : 0
-        const impressionCount = dbImpressions > 0
-          ? Math.max(dbImpressions, viewCount)
-          : Math.max(mockImpressions, computedImpressions)
+        const impressionCount = dbImpressions > 0 ? dbImpressions : mockImpressions
 
         // Saves:
         // Check DB save_count, actual bookmarks in DB, or canonical mock saves
