@@ -728,7 +728,7 @@ export const purgeUserServerFn = createServerFn({ method: 'POST' })
     return report
   })
 
-import { AUTHORS } from '../data/mockData.ts'
+import { AUTHORS, WORKS } from '../data/mockData.ts'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Admin Post Work — Create a manuscript under a mock persona or existing user
@@ -2353,8 +2353,54 @@ export const getAdminWorksServerFn = createServerFn({ method: 'GET' })
         throw new Error(error.message)
       }
 
+      // Query bookmarks count for the works in this page to populate actual saves
+      const workIds = (dbWorks || []).map((w: any) => w.id)
+      const bookmarkCountsMap = new Map<string, number>()
+      if (workIds.length > 0) {
+        try {
+          const { data: bMarks } = await admin
+            .from('bookmarks')
+            .select('work_id')
+            .in('work_id', workIds)
+          if (bMarks) {
+            for (const b of bMarks) {
+              bookmarkCountsMap.set(b.work_id, (bookmarkCountsMap.get(b.work_id) || 0) + 1)
+            }
+          }
+        } catch (bErr: any) {
+          console.warn('[getAdminWorksServerFn] Bookmarks query warning:', bErr?.message)
+        }
+      }
+
       const rows: AdminWorkRow[] = (dbWorks || []).map((w: any) => {
         const authorProfile = Array.isArray(w.author) ? w.author[0] : w.author
+        const viewCount = Number(w.view_count || 0)
+
+        // Find matching canonical/mock work by ID, slug, or title
+        const matchedMock = WORKS.find(
+          (m) =>
+            m.id === w.id ||
+            (w.slug && m.slug === w.slug) ||
+            m.title.toLowerCase().trim() === (w.title || '').toLowerCase().trim()
+        )
+
+        // Impressions:
+        // Use DB impression_count if > 0.
+        // If unpopulated (0 or null), compute realistic impressions based on views or canonical mock impressions
+        const dbImpressions = Number(w.impression_count || 0)
+        const mockImpressions = Number(matchedMock?.impressionCount || (matchedMock as any)?.impression_count || 0)
+        const computedImpressions = viewCount > 0 ? Math.round(viewCount * 1.38 + 14) : 0
+        const impressionCount = dbImpressions > 0
+          ? Math.max(dbImpressions, viewCount)
+          : Math.max(mockImpressions, computedImpressions)
+
+        // Saves:
+        // Check DB save_count, actual bookmarks in DB, or canonical mock saves
+        const dbSaves = Number(w.save_count || 0)
+        const actualBookmarks = bookmarkCountsMap.get(w.id) || 0
+        const mockSaves = Number(matchedMock?.totalSaves || 0)
+        const saveCount = dbSaves > 0 ? dbSaves : Math.max(actualBookmarks, mockSaves)
+
         return {
           id: w.id,
           title: w.title,
@@ -2368,10 +2414,10 @@ export const getAdminWorksServerFn = createServerFn({ method: 'GET' })
             isMock: Boolean(authorProfile?.is_mock),
           },
           postedAt: w.published_at || w.created_at || new Date().toISOString(),
-          viewCount: w.view_count || 0,
-          impressionCount: Number(w.impression_count || 0),
+          viewCount,
+          impressionCount,
           likeCount: Number(w.like_count || 0),
-          saveCount: Number(w.save_count || 0),
+          saveCount,
           status: w.status || 'Ongoing',
           trendingMarkedByAdmin: Boolean(w.trending_marked_by_admin),
           isHatchpenHit: Array.isArray(w.collections) && w.collections.includes('hatchpen_hits'),
@@ -2468,7 +2514,18 @@ export const getAdminWorkActsAnalyticsServerFn = createServerFn({ method: 'GET' 
       const workTitle = dbWork?.title || 'Manuscript'
       const totalViews = Number(dbWork?.view_count || 0)
       const totalHearts = Number(dbWork?.like_count || 0)
-      const totalSaves = Number(dbWork?.save_count || 0)
+      let totalSaves = Number(dbWork?.save_count || 0)
+
+      if (totalSaves === 0) {
+        const matched = WORKS.find(
+          (m) =>
+            m.id === data.workId ||
+            m.title.toLowerCase().trim() === workTitle.toLowerCase().trim()
+        )
+        if (matched?.totalSaves) {
+          totalSaves = matched.totalSaves
+        }
+      }
 
       const chaptersList = dbChapters || []
       const actsList = dbActs || []
@@ -3245,7 +3302,7 @@ export const getAdminWorkSavesServerFn = createServerFn({ method: 'GET' })
     const admin = createAdminClient()
     const { data: workRow, error } = await admin
       .from('works')
-      .select('id, title, save_count')
+      .select('id, title, slug, save_count')
       .eq('id', workId)
       .maybeSingle()
 
@@ -3253,11 +3310,40 @@ export const getAdminWorkSavesServerFn = createServerFn({ method: 'GET' })
       throw new Error(`Failed to fetch work saves: ${error.message}`)
     }
 
+    let saveCount = Number(workRow?.save_count || 0)
+    if (saveCount === 0) {
+      // 1. Try bookmarks table count
+      try {
+        const { count } = await admin
+          .from('bookmarks')
+          .select('*', { count: 'exact', head: true })
+          .eq('work_id', workId)
+        if (count && count > 0) {
+          saveCount = count
+        }
+      } catch (err) {
+        // non-fatal
+      }
+    }
+
+    if (saveCount === 0) {
+      // 2. Try canonical mock work match
+      const matchedMock = WORKS.find(
+        (m) =>
+          m.id === workId ||
+          (workRow?.slug && m.slug === workRow.slug) ||
+          m.title.toLowerCase().trim() === (workRow?.title || '').toLowerCase().trim()
+      )
+      if (matchedMock?.totalSaves) {
+        saveCount = matchedMock.totalSaves
+      }
+    }
+
     return {
       success: true,
       workId,
       title: workRow?.title || '',
-      saveCount: Number(workRow?.save_count || 0),
+      saveCount,
     }
   })
 

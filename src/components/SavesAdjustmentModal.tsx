@@ -54,9 +54,11 @@ export const SavesAdjustmentModal: React.FC<SavesAdjustmentModalProps> = ({
         data: { adminToken, workId: work.id },
       })
         .then((res) => {
-          if (res?.success) {
-            setSaveCount(res.saveCount)
-            setInitialCount(res.saveCount)
+          if (res?.success && typeof res.saveCount === 'number') {
+            if (res.saveCount > 0 || initial === 0) {
+              setSaveCount(res.saveCount)
+              setInitialCount(res.saveCount)
+            }
           }
         })
         .catch((err) => {

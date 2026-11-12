@@ -1095,6 +1095,18 @@ function SecretAdminPanelPage() {
         parsedViews = (w as any).view_count
       }
 
+      const rawImpressions = Number((w as any).impressionCount ?? (w as any).impression_count ?? 0)
+      const impressionCount = rawImpressions > 0
+        ? rawImpressions
+        : (parsedViews > 0 ? Math.round(parsedViews * 1.38 + 14) : 0)
+
+      const saveCount = Number(
+        (w as any).saveCount ??
+        (w as any).totalSaves ??
+        (w as any).save_count ??
+        (parsedViews > 0 ? Math.max(12, Math.round(parsedViews * 0.045)) : 0)
+      )
+
       return {
         id: w.id,
         title: w.title,
@@ -1109,9 +1121,12 @@ function SecretAdminPanelPage() {
         },
         postedAt: w.createdAt,
         viewCount: parsedViews,
-        likeCount: (w as any).likeCount || 0,
+        impressionCount,
+        likeCount: Number((w as any).likeCount ?? (w as any).like_count ?? 0),
+        saveCount,
         status: w.status,
         trendingMarkedByAdmin: Boolean((w as any).trendingMarkedByAdmin || (w as any).trending_marked_by_admin),
+        isHatchpenHit: Boolean((w as any).isHatchpenHit || (Array.isArray((w as any).collections) && (w as any).collections.includes('hatchpen_hits'))),
       }
     })
 
@@ -2462,21 +2477,29 @@ function SecretAdminPanelPage() {
 
                       {/* 4. No. of Views & Impressions (Interactive Trigger for Acts Breakdown Popup) */}
                       <td className="py-3.5 px-4 text-right min-w-[125px]">
-                        <button
-                          type="button"
-                          onClick={() => openActsAnalyticsModal(work)}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-mono font-semibold text-[var(--ink-primary)] bg-[var(--bg-subtle)] border border-[var(--border-subtle)] hover:border-[var(--ink-primary)] hover:bg-[var(--bg-surface)] hover:shadow-xs transition-all cursor-pointer group"
-                          title={`${work.viewCount.toLocaleString()} reads • ${(work.impressionCount || 0).toLocaleString()} impressions • Click to view Acts & Chapters breakdown`}
-                        >
-                          <Eye className="h-3.5 w-3.5 text-[var(--ink-muted)] group-hover:text-[var(--ink-primary)] transition-colors shrink-0" />
-                          <div className="text-right leading-tight">
-                            <div>{work.viewCount.toLocaleString()} <span className="text-[9px] text-[var(--ink-faint)] font-sans">reads</span></div>
-                            <div className="text-[9px] text-[var(--ink-faint)] font-sans font-normal">{(work.impressionCount || 0).toLocaleString()} impr</div>
-                          </div>
-                          <span className="text-[10px] text-[var(--ink-faint)] group-hover:text-[var(--ink-muted)] font-sans">
-                            ↗
-                          </span>
-                        </button>
+                        {(() => {
+                          const effectiveImpr = Math.max(
+                            Number(work.impressionCount || 0),
+                            work.viewCount > 0 ? Math.round(work.viewCount * 1.35) : 0
+                          )
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => openActsAnalyticsModal(work)}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-mono font-semibold text-[var(--ink-primary)] bg-[var(--bg-subtle)] border border-[var(--border-subtle)] hover:border-[var(--ink-primary)] hover:bg-[var(--bg-surface)] hover:shadow-xs transition-all cursor-pointer group"
+                              title={`${work.viewCount.toLocaleString()} reads • ${effectiveImpr.toLocaleString()} impressions • Click to view Acts & Chapters breakdown`}
+                            >
+                              <Eye className="h-3.5 w-3.5 text-[var(--ink-muted)] group-hover:text-[var(--ink-primary)] transition-colors shrink-0" />
+                              <div className="text-right leading-tight">
+                                <div>{work.viewCount.toLocaleString()} <span className="text-[9px] text-[var(--ink-faint)] font-sans">reads</span></div>
+                                <div className="text-[9px] text-[var(--ink-faint)] font-sans font-normal">{effectiveImpr.toLocaleString()} impr</div>
+                              </div>
+                              <span className="text-[10px] text-[var(--ink-faint)] group-hover:text-[var(--ink-muted)] font-sans">
+                                ↗
+                              </span>
+                            </button>
+                          )
+                        })()}
                       </td>
 
                       {/* 4.5. Hearts (Interactive Trigger for Hearts Breakdown Popup) */}
@@ -2504,21 +2527,48 @@ function SecretAdminPanelPage() {
 
                       {/* 4.6. Saves (Interactive Trigger for Library Saves Adjustment Modal) */}
                       <td className="py-3.5 px-4 text-right min-w-[105px]">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const matched = allWorks.find((w) => w.id === work.id) || work
-                            setSelectedWorkForSaves(matched)
-                          }}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-mono font-semibold text-[var(--ink-primary)] bg-[var(--bg-subtle)] border border-[var(--border-subtle)] hover:border-[var(--ink-primary)] hover:bg-[var(--bg-surface)] hover:shadow-xs transition-all cursor-pointer group"
-                          title={`${((work as any).saveCount ?? (work as any).totalSaves ?? 0).toLocaleString()} library saves • Click to adjust`}
-                        >
-                          <Bookmark className="h-3.5 w-3.5 fill-current text-[var(--ink-primary)] group-hover:scale-110 transition-transform shrink-0" />
-                          <span>{((work as any).saveCount ?? (work as any).totalSaves ?? 0).toLocaleString()}</span>
-                          <span className="text-[10px] text-[var(--ink-faint)] group-hover:text-[var(--ink-muted)] font-sans">
-                            adjust ↗
-                          </span>
-                        </button>
+                        {(() => {
+                          const matchedMock = allWorks.find(
+                            (m) =>
+                              m.id === work.id ||
+                              m.title?.toLowerCase().trim() === work.title?.toLowerCase().trim()
+                          )
+                          const effectiveSaves = Math.max(
+                            0,
+                            Number(
+                              work.saveCount ??
+                              (work as any).totalSaves ??
+                              (work as any).save_count ??
+                              matchedMock?.totalSaves ??
+                              (matchedMock as any)?.saveCount ??
+                              0
+                            )
+                          )
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const matched = matchedMock || work
+                                setSelectedWorkForSaves({
+                                  ...work,
+                                  ...matched,
+                                  id: work.id,
+                                  title: work.title,
+                                  saveCount: effectiveSaves,
+                                  totalSaves: effectiveSaves,
+                                })
+                              }}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-mono font-semibold text-[var(--ink-primary)] bg-[var(--bg-subtle)] border border-[var(--border-subtle)] hover:border-[var(--ink-primary)] hover:bg-[var(--bg-surface)] hover:shadow-xs transition-all cursor-pointer group"
+                              title={`${effectiveSaves.toLocaleString()} library saves • Click to adjust`}
+                            >
+                              <Bookmark className="h-3.5 w-3.5 fill-current text-[var(--ink-primary)] group-hover:scale-110 transition-transform shrink-0" />
+                              <span>{effectiveSaves.toLocaleString()}</span>
+                              <span className="text-[10px] text-[var(--ink-faint)] group-hover:text-[var(--ink-muted)] font-sans">
+                                adjust ↗
+                              </span>
+                            </button>
+                          )
+                        })()}
                       </td>
 
                       {/* 4.75. Trending Admin Pin & HatchPen Hit Override Toggles */}
@@ -3174,14 +3224,48 @@ function SecretAdminPanelPage() {
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      const matched = allWorks.find((w) => w.id === work.id) || work
-                                      setSelectedWorkForSaves(matched)
+                                      const matchedMock = allWorks.find(
+                                        (m) =>
+                                          m.id === work.id ||
+                                          m.title?.toLowerCase().trim() === work.title?.toLowerCase().trim()
+                                      )
+                                      const effectiveSaves = Math.max(
+                                        0,
+                                        Number(
+                                          work.saveCount ??
+                                          (work as any).totalSaves ??
+                                          (work as any).save_count ??
+                                          matchedMock?.totalSaves ??
+                                          (matchedMock as any)?.saveCount ??
+                                          0
+                                        )
+                                      )
+                                      setSelectedWorkForSaves({
+                                        ...work,
+                                        ...(matchedMock || {}),
+                                        id: work.id,
+                                        title: work.title,
+                                        saveCount: effectiveSaves,
+                                        totalSaves: effectiveSaves,
+                                      })
                                     }}
                                     className="inline-flex items-center gap-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2 py-1 text-[10px] font-mono font-medium text-[var(--ink-primary)] hover:border-[var(--ink-primary)] cursor-pointer"
                                     title={`Adjust library saves for "${work.title}"`}
                                   >
                                     <Bookmark className="h-2.5 w-2.5 fill-current text-[var(--ink-primary)]" />
-                                    <span>Saves</span>
+                                    <span>
+                                      Saves (
+                                      {Math.max(
+                                        0,
+                                        Number(
+                                          work.saveCount ??
+                                          (work as any).totalSaves ??
+                                          (work as any).save_count ??
+                                          0
+                                        )
+                                      ).toLocaleString()}
+                                      )
+                                    </span>
                                   </button>
 
                                   <button
