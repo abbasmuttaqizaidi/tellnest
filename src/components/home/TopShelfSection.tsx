@@ -7,6 +7,7 @@ import { getTopShelfWorks } from '../../lib/recommendations/topShelf'
 import { formatViewCount, formatHeartCount } from '../../lib/utils'
 import { OptimizedImage } from '../OptimizedImage'
 import { TopShelfSectionSkeleton } from './HomeSkeletons'
+import { isReligiousWork } from '../../lib/discover/filters'
 
 export interface TopShelfSectionProps {
   works?: Work[]
@@ -32,12 +33,15 @@ export function TopShelfSection({
   const { allWorks, isWorkSaved, toggleSaveWork, isOwnWork } = useApp()
   const carouselRef = useRef<HTMLDivElement>(null)
 
-  const candidatePool = propWorks && propWorks.length > 0 ? propWorks : allWorks
+  const candidatePool = useMemo(() => {
+    const raw = propWorks && propWorks.length > 0 ? propWorks : allWorks
+    return raw.filter((w) => !isReligiousWork(w))
+  }, [propWorks, allWorks])
 
   const topShelfWorks = useMemo(() => {
     // Optimization: If precomputed / server-provided Top Shelf works exist, consume directly
     if (initialTopShelfWorks && initialTopShelfWorks.length > 0) {
-      return initialTopShelfWorks.filter((w) => !isOwnWork(w.id)).slice(0, limit)
+      return initialTopShelfWorks.filter((w) => !isOwnWork(w.id) && !isReligiousWork(w)).slice(0, limit)
     }
 
     const candidateWorks = candidatePool.filter((w) => !isOwnWork(w.id))

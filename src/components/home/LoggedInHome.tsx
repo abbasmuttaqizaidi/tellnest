@@ -48,6 +48,7 @@ import { TrendingSection } from './TrendingSection'
 import { BingeableSection } from './BingeableSection'
 import { TopShelfSection } from './TopShelfSection'
 import { NewVoicesOpportunityModal } from '../NewVoicesOpportunityModal'
+import { isReligiousWork } from '../../lib/discover/filters'
 
 import {
   CurrentlyReadingSkeleton,
@@ -248,16 +249,18 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
   } = useApp()
 
   // Merge initialWorks from loaderData if available to ensure instant DB stories hydration
+  // Strictly filter out any religious works from home page display
   const works = useMemo(() => {
+    let pool: any[] = allWorks
     if (loaderData?.initialWorks && Array.isArray(loaderData.initialWorks) && loaderData.initialWorks.length > 0) {
       const mergedMap = new Map<string, any>()
       for (const w of loaderData.initialWorks) mergedMap.set(w.id, w)
       for (const w of allWorks) {
         if (!mergedMap.has(w.id)) mergedMap.set(w.id, w)
       }
-      return Array.from(mergedMap.values())
+      pool = Array.from(mergedMap.values())
     }
-    return allWorks
+    return pool.filter((w) => !isReligiousWork(w))
   }, [allWorks, loaderData?.initialWorks])
 
   const hasRetriedCatalogRef = useRef(false)

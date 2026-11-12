@@ -31,6 +31,7 @@ import {
   markClientSessionActive,
   clearClientSession,
 } from '../lib/authSession'
+import { isReligiousWork } from '../lib/discover/filters'
 
 function HomePendingComponent() {
   if (typeof window !== 'undefined') {
@@ -92,16 +93,29 @@ export const Route = createFileRoute('/')({
           : null,
       ])
 
+      const cleanTopShelf = Array.isArray(topShelfDirect)
+        ? topShelfDirect.filter((w) => !isReligiousWork(w))
+        : null
+      const cleanTrending = Array.isArray(trendingDirect)
+        ? trendingDirect.filter((w) => !isReligiousWork(w))
+        : null
+      const cleanBingeable = Array.isArray(bingeableDirect)
+        ? bingeableDirect.filter((w) => !isReligiousWork(w))
+        : null
+      const cleanNewVoices = Array.isArray(newVoicesDirect)
+        ? newVoicesDirect.filter((w) => !isReligiousWork(w))
+        : null
+
       const initialTopShelf =
-        Array.isArray(topShelfDirect) && topShelfDirect.length > 0
-          ? topShelfDirect
+        cleanTopShelf && cleanTopShelf.length > 0
+          ? cleanTopShelf
           : null
 
       // Seed initialWorks from section items to give instant hero/top-shelf rendering without full table scan
       const initialWorks = [
-        ...(Array.isArray(topShelfDirect) ? topShelfDirect : []),
-        ...(Array.isArray(trendingDirect) ? trendingDirect : []),
-        ...(Array.isArray(bingeableDirect) ? bingeableDirect : []),
+        ...(cleanTopShelf || []),
+        ...(cleanTrending || []),
+        ...(cleanBingeable || []),
       ]
 
       return {
@@ -110,9 +124,9 @@ export const Route = createFileRoute('/')({
         initialRecSignals: recSignals,
         initialWorks: initialWorks.length > 0 ? initialWorks : null,
         initialTopShelf,
-        initialTrending: Array.isArray(trendingDirect) ? trendingDirect.slice(0, 10) : null,
-        initialBingeable: Array.isArray(bingeableDirect) ? bingeableDirect.slice(0, 10) : null,
-        initialNewVoices: Array.isArray(newVoicesDirect) ? newVoicesDirect.slice(0, 10) : null,
+        initialTrending: cleanTrending ? cleanTrending.slice(0, 10) : null,
+        initialBingeable: cleanBingeable ? cleanBingeable.slice(0, 10) : null,
+        initialNewVoices: cleanNewVoices ? cleanNewVoices.slice(0, 10) : null,
         catalogError: false,
       }
     } catch {

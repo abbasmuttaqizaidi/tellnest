@@ -7,6 +7,7 @@ import { getWorkSlug, type Work } from '../../data/mockData'
 import { formatViewCount } from '../../lib/utils'
 import { OptimizedImage } from '../OptimizedImage'
 import { SectionCarouselSkeleton } from './HomeSkeletons'
+import { isReligiousWork } from '../../lib/discover/filters'
 
 export interface TrendingSectionProps {
   works?: Work[]
@@ -39,7 +40,10 @@ export function TrendingSection({
   const [activeGenre, setActiveGenre] = useState<string>('all')
   const carouselRef = useRef<HTMLDivElement>(null)
 
-  const candidatePool = works && works.length > 0 ? works : allWorks
+  const candidatePool = useMemo(() => {
+    const raw = works && works.length > 0 ? works : allWorks
+    return raw.filter((w) => !isReligiousWork(w))
+  }, [works, allWorks])
 
   const trendingSerials = useMemo(() => {
     let list = candidatePool.filter((w) => Boolean(w.trending) && !isOwnWork(w.id))
@@ -57,7 +61,7 @@ export function TrendingSection({
 
   const trendingWorksList = useMemo(() => {
     if (activeGenre === 'all' && initialTrendingWorks && Array.isArray(initialTrendingWorks) && initialTrendingWorks.length > 0) {
-      return initialTrendingWorks.filter((w) => !isOwnWork(w.id)).slice(0, 10)
+      return initialTrendingWorks.filter((w) => !isOwnWork(w.id) && !isReligiousWork(w)).slice(0, 10)
     }
     return trendingSerials.slice(0, 10)
   }, [initialTrendingWorks, trendingSerials, activeGenre, isOwnWork])

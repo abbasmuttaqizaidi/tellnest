@@ -1,5 +1,6 @@
 import type { Work } from '../../data/mockData.ts'
 import { parseTotalReads } from '../utils.ts'
+import { isReligiousWork } from '../discover/filters.ts'
 
 export interface BingeableCalculationParams {
   candidateWorks: Work[]
@@ -60,6 +61,7 @@ export function getWorkPublishedChapterCount(work: Work): number {
  */
 export function isWorkBingeable(work: Work): boolean {
   if (!work) return false
+  if (isReligiousWork(work)) return false
 
   // 1. Chapter count boundary: strictly 1 or 2 chapters
   const chCount = getWorkPublishedChapterCount(work)

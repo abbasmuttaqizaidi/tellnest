@@ -131,7 +131,8 @@ export function isReligiousWork(work: {
   genre?: string | null
   genreSlug?: string | null
   genres?: Array<{ id?: string; name?: string; slug?: string }> | null
-}): boolean {
+  tags?: string[] | null
+} | null | undefined): boolean {
   if (!work) return false
 
   const catName = (work.category || '').toLowerCase()
@@ -169,6 +170,21 @@ export function isReligiousWork(work: {
         gSlug.includes('religion') ||
         gName.includes('faith') ||
         gName.includes('religion')
+      ) {
+        return true
+      }
+    }
+  }
+
+  if (Array.isArray(work.tags)) {
+    for (const t of work.tags) {
+      const tag = (t || '').toLowerCase().trim()
+      if (
+        tag === 'religion' ||
+        tag === 'religious' ||
+        tag === 'faith' ||
+        tag === 'faith-spirituality' ||
+        tag === 'religion-spirituality'
       ) {
         return true
       }

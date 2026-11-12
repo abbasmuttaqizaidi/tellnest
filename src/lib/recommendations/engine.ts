@@ -1,6 +1,7 @@
 import type { Work } from '../../data/mockData.ts'
 import { FOR_YOU_CONFIG, type ForYouConfig } from './config.ts'
 import { parseTotalReads } from '../utils.ts'
+import { isReligiousWork } from '../discover/filters.ts'
 
 export interface ReadingSessionRecord {
   id?: string
@@ -68,6 +69,7 @@ export function isWorkEligibleForRecommendations(
   }
 ): boolean {
   if (!work) return false
+  if (isReligiousWork(work)) return false
 
   // 1. Publication status: Must be published and explicitly public
   const vis = (work.visibility || '').toLowerCase().trim()

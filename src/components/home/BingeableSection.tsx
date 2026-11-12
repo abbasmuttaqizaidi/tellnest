@@ -7,6 +7,7 @@ import { getWorkSlug, type Work } from '../../data/mockData'
 import { getWorkPublishedChapterCount, calculateBingeableReads } from '../../lib/recommendations/bingeable'
 import { OptimizedImage } from '../OptimizedImage'
 import { SectionCarouselSkeleton } from './HomeSkeletons'
+import { isReligiousWork } from '../../lib/discover/filters'
 
 export interface BingeableSectionProps {
   works?: Work[]
@@ -31,11 +32,14 @@ export function BingeableSection({
   const { isSignedIn } = useUser()
   const carouselRef = useRef<HTMLDivElement>(null)
 
-  const candidatePool = works && works.length > 0 ? works : allWorks
+  const candidatePool = useMemo(() => {
+    const raw = works && works.length > 0 ? works : allWorks
+    return raw.filter((w) => !isReligiousWork(w))
+  }, [works, allWorks])
 
   const bingeableWorksList = useMemo(() => {
     if (initialBingeableWorks && Array.isArray(initialBingeableWorks) && initialBingeableWorks.length > 0) {
-      return initialBingeableWorks.filter((w) => !isOwnWork(w.id)).slice(0, 10)
+      return initialBingeableWorks.filter((w) => !isOwnWork(w.id) && !isReligiousWork(w)).slice(0, 10)
     }
     const candidates = candidatePool.filter((w) => !isOwnWork(w.id))
     return calculateBingeableReads({

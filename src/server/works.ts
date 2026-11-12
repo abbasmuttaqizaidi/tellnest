@@ -8,7 +8,7 @@ import {
   publishWork,
 } from '../lib/supabase/queries/works.ts'
 import type { WorkStatus } from '../lib/supabase/types.ts'
-import { getUtcWeekBoundaries, filterAndSortWorks } from '../lib/discover/filters.ts'
+import { getUtcWeekBoundaries, filterAndSortWorks, isReligiousWork } from '../lib/discover/filters.ts'
 import { GLOBAL_CATEGORIES, GLOBAL_GENRES, SUGGESTED_TAGS, slugify } from '../lib/taxonomy.ts'
 import { isWorkIndexable } from './sitemap.ts'
 import { isWorkBingeable } from '../lib/recommendations/bingeable.ts'
@@ -1792,7 +1792,7 @@ export async function executeGetNewVoices(
         .limit(30)
 
       if (!error && Array.isArray(candidateRows) && candidateRows.length > 0) {
-        const candidateWorks = candidateRows.map((r: any) => mapLeanWorkCard(r))
+        const candidateWorks = candidateRows.map((r: any) => mapLeanWorkCard(r)).filter((w: any) => !isReligiousWork(w))
         const { filterAndOrderNewVoicesStories } = await import('../lib/recommendations/newVoices.ts')
         const shouldExcludeBingeable = dependencies.excludeBingeable ?? false
         const list = filterAndOrderNewVoicesStories(candidateWorks, clerkUserId, new Date(), { excludeBingeable: shouldExcludeBingeable })
@@ -2077,7 +2077,7 @@ export async function executeGetTopShelf(
       const mappedDirectWorks = supaRows.map((w: any) => mapLeanWorkCard(w))
 
       const filteredDirectWorks = mappedDirectWorks.filter(
-        (w: any) => (Number(w.totalSaves) || 0) > 0
+        (w: any) => (Number(w.totalSaves) || 0) > 0 && !isReligiousWork(w)
       )
 
       if (!dependencies.queryRows) {
@@ -2167,7 +2167,7 @@ export async function executeGetTrendingWorks(
       .limit(limit * 2)
 
     if (!supaErr && Array.isArray(supaRows) && supaRows.length > 0) {
-      let mapped = supaRows.map((r) => mapLeanWorkCard(r))
+      let mapped = supaRows.map((r) => mapLeanWorkCard(r)).filter((w) => !isReligiousWork(w))
       mapped.forEach((w, idx) => {
         w.trending = true
         w.trendingRank = idx + 1
@@ -2192,7 +2192,7 @@ export async function executeGetTrendingWorks(
 
   // Graceful fallback from platform works
   const works = await executeGetPlatformWorks(dependencies)
-  let list = works.filter((w) => Boolean(w.trending))
+  let list = works.filter((w) => Boolean(w.trending) && !isReligiousWork(w))
   list.sort((a, b) => ((a as any).trendingRank ?? 999) - ((b as any).trendingRank ?? 999))
   if (genre !== 'all') {
     const target = genre.toLowerCase()
@@ -2262,7 +2262,7 @@ export async function executeGetBingeableWorks(
         .map((r) => mapLeanWorkCard(r))
         .filter((w) => {
           const chCount = w.publishedChaptersCount ?? w.chaptersCount ?? 0
-          return chCount >= 1 && chCount <= 2
+          return chCount >= 1 && chCount <= 2 && !isReligiousWork(w)
         })
       const result = mapped.slice(0, limit)
       if (!dependencies.queryRows) {
@@ -2277,7 +2277,7 @@ export async function executeGetBingeableWorks(
   const works = await executeGetPlatformWorks(dependencies)
   const { calculateBingeableReads } = await import('../lib/recommendations/bingeable.ts')
   const result = calculateBingeableReads({
-    candidateWorks: works,
+    candidateWorks: works.filter((w) => !isReligiousWork(w)),
     currentUserId: options.currentUserId,
   }).slice(0, limit)
   if (!dependencies.queryRows) {

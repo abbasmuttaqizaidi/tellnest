@@ -1,6 +1,7 @@
 import type { Work } from '../../data/mockData.ts'
 import { parseTotalReads } from '../utils.ts'
 import { getWorkPublishedChapterCount } from './bingeable.ts'
+import { isReligiousWork } from '../discover/filters.ts'
 
 export interface TopShelfOptions {
   currentUserId?: string | null
@@ -13,6 +14,7 @@ export interface TopShelfOptions {
  */
 export function isWorkTopShelfEligible(work: Work): boolean {
   if (!work) return false
+  if (isReligiousWork(work)) return false
 
   const vis = (work.visibility || '').toLowerCase().trim()
   const status = (work.status || '').toLowerCase().trim()

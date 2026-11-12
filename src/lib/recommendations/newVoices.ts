@@ -1,5 +1,6 @@
 import type { Work } from '../../data/mockData.ts'
 import { getWorkPublishedChapterCount } from './bingeable.ts'
+import { isReligiousWork } from '../discover/filters.ts'
 
 /**
  * Calculates the exact expiration timestamp 5 calendar months after account creation.
@@ -63,6 +64,8 @@ export function isStoryEligibleForNewVoices(
   authorCreatedAt?: string | Date | number | null,
   referenceDate: Date = new Date()
 ): boolean {
+  if (!story) return false
+  if (isReligiousWork(story)) return false
   const authorCreated = authorCreatedAt || story.author?.createdAt
   if (!authorCreated) return false
 
