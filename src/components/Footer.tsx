@@ -128,24 +128,8 @@ export default function Footer() {
               </li>
               <li>
                 <Link
-                  to="/write"
-                  className="hover:text-[var(--ink-primary)] transition-colors no-underline text-inherit text-[11px] sm:text-xs py-0.5 inline-block"
-                >
-                  Creator Studio
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/pricing"
-                  className="hover:text-[var(--ink-primary)] transition-colors no-underline text-inherit text-[11px] sm:text-xs py-0.5 inline-block"
-                >
-                  Pricing & Access
-                </Link>
-              </li>
-              <li>
-                <Link
                   to="/wattpad-alternative"
-                  className="hover:text-[var(--ink-primary)] transition-colors no-underline text-inherit text-[11px] sm:text-xs py-0.5 inline-block"
+                  className="hover:text-[var(--ink-primary)] transition-colors no-underline text-inherit text-[11px] sm:text-xs py-0.5 inline-block font-medium text-[var(--ink-primary)]"
                 >
                   Wattpad Alternative
                 </Link>
@@ -164,6 +148,22 @@ export default function Footer() {
                   className="hover:text-[var(--ink-primary)] transition-colors no-underline text-inherit text-[11px] sm:text-xs py-0.5 inline-block font-medium text-amber-600 dark:text-amber-400"
                 >
                   Writing Contests (₹2,000 Prize)
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/write"
+                  className="hover:text-[var(--ink-primary)] transition-colors no-underline text-inherit text-[11px] sm:text-xs py-0.5 inline-block"
+                >
+                  Creator Studio
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/pricing"
+                  className="hover:text-[var(--ink-primary)] transition-colors no-underline text-inherit text-[11px] sm:text-xs py-0.5 inline-block text-[var(--ink-muted)]"
+                >
+                  Pricing & Access
                 </Link>
               </li>
               <li>

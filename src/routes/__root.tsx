@@ -67,6 +67,12 @@ const GLOBAL_JSON_LD = JSON.stringify({
       hasPart: [
         {
           '@type': 'WebPage',
+          '@id': 'https://hatchpen.com/wattpad-alternative',
+          name: 'Wattpad Alternative',
+          url: 'https://hatchpen.com/wattpad-alternative',
+        },
+        {
+          '@type': 'WebPage',
           '@id': 'https://hatchpen.com/hatchpen-hits',
           name: 'HatchPen Hits',
           url: 'https://hatchpen.com/hatchpen-hits',
@@ -84,6 +90,13 @@ const GLOBAL_JSON_LD = JSON.stringify({
           url: 'https://hatchpen.com/discover',
         },
       ],
+    },
+    {
+      '@type': 'SiteNavigationElement',
+      '@id': 'https://hatchpen.com/#nav-wattpad-alternative',
+      name: 'Wattpad Alternative',
+      description: 'The genuine indie Wattpad alternative for serialized fiction with zero coins, paywalls, or wait timers.',
+      url: 'https://hatchpen.com/wattpad-alternative',
     },
     {
       '@type': 'SiteNavigationElement',

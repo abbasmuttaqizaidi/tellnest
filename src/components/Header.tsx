@@ -713,6 +713,16 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
               <span>HatchPen Hits</span>
             </Link>
 
+            <Link
+              to="/wattpad-alternative"
+              preload="intent"
+              onClick={() => setMobileDrawerOpen(false)}
+              className="flex items-center gap-2 py-1.5 px-2.5 rounded-lg text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
+            >
+              <BookOpen className="h-4 w-4" />
+              <span>Wattpad Alternative</span>
+            </Link>
+
             {/* Active Contest Link in Mobile Drawer */}
             <button
               type="button"

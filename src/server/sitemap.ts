@@ -293,7 +293,7 @@ export async function buildSitemapEntries(options?: BuildSitemapOptions): Promis
   })
   addEntry({
     loc: `${CANONICAL_BASE_URL}/wattpad-alternative`,
-    changefreq: 'weekly',
+    changefreq: 'daily',
     priority: 0.85,
   })
   addEntry({
