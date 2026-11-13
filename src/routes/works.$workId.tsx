@@ -229,11 +229,20 @@ export const Route = createFileRoute('/works/$workId')({
         'free web novel',
         'serialized manuscript',
         'serialized fiction',
+        'HatchPen',
+        'HatchPen original',
+        `${work.title} HatchPen`,
+        'HatchPen stories',
       ],
       jsonLd: {
         '@context': 'https://schema.org',
         '@type': 'Book',
         name: work.title,
+        isPartOf: {
+          '@type': 'WebSite',
+          name: 'HatchPen',
+          url: 'https://hatchpen.com',
+        },
         author: {
           '@type': 'Person',
           '@id': `https://hatchpen.com/author/${authorSlug}#person`,

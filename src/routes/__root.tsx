@@ -73,6 +73,12 @@ const GLOBAL_JSON_LD = JSON.stringify({
         },
         {
           '@type': 'WebPage',
+          '@id': 'https://hatchpen.com/works/the-season-we-fell',
+          name: 'The Season We Fell',
+          url: 'https://hatchpen.com/works/the-season-we-fell',
+        },
+        {
+          '@type': 'WebPage',
           '@id': 'https://hatchpen.com/hatchpen-hits',
           name: 'HatchPen Hits',
           url: 'https://hatchpen.com/hatchpen-hits',
@@ -100,10 +106,17 @@ const GLOBAL_JSON_LD = JSON.stringify({
     },
     {
       '@type': 'SiteNavigationElement',
-      '@id': 'https://hatchpen.com/#nav-hits',
-      name: 'HatchPen Hits',
-      description: 'Explore the most popular, celebrated, and viral serialized web novels on HatchPen.',
-      url: 'https://hatchpen.com/hatchpen-hits',
+      '@id': 'https://hatchpen.com/#nav-the-season-we-fell',
+      name: 'The Season We Fell',
+      description: 'Read the serialized novel The Season We Fell online for free on HatchPen.',
+      url: 'https://hatchpen.com/works/the-season-we-fell',
+    },
+    {
+      '@type': 'SiteNavigationElement',
+      '@id': 'https://hatchpen.com/#nav-discover',
+      name: 'Discover Stories',
+      description: 'Browse independent novels, serialized fiction, and curated reading shelves.',
+      url: 'https://hatchpen.com/discover',
     },
     {
       '@type': 'SiteNavigationElement',
@@ -114,10 +127,10 @@ const GLOBAL_JSON_LD = JSON.stringify({
     },
     {
       '@type': 'SiteNavigationElement',
-      '@id': 'https://hatchpen.com/#nav-discover',
-      name: 'Discover Stories',
-      description: 'Browse independent novels, serialized fiction, and curated reading shelves.',
-      url: 'https://hatchpen.com/discover',
+      '@id': 'https://hatchpen.com/#nav-hits',
+      name: 'HatchPen Hits',
+      description: 'Explore the most popular, celebrated, and viral serialized web novels on HatchPen.',
+      url: 'https://hatchpen.com/hatchpen-hits',
     },
     {
       '@type': 'SiteNavigationElement',
