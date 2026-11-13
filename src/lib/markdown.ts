@@ -15,11 +15,32 @@ export function formatInlineMarkdown(text: string): React.ReactNode {
   // 3. Italic (*text* or _text_)
   // 4. Strikethrough (~~text~~)
   // 5. Inline code (`code`)
-  const regex = /(\*\*\*[^*]+\*\*\*|___[^_]+___|\*\*[^*]+\*\*|__[^_]+__|(?<!\*)\*[^*]+\*(?!\*)|(?<!_)_[^_]+_(?!_)|~~[^~]+~~|`[^`]+`)/g
+  // 6. Underline (<u>text</u> or <ins>text</ins> or ++text++)
+  const regex = /(\*\*\*[^*]+\*\*\*|___[^_]+___|\*\*[^*]+\*\*|__[^_]+__|(?<!\*)\*[^*]+\*(?!\*)|(?<!_)_[^_]+_(?!_)|~~[^~]+~~|`[^`]+`|<u>[\s\S]*?<\/u>|<ins>[\s\S]*?<\/ins>|\+\+[^+]+\+\+)/gi
   const parts = cleanText.split(regex)
   if (parts.length === 1) return cleanText
 
   return parts.map((part, index) => {
+    // Underline: <u>text</u>, <ins>text</ins>, or ++text++
+    if (
+      (part.toLowerCase().startsWith('<u>') && part.toLowerCase().endsWith('</u>') && part.length >= 7) ||
+      (part.toLowerCase().startsWith('<ins>') && part.toLowerCase().endsWith('</ins>') && part.length >= 11) ||
+      (part.startsWith('++') && part.endsWith('++') && part.length >= 4)
+    ) {
+      let content = ''
+      if (part.toLowerCase().startsWith('<u>')) {
+        content = part.slice(3, -4)
+      } else if (part.toLowerCase().startsWith('<ins>')) {
+        content = part.slice(5, -6)
+      } else {
+        content = part.slice(2, -2)
+      }
+      return React.createElement(
+        'span',
+        { key: index, className: 'underline underline-offset-2' },
+        formatInlineMarkdown(content)
+      )
+    }
     // Bold + Italic: ***text*** or ___text___
     if (
       (part.startsWith('***') && part.endsWith('***') && part.length >= 6) ||

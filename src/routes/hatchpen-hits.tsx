@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { generateMeta } from '../lib/seo'
 import { OptimizedImage } from '../components/OptimizedImage'
+import { FormattedSynopsis } from '../components/FormattedSynopsis'
 import { formatViewCount } from '../lib/utils'
 import { getHatchpenHitsServerFn, type HatchpenHitsResponse, type HatchpenHitWork } from '../server/hatchpenHits'
 
@@ -417,12 +418,16 @@ function HatchpenHitsPage() {
                     </div>
                   </div>
 
-                  {/* Synopsis Excerpt (Compact & Readable) */}
+                  {/* Synopsis Excerpt (Scrollable) */}
                   {activeWork.synopsis && (
                     <div className="mt-3 pt-3 border-t border-[var(--border-subtle)]">
-                      <p className="font-serif text-xs sm:text-sm text-[var(--ink-secondary)] leading-relaxed line-clamp-2 sm:line-clamp-3">
-                        {activeWork.synopsis}
-                      </p>
+                      <div className="max-h-[185px] overflow-y-auto pr-1.5 custom-scrollbar">
+                        <FormattedSynopsis
+                          text={activeWork.synopsis}
+                          className="space-y-2"
+                          paragraphClassName="font-serif text-xs sm:text-[13px] text-[var(--ink-secondary)] leading-relaxed"
+                        />
+                      </div>
                     </div>
                   )}
 
@@ -538,9 +543,13 @@ function HatchpenHitsPage() {
                   </p>
 
                   {activeWork.synopsis && (
-                    <p className="font-serif text-base xl:text-lg text-[var(--ink-secondary)] leading-relaxed line-clamp-4 max-w-2xl">
-                      {activeWork.synopsis}
-                    </p>
+                    <div className="max-w-2xl max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
+                      <FormattedSynopsis
+                        text={activeWork.synopsis}
+                        className="space-y-2.5"
+                        paragraphClassName="font-serif text-sm xl:text-base text-[var(--ink-secondary)] leading-relaxed"
+                      />
+                    </div>
                   )}
 
                   <div className="pt-3 flex flex-wrap items-center gap-6 text-xs font-mono text-[var(--ink-muted)] border-t border-[var(--border-subtle)]">
