@@ -180,9 +180,9 @@ export function RouteHeader({ title, subtitle, rightExtra, className = '' }: Rou
               aria-haspopup="true"
               title="Click to switch route"
             >
-              <h1 className="inline font-inherit text-inherit leading-none tracking-tight">
+              <span className="inline font-inherit text-inherit leading-none tracking-tight font-bold">
                 {title}
-              </h1>
+              </span>
               <ChevronDown
                 className={`h-3.5 w-3.5 text-[var(--ink-muted)] group-hover:text-[var(--ink-primary)] transition-transform duration-200 ${
                   routeMenuOpen ? 'rotate-180' : ''

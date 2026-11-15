@@ -277,21 +277,24 @@ function HatchpenHitsPage() {
   return (
     <div className="min-h-screen bg-[var(--bg-canvas)] text-[var(--ink-primary)]">
       {/* 1. Header & Breadcrumbs */}
-      <nav
-        aria-label="Breadcrumbs"
-        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 pb-2.5 text-xs flex items-center justify-between text-[var(--ink-muted)] border-b border-[var(--border-subtle)]"
-      >
-        <div className="flex items-center gap-1.5">
-          <Link to="/" className="hover:text-[var(--ink-primary)] transition-colors no-underline">
-            Home
-          </Link>
-          <span>/</span>
-          <span className="text-[var(--ink-primary)] font-medium">HatchPen Hits</span>
-        </div>
-        <div className="font-mono text-[10px] sm:text-[11px] uppercase tracking-wider text-[var(--ink-muted)]">
-          Editorial Folio • {String(activeIndex + 1).padStart(2, '0')}/{String(works.length).padStart(2, '0')}
-        </div>
-      </nav>
+      <header className="border-b border-[var(--border-subtle)]">
+        <nav
+          aria-label="Breadcrumbs"
+          className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 pb-2.5 text-xs flex items-center justify-between text-[var(--ink-muted)]"
+        >
+          <div className="flex items-center gap-1.5">
+            <Link to="/" className="hover:text-[var(--ink-primary)] transition-colors no-underline">
+              Home
+            </Link>
+            <span>/</span>
+            <span className="text-[var(--ink-primary)] font-medium">HatchPen Hits</span>
+          </div>
+          <div className="font-mono text-[10px] sm:text-[11px] uppercase tracking-wider text-[var(--ink-muted)]">
+            Editorial Folio • {String(activeIndex + 1).padStart(2, '0')}/{String(works.length).padStart(2, '0')}
+          </div>
+        </nav>
+        <h1 className="sr-only">HatchPen Hits — Curated Serialized Stories & Bestsellers</h1>
+      </header>
 
       {/* 2. Empty State Fallback (If no works are curated) */}
       {works.length === 0 ? (
@@ -373,7 +376,7 @@ function HatchpenHitsPage() {
                         )}
                       </div>
 
-                      <h1 className="font-serif text-lg sm:text-2xl font-bold tracking-tight text-[var(--ink-primary)] leading-tight line-clamp-2">
+                      <h2 className="font-serif text-lg sm:text-2xl font-bold tracking-tight text-[var(--ink-primary)] leading-tight line-clamp-2">
                         <Link
                           to="/works/$workId"
                           params={{ workId: activeWork.slug || activeWork.id }}
@@ -382,12 +385,12 @@ function HatchpenHitsPage() {
                         >
                           {activeWork.title}
                         </Link>
-                      </h1>
+                      </h2>
 
                       <p className="text-xs font-serif text-[var(--ink-muted)] truncate">
                         by{' '}
                         <Link
-                          to="/authors/$authorId"
+                          to="/author/$authorId"
                           params={{ authorId: activeWork.author.handle || activeWork.author.id }}
                           className="text-[var(--ink-primary)] font-medium no-underline"
                         >
@@ -520,7 +523,7 @@ function HatchpenHitsPage() {
                     )}
                   </div>
 
-                  <h1 className="font-serif text-4xl xl:text-5xl font-normal tracking-tight text-[var(--ink-primary)] leading-[1.12]">
+                  <h2 className="font-serif text-4xl xl:text-5xl font-normal tracking-tight text-[var(--ink-primary)] leading-[1.12]">
                     <Link
                       to="/works/$workId"
                       params={{ workId: activeWork.slug || activeWork.id }}
@@ -529,12 +532,12 @@ function HatchpenHitsPage() {
                     >
                       {activeWork.title}
                     </Link>
-                  </h1>
+                  </h2>
 
                   <p className="text-base font-serif text-[var(--ink-muted)]">
                     Written by{' '}
                     <Link
-                      to="/authors/$authorId"
+                      to="/author/$authorId"
                       params={{ authorId: activeWork.author.handle || activeWork.author.id }}
                       className="text-[var(--ink-primary)] font-medium hover:underline decoration-1"
                     >

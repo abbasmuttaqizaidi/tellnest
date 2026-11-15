@@ -784,11 +784,11 @@ export function PublicMobileStories({
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 sm:h-20 bg-gradient-to-t from-white via-white/80 to-transparent z-10" />
           </div>
           <div className="w-full text-center px-2 pt-0 pb-0.5 shrink-0 relative z-20">
-            <h1 className="font-serif text-[30px] sm:text-[38px] text-[#161c14] leading-[1.12] tracking-tight mx-auto max-w-sm">
+            <h2 className="font-serif text-[30px] sm:text-[38px] text-[#161c14] leading-[1.12] tracking-tight mx-auto max-w-sm">
               <span>You haven’t met</span>
               <br />
               <span className="whitespace-nowrap">your next <span className="italic font-normal">favourite</span> story.</span>
-            </h1>
+            </h2>
 
             {/* Shutter Effect Rolling Ticker: Loops smoothly between "Writings. Beyond the hype" & "Where new writers are heard." */}
             <div className="w-full flex items-center justify-center mt-2.5 sm:mt-3 mb-1 h-8 overflow-hidden relative">

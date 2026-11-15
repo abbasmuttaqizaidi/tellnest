@@ -266,7 +266,7 @@ export const Route = createRootRoute({
       },
       {
         property: 'og:image',
-        content: '/og-image.png',
+        content: 'https://hatchpen.com/og-image.png',
       },
       {
         property: 'og:image:alt',
@@ -288,7 +288,7 @@ export const Route = createRootRoute({
       },
       {
         name: 'twitter:image',
-        content: '/og-image.png',
+        content: 'https://hatchpen.com/og-image.png',
       },
     ],
     links: [

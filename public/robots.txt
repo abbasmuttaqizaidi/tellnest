@@ -7,17 +7,26 @@ Allow: /read/
 Allow: /author/
 Allow: /category/
 Allow: /genre/
+Allow: /tag/
+Allow: /browse/
+Allow: /hatchpen-hits
+Allow: /writing-contests
+Allow: /wattpad-alternative
 Allow: /rss.xml
 Allow: /feed.xml
 Allow: /rss/
 
-# Disallow private user states and authenticated editors
+# Disallow private user states, studio editors, and dynamic utility routes
 Disallow: /settings
 Disallow: /notifications
 Disallow: /library
-Disallow: /write/editor/
-Disallow: /write/manage/
-Disallow: /write/analytics/
+Disallow: /following
+Disallow: /profile
+Disallow: /search
+Disallow: /write
+Disallow: /write/
+Disallow: /admin-work-editor/
+Disallow: /design-system
 Disallow: /secret-adminpanel
 Disallow: /sso-callback
 

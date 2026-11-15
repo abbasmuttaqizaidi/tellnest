@@ -187,6 +187,20 @@ export const Route = createFileRoute('/read/$workId/$chapterId')({
     const dateModified =
       chapter.updated_at || (chapter as any).updatedAt || chapter.created_at || work.updated_at
 
+    const authorName =
+      (typeof work.author === 'object' && work.author?.name)
+        ? work.author.name
+        : typeof work.author === 'string' && work.author
+        ? work.author
+        : 'HatchPen Author'
+    const authorHandleOrId =
+      typeof work.author === 'object' && (work.author?.handle || work.author?.id)
+        ? work.author.handle || work.author.id
+        : (work as any).authorId || ''
+    const authorUrl = authorHandleOrId
+      ? `https://hatchpen.com/author/${authorHandleOrId}`
+      : 'https://hatchpen.com'
+
     const chapterJsonLd = {
       '@context': 'https://schema.org',
       '@type': ['Article', 'Chapter'],
@@ -199,8 +213,8 @@ export const Route = createFileRoute('/read/$workId/$chapterId')({
       ...(nextUrl ? { nextItem: nextUrl } : {}),
       author: {
         '@type': 'Person',
-        name: work.author.name,
-        url: `https://hatchpen.com/author/${work.author.handle || work.author.id}`,
+        name: authorName,
+        url: authorUrl,
       },
       publisher: {
         '@type': 'Organization',
