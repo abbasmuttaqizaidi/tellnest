@@ -218,16 +218,31 @@ export default function PublicHome({ loaderData }: PublicHomeProps = {}) {
   // Strictly filter out any religious works from home page display
   const works = useMemo(() => {
     let pool: any[] = allWorks
-    if (loaderData?.initialWorks && Array.isArray(loaderData.initialWorks) && loaderData.initialWorks.length > 0) {
+    const initialList =
+      loaderData?.initialWorks && Array.isArray(loaderData.initialWorks) && loaderData.initialWorks.length > 0
+        ? loaderData.initialWorks
+        : [
+            ...(loaderData?.initialTopShelf || []),
+            ...(loaderData?.initialTrending || []),
+            ...(loaderData?.initialBingeable || []),
+          ]
+
+    if (Array.isArray(initialList) && initialList.length > 0) {
       const mergedMap = new Map<string, any>()
-      for (const w of loaderData.initialWorks) mergedMap.set(w.id, w)
+      for (const w of initialList) mergedMap.set(w.id, w)
       for (const w of allWorks) {
         if (!mergedMap.has(w.id)) mergedMap.set(w.id, w)
       }
       pool = Array.from(mergedMap.values())
     }
     return pool.filter((w) => !isReligiousWork(w))
-  }, [allWorks, loaderData?.initialWorks])
+  }, [
+    allWorks,
+    loaderData?.initialWorks,
+    loaderData?.initialTopShelf,
+    loaderData?.initialTrending,
+    loaderData?.initialBingeable,
+  ])
 
   // Single-source hero photograph configuration (src/config/hero.ts)
   const [heroImageFailed, setHeroImageFailed] = useState(false)

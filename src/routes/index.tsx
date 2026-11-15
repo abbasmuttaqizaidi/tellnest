@@ -111,18 +111,11 @@ export const Route = createFileRoute('/')({
           ? cleanTopShelf
           : null
 
-      // Seed initialWorks from section items to give instant hero/top-shelf rendering without full table scan
-      const initialWorks = [
-        ...(cleanTopShelf || []),
-        ...(cleanTrending || []),
-        ...(cleanBingeable || []),
-      ]
-
       return {
         authUser: authUser || { userId: null, isAuthenticated: false },
         initialBootstrap: bootstrap,
         initialRecSignals: recSignals,
-        initialWorks: initialWorks.length > 0 ? initialWorks : null,
+        initialWorks: null,
         initialTopShelf,
         initialTrending: cleanTrending ? cleanTrending.slice(0, 10) : null,
         initialBingeable: cleanBingeable ? cleanBingeable.slice(0, 10) : null,

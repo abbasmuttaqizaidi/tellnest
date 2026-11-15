@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
 import { getTopShelfWorks, isWorkTopShelfEligible } from '../src/lib/recommendations/topShelf.ts'
 
 // ==============================================================================
@@ -301,4 +302,16 @@ test('Top Shelf Server Tier Optimization: executeGetTopShelf precomputes top 10 
   assert.equal(result.length, 10)
   assert.equal(result[0].id, 'server-story-1')
   assert.equal(result[9].id, 'server-story-10')
+})
+
+test('Top Shelf Scope Invariant: TopShelfSection properly destructures isWorksLoading from useApp to prevent logout ReferenceError', () => {
+  const topShelfContent = fs.readFileSync('src/components/home/TopShelfSection.tsx', 'utf8')
+  assert.ok(
+    topShelfContent.includes('isWorksLoading'),
+    'TopShelfSection must destructure isWorksLoading from useApp'
+  )
+  assert.ok(
+    /const\s*\{[^}]*isWorksLoading[^}]*\}\s*=\s*useApp\(\)/.test(topShelfContent),
+    'useApp destructuring in TopShelfSection must include isWorksLoading'
+  )
 })

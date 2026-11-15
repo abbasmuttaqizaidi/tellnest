@@ -1,6 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "tanstack-start",
+  "regions": ["bom1"],
   "trailingSlash": false,
   "headers": [
     {
@@ -81,6 +82,24 @@
         {
           "key": "Cache-Control",
           "value": "public, max-age=0, s-maxage=300, stale-while-revalidate=86400"
+        }
+      ]
+    },
+    {
+      "source": "/hatchpen-hits",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, s-maxage=600, stale-while-revalidate=86400"
+        }
+      ]
+    },
+    {
+      "source": "/wattpad-alternative",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, s-maxage=600, stale-while-revalidate=86400"
         }
       ]
     }

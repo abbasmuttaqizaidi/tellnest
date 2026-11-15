@@ -30,7 +30,7 @@ export function TopShelfSection({
   id = 'top-shelf',
   showControls = true,
 }: TopShelfSectionProps) {
-  const { allWorks, isWorkSaved, toggleSaveWork, isOwnWork } = useApp()
+  const { allWorks, isWorkSaved, toggleSaveWork, isOwnWork, isWorksLoading } = useApp()
   const carouselRef = useRef<HTMLDivElement>(null)
 
   const candidatePool = useMemo(() => {
