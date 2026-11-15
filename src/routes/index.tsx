@@ -228,7 +228,7 @@ function HomePage() {
         typeof window !== 'undefined' &&
         (sessionStorage.getItem('hatchpen_oauth_in_flight') === 'true' ||
           sessionStorage.getItem('hatchpen_just_signed_up_google') === 'true')
-      const timeoutMs = isOAuthInFlight ? 10000 : 5000
+      const timeoutMs = isOAuthInFlight ? 10000 : 1500
 
       const timer = setTimeout(() => {
         if (!isSignedIn) {

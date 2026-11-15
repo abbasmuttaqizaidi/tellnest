@@ -82,19 +82,25 @@ export function InspectletTracker() {
       return
     }
 
-    // All checks passed -> Initialize Inspectlet
-    initializeInspectlet(config.wid)
+    // All checks passed -> Initialize Inspectlet after a brief delay so it never competes with initial page paint
+    const timer = setTimeout(() => {
+      initializeInspectlet(config.wid)
 
-    // Tag / Identify authenticated user
-    if (user && typeof window !== 'undefined' && window.__insp) {
-      window.__insp.push(['identify', user.id])
-      const meta: Record<string, string> = {}
-      if (user.username) meta.username = user.username
-      const email = user.primaryEmailAddress?.emailAddress
-      if (email) meta.email = email
-      if (Object.keys(meta).length > 0) {
-        window.__insp.push(['tagSession', meta])
+      // Tag / Identify authenticated user
+      if (user && typeof window !== 'undefined' && window.__insp) {
+        window.__insp.push(['identify', user.id])
+        const meta: Record<string, string> = {}
+        if (user.username) meta.username = user.username
+        const email = user.primaryEmailAddress?.emailAddress
+        if (email) meta.email = email
+        if (Object.keys(meta).length > 0) {
+          window.__insp.push(['tagSession', meta])
+        }
       }
+    }, 2000)
+
+    return () => {
+      clearTimeout(timer)
     }
   }, [config, isLoaded, user, pathname])
 

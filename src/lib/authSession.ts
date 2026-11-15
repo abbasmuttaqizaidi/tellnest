@@ -5,6 +5,12 @@
  * hydration before the remote `@clerk/clerk-js` bundle has fully initialized.
  */
 
+export function hasClerkSessionCookie(): boolean {
+  if (typeof document === 'undefined') return false
+  const match = document.cookie.match(/(?:^|;\s*)__session=([^;]+)/)
+  return Boolean(match && match[1] && match[1].trim() !== '')
+}
+
 export function hasClerkUatCookie(): boolean {
   if (typeof document === 'undefined') return false
   const match = document.cookie.match(/(?:^|;\s*)__client_uat=([0-9]+)/)
@@ -32,24 +38,27 @@ export function hasActiveClientSession(): boolean {
   }
 
   // 3. Clerk synchronous cookies:
-  // - __client_uat: Client User Action Timestamp set synchronously by Clerk upon login
-  // - __session: Clerk JWT session cookie
-  const hasClerkCookie = hasClerkUatCookie() || document.cookie.includes('__session')
+  // An authentic active session requires a valid, non-empty `__session` token.
+  // Note: __client_uat is a 1-year timestamp that persists even after session expiry/logout,
+  // so it does NOT alone signify an active authenticated session.
+  const hasSessionToken = hasClerkSessionCookie()
 
-  // 4. Explicit HatchPen markers: Valid ONLY when backed by active Clerk cookies or OAuth return
-  if (localStorage.getItem('hatchpen_has_session') === 'true' || document.cookie.includes('hatchpen_has_session=true')) {
-    if (hasClerkCookie) {
-      return true
+  // 4. Clean up stale HatchPen markers if session is gone
+  const hasHatchpenMarker =
+    localStorage.getItem('hatchpen_has_session') === 'true' ||
+    document.cookie.includes('hatchpen_has_session=true')
+
+  if (!hasSessionToken) {
+    if (hasHatchpenMarker) {
+      try {
+        localStorage.removeItem('hatchpen_has_session')
+        document.cookie = 'hatchpen_has_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
+      } catch {}
     }
-    // Stale leftover from prior session: purge to prevent false positive
-    try {
-      localStorage.removeItem('hatchpen_has_session')
-      document.cookie = 'hatchpen_has_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
-    } catch {}
     return false
   }
 
-  return hasClerkCookie
+  return true
 }
 
 export function markClientSessionActive(): void {
