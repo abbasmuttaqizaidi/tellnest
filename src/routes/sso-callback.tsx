@@ -83,9 +83,10 @@ export default function SSOCallbackPage() {
       setStatusText('Ready. Opening your reading desk...')
 
       markClientSessionActive()
+      router.invalidate()
       safeRedirect()
     }
-  }, [isLoaded, isSignedIn])
+  }, [isLoaded, isSignedIn, router])
 
   // 5. Fallback guard: in case network or Clerk callback stalls, safely transition
   useEffect(() => {

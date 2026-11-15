@@ -764,6 +764,7 @@ export interface UserSessionBootstrap {
   followedAuthorIds: string[]
   notifications: any[]
   readingProgress: any[]
+  readingWorks?: any[]
 }
 
 const userProfileCache = new Map<string, { profile: any; timestamp: number }>()
@@ -945,6 +946,29 @@ export const getUserSessionBootstrapServerFn = createServerFn({ method: 'GET' })
         }
       })
 
+    // Concurrently prefetch lean work card details for in-progress reading works
+    // to guarantee instant Continue Reading card rendering without catalog dependencies
+    const inProgressWorkIds = Array.from(
+      new Set(readingProgress.map((r: any) => r.work_id).filter(Boolean))
+    ).slice(0, 10)
+
+    let readingWorks: any[] = []
+    if (inProgressWorkIds.length > 0) {
+      try {
+        const { LEAN_WORK_CARD_COLUMNS, mapLeanWorkCard } = await import('./works')
+        const { data: rawWorks } = await admin
+          .from('works')
+          .select(LEAN_WORK_CARD_COLUMNS)
+          .in('id', inProgressWorkIds)
+
+        if (Array.isArray(rawWorks) && rawWorks.length > 0) {
+          readingWorks = rawWorks.map(mapLeanWorkCard)
+        }
+      } catch (err) {
+        console.warn('[getUserSessionBootstrapServerFn] Failed to prefetch readingWorks:', err)
+      }
+    }
+
     return {
       profileId,
       profile,
@@ -952,6 +976,7 @@ export const getUserSessionBootstrapServerFn = createServerFn({ method: 'GET' })
       followedAuthorIds: Array.from(followIds),
       notifications,
       readingProgress,
+      readingWorks,
     }
   })
 

@@ -8,6 +8,7 @@ import { ClerkSync } from '../components/ClerkSync'
 import { InspectletTracker } from '../components/InspectletTracker'
 import { AppProvider } from '../context/AppContext'
 import { getAuthUserServerFn } from '../server/auth'
+import { hasActiveClientSession } from '../lib/authSession'
 
 // Code-split heavy interactive modals so they are never bundled into the public SSR/CWV critical path
 const AuthModal = React.lazy(() => import('../components/AuthModal').then((m) => ({ default: m.AuthModal })))
@@ -157,6 +158,9 @@ if (typeof window !== 'undefined') {
   window.addEventListener('hatchpen:logged-out', () => {
     clientAuthUserCache = { user: { userId: null, isAuthenticated: false }, timestamp: Date.now() }
   })
+  window.addEventListener('hatchpen:logged-in', () => {
+    clientAuthUserCache = null
+  })
 }
 
 export const Route = createRootRoute({
@@ -166,6 +170,15 @@ export const Route = createRootRoute({
     try {
       if (typeof window !== 'undefined') {
         const now = Date.now()
+        const hasActiveSession = hasActiveClientSession()
+        // If client session is active but cache thinks user is guest -> STALE! Bust it!
+        if (clientAuthUserCache && !clientAuthUserCache.user?.isAuthenticated && hasActiveSession) {
+          clientAuthUserCache = null
+        } else if (clientAuthUserCache && clientAuthUserCache.user?.isAuthenticated && !hasActiveSession) {
+          // If client session is gone but cache thinks user is authenticated -> STALE! Bust it!
+          clientAuthUserCache = null
+        }
+
         if (clientAuthUserCache && now - clientAuthUserCache.timestamp < CLIENT_AUTH_CACHE_TTL_MS) {
           return {
             authUser: clientAuthUserCache.user,

@@ -70,6 +70,7 @@ export function markClientSessionActive(): void {
   try {
     localStorage.setItem('hatchpen_has_session', 'true')
     document.cookie = 'hatchpen_has_session=true; path=/; max-age=31536000; SameSite=Lax'
+    window.dispatchEvent(new CustomEvent('hatchpen:logged-in'))
   } catch {}
 }
 

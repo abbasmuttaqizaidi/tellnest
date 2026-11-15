@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useRouter } from '@tanstack/react-router'
 import { useSignIn, useSignUp, useUser, useClerk, SignIn } from '@clerk/react'
 import { X, Loader2 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
@@ -7,6 +8,7 @@ import { markClientSessionActive } from '../lib/authSession'
 import { useScrollLock } from '../lib/scrollLock'
 
 export function AuthModal() {
+  const router = useRouter()
   const {
     isAuthModalOpen,
     closeAuthModal,
@@ -34,8 +36,9 @@ export function AuthModal() {
     if (isSignedIn && isAuthModalOpen) {
       markClientSessionActive()
       closeAuthModal(true)
+      router.invalidate()
     }
-  }, [isSignedIn, isAuthModalOpen, closeAuthModal])
+  }, [isSignedIn, isAuthModalOpen, closeAuthModal, router])
 
   // Prevent background scrolling without layout shift
   useScrollLock(isAuthModalOpen)

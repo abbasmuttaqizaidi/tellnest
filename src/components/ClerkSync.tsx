@@ -16,7 +16,7 @@ export function ClerkSync() {
   const { setUserDisplayName, setUserProfileUsername } = useApp()
   const lastSyncedIdRef = useRef<string | null>(null)
   const isSyncingRef = useRef<string | null>(null)
-  const prevSignedInRef = useRef<boolean | null>(null)
+  const prevSignedInRef = useRef<boolean>(false)
 
   const isClientClerkLoaded = Boolean(clerk?.loaded)
 

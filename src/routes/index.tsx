@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useRouter } from '@tanstack/react-router'
 import React from 'react'
 import { useUser, useClerk } from '@clerk/react'
 import { generateMeta } from '../lib/seo'
@@ -246,6 +246,14 @@ function HomePage() {
       markClientSessionActive()
     }
   }, [isUserLoaded, isSignedIn])
+
+  // Hook 6: Self-healing synchronization for stale guest loaderData on home route transitions
+  const router = useRouter()
+  React.useEffect(() => {
+    if (isUserLoaded && isSignedIn && !loaderData?.authUser?.isAuthenticated) {
+      router.invalidate()
+    }
+  }, [isUserLoaded, isSignedIn, loaderData?.authUser?.isAuthenticated, router])
 
   // Check if onboarding is currently in progress or required for this user across devices
   const isCompletedMultiDevice =

@@ -254,12 +254,16 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
     let pool: any[] = allWorks
     const initialList =
       loaderData?.initialWorks && Array.isArray(loaderData.initialWorks) && loaderData.initialWorks.length > 0
-        ? loaderData.initialWorks
+        ? [
+            ...loaderData.initialWorks,
+            ...(loaderData?.initialBootstrap?.readingWorks || []),
+          ]
         : [
             ...(loaderData?.initialTopShelf || []),
             ...(loaderData?.initialTrending || []),
             ...(loaderData?.initialBingeable || []),
             ...(loaderData?.initialNewVoices || []),
+            ...(loaderData?.initialBootstrap?.readingWorks || []),
           ]
 
     if (Array.isArray(initialList) && initialList.length > 0) {
@@ -736,8 +740,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
   const hasPreloadedBootstrap = Boolean(loaderData?.initialBootstrap)
   const isResolvingReadingSession =
     !isUserLoaded ||
-    (isReadingProgressLoading && !hasPreloadedBootstrap) ||
-    (Object.keys(readingProgress).length > 0 && inProgressList.length === 0)
+    (isReadingProgressLoading && !hasPreloadedBootstrap)
 
   // Saved manuscripts from shelf
   const savedWorks = useMemo(() => {
