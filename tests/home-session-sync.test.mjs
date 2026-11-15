@@ -136,3 +136,59 @@ test('Session Sync: HomePage has self-healing invalidation hook adhering to Reac
     )
   }
 })
+
+test('Home Feed RPC: getHomePageDataServerFn consolidates all home feeds on server tier', () => {
+  const filePath = path.resolve('src/server/home.ts')
+  const content = fs.readFileSync(filePath, 'utf8')
+
+  assert.ok(
+    content.includes('export const getHomePageDataServerFn = createServerFn'),
+    'getHomePageDataServerFn must be an exported createServerFn'
+  )
+  assert.ok(
+    content.includes('executeGetTopShelf'),
+    'getHomePageDataServerFn must prefetch Top Shelf on server'
+  )
+  assert.ok(
+    content.includes('executeGetTrendingWorks'),
+    'getHomePageDataServerFn must prefetch Trending on server'
+  )
+  assert.ok(
+    content.includes('executeGetBingeableWorks'),
+    'getHomePageDataServerFn must prefetch Bingeable on server'
+  )
+  assert.ok(
+    content.includes('executeGetNewVoices'),
+    'getHomePageDataServerFn must prefetch New Voices on server'
+  )
+  assert.ok(
+    content.includes('executeGetUserSessionBootstrap'),
+    'getHomePageDataServerFn must prefetch User Session Bootstrap on server'
+  )
+  assert.ok(
+    content.includes('executeGetUserRecommendationSignals'),
+    'getHomePageDataServerFn must prefetch Recommendation Signals on server'
+  )
+})
+
+test('Home Route Architecture: Route loader uses getHomePageDataServerFn avoiding client DB crashes', () => {
+  const filePath = path.resolve('src/routes/index.tsx')
+  const content = fs.readFileSync(filePath, 'utf8')
+
+  assert.ok(
+    content.includes('getHomePageDataServerFn'),
+    'src/routes/index.tsx must import getHomePageDataServerFn'
+  )
+  assert.ok(
+    content.includes('getHomePageDataServerFn({ data: { currentUserId } })'),
+    'Route loader must call getHomePageDataServerFn with currentUserId'
+  )
+  assert.ok(
+    !content.includes('executeGetTopShelf'),
+    'Route loader must NOT call raw executeGetTopShelf directly in the client bundle'
+  )
+  assert.ok(
+    !content.includes('executeGetTrendingWorks'),
+    'Route loader must NOT call raw executeGetTrendingWorks directly in the client bundle'
+  )
+})

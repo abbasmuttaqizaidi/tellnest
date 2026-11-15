@@ -282,6 +282,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
     loaderData?.initialTrending,
     loaderData?.initialBingeable,
     loaderData?.initialNewVoices,
+    loaderData?.initialBootstrap?.readingWorks,
   ])
 
   const hasRetriedCatalogRef = useRef(false)

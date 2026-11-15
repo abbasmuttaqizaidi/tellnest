@@ -11,20 +11,14 @@ import {
   getUserRecommendationSignalsServerFn,
   type UserRecommendationSignals,
 } from '../server/recommendations'
-import {
-  getPlatformWorksServerFn,
-  executeGetTopShelf,
-  executeGetTrendingWorks,
-  executeGetBingeableWorks,
-  executeGetNewVoices,
-} from '../server/works'
+import { getPlatformWorksServerFn } from '../server/works'
+import { getHomePageDataServerFn } from '../server/home'
 import PublicHome from '../components/home/PublicHome'
 import type { HomeLoaderData } from '../components/home/LoggedInHome'
 import { PublicHomeSkeleton, LoggedInHomeSkeleton } from '../components/home/HomeSkeletons'
 
 const LoggedInHome = React.lazy(() => import('../components/home/LoggedInHome'))
 import { getHeroImageSources } from '../config/hero'
-import { getTopShelfWorks } from '../lib/recommendations/topShelf'
 import { useApp } from '../context/AppContext'
 import {
   hasActiveClientSession,
@@ -58,77 +52,33 @@ export const Route = createFileRoute('/')({
   }),
   loader: async ({ context }: { context?: { authUser?: any } }): Promise<HomeLoaderData> => {
     try {
-      // Re-use authUser from root route context to eliminate redundant server calls
       const authUser = context?.authUser ?? (await getAuthUserServerFn())
-      const isAuth = Boolean(authUser?.isAuthenticated && authUser?.userId)
-      const isOnboarded = Boolean(authUser?.onboardingCompleted)
+      const currentUserId = authUser?.userId || null
+      const data = await getHomePageDataServerFn({ data: { currentUserId } })
 
-      // Parallel server pre-fetch of section data (strictly capped at 10 items per section with memory cache!)
-      // Note: Heavy catalog-wide getPlatformWorksServerFn is excluded from initial route loader to maximize TTFB
-      const [
-        bootstrap,
-        recSignals,
-        topShelfDirect,
-        trendingDirect,
-        bingeableDirect,
-        newVoicesDirect,
-      ] = await Promise.all([
-        isAuth && isOnboarded
-          ? getUserSessionBootstrapServerFn({ data: authUser!.userId! }).catch((err) => {
-              console.warn('[Route Loader] Pre-fetch bootstrap failed:', err?.message || err)
-              return null
-            })
-          : null,
-        isAuth && isOnboarded
-          ? getUserRecommendationSignalsServerFn({ data: authUser!.userId! }).catch((err) => {
-              console.warn('[Route Loader] Pre-fetch rec signals failed:', err?.message || err)
-              return null
-            })
-          : null,
-        executeGetTopShelf({ limit: 10, currentUserId: authUser?.userId }).catch(() => null),
-        executeGetTrendingWorks({ limit: 10 }).catch(() => null),
-        executeGetBingeableWorks({ limit: 10, currentUserId: authUser?.userId }).catch(() => null),
-        isAuth
-          ? executeGetNewVoices({ excludeBingeable: true }).catch(() => null)
-          : null,
-      ])
-
-      const cleanTopShelf = Array.isArray(topShelfDirect)
-        ? topShelfDirect.filter((w) => !isReligiousWork(w))
-        : null
-      const cleanTrending = Array.isArray(trendingDirect)
-        ? trendingDirect.filter((w) => !isReligiousWork(w))
-        : null
-      const cleanBingeable = Array.isArray(bingeableDirect)
-        ? bingeableDirect.filter((w) => !isReligiousWork(w))
-        : null
-      const cleanNewVoices = Array.isArray(newVoicesDirect)
-        ? newVoicesDirect.filter((w) => !isReligiousWork(w))
-        : null
-
-      const initialTopShelf =
-        cleanTopShelf && cleanTopShelf.length > 0
-          ? cleanTopShelf
-          : null
+      // Double-check religious works exclusion on home page feeds
+      const sanitizeFeed = (list: any[] | null | undefined) =>
+        Array.isArray(list) ? list.filter((w) => !isReligiousWork(w)) : null
 
       return {
-        authUser: authUser || { userId: null, isAuthenticated: false },
-        initialBootstrap: bootstrap,
-        initialRecSignals: recSignals,
-        initialWorks: null,
-        initialTopShelf,
-        initialTrending: cleanTrending ? cleanTrending.slice(0, 10) : null,
-        initialBingeable: cleanBingeable ? cleanBingeable.slice(0, 10) : null,
-        initialNewVoices: cleanNewVoices ? cleanNewVoices.slice(0, 10) : null,
-        catalogError: false,
+        ...data,
+        authUser: authUser || data.authUser,
+        initialTopShelf: sanitizeFeed(data.initialTopShelf),
+        initialTrending: sanitizeFeed(data.initialTrending),
+        initialBingeable: sanitizeFeed(data.initialBingeable),
+        initialNewVoices: sanitizeFeed(data.initialNewVoices),
       }
-    } catch {
+    } catch (err) {
+      console.warn('[Route Loader] getHomePageDataServerFn failed:', err)
       return {
         authUser: { userId: null, isAuthenticated: false },
         initialBootstrap: null,
         initialRecSignals: null,
         initialWorks: null,
         initialTopShelf: null,
+        initialTrending: null,
+        initialBingeable: null,
+        initialNewVoices: null,
         catalogError: true,
       }
     }
@@ -247,10 +197,12 @@ function HomePage() {
     }
   }, [isUserLoaded, isSignedIn])
 
-  // Hook 6: Self-healing synchronization for stale guest loaderData on home route transitions
+  // Hook 6: Self-healing synchronization for stale loaderData on home route transitions
   const router = useRouter()
   React.useEffect(() => {
     if (isUserLoaded && isSignedIn && !loaderData?.authUser?.isAuthenticated) {
+      router.invalidate()
+    } else if (isUserLoaded && !isSignedIn && loaderData?.authUser?.isAuthenticated) {
       router.invalidate()
     }
   }, [isUserLoaded, isSignedIn, loaderData?.authUser?.isAuthenticated, router])

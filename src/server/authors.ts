@@ -789,19 +789,17 @@ export function invalidateProfileCache(clerkUserId: string) {
   userProfileCache.delete(clerkUserId)
 }
 
-/**
- * High-Performance Aggregated Session Bootstrap:
- * Replaces 5 separate client roundtrips with 1 unified database query pipeline.
- * Fetches profile, bookmarks, follows, notifications, and reading progress in parallel.
- */
-export const getUserSessionBootstrapServerFn = createServerFn({ method: 'GET' })
-  .validator((clerkUserId: string) => {
-    if (!clerkUserId || typeof clerkUserId !== 'string') throw new Error('clerkUserId is required')
-    return clerkUserId.trim()
-  })
-  .handler(async ({ data: clerkUserId }): Promise<UserSessionBootstrap> => {
-    const { createAdminClient } = await import('../lib/supabase/server')
-    const admin = createAdminClient()
+export async function executeGetUserSessionBootstrap(
+  clerkUserId: string,
+  dependencies: { adminClient?: any } = {}
+): Promise<UserSessionBootstrap> {
+  const adminFactory = dependencies.adminClient
+    ? () => dependencies.adminClient
+    : async () => {
+        const { createAdminClient } = await import('../lib/supabase/server')
+        return createAdminClient()
+      }
+  const admin = await adminFactory()
 
     // 1. Resolve Profile once with 60s in-memory caching
     const profile = await getCachedProfileByClerkId(admin, clerkUserId)
@@ -978,6 +976,20 @@ export const getUserSessionBootstrapServerFn = createServerFn({ method: 'GET' })
       readingProgress,
       readingWorks,
     }
+}
+
+/**
+ * High-Performance Aggregated Session Bootstrap:
+ * Replaces 5 separate client roundtrips with 1 unified database query pipeline.
+ * Fetches profile, bookmarks, follows, notifications, and reading progress in parallel.
+ */
+export const getUserSessionBootstrapServerFn = createServerFn({ method: 'GET' })
+  .validator((clerkUserId: string) => {
+    if (!clerkUserId || typeof clerkUserId !== 'string') throw new Error('clerkUserId is required')
+    return clerkUserId.trim()
+  })
+  .handler(async ({ data: clerkUserId }): Promise<UserSessionBootstrap> => {
+    return await executeGetUserSessionBootstrap(clerkUserId)
   })
 
 
