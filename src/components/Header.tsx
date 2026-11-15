@@ -35,9 +35,16 @@ import { ContestDetailsModal } from './ContestDetailsModal'
 
 export interface HeaderProps {
   serverAuthenticated?: boolean
+  serverUser?: {
+    userId: string | null
+    isAuthenticated: boolean
+    avatarUrl?: string | null
+    displayName?: string | null
+    username?: string | null
+  } | null
 }
 
-export default function Header({ serverAuthenticated }: HeaderProps = {}) {
+export default function Header({ serverAuthenticated, serverUser }: HeaderProps = {}) {
   const router = useRouter()
   const navigate = useNavigate()
   const clerk = useClerk()
@@ -71,7 +78,7 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
 
   const hasSessionIndicator =
     !isExplicitlyLoggedOut &&
-    (Boolean(serverAuthenticated) || hasActiveClientSession())
+    (Boolean(serverAuthenticated) || Boolean(serverUser?.isAuthenticated) || hasActiveClientSession())
 
   const isAuthResolving = !isClientClerkLoaded && hasSessionIndicator
 
@@ -127,10 +134,33 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
     setMobileDrawerOpen,
   } = useApp()
   const isAvatarRemoved = customAvatarUrl === 'none'
-  const activeAvatar = isAvatarRemoved ? null : (customAvatarUrl || user?.imageUrl || null)
+  const activeAvatar = isAvatarRemoved
+    ? null
+    : (customAvatarUrl || serverUser?.avatarUrl || user?.imageUrl || null)
   // Strictly prioritize user's profile display name set in Hatchpen Settings / Profile
-  const profileDisplayName = userDisplayName || userProfileUsername || 'Hatchpen Member'
-  const profileHandle = userProfileUsername || (user?.username ? user.username : (user?.primaryEmailAddress?.emailAddress?.split('@')[0] || 'reader'))
+  const profileDisplayName =
+    userDisplayName ||
+    serverUser?.displayName ||
+    userProfileUsername ||
+    serverUser?.username ||
+    'Hatchpen Member'
+  const profileHandle =
+    userProfileUsername ||
+    serverUser?.username ||
+    (user?.username ? user.username : (user?.primaryEmailAddress?.emailAddress?.split('@')[0] || 'reader'))
+
+  // Speculative preloader for modals on hover/focus to achieve instant 0ms interactions
+  const preloadAuthModal = () => {
+    try {
+      import('./AuthModal')
+    } catch {}
+  }
+
+  const preloadWriteModal = () => {
+    try {
+      import('./PublicWriteModal')
+    } catch {}
+  }
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [contestModalOpen, setContestModalOpen] = useState(false)
   const userMenuRef = useRef<HTMLDivElement>(null)
@@ -626,12 +656,16 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
             <div className="flex items-center gap-1.5 sm:gap-2.5">
               <Link
                 to="/login"
+                onMouseEnter={preloadAuthModal}
+                onFocus={preloadAuthModal}
                 className="hidden sm:inline-flex items-center justify-center rounded-full bg-white text-[#18181B] border border-neutral-200/80 px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-[13px] font-medium hover:bg-neutral-100 transition-all shadow-xs no-underline cursor-pointer"
               >
                 <span>Log in</span>
               </Link>
               <button
                 type="button"
+                onMouseEnter={preloadAuthModal}
+                onFocus={preloadAuthModal}
                 onClick={() => openAuthModal()}
                 className="inline-flex items-center gap-1.5 rounded-full bg-[#18181B] dark:bg-white text-white dark:text-[#18181B] px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-[13px] font-medium hover:opacity-90 transition-all shadow-xs cursor-pointer"
               >
@@ -788,6 +822,8 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
             {!isSignedIn && (
               <button
                 type="button"
+                onMouseEnter={preloadWriteModal}
+                onFocus={preloadWriteModal}
                 onClick={() => {
                   setMobileDrawerOpen(false)
                   openPublicWriteModal()
@@ -847,6 +883,8 @@ export default function Header({ serverAuthenticated }: HeaderProps = {}) {
             {!isSignedIn ? (
               <Link
                 to="/login"
+                onMouseEnter={preloadAuthModal}
+                onFocus={preloadAuthModal}
                 onClick={() => setMobileDrawerOpen(false)}
                 className="w-full block text-left py-1.5 px-2.5 font-semibold text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] rounded-lg transition-colors no-underline"
               >

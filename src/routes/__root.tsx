@@ -1,3 +1,4 @@
+import React, { Suspense } from 'react'
 import { HeadContent, Scripts, createRootRoute, Link, useRouterState } from '@tanstack/react-router'
 import { ClerkProvider } from '@clerk/tanstack-react-start'
 import Header from '../components/Header'
@@ -5,12 +6,14 @@ import Footer from '../components/Footer'
 import Toast from '../components/Toast'
 import { ClerkSync } from '../components/ClerkSync'
 import { InspectletTracker } from '../components/InspectletTracker'
-import { AuthModal } from '../components/AuthModal'
-import { PublicWriteModal } from '../components/PublicWriteModal'
-import { UserOnboardingModal } from '../components/UserOnboardingModal'
-import { MobileContestAnnouncementModal } from '../components/MobileContestAnnouncementModal'
 import { AppProvider } from '../context/AppContext'
 import { getAuthUserServerFn } from '../server/auth'
+
+// Code-split heavy interactive modals so they are never bundled into the public SSR/CWV critical path
+const AuthModal = React.lazy(() => import('../components/AuthModal').then((m) => ({ default: m.AuthModal })))
+const PublicWriteModal = React.lazy(() => import('../components/PublicWriteModal').then((m) => ({ default: m.PublicWriteModal })))
+const UserOnboardingModal = React.lazy(() => import('../components/UserOnboardingModal').then((m) => ({ default: m.UserOnboardingModal })))
+const MobileContestAnnouncementModal = React.lazy(() => import('../components/MobileContestAnnouncementModal').then((m) => ({ default: m.MobileContestAnnouncementModal })))
 
 import appCss from '../styles.css?url'
 
@@ -439,15 +442,22 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   }
 
   const innerContent = (
-    <AppProvider>
+    <AppProvider initialAuthUser={rootData?.authUser}>
       <NavigationProgressBar />
-      <ClerkSync />
+      {Boolean(rootData?.isAuthenticated) && <ClerkSync />}
       <InspectletTracker />
-      <AuthModal />
-      <PublicWriteModal />
-      <UserOnboardingModal authUser={rootData?.authUser} />
-      <MobileContestAnnouncementModal />
-      <Header serverAuthenticated={Boolean(rootData?.isAuthenticated)} />
+      <Suspense fallback={null}>
+        <AuthModal />
+        <PublicWriteModal />
+        {Boolean(rootData?.isAuthenticated && !rootData?.authUser?.onboardingCompleted) && (
+          <UserOnboardingModal authUser={rootData?.authUser} />
+        )}
+        <MobileContestAnnouncementModal />
+      </Suspense>
+      <Header
+        serverAuthenticated={Boolean(rootData?.isAuthenticated)}
+        serverUser={rootData?.authUser}
+      />
       <main className="flex-1 w-full max-w-full bg-[var(--bg-canvas)]">
         {children}
       </main>

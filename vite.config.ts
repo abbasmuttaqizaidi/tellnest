@@ -34,6 +34,21 @@ const config = defineConfig({
             'Cache-Control': 'private, no-cache, no-store, max-age=0, must-revalidate',
           },
         },
+        '/wattpad-alternative': {
+          headers: {
+            'Cache-Control': 'public, max-age=0, s-maxage=600, stale-while-revalidate=86400',
+          },
+        },
+        '/compare/**': {
+          headers: {
+            'Cache-Control': 'public, max-age=0, s-maxage=600, stale-while-revalidate=86400',
+          },
+        },
+        '/hatchpen-hits': {
+          headers: {
+            'Cache-Control': 'public, max-age=0, s-maxage=600, stale-while-revalidate=86400',
+          },
+        },
         '/works/**': {
           headers: {
             'Cache-Control': 'public, max-age=0, s-maxage=600, stale-while-revalidate=86400',

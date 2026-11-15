@@ -39,6 +39,7 @@ import {
 } from '../server/reader'
 import { supabase } from '../lib/supabase/client'
 import { useUser } from '@clerk/react'
+import type { ServerAuthState } from '../server/auth'
 
 export interface ReaderSettings {
   fontSize: 'sm' | 'base' | 'lg' | 'xl'
@@ -182,7 +183,12 @@ const initialProgress: Record<string, ReadingProgress> = {}
 
 const AppContext = createContext<AppContextType | undefined>(undefined)
 
-export function AppProvider({ children }: { children: React.ReactNode }) {
+export interface AppProviderProps {
+  children: React.ReactNode
+  initialAuthUser?: ServerAuthState | null
+}
+
+export function AppProvider({ children, initialAuthUser }: AppProviderProps) {
   const [readerSettings, setReaderSettings] = useState<ReaderSettings>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -460,7 +466,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isUserLoaded && isSignedIn && user?.id) {
-      reloadWriterWorksFromDb()
+      // Defer writer works fetch: Only auto-load when on studio or library routes
+      const shouldAutoLoad =
+        typeof window !== 'undefined' &&
+        (window.location.pathname.startsWith('/write') ||
+          window.location.pathname.startsWith('/library') ||
+          window.location.pathname.startsWith('/secret-adminpanel'))
+      if (shouldAutoLoad) {
+        reloadWriterWorksFromDb()
+      }
     } else if (isUserLoaded && !isSignedIn) {
       setWriterWorks([])
     }
@@ -730,47 +744,67 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!userProfileId) return
 
     let isMounted = true
+    let channel: any = null
 
-    // Realtime WebSocket listener (Zero Polling) filtered to this user's profile UUID
-    const channel = supabase
-      .channel(`realtime:notifications:${userProfileId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${userProfileId}`,
-        },
-        (payload: any) => {
-          const row = payload.new
-          if (!row || row.user_id !== userProfileId) return
-          const meta = row.metadata || {}
-          const newNotif: NotificationItem = {
-            id: row.id,
-            type: row.type === 'new_chapter' ? 'publish' : 'update',
-            actorName: meta.actorName || 'A reader',
-            actorAvatar: meta.actorAvatar || '/unisex-avatar.svg',
-            title: meta.title || (row.type === 'new_follower' ? 'New Follower' : 'New Notification'),
-            description: meta.description || 'Activity on your profile',
-            targetUrl: meta.targetUrl || '/write',
-            timestamp: 'Just now',
-            isRead: false,
+    const connectChannel = () => {
+      if (!isMounted) return
+      channel = supabase
+        .channel(`realtime:notifications:${userProfileId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${userProfileId}`,
+          },
+          (payload: any) => {
+            const row = payload.new
+            if (!row || row.user_id !== userProfileId) return
+            const meta = row.metadata || {}
+            const newNotif: NotificationItem = {
+              id: row.id,
+              type: row.type === 'new_chapter' ? 'publish' : 'update',
+              actorName: meta.actorName || 'A reader',
+              actorAvatar: meta.actorAvatar || '/unisex-avatar.svg',
+              title: meta.title || (row.type === 'new_follower' ? 'New Follower' : 'New Notification'),
+              description: meta.description || 'Activity on your profile',
+              targetUrl: meta.targetUrl || '/write',
+              timestamp: 'Just now',
+              isRead: false,
+            }
+
+            setNotifications((prev) => [newNotif, ...prev])
+            showToast(`🔔 ${newNotif.title}: ${newNotif.actorName}`)
           }
+        )
+        .subscribe()
+    }
 
-          setNotifications((prev) => [newNotif, ...prev])
-          showToast(`🔔 ${newNotif.title}: ${newNotif.actorName}`)
+    let cleanupTimer: any = null
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      const idleId = (window as any).requestIdleCallback(connectChannel, { timeout: 3000 })
+      cleanupTimer = () => {
+        if ('cancelIdleCallback' in window) {
+          ;(window as any).cancelIdleCallback(idleId)
         }
-      )
-      .subscribe()
+      }
+    } else {
+      const timer = setTimeout(connectChannel, 1500)
+      cleanupTimer = () => clearTimeout(timer)
+    }
 
     return () => {
       isMounted = false
-      supabase.removeChannel(channel)
+      if (cleanupTimer) cleanupTimer()
+      if (channel) {
+        supabase.removeChannel(channel)
+      }
     }
   }, [userProfileId])
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const [userDisplayName, setUserDisplayNameState] = useState<string | null>(() => {
+    if (initialAuthUser?.displayName) return initialAuthUser.displayName
     if (typeof window !== 'undefined') {
       try {
         return localStorage.getItem('hatchpen_display_name')
@@ -793,6 +827,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   const [userProfileUsername, setUserProfileUsernameState] = useState<string | null>(() => {
+    if (initialAuthUser?.username) return initialAuthUser.username
     if (typeof window !== 'undefined') {
       try {
         return localStorage.getItem('hatchpen_username')
@@ -815,6 +850,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   const [customAvatarUrl, setCustomAvatarUrlState] = useState<string | null>(() => {
+    if (initialAuthUser?.avatarUrl) return initialAuthUser.avatarUrl
     if (typeof window !== 'undefined') {
       try {
         return localStorage.getItem('hatchpen_custom_avatar') || localStorage.getItem('tellnest_custom_avatar')

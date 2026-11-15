@@ -5,6 +5,9 @@ export interface ServerAuthState {
   userId: string | null
   isAuthenticated: boolean
   onboardingCompleted?: boolean
+  avatarUrl?: string | null
+  displayName?: string | null
+  username?: string | null
 }
 
 /**
@@ -17,6 +20,9 @@ export const getAuthUserServerFn = createServerFn({ method: 'GET' }).handler(
       const authState = await auth()
       const userId = authState?.userId ?? null
       let onboardingCompleted = false
+      let avatarUrl: string | null = null
+      let displayName: string | null = null
+      let username: string | null = null
 
       if (userId) {
         try {
@@ -25,6 +31,9 @@ export const getAuthUserServerFn = createServerFn({ method: 'GET' }).handler(
           const admin = createAdminClient()
           const profile = await getCachedProfileByClerkId(admin, userId)
           onboardingCompleted = profile?.onboarding_completed === true
+          avatarUrl = profile?.avatar_path || null
+          displayName = profile?.display_name || null
+          username = profile?.username || null
         } catch {}
       }
 
@@ -32,11 +41,16 @@ export const getAuthUserServerFn = createServerFn({ method: 'GET' }).handler(
         userId,
         isAuthenticated: !!userId,
         onboardingCompleted,
+        hasAvatar: Boolean(avatarUrl),
+        username,
       })
       return {
         userId,
         isAuthenticated: !!userId,
         onboardingCompleted,
+        avatarUrl,
+        displayName,
+        username,
       }
     } catch (e: any) {
       console.error('[getAuthUserServerFn] Server Auth FAILED:', e?.message || e)
@@ -44,6 +58,9 @@ export const getAuthUserServerFn = createServerFn({ method: 'GET' }).handler(
         userId: null,
         isAuthenticated: false,
         onboardingCompleted: false,
+        avatarUrl: null,
+        displayName: null,
+        username: null,
       }
     }
   }
