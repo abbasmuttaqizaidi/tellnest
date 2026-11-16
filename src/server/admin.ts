@@ -3600,6 +3600,7 @@ export interface AdminSendEmailInput {
   ctaUrl?: string
   fromSender?: string
   replyTo?: string
+  layoutMode?: 'newsletter' | 'personal'
 }
 
 /**
@@ -3654,6 +3655,7 @@ export const adminSendEmailServerFn = createServerFn({ method: 'POST' })
       ctaUrl: data.ctaUrl?.trim() || undefined,
       from,
       replyTo: data.replyTo?.trim() || 'welcome@hatchpen.com',
+      layoutMode: data.layoutMode || 'personal',
     })
 
     if (!result.success) {

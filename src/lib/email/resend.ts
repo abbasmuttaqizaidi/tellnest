@@ -346,6 +346,83 @@ export interface AdminDirectEmailPayload {
   ctaUrl?: string
   from?: string
   replyTo?: string
+  layoutMode?: 'newsletter' | 'personal'
+}
+
+/**
+ * Generates an ultra-clean, high-deliverability personal 1-on-1 email layout.
+ * Omit marketing banners, badges, and button tables so Gmail classifies the message
+ * as a direct personal conversation and places it straight into the Primary Inbox.
+ */
+export function generateAdminPersonalEmailHtml({
+  headline,
+  message,
+  ctaText,
+  ctaUrl,
+  fromName = 'HatchPen',
+}: {
+  headline?: string
+  message: string
+  ctaText?: string
+  ctaUrl?: string
+  fromName?: string
+}): string {
+  const siteUrl = 'https://hatchpen.com'
+  const title = headline?.trim() || 'A message from HatchPen'
+
+  // Format message paragraphs safely
+  const paragraphs = message
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p) => {
+      const withLineBreaks = escapeHtml(p).replace(/\n/g, '<br />')
+      return `<p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.65; color: #1a1a1a;">${withLineBreaks}</p>`
+    })
+    .join('')
+
+  const ctaSection =
+    ctaText && ctaUrl
+      ? `<p style="margin: 20px 0 24px 0;">
+          <a href="${escapeHtml(ctaUrl.trim())}" style="font-size: 15px; color: #0969da; text-decoration: underline; font-weight: 600;">
+            ${escapeHtml(ctaText.trim())} &rarr;
+          </a>
+        </p>`
+      : ''
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escapeHtml(title)}</title>
+</head>
+<body style="margin: 0; padding: 24px 16px; background-color: #ffffff; color: #1a1a1a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 15px; line-height: 1.65; -webkit-font-smoothing: antialiased;">
+  <div style="max-width: 580px; margin: 0 auto;">
+    ${
+      headline
+        ? `<h2 style="margin: 0 0 16px 0; font-size: 17px; font-weight: 600; color: #111111; line-height: 1.4;">${escapeHtml(
+            headline
+          )}</h2>`
+        : ''
+    }
+    <div style="color: #1a1a1a;">
+      ${paragraphs}
+    </div>
+    ${ctaSection}
+    <div style="margin-top: 28px; padding-top: 16px; border-top: 1px solid #e5e5e5; font-size: 14px; color: #333333;">
+      <p style="margin: 0 0 4px 0; font-weight: 600; color: #111111;">Warm regards,</p>
+      <p style="margin: 0; color: #555555;">${escapeHtml(fromName)}</p>
+      <p style="margin: 2px 0 0 0; font-size: 12px; color: #888888;">
+        <a href="${siteUrl}" style="color: #888888; text-decoration: underline;">HatchPen Publishing</a>
+      </p>
+    </div>
+    <div style="margin-top: 32px; font-size: 11px; color: #999999; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      Sent to registered members on <a href="${siteUrl}" style="color: #999999; text-decoration: underline;">hatchpen.com</a>.
+    </div>
+  </div>
+</body>
+</html>`
 }
 
 /**
@@ -557,13 +634,23 @@ export async function sendAdminDirectEmail(
     ? senderFrom.split('<')[0].trim()
     : 'The HatchPen Team'
 
-  const html = generateAdminDirectEmailHtml({
-    headline: payload.headline,
-    message: payload.message,
-    ctaText: payload.ctaText,
-    ctaUrl: payload.ctaUrl,
-    fromName: senderDisplayName,
-  })
+  const isPersonal = payload.layoutMode === 'personal'
+
+  const html = isPersonal
+    ? generateAdminPersonalEmailHtml({
+        headline: payload.headline,
+        message: payload.message,
+        ctaText: payload.ctaText,
+        ctaUrl: payload.ctaUrl,
+        fromName: senderDisplayName,
+      })
+    : generateAdminDirectEmailHtml({
+        headline: payload.headline,
+        message: payload.message,
+        ctaText: payload.ctaText,
+        ctaUrl: payload.ctaUrl,
+        fromName: senderDisplayName,
+      })
 
   const text = generateAdminDirectEmailText({
     headline: payload.headline,

@@ -214,6 +214,7 @@ function SecretAdminPanelPage() {
   const [mailBody, setMailBody] = useState('')
   const [mailCtaText, setMailCtaText] = useState('')
   const [mailCtaUrl, setMailCtaUrl] = useState('')
+  const [mailLayoutMode, setMailLayoutMode] = useState<'personal' | 'newsletter'>('personal')
   const [isSendingMail, setIsSendingMail] = useState(false)
   const [isSendingTestMail, setIsSendingTestMail] = useState(false)
   const [mailSendResult, setMailSendResult] = useState<{ success: boolean; message: string; count?: number; id?: string } | null>(null)
@@ -1878,6 +1879,7 @@ function SecretAdminPanelPage() {
           ctaUrl: mailCtaUrl.trim() || undefined,
           fromSender: resolvedFromSender,
           replyTo: mailReplyTo.trim() || 'welcome@hatchpen.com',
+          layoutMode: mailLayoutMode,
         },
       })
       if (res.success) {
@@ -1926,6 +1928,7 @@ function SecretAdminPanelPage() {
           ctaUrl: mailCtaUrl.trim() || undefined,
           fromSender: resolvedFromSender,
           replyTo: mailReplyTo.trim() || 'welcome@hatchpen.com',
+          layoutMode: mailLayoutMode,
         },
       })
 
@@ -3704,6 +3707,59 @@ function SecretAdminPanelPage() {
 
                 {/* 3. EMAIL CONTENT COMPOSER */}
                 <div className="space-y-4 pt-4 border-t border-[var(--border-subtle)]">
+                  {/* Delivery & Layout Mode (Primary Inbox Optimization) */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-mono font-semibold text-[var(--ink-primary)]">
+                        Delivery &amp; Layout Style
+                      </label>
+                      <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-medium">
+                        {mailLayoutMode === 'personal' ? '🎯 High Primary Inbox Delivery' : '📰 Editorial Magazine Layout'}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setMailLayoutMode('personal')}
+                        className={`p-2.5 rounded-lg border text-left transition-colors cursor-pointer ${
+                          mailLayoutMode === 'personal'
+                            ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 text-[var(--ink-primary)] font-semibold'
+                            : 'border-[var(--border-subtle)] bg-[var(--bg-subtle)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
+                        }`}
+                      >
+                        <div className="text-xs font-medium flex items-center gap-1.5">
+                          <span>✉️ Personal 1-on-1 Letter</span>
+                          {mailLayoutMode === 'personal' && (
+                            <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400 ml-auto shrink-0" />
+                          )}
+                        </div>
+                        <p className="text-[10px] text-[var(--ink-muted)] mt-0.5 font-normal leading-normal">
+                          No marketing banners or buttons. High probability of landing in Gmail Primary tab.
+                        </p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setMailLayoutMode('newsletter')}
+                        className={`p-2.5 rounded-lg border text-left transition-colors cursor-pointer ${
+                          mailLayoutMode === 'newsletter'
+                            ? 'border-amber-500 bg-amber-50/50 dark:bg-amber-950/20 text-[var(--ink-primary)] font-semibold'
+                            : 'border-[var(--border-subtle)] bg-[var(--bg-subtle)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)]'
+                        }`}
+                      >
+                        <div className="text-xs font-medium flex items-center gap-1.5">
+                          <span>📰 Editorial Newsletter</span>
+                          {mailLayoutMode === 'newsletter' && (
+                            <Check className="h-3 w-3 text-amber-600 dark:text-amber-400 ml-auto shrink-0" />
+                          )}
+                        </div>
+                        <p className="text-[10px] text-[var(--ink-muted)] mt-0.5 font-normal leading-normal">
+                          Dark header banner, "Editorial Note" badge, and large CTA button.
+                        </p>
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Subject Line + Spam Detector */}
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
@@ -3912,16 +3968,23 @@ function SecretAdminPanelPage() {
 
                 {/* Visual Email Card Canvas */}
                 <div className="rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white text-neutral-900 overflow-hidden shadow-md">
-                  {/* Brand Banner */}
-                  <div className="bg-[#121214] p-5 text-white border-b-2 border-amber-600 flex items-center justify-between">
-                    <div>
-                      <div className="font-serif text-lg font-bold tracking-tight text-white">HatchPen</div>
-                      <div className="text-[10px] text-neutral-400">A Quieter Place for Bolder Stories</div>
+                  {/* Brand Banner - Only in Newsletter Mode */}
+                  {mailLayoutMode === 'newsletter' ? (
+                    <div className="bg-[#121214] p-5 text-white border-b-2 border-amber-600 flex items-center justify-between">
+                      <div>
+                        <div className="font-serif text-lg font-bold tracking-tight text-white">HatchPen</div>
+                        <div className="text-[10px] text-neutral-400">A Quieter Place for Bolder Stories</div>
+                      </div>
+                      <span className="text-[9px] font-mono text-neutral-300 bg-white/10 px-2 py-0.5 rounded">
+                        Editorial Note
+                      </span>
                     </div>
-                    <span className="text-[9px] font-mono text-neutral-300 bg-white/10 px-2 py-0.5 rounded">
-                      Editorial Note
-                    </span>
-                  </div>
+                  ) : (
+                    <div className="bg-emerald-50/60 dark:bg-emerald-950/20 px-4 py-2 border-b border-emerald-100 dark:border-emerald-900/40 flex items-center justify-between text-[10px] font-mono text-emerald-700 dark:text-emerald-400">
+                      <span>✉️ Personal 1-on-1 Letter Format</span>
+                      <span>Primary Inbox Optimized</span>
+                    </div>
+                  )}
 
                   {/* Body Content */}
                   <div className="p-6 space-y-4">
@@ -3945,12 +4008,18 @@ function SecretAdminPanelPage() {
                       )}
                     </div>
 
-                    {/* CTA Button Mock */}
+                    {/* CTA Button / Text Link Mock */}
                     {mailCtaText && (
                       <div className="pt-2">
-                        <span className="inline-block bg-[#111111] text-white text-xs font-semibold px-4 py-2 rounded-lg">
-                          {mailCtaText} &rarr;
-                        </span>
+                        {mailLayoutMode === 'newsletter' ? (
+                          <span className="inline-block bg-[#111111] text-white text-xs font-semibold px-4 py-2 rounded-lg">
+                            {mailCtaText} &rarr;
+                          </span>
+                        ) : (
+                          <span className="text-xs text-blue-600 font-semibold underline inline-block">
+                            {mailCtaText} &rarr;
+                          </span>
+                        )}
                       </div>
                     )}
 
@@ -3964,11 +4033,17 @@ function SecretAdminPanelPage() {
                   </div>
 
                   {/* Anti-Spam Footer */}
-                  <div className="bg-[#fafaf8] p-4 border-t border-neutral-200 text-[9px] text-neutral-500 font-sans space-y-1">
-                    <div className="font-semibold text-neutral-600">HatchPen Publishing &bull; Serialized Indie Literature</div>
-                    <div>You received this communication as a registered member on hatchpen.com.</div>
-                    <div className="text-neutral-400">SPF Pass &bull; DKIM Signed &bull; DMARC Verified &bull; hatchpen.com</div>
-                  </div>
+                  {mailLayoutMode === 'newsletter' ? (
+                    <div className="bg-[#fafaf8] p-4 border-t border-neutral-200 text-[9px] text-neutral-500 font-sans space-y-1">
+                      <div className="font-semibold text-neutral-600">HatchPen Publishing &bull; Serialized Indie Literature</div>
+                      <div>You received this communication as a registered member on hatchpen.com.</div>
+                      <div className="text-neutral-400">SPF Pass &bull; DKIM Signed &bull; DMARC Verified &bull; hatchpen.com</div>
+                    </div>
+                  ) : (
+                    <div className="p-3 border-t border-neutral-100 text-[9px] text-neutral-400 font-sans text-center">
+                      Sent to registered members on hatchpen.com.
+                    </div>
+                  )}
                 </div>
 
                 {/* Tip callout */}
