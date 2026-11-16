@@ -53,3 +53,28 @@ test('Email Layout Modes: sendAdminDirectEmail dispatches personal mode seamless
 
   assert.strictEqual(result.success, true, 'Email dispatch must succeed')
 })
+
+test('Email Link Formats: converts markdown links, buttons, and raw URLs properly', () => {
+  const html = generateAdminPersonalEmailHtml({
+    message: `Hi Abhishek,
+
+Did you leave us on read with Pleasure After Dark?
+
+[button: Resume Reading](https://hatchpen.com/works/pleasure-after-dark)
+
+Or check this [simple link](https://hatchpen.com/discover) or visit https://hatchpen.com directly.`,
+    fromName: 'Shreya',
+  })
+
+  // Black button assertion
+  assert.ok(html.includes('background-color: #111111'), 'Must render black background for button')
+  assert.ok(html.includes('Resume Reading &rarr;'), 'Must render button label with arrow')
+  assert.ok(html.includes('href="https://hatchpen.com/works/pleasure-after-dark"'), 'Must link to story URL')
+
+  // Simple link assertion
+  assert.ok(html.includes('href="https://hatchpen.com/discover"'), 'Must render markdown link')
+  assert.ok(html.includes('>simple link</a>'), 'Must render markdown link label')
+
+  // Raw URL assertion
+  assert.ok(html.includes('href="https://hatchpen.com"'), 'Must render raw URL link')
+})

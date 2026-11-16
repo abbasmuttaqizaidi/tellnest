@@ -3831,8 +3831,36 @@ function SecretAdminPanelPage() {
                       value={mailBody}
                       onChange={(e) => setMailBody(e.target.value)}
                       placeholder="Write your email message here. Blank lines between sentences will automatically turn into elegant editorial paragraphs..."
-                      className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-subtle)] p-3.5 text-xs text-[var(--ink-primary)] placeholder-[var(--ink-muted)] focus:outline-none focus:border-[var(--ink-primary)] leading-relaxed"
+                      className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-subtle)] p-3.5 text-xs text-[var(--ink-primary)] placeholder-[var(--ink-muted)] focus:outline-none focus:border-[var(--ink-primary)] leading-relaxed font-sans"
                     />
+
+                    {/* Quick Link/Button Snippet Inserters */}
+                    <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] font-mono">
+                      <span className="text-[var(--ink-muted)]">Insert:</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMailBody((prev) => `${prev.trim()}\n\n[button: Pick up where you left off](https://hatchpen.com/works/pleasure-after-dark)`)
+                        }}
+                        className="px-2 py-0.5 rounded border border-[var(--border-subtle)] bg-[var(--bg-subtle)] hover:bg-[var(--bg-surface)] text-[var(--ink-primary)] cursor-pointer text-[10px]"
+                        title="Inserts an email-safe black action button snippet"
+                      >
+                        + Black Button
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMailBody((prev) => `${prev.trim()}\n\n[Continue reading](https://hatchpen.com/works/pleasure-after-dark)`)
+                        }}
+                        className="px-2 py-0.5 rounded border border-[var(--border-subtle)] bg-[var(--bg-subtle)] hover:bg-[var(--bg-surface)] text-[var(--ink-primary)] cursor-pointer text-[10px]"
+                        title="Inserts a clean blue text link snippet"
+                      >
+                        + Simple Link
+                      </button>
+                      <span className="text-[10px] text-[var(--ink-muted)] ml-auto">
+                        Supports [button: Text](url) &amp; [Text](url)
+                      </span>
+                    </div>
                   </div>
 
                   {/* Optional Call to Action Button */}
@@ -3996,11 +4024,59 @@ function SecretAdminPanelPage() {
 
                     <div className="text-xs text-neutral-700 space-y-2.5 leading-relaxed font-sans">
                       {mailBody.trim() ? (
-                        mailBody.split(/\n{2,}/).map((p, idx) => (
-                          <p key={idx} className="m-0">
-                            {p}
-                          </p>
-                        ))
+                        mailBody.split(/\n{2,}/).map((p, idx) => {
+                          const btnSoloMatch = p.trim().match(/^\[(?:button|btn):\s*([^\]]+)\]\((https?:\/\/[^\s\)]+)\)$/i)
+                          if (btnSoloMatch) {
+                            return (
+                              <div key={idx} className="py-1">
+                                <span className="inline-block bg-[#111111] text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-xs">
+                                  {btnSoloMatch[1]} &rarr;
+                                </span>
+                              </div>
+                            )
+                          }
+
+                          const parts = []
+                          const regex = /\[(?:button|btn):\s*([^\]]+)\]\((https?:\/\/[^\s\)]+)\)|\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)|(https?:\/\/[^\s<)"']+)/gi
+                          let lastIndex = 0
+                          let match: RegExpExecArray | null
+                          while ((match = regex.exec(p)) !== null) {
+                            if (match.index > lastIndex) {
+                              parts.push(p.substring(lastIndex, match.index))
+                            }
+                            if (match[1] && match[2]) {
+                              parts.push(
+                                <span key={match.index} className="inline-block mx-1 my-1">
+                                  <span className="bg-[#111111] text-white text-[11px] font-semibold px-3 py-1.5 rounded-md">
+                                    {match[1]} &rarr;
+                                  </span>
+                                </span>
+                              )
+                            } else if (match[3] && match[4]) {
+                              parts.push(
+                                <a key={match.index} href={match[4]} target="_blank" rel="noreferrer" className="text-blue-600 underline font-medium">
+                                  {match[3]}
+                                </a>
+                              )
+                            } else if (match[5]) {
+                              parts.push(
+                                <a key={match.index} href={match[5]} target="_blank" rel="noreferrer" className="text-blue-600 underline">
+                                  {match[5]}
+                                </a>
+                              )
+                            }
+                            lastIndex = regex.lastIndex
+                          }
+                          if (lastIndex < p.length) {
+                            parts.push(p.substring(lastIndex))
+                          }
+
+                          return (
+                            <p key={idx} className="m-0">
+                              {parts.length > 0 ? parts : p}
+                            </p>
+                          )
+                        })
                       ) : (
                         <p className="text-neutral-400 italic">
                           Write your email content on the left to see the live rendering here...

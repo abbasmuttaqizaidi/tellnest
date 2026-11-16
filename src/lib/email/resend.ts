@@ -350,6 +350,81 @@ export interface AdminDirectEmailPayload {
 }
 
 /**
+ * Safely converts plain text email paragraphs into rich HTML with support for:
+ * 1. Buttons: `[button: Label](https://url)` or `[btn: Label](https://url)` -> Sleek Black Button
+ * 2. Markdown Links: `[Label](https://url)` -> Blue Underlined Link
+ * 3. Auto-detected raw URLs: `https://example.com` -> Clickable Link
+ */
+export function formatEmailBodyHtml(rawMessage: string, isPersonal: boolean = false): string {
+  const paragraphs = rawMessage
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+
+  return paragraphs
+    .map((para) => {
+      let text = escapeHtml(para)
+
+      const tokenMap: Array<{ token: string; html: string }> = []
+      let tokenIndex = 0
+
+      // Step 1: Extract Buttons: [button: Label](url) or [btn: Label](url)
+      text = text.replace(
+        /\[(?:button|btn):\s*([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/gi,
+        (_, label, url) => {
+          const token = `%%HP_BTN_${tokenIndex++}%%`
+          const buttonHtml = `<span style="display: block; margin: 16px 0;"><a href="${url}" target="_blank" style="background-color: #111111; color: #ffffff !important; text-decoration: none !important; padding: 11px 22px; border-radius: 6px; font-size: 14px; font-weight: 600; display: inline-block; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; letter-spacing: 0.2px;">${label.trim()} &rarr;</a></span>`
+          tokenMap.push({ token, html: buttonHtml })
+          return token
+        }
+      )
+
+      // Step 2: Extract Markdown Links: [Label](url)
+      text = text.replace(
+        /\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/g,
+        (_, label, url) => {
+          const token = `%%HP_LNK_${tokenIndex++}%%`
+          const linkHtml = `<a href="${url}" target="_blank" style="color: #0969da; text-decoration: underline; font-weight: 500;">${label.trim()}</a>`
+          tokenMap.push({ token, html: linkHtml })
+          return token
+        }
+      )
+
+      // Step 3: Extract Raw Standalone URLs
+      text = text.replace(
+        /(^|[\s(])(https?:\/\/[^\s<)"']+)(?=$|[\s)])/g,
+        (_, prefix, url) => {
+          const token = `%%HP_RAW_${tokenIndex++}%%`
+          const linkHtml = `<a href="${url}" target="_blank" style="color: #0969da; text-decoration: underline;">${url}</a>`
+          tokenMap.push({ token, html: linkHtml })
+          return `${prefix}${token}`
+        }
+      )
+
+      // Step 4: Replace tokens with final HTML
+      for (const item of tokenMap) {
+        text = text.replace(item.token, item.html)
+      }
+
+      // Convert line breaks within paragraph
+      const withLineBreaks = text.replace(/\n/g, '<br />')
+      const textColor = isPersonal ? '#1a1a1a' : '#2d3748'
+      return `<p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.65; color: ${textColor};">${withLineBreaks}</p>`
+    })
+    .join('')
+}
+
+/**
+ * Normalizes plain text links and buttons for standard MIME text fallback
+ */
+export function formatEmailBodyText(rawMessage: string): string {
+  let text = rawMessage
+  text = text.replace(/\[(?:button|btn):\s*([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/gi, '$1: $2')
+  text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/g, '$1 ($2)')
+  return text
+}
+
+/**
  * Generates an ultra-clean, high-deliverability personal 1-on-1 email layout.
  * Omit marketing banners, badges, and button tables so Gmail classifies the message
  * as a direct personal conversation and places it straight into the Primary Inbox.
@@ -370,16 +445,8 @@ export function generateAdminPersonalEmailHtml({
   const siteUrl = 'https://hatchpen.com'
   const title = headline?.trim() || 'A message from HatchPen'
 
-  // Format message paragraphs safely
-  const paragraphs = message
-    .split(/\n{2,}/)
-    .map((p) => p.trim())
-    .filter(Boolean)
-    .map((p) => {
-      const withLineBreaks = escapeHtml(p).replace(/\n/g, '<br />')
-      return `<p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.65; color: #1a1a1a;">${withLineBreaks}</p>`
-    })
-    .join('')
+  // Format message paragraphs with rich link and button detection
+  const paragraphs = formatEmailBodyHtml(message, true)
 
   const ctaSection =
     ctaText && ctaUrl
@@ -444,16 +511,8 @@ export function generateAdminDirectEmailHtml({
   const siteUrl = 'https://hatchpen.com'
   const title = headline?.trim() || 'A message from HatchPen'
 
-  // Format message paragraphs safely
-  const paragraphs = message
-    .split(/\n{2,}/)
-    .map((p) => p.trim())
-    .filter(Boolean)
-    .map((p) => {
-      const withLineBreaks = escapeHtml(p).replace(/\n/g, '<br />')
-      return `<p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.65; color: #2d3748;">${withLineBreaks}</p>`
-    })
-    .join('')
+  // Format message paragraphs with rich link and button detection
+  const paragraphs = formatEmailBodyHtml(message, false)
 
   const ctaSection =
     ctaText && ctaUrl
@@ -599,7 +658,7 @@ export function generateAdminDirectEmailText({
     parts.push('')
   }
 
-  parts.push(message.trim())
+  parts.push(formatEmailBodyText(message.trim()))
   parts.push('')
 
   if (ctaText && ctaUrl) {
