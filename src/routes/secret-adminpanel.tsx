@@ -215,6 +215,17 @@ function SecretAdminPanelPage() {
   const [mailCtaText, setMailCtaText] = useState('')
   const [mailCtaUrl, setMailCtaUrl] = useState('')
   const [mailLayoutMode, setMailLayoutMode] = useState<'personal' | 'newsletter'>('personal')
+  const [showFormatsModal, setShowFormatsModal] = useState(false)
+  const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null)
+
+  const handleCopySnippet = (text: string, id: string) => {
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(text)
+      setCopiedSnippet(id)
+      setTimeout(() => setCopiedSnippet(null), 2000)
+    }
+  }
+
   const [isSendingMail, setIsSendingMail] = useState(false)
   const [isSendingTestMail, setIsSendingTestMail] = useState(false)
   const [mailSendResult, setMailSendResult] = useState<{ success: boolean; message: string; count?: number; id?: string } | null>(null)
@@ -3921,6 +3932,16 @@ function SecretAdminPanelPage() {
                     <div className="flex items-center gap-2.5">
                       <button
                         type="button"
+                        onClick={() => setShowFormatsModal(true)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-subtle)] hover:bg-[var(--bg-surface)] text-xs font-mono text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] cursor-pointer transition-colors shadow-2xs"
+                        title="View link and button formatting shortcuts and deliverability guide"
+                      >
+                        <HelpCircle className="h-3.5 w-3.5 text-amber-500" />
+                        <span>Sending Formats</span>
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={() => {
                           setMailSubject('')
                           setMailHeadline('')
@@ -6866,6 +6887,127 @@ function SecretAdminPanelPage() {
           }}
         />
       )}
+
+      {/* EMAIL SENDING FORMATS & DELIVERABILITY GUIDE MODAL */}
+      <Modal
+        isOpen={showFormatsModal}
+        onClose={() => setShowFormatsModal(false)}
+        size="lg"
+        title="Email Sending Formats & Link Guide"
+        description="Supported formatting syntaxes for plain-text email composer and deliverability rules."
+      >
+        <div className="space-y-5 text-xs text-[var(--ink-primary)]">
+          {/* Format 1: Sleek Black Button */}
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-neutral-900 dark:bg-white" />
+                <h4 className="font-semibold text-sm">1. Sleek Black Action Button</h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleCopySnippet('[button: Pick up where you left off](https://hatchpen.com/works/pleasure-after-dark)', 'btn')}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[11px] font-mono text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] transition-colors cursor-pointer"
+              >
+                {copiedSnippet === 'btn' ? (
+                  <>
+                    <Check className="h-3 w-3 text-emerald-500" />
+                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3 w-3" />
+                    <span>Copy Syntax</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            <p className="text-[var(--ink-muted)] text-[11px] leading-relaxed">
+              Use this when you want a high-converting call to action button. Renders as a solid rounded black button with white typography.
+            </p>
+
+            <div className="rounded-lg bg-[var(--bg-surface)] p-3 border border-[var(--border-subtle)] font-mono text-[11px] text-amber-600 dark:text-amber-400 select-all">
+              [button: Button Text](https://link-url)
+            </div>
+
+            {/* Visual preview */}
+            <div className="pt-1 flex items-center gap-3">
+              <span className="text-[10px] font-mono text-[var(--ink-muted)]">Live Email Appearance:</span>
+              <span className="inline-block bg-[#111111] text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-xs">
+                Pick up where you left off &rarr;
+              </span>
+            </div>
+          </div>
+
+          {/* Format 2: Simple Clean Link */}
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-blue-500" />
+                <h4 className="font-semibold text-sm">2. Simple Clean Link (Natural Text)</h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleCopySnippet('[Continue reading Pleasure After Dark](https://hatchpen.com/works/pleasure-after-dark)', 'link')}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[11px] font-mono text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] transition-colors cursor-pointer"
+              >
+                {copiedSnippet === 'link' ? (
+                  <>
+                    <Check className="h-3 w-3 text-emerald-500" />
+                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3 w-3" />
+                    <span>Copy Syntax</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            <p className="text-[var(--ink-muted)] text-[11px] leading-relaxed">
+              Recommended for personal 1-on-1 emails. Flows seamlessly inside normal prose without feeling like a marketing advertisement.
+            </p>
+
+            <div className="rounded-lg bg-[var(--bg-surface)] p-3 border border-[var(--border-subtle)] font-mono text-[11px] text-blue-600 dark:text-blue-400 select-all">
+              [Link Text](https://link-url)
+            </div>
+
+            {/* Visual preview */}
+            <div className="pt-1 flex items-center gap-3">
+              <span className="text-[10px] font-mono text-[var(--ink-muted)]">Live Email Appearance:</span>
+              <span className="text-xs text-blue-600 dark:text-blue-400 font-medium underline">
+                Continue reading Pleasure After Dark
+              </span>
+            </div>
+          </div>
+
+          {/* Format 3: Auto-Detected Raw URL */}
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] p-4 space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              <h4 className="font-semibold text-sm">3. Direct Raw URL (Auto-Clickable)</h4>
+            </div>
+            <p className="text-[var(--ink-muted)] text-[11px]">
+              Just paste any URL starting with <code className="font-mono text-emerald-600">https://</code> directly in your message body. It will automatically convert to a safe clickable link for the reader.
+            </p>
+          </div>
+
+          {/* Deliverability Tips */}
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-2 text-[11px]">
+            <div className="flex items-center gap-2 font-semibold text-amber-700 dark:text-amber-400">
+              <Sparkles className="h-4 w-4" />
+              <span>Primary (Main) Inbox Invariants</span>
+            </div>
+            <ul className="space-y-1 list-disc list-inside text-[var(--ink-muted)]">
+              <li><strong>Select "✉️ Personal 1-on-1 Letter" mode</strong> to bypass Gmail's Promotions tab.</li>
+              <li><strong>DMARC &amp; SPF are verified</strong> on <code className="font-mono text-[10px]">hatchpen.com</code> to protect against spam filters.</li>
+              <li>Use friendly, natural sentences (avoid all-caps words like FREE, WINNER, or multiple exclamation marks).</li>
+            </ul>
+          </div>
+        </div>
+      </Modal>
 
     </div>
   )
