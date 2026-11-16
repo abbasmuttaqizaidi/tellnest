@@ -180,6 +180,8 @@ export const saveUserOnboardingServerFn = createServerFn({ method: 'POST' })
 
     const displayName = (data.displayName && data.displayName.trim()) || data.username
 
+    const isReaderGate = currentPrefs.signup_source === 'reader_gate'
+
     const preferencesPayload: Record<string, any> = {
       ...currentPrefs,
       interests: data.interests,
@@ -190,8 +192,12 @@ export const saveUserOnboardingServerFn = createServerFn({ method: 'POST' })
       completedAt: new Date().toISOString(),
       username_verified: true,
       verified_username: data.username.toLowerCase().trim(),
-      username_verified_at: currentPrefs.username_verified_at || new Date().toISOString(),
-      username_last_changed_at: currentPrefs.username_last_changed_at || new Date().toISOString(),
+      username_verified_at: isReaderGate ? new Date().toISOString() : (currentPrefs.username_verified_at || new Date().toISOString()),
+      username_last_changed_at: new Date().toISOString(),
+    }
+
+    if (preferencesPayload.signup_source === 'reader_gate') {
+      delete preferencesPayload.signup_source
     }
 
     // Tareeqa B: Send Welcome Email via Resend on onboarding completion if not sent yet

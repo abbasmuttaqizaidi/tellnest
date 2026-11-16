@@ -136,5 +136,19 @@ describe('Two Separate Sign-Up Flows & Reader Username Flexibility', () => {
     const resultStandard = checkCanChangeUsername(standardProfile)
     assert.equal(resultStandard.allowed, false, 'Standard user should be locked for 32 days')
     assert.equal(resultStandard.daysRemaining, 27)
+
+    // Case 3: Reader Gate user completes onboarding -> transitions into verified user locked for 32 days
+    const completedReaderProfile = {
+      username: 'reader_official_handle',
+      is_username_verified: true,
+      preferences: {
+        // signup_source deleted upon completion
+        username_verified: true,
+        username_verified_at: new Date().toISOString(), // verified today
+      },
+    }
+    const resultCompletedReader = checkCanChangeUsername(completedReaderProfile)
+    assert.equal(resultCompletedReader.allowed, false, 'Once reader chooses pen name, 32-day lock MUST activate')
+    assert.equal(resultCompletedReader.daysRemaining, 32)
   })
 })
