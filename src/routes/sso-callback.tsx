@@ -43,7 +43,12 @@ export default function SSOCallbackPage() {
   // 2. Instant responsive feedback
   useEffect(() => {
     setProgress(85)
-    setStatusText('Opening your stories...')
+    const target = getTargetDestination()
+    if (target.startsWith('/read/')) {
+      setStatusText('Ready. Opening your chapter...')
+    } else {
+      setStatusText('Opening your stories...')
+    }
   }, [])
 
   const hasRedirectedRef = useRef(false)

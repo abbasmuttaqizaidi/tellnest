@@ -18,7 +18,7 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { useUser } from '@clerk/react'
-import { useNavigate, useRouter } from '@tanstack/react-router'
+import { useNavigate, useRouter, useRouterState } from '@tanstack/react-router'
 import { motion } from 'motion/react'
 import { useApp } from '../context/AppContext'
 import {
@@ -70,6 +70,7 @@ export function UserOnboardingModal({ authUser }: { authUser?: any } = {}) {
   const { setIsOnboardingActive, authReturnUrl } = useApp()
   const navigate = useNavigate()
   const router = useRouter()
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
 
   const [isOpen, setIsOpen] = useState(false)
   const [step, setStep] = useState<1 | 2>(1)
@@ -130,6 +131,19 @@ export function UserOnboardingModal({ authUser }: { authUser?: any } = {}) {
     }
 
     const checkOnboardingStatus = async () => {
+      // Option B: If reader is actively reading a story (/read/...), DO NOT interrupt their reading!
+      // Suppress the onboarding modal completely while in the reader so the story unlocks seamlessly in 0ms.
+      // When the reader finishes reading and later visits Home (/) or another page, the modal will smoothly pop up.
+      if (pathname.startsWith('/read/')) {
+        setIsOpen(false)
+        setIsOnboardingActive(false)
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('hatchpen_onboarding_active')
+          window.dispatchEvent(new CustomEvent('hatchpen:onboarding-active', { detail: { active: false } }))
+        }
+        return
+      }
+
       const key = `hatchpen_onboarding_completed_${user.id}`
       const clerkMetaCompleted = Boolean((user?.publicMetadata as any)?.onboardingCompleted)
       const localCompleted = typeof window !== 'undefined' && localStorage.getItem(key) === 'true'
@@ -244,7 +258,7 @@ export function UserOnboardingModal({ authUser }: { authUser?: any } = {}) {
     }
 
     checkOnboardingStatus()
-  }, [isLoaded, isSignedIn, user, authUser?.onboardingCompleted])
+  }, [isLoaded, isSignedIn, user, authUser?.onboardingCompleted, pathname])
 
   const isUsernameVerified =
     Boolean(usernameVerification?.available) &&

@@ -101,3 +101,22 @@ test('Regression Invariant 5: AuthModal immediately records story return URL int
     'AuthModal must record targetPath on modal open'
   )
 })
+
+test('Regression Invariant 6: Option B suppresses UserOnboardingModal on /read/ routes for 0ms story unlock', () => {
+  const content = fs.readFileSync(ONBOARDING_MODAL_FILE_PATH, 'utf-8')
+
+  assert.ok(
+    content.includes("pathname.startsWith('/read/')"),
+    'UserOnboardingModal must detect /read/ route to suppress modal during reading'
+  )
+})
+
+test('Regression Invariant 7: Reader page displays instant Chapter Unlocked toast upon authentication', () => {
+  const readerPath = 'src/routes/read.$workId.$chapterId.tsx'
+  const content = fs.readFileSync(readerPath, 'utf-8')
+
+  assert.ok(
+    content.includes("showToast('Chapter unlocked! Happy reading.')"),
+    'Reader route must show instant unlock toast upon authenticating'
+  )
+})
