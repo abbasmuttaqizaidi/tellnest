@@ -88,3 +88,16 @@ test('SEO Audit Fix 7: Sitewide Sitelinks Schema preserves intended 5 brand targ
   assert.ok(rootContent.includes('https://hatchpen.com/discover'), 'Must preserve Discover Stories')
   assert.ok(rootContent.includes('https://hatchpen.com/hatchpen-hits'), 'Must preserve HatchPen Hits')
 })
+
+test('SEO Audit Fix 8: Header renders primary crawler links for sitelink hubs', () => {
+  const headerContent = fs.readFileSync(path.join(rootDir, 'src/components/Header.tsx'), 'utf-8')
+  assert.ok(headerContent.includes('to="/hatchpen-hits"'), 'Header must link /hatchpen-hits')
+  assert.ok(headerContent.includes('to="/writing-contests"'), 'Header must link /writing-contests')
+  assert.ok(headerContent.includes('to="/discover"'), 'Header must link /discover')
+})
+
+test('SEO Audit Fix 9: Login page remains indexed with simplified utility metadata', () => {
+  const loginContent = fs.readFileSync(path.join(rootDir, 'src/routes/login.tsx'), 'utf-8')
+  assert.ok(!loginContent.includes('noindex: true'), 'Login page must not be deindexed')
+  assert.ok(!loginContent.includes("name: 'Sign In to HatchPen'"), 'Login page must not declare heavy standalone webPage schema')
+})

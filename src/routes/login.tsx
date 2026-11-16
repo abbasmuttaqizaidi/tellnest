@@ -22,14 +22,6 @@ export const Route = createFileRoute('/login')({
         'Sign in to your HatchPen account to read serialized fiction, bookmark manuscripts, and manage your writer desk.',
       canonicalUrl: 'https://hatchpen.com/login',
       ogType: 'website',
-      jsonLd: {
-        '@context': 'https://schema.org',
-        '@type': 'WebPage',
-        name: 'Sign In to HatchPen',
-        url: 'https://hatchpen.com/login',
-        description:
-          'Sign in to your HatchPen account to read serialized fiction, bookmark manuscripts, and manage your writer desk.',
-      },
     }),
   component: LoginPage,
 })

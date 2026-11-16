@@ -341,11 +341,20 @@ export default function Header({ serverAuthenticated, serverUser }: HeaderProps 
               <Link
                 to="/hatchpen-hits"
                 preload="intent"
+                title="HatchPen Hits"
                 className={`px-3 py-1.5 rounded transition-colors hover:text-[var(--ink-primary)] ${
                   currentPath.startsWith('/hatchpen-hits') ? 'text-[var(--ink-primary)] font-semibold' : ''
                 }`}
               >
                 Hits
+              </Link>
+              <Link
+                to="/writing-contests"
+                className="sr-only"
+                aria-hidden="true"
+                tabIndex={-1}
+              >
+                Writing Contests
               </Link>
               <Link
                 to="/search"
