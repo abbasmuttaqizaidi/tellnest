@@ -1096,7 +1096,36 @@ function DiscoverPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="space-y-2.5">
+              <h3 className="font-mono text-[10px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
+                Curated Editorial Hubs
+              </h3>
+              <div className="flex flex-col gap-1.5">
+                <Link
+                  to="/hatchpen-hits"
+                  className="px-2.5 py-1.5 rounded-md text-xs border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--ink-primary)] hover:border-rose-500 hover:bg-[var(--bg-subtle)] transition-colors no-underline font-medium flex items-center justify-between"
+                >
+                  <span>HatchPen Hits</span>
+                  <span className="text-[10px] text-rose-600 dark:text-rose-400 font-mono">Viral Serials &rarr;</span>
+                </Link>
+                <Link
+                  to="/writing-contests"
+                  className="px-2.5 py-1.5 rounded-md text-xs border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--ink-primary)] hover:border-amber-500 hover:bg-[var(--bg-subtle)] transition-colors no-underline font-medium flex items-center justify-between"
+                >
+                  <span>Writing Contests</span>
+                  <span className="text-[10px] text-amber-600 dark:text-amber-400 font-mono">₹2,000 Cash Prize &rarr;</span>
+                </Link>
+                <Link
+                  to="/wattpad-alternative"
+                  className="px-2.5 py-1.5 rounded-md text-xs border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--ink-primary)] hover:border-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors no-underline font-medium flex items-center justify-between"
+                >
+                  <span>Wattpad Alternative</span>
+                  <span className="text-[10px] text-[var(--ink-muted)] font-mono">Free Online Fiction &rarr;</span>
+                </Link>
+              </div>
+            </div>
+
             <div className="space-y-2.5">
               <h3 className="font-mono text-[10px] uppercase tracking-wider text-[var(--ink-muted)] font-semibold">
                 Categories

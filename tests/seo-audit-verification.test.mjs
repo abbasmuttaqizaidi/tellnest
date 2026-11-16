@@ -101,3 +101,16 @@ test('SEO Audit Fix 9: Login page remains indexed with simplified utility metada
   assert.ok(!loginContent.includes('noindex: true'), 'Login page must not be deindexed')
   assert.ok(!loginContent.includes("name: 'Sign In to HatchPen'"), 'Login page must not declare heavy standalone webPage schema')
 })
+
+test('SEO Audit Fix 10: Footer and Discover contextual direct linking pass equity to key landing hubs', () => {
+  const footerContent = fs.readFileSync(path.join(rootDir, 'src/components/Footer.tsx'), 'utf-8')
+  assert.ok(footerContent.includes('to="/wattpad-alternative"'), 'Footer must link Wattpad Alternative')
+  assert.ok(footerContent.includes('to="/hatchpen-hits"'), 'Footer must link HatchPen Hits')
+  assert.ok(footerContent.includes('to="/writing-contests"'), 'Footer must link Writing Contests')
+  assert.ok(footerContent.includes('the-season-we-fell'), 'Footer must link The Season We Fell')
+
+  const discoverContent = fs.readFileSync(path.join(rootDir, 'src/routes/discover.tsx'), 'utf-8')
+  assert.ok(discoverContent.includes('to="/hatchpen-hits"'), 'Discover must link HatchPen Hits')
+  assert.ok(discoverContent.includes('to="/writing-contests"'), 'Discover must link Writing Contests')
+  assert.ok(discoverContent.includes('to="/wattpad-alternative"'), 'Discover must link Wattpad Alternative')
+})

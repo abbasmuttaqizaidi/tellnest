@@ -115,12 +115,13 @@ export default function Footer() {
           {/* Ecosystem Links */}
           <div className="col-span-2 md:col-span-1">
             <h4 className="font-mono text-[10px] uppercase tracking-wider text-[var(--ink-primary)] font-semibold mb-1.5">
-              Platform & Studio
+              Platform &amp; Studio
             </h4>
             <ul className="flex flex-wrap gap-x-3 gap-y-1 md:block md:space-y-1 list-none p-0 m-0">
               <li>
                 <Link
                   to="/discover"
+                  title="Discover Stories - Explore Curated Serialized Novels & Manuscripts"
                   className="hover:text-[var(--ink-primary)] transition-colors no-underline text-inherit text-[11px] sm:text-xs py-0.5 inline-block"
                 >
                   Discover Stories
@@ -129,6 +130,7 @@ export default function Footer() {
               <li>
                 <Link
                   to="/wattpad-alternative"
+                  title="Free Wattpad Alternative - Read & Write Serialized Web Novels on HatchPen"
                   className="hover:text-[var(--ink-primary)] transition-colors no-underline text-inherit text-[11px] sm:text-xs py-0.5 inline-block font-medium text-[var(--ink-primary)]"
                 >
                   Wattpad Alternative
@@ -137,6 +139,7 @@ export default function Footer() {
               <li>
                 <Link
                   to="/hatchpen-hits"
+                  title="HatchPen Hits - Top Trending Indie Novels & Celebrated Fiction"
                   className="hover:text-[var(--ink-primary)] transition-colors no-underline text-inherit text-[11px] sm:text-xs py-0.5 inline-block font-medium text-rose-600 dark:text-rose-400"
                 >
                   HatchPen Hits (Top Serials)
@@ -145,6 +148,7 @@ export default function Footer() {
               <li>
                 <Link
                   to="/writing-contests"
+                  title="Writing Contests - HatchPen Monthly Literary Awards with Cash Prizes"
                   className="hover:text-[var(--ink-primary)] transition-colors no-underline text-inherit text-[11px] sm:text-xs py-0.5 inline-block font-medium text-amber-600 dark:text-amber-400"
                 >
                   Writing Contests (₹2,000 Prize)
