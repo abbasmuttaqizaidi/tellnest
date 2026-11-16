@@ -67,7 +67,7 @@ export const STANDARD_CATEGORIES: Array<{ id: string; name: string }> = GLOBAL_C
 
 export function UserOnboardingModal({ authUser }: { authUser?: any } = {}) {
   const { user, isLoaded, isSignedIn } = useUser()
-  const { setIsOnboardingActive } = useApp()
+  const { setIsOnboardingActive, authReturnUrl } = useApp()
   const navigate = useNavigate()
   const router = useRouter()
 
@@ -423,8 +423,22 @@ export function UserOnboardingModal({ authUser }: { authUser?: any } = {}) {
       setIsOpen(false)
       setIsPersonalizing(false)
 
-      // If user indicated interest in writing, navigate to studio; else stay on home feed
-      if (interestedInWriting) {
+      // Deep link reading continuity: if the user signed up while reading a story chapter, return them to it!
+      const savedReturnUrl =
+        (typeof window !== 'undefined' ? sessionStorage.getItem('hatchpen_auth_return_url') : null) ||
+        (authReturnUrl && authReturnUrl !== '/' ? authReturnUrl : null)
+
+      const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/'
+      const isAlreadyOnStory = currentPath.startsWith('/read/') || currentPath.startsWith('/works/')
+
+      if (savedReturnUrl && savedReturnUrl.startsWith('/') && !savedReturnUrl.startsWith('/sso-callback') && savedReturnUrl !== '/') {
+        try {
+          sessionStorage.removeItem('hatchpen_auth_return_url')
+        } catch {}
+        navigate({ to: savedReturnUrl as any })
+      } else if (isAlreadyOnStory && !interestedInWriting) {
+        // Reader is already on a story chapter; keep reading desk open without resetting location
+      } else if (interestedInWriting) {
         navigate({ to: '/write' })
       } else {
         navigate({ to: '/' })

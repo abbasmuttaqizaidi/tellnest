@@ -24,12 +24,16 @@ export function AuthModal() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const [showEmailForm, setShowEmailForm] = useState(false)
 
-  // Reset loading state when modal opens
+  // Reset loading state and preserve return destination when modal opens
   useEffect(() => {
     if (isAuthModalOpen) {
       setIsGoogleLoading(false)
+      const targetPath = sanitizeTargetPath(authReturnUrl)
+      if (typeof window !== 'undefined' && targetPath && targetPath !== '/' && !targetPath.startsWith('/sso-callback')) {
+        sessionStorage.setItem('hatchpen_auth_return_url', targetPath)
+      }
     }
-  }, [isAuthModalOpen])
+  }, [isAuthModalOpen, authReturnUrl])
 
   // Automatically close modal when user successfully signs in
   useEffect(() => {

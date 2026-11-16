@@ -64,7 +64,6 @@ export default function SSOCallbackPage() {
     try {
       sessionStorage.removeItem('hatchpen_oauth_in_flight')
       sessionStorage.removeItem('hatchpen_just_signed_up_google')
-      sessionStorage.removeItem('hatchpen_auth_return_url')
     } catch {}
     navigate({ to: (finalDest || '/') as any, replace: true })
   }
@@ -132,10 +131,8 @@ export default function SSOCallbackPage() {
       {/* Headless Clerk Token Processing */}
       <AuthenticateWithRedirectCallback
         signInForceRedirectUrl="/"
-        signUpForceRedirectUrl="/"
-        signInFallbackRedirectUrl="/"
-        signUpFallbackRedirectUrl="/"
-        continueSignUpUrl="/"
+        signUpFallbackRedirectUrl={getTargetDestination()}
+        continueSignUpUrl={getTargetDestination()}
         signInUrl="/"
         signUpUrl="/"
       />

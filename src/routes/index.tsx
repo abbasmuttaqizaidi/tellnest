@@ -215,10 +215,7 @@ function HomePage() {
 
   const isPendingOnboarding =
     !isCompletedMultiDevice &&
-    (isOnboardingActive ||
-      (isUserLoaded &&
-        isSignedIn &&
-        sessionStorage.getItem('hatchpen_onboarding_active') === 'true'))
+    Boolean(isUserLoaded && isSignedIn)
 
   // =========================================================================
   // ALL HOOKS HAVE BEEN EXECUTED. NOW EVALUATE VIEW BRANCHES SAFELY:

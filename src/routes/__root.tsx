@@ -462,7 +462,8 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <Suspense fallback={null}>
         <AuthModal />
         <PublicWriteModal />
-        {Boolean(rootData?.isAuthenticated && !rootData?.authUser?.onboardingCompleted) && (
+        {(Boolean(rootData?.isAuthenticated && !rootData?.authUser?.onboardingCompleted) ||
+          Boolean(!rootData?.authUser?.onboardingCompleted && typeof window !== 'undefined' && hasActiveClientSession())) && (
           <UserOnboardingModal authUser={rootData?.authUser} />
         )}
         <MobileContestAnnouncementModal />
@@ -482,12 +483,8 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   const bodyContent = CLERK_PUBLISHABLE_KEY ? (
     <ClerkProvider
       publishableKey={CLERK_PUBLISHABLE_KEY}
-      signInForceRedirectUrl="/"
-      signUpForceRedirectUrl="/"
       signInFallbackRedirectUrl="/"
       signUpFallbackRedirectUrl="/"
-      afterSignInUrl="/"
-      afterSignUpUrl="/"
       signInUrl="/"
       signUpUrl="/"
       appearance={{
