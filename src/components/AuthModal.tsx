@@ -29,8 +29,15 @@ export function AuthModal() {
     if (isAuthModalOpen) {
       setIsGoogleLoading(false)
       const targetPath = sanitizeTargetPath(authReturnUrl)
-      if (typeof window !== 'undefined' && targetPath && targetPath !== '/' && !targetPath.startsWith('/sso-callback')) {
-        sessionStorage.setItem('hatchpen_auth_return_url', targetPath)
+      if (typeof window !== 'undefined') {
+        if (targetPath.startsWith('/read/')) {
+          sessionStorage.setItem('hatchpen_signup_source', 'reader_gate')
+        } else {
+          sessionStorage.setItem('hatchpen_signup_source', 'standard')
+        }
+        if (targetPath && targetPath !== '/' && !targetPath.startsWith('/sso-callback')) {
+          sessionStorage.setItem('hatchpen_auth_return_url', targetPath)
+        }
       }
     }
   }, [isAuthModalOpen, authReturnUrl])
@@ -92,6 +99,11 @@ export function AuthModal() {
         sessionStorage.removeItem('hatchpen_just_logged_out')
         sessionStorage.setItem('hatchpen_just_signed_up_google', 'true')
         sessionStorage.setItem('hatchpen_oauth_in_flight', 'true')
+        if (targetPath.startsWith('/read/')) {
+          sessionStorage.setItem('hatchpen_signup_source', 'reader_gate')
+        } else {
+          sessionStorage.setItem('hatchpen_signup_source', 'standard')
+        }
         if (targetPath && targetPath !== '/' && !targetPath.startsWith('/sso-callback')) {
           sessionStorage.setItem('hatchpen_auth_return_url', targetPath)
         }

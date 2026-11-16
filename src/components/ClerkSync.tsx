@@ -106,6 +106,11 @@ export function ClerkSync() {
           user.username ||
           'HatchPen Author'
 
+        const signupSource =
+          (typeof window !== 'undefined'
+            ? (sessionStorage.getItem('hatchpen_signup_source') as 'reader_gate' | 'standard' | null)
+            : null) || 'standard'
+
         // Sync User into Supabase `profiles` table via server function (Service Role Key runs strictly on server)
         const synced = await syncClerkUserServerFn({
           data: {
@@ -115,6 +120,7 @@ export function ClerkSync() {
             avatarUrl: user.imageUrl || '/unisex-avatar.svg',
             email: user.primaryEmailAddress?.emailAddress || undefined,
             onboardingCompleted: isCompleted,
+            signupSource,
           },
         })
 

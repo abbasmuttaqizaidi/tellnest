@@ -93,6 +93,7 @@ export async function syncClerkUserToProfile(params: {
   bio?: string | null
   email?: string | null
   onboardingCompleted?: boolean
+  signupSource?: 'reader_gate' | 'standard'
 }) {
   const admin = createAdminClient()
 
@@ -146,6 +147,8 @@ export async function syncClerkUserToProfile(params: {
     candidateUsername = `${candidateUsername.slice(0, 20)}_${randomSuffix}`
   }
 
+  const isReaderGate = params.signupSource === 'reader_gate'
+
   const payload: Record<string, any> = {
     clerk_user_id: params.clerkUserId,
     username: candidateUsername,
@@ -154,6 +157,10 @@ export async function syncClerkUserToProfile(params: {
     is_public: true,
     account_status: 'active',
     onboarding_completed: Boolean(params.onboardingCompleted),
+    is_username_verified: !isReaderGate,
+    preferences: {
+      signup_source: params.signupSource || 'standard',
+    },
   }
 
   if (params.bio !== undefined) {

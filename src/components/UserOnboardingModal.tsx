@@ -96,6 +96,7 @@ export function UserOnboardingModal({ authUser }: { authUser?: any } = {}) {
   const [selectedGenres, setSelectedGenres] = useState<Array<{ id: string; name: string }>>([])
   const [selectedCategories, setSelectedCategories] = useState<Array<{ id: string; name: string }>>([])
   const [interestedInWriting, setInterestedInWriting] = useState(false)
+  const [isReaderSignup, setIsReaderSignup] = useState(false)
   const [expirationText, setExpirationText] = useState<string | null>(null)
   const [showUsernameRules, setShowUsernameRules] = useState(false)
   const usernameRulesRef = useRef<HTMLDivElement>(null)
@@ -204,8 +205,14 @@ export function UserOnboardingModal({ authUser }: { authUser?: any } = {}) {
         }
       }
 
-      // Prepopulate username from Clerk or email prefix
+      const isReaderSource =
+        existingProfile?.preferences?.signup_source === 'reader_gate' ||
+        (typeof window !== 'undefined' && sessionStorage.getItem('hatchpen_signup_source') === 'reader_gate')
+      setIsReaderSignup(Boolean(isReaderSource))
+
+      // Prepopulate username from profile, Clerk or email prefix
       const defaultUser =
+        existingProfile?.username ||
         user.username ||
         user.primaryEmailAddress?.emailAddress?.split('@')[0]?.replace(/[^a-z0-9_]/gi, '')?.toLowerCase() ||
         ''
@@ -258,6 +265,18 @@ export function UserOnboardingModal({ authUser }: { authUser?: any } = {}) {
     }
 
     checkOnboardingStatus()
+
+    if (typeof window !== 'undefined') {
+      const handlePageShow = () => {
+        checkOnboardingStatus()
+      }
+      window.addEventListener('pageshow', handlePageShow)
+      window.addEventListener('popstate', handlePageShow)
+      return () => {
+        window.removeEventListener('pageshow', handlePageShow)
+        window.removeEventListener('popstate', handlePageShow)
+      }
+    }
   }, [isLoaded, isSignedIn, user, authUser?.onboardingCompleted, pathname])
 
   const isUsernameVerified =
@@ -487,19 +506,32 @@ export function UserOnboardingModal({ authUser }: { authUser?: any } = {}) {
           isPersonalizing
             ? undefined
             : step === 1
-              ? 'Welcome to Hatchpen'
+              ? isReaderSignup
+                ? 'Welcome to Hatchpen, Reader!'
+                : 'Welcome to Hatchpen'
               : 'Your Reading Taste'
         }
         description={
           isPersonalizing
             ? undefined
             : step === 1
-              ? 'Set up your pen name and profile.'
+              ? isReaderSignup
+                ? 'You unlocked your story with a temporary handle. Choose your official pen name and customize your profile.'
+                : 'Set up your pen name and profile.'
               : 'Select what you love reading for your feed.'
         }
         footer={
           isPersonalizing ? null : step === 1 ? (
             <div className="w-full space-y-2.5">
+              {isReaderSignup && !isUsernameVerified && (
+                <div className="p-3 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/80 dark:bg-blue-950/30 text-blue-900 dark:text-blue-200 text-xs text-left animate-in fade-in slide-in-from-bottom-2 duration-200 shadow-xs">
+                  <p className="font-semibold text-xs">Choose Your Official Pen Name</p>
+                  <p className="text-[11px] text-blue-800/90 dark:text-blue-300/90 leading-relaxed mt-0.5">
+                    You signed up while reading. You can keep your handle or type your preferred pen name above and click <strong>Verify</strong>!
+                  </p>
+                </div>
+              )}
+
               {isUsernameVerified && (
                 <div className="p-3 rounded-xl border border-amber-300 dark:border-amber-700/70 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 flex items-start gap-2.5 text-xs text-left animate-in fade-in slide-in-from-bottom-2 duration-200 shadow-xs">
                   <div className="w-5 h-5 rounded-full bg-amber-200 dark:bg-amber-900/80 flex items-center justify-center shrink-0 mt-0.5 text-amber-900 dark:text-amber-200 font-bold text-[10px]">

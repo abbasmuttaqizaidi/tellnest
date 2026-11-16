@@ -88,6 +88,7 @@ export const syncClerkUserServerFn = createServerFn({ method: 'POST' })
     avatarUrl?: string | null
     email?: string | null
     onboardingCompleted?: boolean
+    signupSource?: 'reader_gate' | 'standard'
   }) => {
     if (!params.clerkUserId) throw new Error('clerkUserId is required')
     return params

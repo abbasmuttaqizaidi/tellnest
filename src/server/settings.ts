@@ -230,9 +230,16 @@ export async function executeGetSettingsData(deps: {
   const nJson = (pJson.notifications && typeof pJson.notifications === 'object') ? pJson.notifications : {}
   const recJson = (pJson.recommendations && typeof pJson.recommendations === 'object') ? pJson.recommendations : {}
 
+  const isUsernameVerified = Boolean(
+    profile.is_username_verified ??
+    pJson.username_verified ??
+    (pJson.username_verified_at && pJson.signup_source !== 'reader_gate')
+  )
+  const isReaderGate = pJson.signup_source === 'reader_gate' && !profile.is_username_verified && !pJson.username_verified
+
   const verifiedAtStr = (pJson.username_verified_at || pJson.username_last_changed_at || null) as string | null
   let usernameLockDaysRemaining = 0
-  if (verifiedAtStr) {
+  if (isUsernameVerified && !isReaderGate && verifiedAtStr) {
     const verifiedDate = new Date(verifiedAtStr).getTime()
     if (!isNaN(verifiedDate)) {
       const elapsedMs = Date.now() - verifiedDate
@@ -413,23 +420,33 @@ export async function executeUpdateAccountProfile(deps: {
 
     const { data: currentProfile } = await admin
       .from('profiles')
-      .select('id, clerk_user_id, username, preferences')
+      .select('id, clerk_user_id, username, is_username_verified, preferences')
       .eq('clerk_user_id', clerkUserId)
       .maybeSingle()
 
     const currentUsername = (currentProfile?.username || '').toLowerCase()
     if (normalized !== currentUsername) {
-      // 32-Day Username Lock Rule: Once verified, username cannot be changed for 32 days
+      // 32-Day Username Lock Rule: Only applies if the username was intentionally verified/chosen!
+      // If user signed up via reader gate and never verified an intentional pen name, allow them to change!
       const pJson = (currentProfile?.preferences && typeof currentProfile.preferences === 'object') ? currentProfile.preferences : {}
-      const verifiedAtStr = (pJson.username_verified_at || pJson.username_last_changed_at || null) as string | null
-      if (verifiedAtStr) {
-        const verifiedDate = new Date(verifiedAtStr).getTime()
-        if (!isNaN(verifiedDate)) {
-          const elapsedMs = Date.now() - verifiedDate
-          const elapsedDays = Math.floor(elapsedMs / (1000 * 60 * 60 * 24))
-          if (elapsedDays < 32) {
-            const daysRemaining = 32 - elapsedDays
-            throw new Error(`Username is locked. You cannot change your username for 32 days after verification (${daysRemaining} day${daysRemaining === 1 ? '' : 's'} remaining).`)
+      const isVerified = Boolean(
+        currentProfile?.is_username_verified ??
+        pJson.username_verified ??
+        (pJson.username_verified_at && pJson.signup_source !== 'reader_gate')
+      )
+      const isReaderGate = pJson.signup_source === 'reader_gate' && !currentProfile?.is_username_verified && !pJson.username_verified
+
+      if (isVerified && !isReaderGate) {
+        const verifiedAtStr = (pJson.username_verified_at || pJson.username_last_changed_at || null) as string | null
+        if (verifiedAtStr) {
+          const verifiedDate = new Date(verifiedAtStr).getTime()
+          if (!isNaN(verifiedDate)) {
+            const elapsedMs = Date.now() - verifiedDate
+            const elapsedDays = Math.floor(elapsedMs / (1000 * 60 * 60 * 24))
+            if (elapsedDays < 32) {
+              const daysRemaining = 32 - elapsedDays
+              throw new Error(`Username is locked. You cannot change your username for 32 days after verification (${daysRemaining} day${daysRemaining === 1 ? '' : 's'} remaining).`)
+            }
           }
         }
       }
@@ -439,22 +456,26 @@ export async function executeUpdateAccountProfile(deps: {
         .from('profiles')
         .select('id, clerk_user_id')
         .eq('username', normalized)
-        .neq('clerk_user_id', clerkUserId)
         .maybeSingle()
 
-      if (existingUser) {
+      if (existingUser && existingUser.clerk_user_id !== clerkUserId) {
         throw new Error(`The username "${normalized}" is already taken. Please choose another username.`)
       }
 
       updates.username = normalized
+      updates.is_username_verified = true
       const currentPrefs = (currentProfile?.preferences && typeof currentProfile.preferences === 'object') ? currentProfile.preferences : {}
-      updates.preferences = {
+      const nextPrefs: Record<string, any> = {
         ...currentPrefs,
         username_verified: true,
         verified_username: normalized,
         username_verified_at: new Date().toISOString(),
         username_last_changed_at: new Date().toISOString(),
       }
+      if (nextPrefs.signup_source === 'reader_gate') {
+        delete nextPrefs.signup_source
+      }
+      updates.preferences = nextPrefs
     }
   }
 
