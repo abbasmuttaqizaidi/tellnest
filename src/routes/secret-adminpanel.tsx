@@ -1883,7 +1883,7 @@ function SecretAdminPanelPage() {
         data: {
           adminToken,
           recipients: [testEmail],
-          subject: `[Test] ${mailSubject.trim()}`,
+          subject: mailSubject.trim(),
           headline: mailHeadline.trim() || undefined,
           message: mailBody.trim(),
           ctaText: mailCtaText.trim() || undefined,
