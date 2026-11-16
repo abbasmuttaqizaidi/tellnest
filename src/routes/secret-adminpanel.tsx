@@ -3421,14 +3421,20 @@ function SecretAdminPanelPage() {
                           Literary Preferences & Genres:
                         </span>
                         <div className="flex flex-wrap gap-1.5">
-                          {user.interests.map((interest) => (
-                            <span
-                              key={interest}
-                              className="px-2.5 py-1 rounded bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-xs font-mono text-[var(--ink-secondary)]"
-                            >
-                              {interest}
+                          {user.interests.length > 0 ? (
+                            user.interests.map((interest) => (
+                              <span
+                                key={interest}
+                                className="px-2.5 py-1 rounded bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-xs font-mono text-[var(--ink-secondary)] capitalize"
+                              >
+                                {interest}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-xs font-mono italic text-[var(--ink-muted)]">
+                              No genres selected yet (Pending onboarding)
                             </span>
-                          ))}
+                          )}
                         </div>
                       </div>
 
@@ -3446,6 +3452,11 @@ function SecretAdminPanelPage() {
                               >
                                 <Bookmark className="h-3.5 w-3.5 text-[var(--ink-muted)]" />
                                 <span>{sw.workTitle}</span>
+                                {sw.categoryName && (
+                                  <span className="text-[10px] text-[var(--ink-muted)] bg-[var(--bg-base)] px-1.5 py-0.5 rounded border border-[var(--border-subtle)]">
+                                    {sw.categoryName}
+                                  </span>
+                                )}
                               </div>
                             ))}
                           </div>

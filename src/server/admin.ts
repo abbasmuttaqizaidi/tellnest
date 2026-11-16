@@ -96,6 +96,7 @@ export interface AdminUserReading {
 export interface AdminUserSavedWork {
   workId: string
   workTitle: string
+  categoryName?: string
   coverImage?: string | null
   savedAt: string
 }
@@ -263,7 +264,7 @@ export const getAdminUsersServerFn = createServerFn({ method: 'POST' })
         admin.from('profiles').select('*'),
         admin.from('works').select('*, category:categories(name)'),
         admin.from('reading_progress').select('*, work:works(id, title, slug), chapter:chapters(id, chapter_number, title)'),
-        admin.from('library_items').select('*, work:works(id, title, slug, cover_image_path)'),
+        admin.from('library_items').select('*, work:works(id, title, slug, cover_image_path, category:categories(name))'),
         admin.from('follows').select('*, following:profiles!follows_following_id_fkey(id, display_name, username)'),
         admin.from('user_preferences').select('*')
       ])
@@ -280,6 +281,21 @@ export const getAdminUsersServerFn = createServerFn({ method: 'POST' })
 
     // 3. Assemble unified user list
     const usersMap = new Map<string, AdminUser>()
+
+    // Helper to safely extract genre/interest names from profile preferences
+    const extractPreferenceNames = (arr: any): string[] => {
+      if (!Array.isArray(arr)) return []
+      return arr
+        .map((item) => {
+          if (typeof item === 'string') return item.trim()
+          if (item && typeof item === 'object') {
+            if (typeof item.name === 'string') return String(item.name).trim()
+            if (typeof item.id === 'string') return String(item.id).trim()
+          }
+          return ''
+        })
+        .filter(Boolean)
+    }
 
     // First map all Clerk users
     for (const u of clerkUsers) {
@@ -337,6 +353,7 @@ export const getAdminUsersServerFn = createServerFn({ method: 'POST' })
             .map((li) => ({
               workId: li.work_id,
               workTitle: li.work?.title || 'Saved Manuscript',
+              categoryName: li.work?.category?.name,
               coverImage: li.work?.cover_image_path || null,
               savedAt: li.created_at,
             }))
@@ -354,16 +371,26 @@ export const getAdminUsersServerFn = createServerFn({ method: 'POST' })
 
       const prefs = profileId ? userPreferences.find((pr) => pr.user_id === profileId) : null
 
-      // Deduce interests from works & saved items
+      // Deduce interests from profile onboarding preferences, works & saved items
       const interestSet = new Set<string>()
+      const rawPrefs = (matchingProfile?.preferences && typeof matchingProfile.preferences === 'object')
+        ? (matchingProfile.preferences as Record<string, any>)
+        : {}
+
+      // 1. User onboarding & taste preferences
+      extractPreferenceNames(rawPrefs.genres).forEach((g) => interestSet.add(g))
+      extractPreferenceNames(rawPrefs.interests).forEach((i) => interestSet.add(i))
+      extractPreferenceNames(rawPrefs.categories).forEach((c) => interestSet.add(c))
+
+      // 2. Author's works categories
       userWorks.forEach((w) => {
-        if (w.categoryName) interestSet.add(w.categoryName)
+        if (w.categoryName && w.categoryName !== 'General Literature') interestSet.add(w.categoryName)
       })
-      userSaved.forEach(() => interestSet.add('Serialized Fiction'))
-      if (interestSet.size === 0) {
-        interestSet.add('Contemporary Prose')
-        interestSet.add('Serialized Fiction')
-      }
+
+      // 3. User's saved library items categories
+      userSaved.forEach((s) => {
+        if (s.categoryName && s.categoryName !== 'General Literature') interestSet.add(s.categoryName)
+      })
 
       const matchingPrivacy = (matchingProfile?.preferences && typeof matchingProfile.preferences === 'object')
         ? (matchingProfile.preferences.privacy || {})
@@ -556,6 +583,16 @@ export const getAdminUsersServerFn = createServerFn({ method: 'POST' })
           }
         }
 
+        const pRawPrefs = (p.preferences && typeof p.preferences === 'object')
+          ? (p.preferences as Record<string, any>)
+          : {}
+        const pInterests = Array.from(new Set([
+          ...extractPreferenceNames(pRawPrefs.genres),
+          ...extractPreferenceNames(pRawPrefs.interests),
+          ...extractPreferenceNames(pRawPrefs.categories),
+          ...userWorks.map((w) => w.categoryName).filter((c): c is string => Boolean(c) && c !== 'General Literature'),
+        ]))
+
         usersMap.set(p.clerk_user_id, {
           clerkId: p.clerk_user_id,
           profileId: p.id,
@@ -576,7 +613,7 @@ export const getAdminUsersServerFn = createServerFn({ method: 'POST' })
           readingProgress: userReading,
           savedWorks: [],
           followedAuthors: [],
-          interests: ['Serialized Fiction'],
+          interests: pInterests,
           isMock: Boolean(p.is_mock),
           isPublic: p.is_public ?? false,
           worksVisibility: (pPrivacy.worksVisibility === 'hidden' ? 'hidden' : 'public') as 'public' | 'hidden',
