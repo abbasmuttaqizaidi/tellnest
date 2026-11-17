@@ -148,7 +148,7 @@ export function UserOnboardingModal({ authUser }: { authUser?: any } = {}) {
       const key = `hatchpen_onboarding_completed_${user.id}`
       const clerkMetaCompleted = Boolean((user?.publicMetadata as any)?.onboardingCompleted)
       const localCompleted = typeof window !== 'undefined' && localStorage.getItem(key) === 'true'
-      const serverCompleted = Boolean(authUser?.onboardingCompleted)
+      const serverCompleted = Boolean(authUser?.userId === user.id && authUser?.onboardingCompleted)
 
       // 1. Fast multi-device bypass:
       // If Clerk metadata or server SSR loader confirms onboarding, synchronize local cache and keep modal closed

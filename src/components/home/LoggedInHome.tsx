@@ -334,7 +334,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
         const isOnboardingDone = effectiveUserId
           ? (typeof window !== 'undefined' && localStorage.getItem(`hatchpen_onboarding_completed_${effectiveUserId}`) === 'true') ||
             Boolean((user?.publicMetadata as any)?.onboardingCompleted) ||
-            Boolean(loaderData?.authUser?.onboardingCompleted)
+            Boolean(loaderData?.authUser?.userId === effectiveUserId && loaderData?.authUser?.onboardingCompleted)
           : false
         const hasPrefs = Boolean(
           loaderData.initialRecSignals.preferences?.genres?.length ||
@@ -360,7 +360,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
             const isOnboardingDone =
               localStorage.getItem(`hatchpen_onboarding_completed_${effectiveUserId}`) === 'true' ||
               Boolean((user?.publicMetadata as any)?.onboardingCompleted) ||
-              Boolean(loaderData?.authUser?.onboardingCompleted)
+              Boolean(loaderData?.authUser?.userId === effectiveUserId && loaderData?.authUser?.onboardingCompleted)
             const hasCachedPrefs = Boolean(
               cached.preferences?.genres?.length ||
               cached.preferences?.categories?.length ||
@@ -401,7 +401,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
             const isOnboardingDone =
               localStorage.getItem(`hatchpen_onboarding_completed_${effectiveUserId}`) === 'true' ||
               Boolean((user?.publicMetadata as any)?.onboardingCompleted) ||
-              Boolean(loaderData?.authUser?.onboardingCompleted)
+              Boolean(loaderData?.authUser?.userId === effectiveUserId && loaderData?.authUser?.onboardingCompleted)
             const hasCachedPrefs = Boolean(
               cached.preferences?.genres?.length ||
               cached.preferences?.categories?.length ||
@@ -434,7 +434,7 @@ export default function LoggedInHome({ forcedView, loaderData }: LoggedInHomePro
     const isOnboardingDone = currentUserId
       ? (typeof window !== 'undefined' && localStorage.getItem(`hatchpen_onboarding_completed_${currentUserId}`) === 'true') ||
         Boolean((user?.publicMetadata as any)?.onboardingCompleted) ||
-        Boolean(loaderData?.authUser?.onboardingCompleted)
+        Boolean(loaderData?.authUser?.userId === currentUserId && loaderData?.authUser?.onboardingCompleted)
       : false
 
     // Multi-device sync: If user is verified onboarded but this browser lacked localStorage, sync immediately

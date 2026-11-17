@@ -151,4 +151,35 @@ describe('Two Separate Sign-Up Flows & Reader Username Flexibility', () => {
     assert.equal(resultCompletedReader.allowed, false, 'Once reader chooses pen name, 32-day lock MUST activate')
     assert.equal(resultCompletedReader.daysRemaining, 32)
   })
+
+  it('ensures syncClerkUserToProfile strictly forces onboarding_completed = false for reader_gate', () => {
+    assert.ok(
+      authorsQueryTs.includes('onboarding_completed: isReaderGate ? false : Boolean(params.onboardingCompleted)'),
+      'Reader-gate users must never be created with onboarding_completed = true'
+    )
+  })
+
+  it('ensures settings route UI renders editable username with verification for unlocked users', () => {
+    const settingsRouteTsx = fs.readFileSync(path.resolve(process.cwd(), 'src/routes/settings.tsx'), 'utf8')
+    assert.ok(
+      settingsRouteTsx.includes('Editable Handle'),
+      'Settings route must display Editable Handle badge when unlocked'
+    )
+    assert.ok(
+      settingsRouteTsx.includes('handleVerifyUsername'),
+      'Settings route must have handleVerifyUsername button'
+    )
+    assert.ok(
+      settingsRouteTsx.includes('choose_pen_name'),
+      'Settings route must allow typing a new username when unlocked'
+    )
+  })
+
+  it('ensures LoggedInHome isolates loaderData authUser to matching effectiveUserId', () => {
+    const loggedInHomeTsx = fs.readFileSync(path.resolve(process.cwd(), 'src/components/home/LoggedInHome.tsx'), 'utf8')
+    assert.ok(
+      loggedInHomeTsx.includes('loaderData?.authUser?.userId === effectiveUserId'),
+      'LoggedInHome must verify matching userId before adopting authUser.onboardingCompleted'
+    )
+  })
 })

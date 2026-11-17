@@ -119,7 +119,7 @@ export function ClerkSync() {
             displayName,
             avatarUrl: user.imageUrl || '/unisex-avatar.svg',
             email: user.primaryEmailAddress?.emailAddress || undefined,
-            onboardingCompleted: isCompleted,
+            onboardingCompleted: signupSource === 'reader_gate' ? false : isCompleted,
             signupSource,
           },
         })

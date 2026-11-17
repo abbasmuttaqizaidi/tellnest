@@ -105,8 +105,10 @@ export async function syncClerkUserToProfile(params: {
     .maybeSingle()
 
   if (existing) {
+    const isExistingReaderGate = (existing as any)?.preferences?.signup_source === 'reader_gate' && !existing.onboarding_completed
     // Self-healing: If Clerk metadata or client knows onboarding is completed, but DB says false, heal DB record
-    if (params.onboardingCompleted && !existing.onboarding_completed) {
+    // Strictly preserve incomplete onboarding status for deferred reader_gate accounts
+    if (params.onboardingCompleted && !existing.onboarding_completed && !isExistingReaderGate && params.signupSource !== 'reader_gate') {
       await admin
         .from('profiles')
         .update({ onboarding_completed: true, updated_at: new Date().toISOString() })
@@ -156,7 +158,7 @@ export async function syncClerkUserToProfile(params: {
     avatar_path: params.avatarUrl || null,
     is_public: true,
     account_status: 'active',
-    onboarding_completed: Boolean(params.onboardingCompleted),
+    onboarding_completed: isReaderGate ? false : Boolean(params.onboardingCompleted),
     is_username_verified: !isReaderGate,
     preferences: {
       signup_source: params.signupSource || 'standard',

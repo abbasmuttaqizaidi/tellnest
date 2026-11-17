@@ -1420,29 +1420,82 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
                           </div>
                         </div>
 
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700">
-                          <Lock className="w-3 h-3 text-neutral-500 dark:text-neutral-400" />
-                          <span>{data?.profile?.isUsernameLocked ? `Locked (${data.profile.usernameLockDaysRemaining ?? 32}d)` : 'Locked'}</span>
-                        </span>
+                        {data?.profile?.isUsernameLocked ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700">
+                            <Lock className="w-3 h-3 text-neutral-500 dark:text-neutral-400" />
+                            <span>Locked ({data.profile.usernameLockDaysRemaining ?? 32}d)</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                            <Sparkles className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                            <span>Editable Handle</span>
+                          </span>
+                        )}
                       </div>
-                      <div className="relative">
-                        <span className="absolute left-3.5 top-3 sm:top-2 text-xs text-neutral-400 font-mono">@</span>
-                        <input
-                          type="text"
-                          disabled
-                          readOnly
-                          value={accountForm.username || ''}
-                          placeholder="handle"
-                          className="w-full pl-8 pr-3.5 py-2.5 sm:py-2 rounded-xl sm:rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-100/80 dark:bg-neutral-800/60 text-neutral-600 dark:text-neutral-400 text-base sm:text-xs font-mono cursor-not-allowed select-none min-h-[44px] sm:min-h-0 focus:outline-none"
-                        />
-                      </div>
+
+                      {data?.profile?.isUsernameLocked ? (
+                        <div className="relative">
+                          <span className="absolute left-3.5 top-3 sm:top-2 text-xs text-neutral-400 font-mono">@</span>
+                          <input
+                            type="text"
+                            disabled
+                            readOnly
+                            value={accountForm.username || ''}
+                            placeholder="handle"
+                            className="w-full pl-8 pr-3.5 py-2.5 sm:py-2 rounded-xl sm:rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-100/80 dark:bg-neutral-800/60 text-neutral-600 dark:text-neutral-400 text-base sm:text-xs font-mono cursor-not-allowed select-none min-h-[44px] sm:min-h-0 focus:outline-none"
+                          />
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5">
+                          <div className="relative flex items-center">
+                            <span className="absolute left-3.5 text-xs text-neutral-400 font-mono">@</span>
+                            <input
+                              type="text"
+                              value={accountForm.username || ''}
+                              onChange={(e) => {
+                                const val = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '')
+                                setAccountForm((prev) => ({ ...prev, username: val }))
+                                setUsernameVerification(null)
+                              }}
+                              placeholder="choose_pen_name"
+                              className="w-full pl-8 pr-20 py-2.5 sm:py-2 rounded-xl sm:rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white text-base sm:text-xs font-mono min-h-[44px] sm:min-h-0 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleVerifyUsername}
+                              disabled={isVerifyingUsername || !accountForm.username || accountForm.username.length < 3}
+                              className="absolute right-2 px-2.5 py-1 text-xs font-medium rounded-md bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white transition-colors cursor-pointer"
+                            >
+                              {isVerifyingUsername ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Verify'}
+                            </button>
+                          </div>
+                          {usernameVerification && (
+                            <div className={`text-[11px] flex items-center gap-1.5 ${usernameVerification.available ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                              {usernameVerification.available ? <Check className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+                              <span>{usernameVerification.message}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       <p className="mt-1.5 text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
-                        <Lock className="w-3 h-3 shrink-0 text-amber-600 dark:text-amber-400" />
-                        <span>
-                          {data?.profile?.isUsernameLocked && data.profile.usernameLockDaysRemaining
-                            ? `Locked for 32 days (${data.profile.usernameLockDaysRemaining} days remaining).`
-                            : 'Locked for 32 days after verification.'}
-                        </span>
+                        {data?.profile?.isUsernameLocked ? (
+                          <>
+                            <Lock className="w-3 h-3 shrink-0 text-amber-600 dark:text-amber-400" />
+                            <span>
+                              {data.profile.usernameLockDaysRemaining
+                                ? `Locked for 32 days (${data.profile.usernameLockDaysRemaining} days remaining).`
+                                : 'Locked for 32 days after verification.'}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-3 h-3 shrink-0 text-amber-500" />
+                            <span>
+                              Choose your official pen name. Once updated and saved, it will be locked for 32 days.
+                            </span>
+                          </>
+                        )}
                       </p>
                     </div>
 
