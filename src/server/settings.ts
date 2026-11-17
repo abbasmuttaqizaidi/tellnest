@@ -475,7 +475,11 @@ export async function executeUpdateAccountProfile(deps: {
       const hasGenres = Array.isArray(currentPrefs.genres) && currentPrefs.genres.length > 0
       if (nextPrefs.signup_source === 'reader_gate' && hasGenres) {
         nextPrefs.signup_source = 'standard'
+        nextPrefs.reader_gate_converted = true
         updates.onboarding_completed = true
+      }
+      if (currentPrefs.reader_gate_converted === true) {
+        nextPrefs.reader_gate_converted = true
       }
       updates.preferences = nextPrefs
     }
@@ -799,7 +803,11 @@ export async function executeUpdateReadingPreferences(deps: {
     categories: cleanCategories,
     preferred_language: lang,
     adult_content_enabled: adultEnabled,
-    ...(isCompleteSetup ? { signup_source: 'standard' } : {}),
+    ...(isCompleteSetup ? { signup_source: 'standard', reader_gate_converted: true } : {}),
+  }
+
+  if (currentPrefs.reader_gate_converted === true) {
+    updatedPrefs.reader_gate_converted = true
   }
 
   // 1. Update profiles table JSONB

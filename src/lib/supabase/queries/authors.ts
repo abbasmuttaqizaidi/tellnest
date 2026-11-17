@@ -100,7 +100,7 @@ export async function syncClerkUserToProfile(params: {
   // 1. Check if user profile already exists
   const { data: existing } = await admin
     .from('profiles')
-    .select('id, clerk_user_id, username, display_name, avatar_path, bio, is_public, account_status, onboarding_completed')
+    .select('id, clerk_user_id, username, display_name, avatar_path, bio, is_public, account_status, onboarding_completed, preferences')
     .eq('clerk_user_id', params.clerkUserId)
     .maybeSingle()
 
@@ -162,6 +162,7 @@ export async function syncClerkUserToProfile(params: {
     is_username_verified: !isReaderGate,
     preferences: {
       signup_source: params.signupSource || 'standard',
+      reader_gate_converted: false,
     },
   }
 

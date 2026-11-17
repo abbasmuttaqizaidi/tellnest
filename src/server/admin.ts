@@ -138,6 +138,8 @@ export interface AdminUser {
   showFollowers?: boolean
   showWorksCount?: boolean
   showReadingHistory?: boolean
+  signupSource?: 'reader_gate' | 'standard' | null
+  readerGateConverted?: boolean
   preferences?: {
     theme?: string
     readingMode?: string
@@ -624,6 +626,8 @@ export const getAdminUsersServerFn = createServerFn({ method: 'POST' })
           showFollowers: Boolean(pPrivacy.showFollowers ?? false),
           showWorksCount: Boolean(pPrivacy.showWorksCount ?? false),
           showReadingHistory: Boolean(pPrivacy.showReadingHistory ?? false),
+          signupSource: (pRawPrefs.signup_source as any) || 'standard',
+          readerGateConverted: Boolean(pRawPrefs.reader_gate_converted),
           preferences: null,
         })
       }

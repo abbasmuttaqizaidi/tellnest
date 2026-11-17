@@ -180,7 +180,7 @@ export const saveUserOnboardingServerFn = createServerFn({ method: 'POST' })
 
     const displayName = (data.displayName && data.displayName.trim()) || data.username
 
-    const isReaderGate = currentPrefs.signup_source === 'reader_gate'
+    const isReaderGate = currentPrefs.signup_source === 'reader_gate' || currentPrefs.reader_gate_converted === true
 
     const preferencesPayload: Record<string, any> = {
       ...currentPrefs,
@@ -198,6 +198,7 @@ export const saveUserOnboardingServerFn = createServerFn({ method: 'POST' })
 
     // Transition reader_gate users to platform default standard account upon completing onboarding
     preferencesPayload.signup_source = 'standard'
+    preferencesPayload.reader_gate_converted = isReaderGate ? true : Boolean(currentPrefs.reader_gate_converted)
 
     // Tareeqa B: Send Welcome Email via Resend on onboarding completion if not sent yet
     const alreadySentWelcome = Boolean(currentPrefs.welcomeEmailSent)

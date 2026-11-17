@@ -11,6 +11,7 @@ export interface ServerAuthState {
   signupSource?: 'reader_gate' | 'standard' | null
   isUsernameVerified?: boolean
   hasSelectedGenres?: boolean
+  readerGateConverted?: boolean
 }
 
 /**
@@ -29,6 +30,7 @@ export const getAuthUserServerFn = createServerFn({ method: 'GET' }).handler(
       let signupSource: 'reader_gate' | 'standard' | null = null
       let isUsernameVerified = false
       let hasSelectedGenres = false
+      let readerGateConverted = false
 
       if (userId) {
         try {
@@ -44,6 +46,7 @@ export const getAuthUserServerFn = createServerFn({ method: 'GET' }).handler(
           signupSource = pPrefs.signup_source || 'standard'
           isUsernameVerified = Boolean(profile?.is_username_verified ?? pPrefs.username_verified)
           hasSelectedGenres = Array.isArray(pPrefs.genres) && pPrefs.genres.length > 0
+          readerGateConverted = Boolean(pPrefs.reader_gate_converted)
         } catch {}
       }
 
@@ -56,6 +59,7 @@ export const getAuthUserServerFn = createServerFn({ method: 'GET' }).handler(
         signupSource,
         isUsernameVerified,
         hasSelectedGenres,
+        readerGateConverted,
       })
       return {
         userId,
@@ -67,6 +71,7 @@ export const getAuthUserServerFn = createServerFn({ method: 'GET' }).handler(
         signupSource,
         isUsernameVerified,
         hasSelectedGenres,
+        readerGateConverted,
       }
     } catch (e: any) {
       console.error('[getAuthUserServerFn] Server Auth FAILED:', e?.message || e)
