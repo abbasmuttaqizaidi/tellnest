@@ -93,6 +93,7 @@ describe('Standard Sign-Up & Sign-In Flow Invariants', () => {
 
   it('ensures ReaderGateWarningBanner preserves browsing path when opening onboarding', () => {
     assert.ok(
+      warningBannerTsx.includes("sessionStorage.setItem('hatchpen_auth_return_url', fullPath)") ||
       warningBannerTsx.includes("sessionStorage.setItem('hatchpen_auth_return_url', pathname)"),
       'ReaderGateWarningBanner must save current browsing pathname to hatchpen_auth_return_url'
     )

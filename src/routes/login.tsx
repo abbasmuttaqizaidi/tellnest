@@ -81,13 +81,13 @@ export default function LoginPage() {
             return
           }
 
-          // Un-onboarded user:
+          // Un-onboarded user: Database ground truth takes precedence for existing records
           const prefs = (profile?.preferences as Record<string, any>) || {}
           const signupSource =
+            prefs.signup_source ||
             (typeof window !== 'undefined'
               ? sessionStorage.getItem('hatchpen_signup_source') || localStorage.getItem('hatchpen_signup_source')
               : null) ||
-            prefs.signup_source ||
             'standard'
 
           if (signupSource === 'standard') {

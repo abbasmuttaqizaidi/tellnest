@@ -711,17 +711,14 @@ function ReaderPage() {
   useEffect(() => {
     if (wasUnauthenticatedRef.current && isSignedIn && isUserLoaded && chapter) {
       wasUnauthenticatedRef.current = false
-      const savedReturn = typeof window !== 'undefined' ? sessionStorage.getItem('hatchpen_auth_return_url') : null
-      if (savedReturn || isCompulsoryAuth) {
-        try {
-          sessionStorage.removeItem('hatchpen_auth_return_url')
-        } catch {}
-        showToast('Chapter unlocked! Happy reading.')
-      }
+      try {
+        sessionStorage.removeItem('hatchpen_auth_return_url')
+      } catch {}
+      showToast('Chapter unlocked! Happy reading.')
     } else if (!isSignedIn) {
       wasUnauthenticatedRef.current = true
     }
-  }, [isSignedIn, isUserLoaded, chapter?.id, isCompulsoryAuth, showToast])
+  }, [isSignedIn, isUserLoaded, chapter?.id, showToast])
 
   useEffect(() => {
     // Only apply to confirmed public (unauthenticated) readers once auth state, work, and chapter are loaded

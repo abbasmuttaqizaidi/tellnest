@@ -207,7 +207,9 @@ export function UserOnboardingModal({ authUser }: { authUser?: any } = {}) {
 
       const isReaderSource =
         existingProfile?.preferences?.signup_source === 'reader_gate' ||
-        (typeof window !== 'undefined' && sessionStorage.getItem('hatchpen_signup_source') === 'reader_gate')
+        (typeof window !== 'undefined' &&
+          (sessionStorage.getItem('hatchpen_signup_source') === 'reader_gate' ||
+           localStorage.getItem('hatchpen_signup_source') === 'reader_gate'))
       setIsReaderSignup(Boolean(isReaderSource))
 
       // Prepopulate username from profile, Clerk or email prefix
@@ -218,20 +220,19 @@ export function UserOnboardingModal({ authUser }: { authUser?: any } = {}) {
         ''
       setUsername(defaultUser)
 
-      // Restore verified status directly from DB if previously verified (Zero browser storage reliance)
+      // Restore verified status only if user explicitly verified a pen name in DB
       if (
         existingProfile &&
-        (existingProfile.is_username_verified || existingProfile.preferences?.username_verified)
+        existingProfile.preferences?.username_verified &&
+        existingProfile.preferences?.verified_username
       ) {
-        const verifiedHandle = existingProfile.preferences?.verified_username || defaultUser || existingProfile.username
-        if (verifiedHandle) {
-          setUsername(verifiedHandle)
-          setUsernameVerification({
-            available: true,
-            message: `@${verifiedHandle} is verified!`,
-            verifiedHandle,
-          })
-        }
+        const verifiedHandle = existingProfile.preferences.verified_username
+        setUsername(verifiedHandle)
+        setUsernameVerification({
+          available: true,
+          message: `@${verifiedHandle} is verified!`,
+          verifiedHandle,
+        })
       }
 
       if (Array.isArray(existingProfile?.preferences?.genres) && existingProfile.preferences.genres.length > 0) {

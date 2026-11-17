@@ -99,6 +99,8 @@ export function clearClientSession(): void {
     sessionStorage.removeItem('hatchpen_just_signed_up_google')
     sessionStorage.removeItem('hatchpen_oauth_in_flight')
     sessionStorage.removeItem('hatchpen_auth_return_url')
+    sessionStorage.removeItem('hatchpen_signup_source')
+    localStorage.removeItem('hatchpen_signup_source')
     document.cookie = 'hatchpen_has_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
     document.cookie = '__client_uat=0; path=/; SameSite=Lax'
   } catch {}

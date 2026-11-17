@@ -64,10 +64,10 @@ export function AuthModal() {
 
           const prefs = (profile?.preferences as Record<string, any>) || {}
           const signupSource =
+            prefs.signup_source ||
             (typeof window !== 'undefined'
               ? sessionStorage.getItem('hatchpen_signup_source') || localStorage.getItem('hatchpen_signup_source')
               : null) ||
-            prefs.signup_source ||
             'standard'
 
           if (signupSource === 'standard') {

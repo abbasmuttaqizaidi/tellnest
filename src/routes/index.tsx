@@ -223,7 +223,9 @@ function HomePage() {
     if (isUserLoaded && isSignedIn && isPendingOnboarding) {
       const isReader =
         loaderData?.authUser?.signupSource === 'reader_gate' ||
-        (typeof window !== 'undefined' && sessionStorage.getItem('hatchpen_signup_source') === 'reader_gate')
+        (typeof window !== 'undefined' &&
+          (sessionStorage.getItem('hatchpen_signup_source') === 'reader_gate' ||
+           localStorage.getItem('hatchpen_signup_source') === 'reader_gate'))
       if (!isReader) {
         navigate({ to: '/onboarding', replace: true })
       }
@@ -256,7 +258,9 @@ function HomePage() {
   if (isUserLoaded && isSignedIn && isPendingOnboarding) {
     const isReader =
       loaderData?.authUser?.signupSource === 'reader_gate' ||
-      (typeof window !== 'undefined' && sessionStorage.getItem('hatchpen_signup_source') === 'reader_gate')
+      (typeof window !== 'undefined' &&
+        (sessionStorage.getItem('hatchpen_signup_source') === 'reader_gate' ||
+         localStorage.getItem('hatchpen_signup_source') === 'reader_gate'))
     if (!isReader) {
       return <LoggedInHomeSkeleton />
     }

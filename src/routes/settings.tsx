@@ -839,6 +839,18 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
       setSaveSuccessMsg('Profile changes saved successfully.')
       showToast('Profile updated', 'success')
       const updatedProfile = res?.profile || res
+      if (typeof window !== 'undefined') {
+        if (updatedProfile?.onboarding_completed || updatedProfile?.preferences?.reader_gate_converted) {
+          localStorage.removeItem('hatchpen_signup_source')
+          sessionStorage.removeItem('hatchpen_signup_source')
+          if (user?.id) {
+            localStorage.setItem(`hatchpen_onboarding_completed_${user.id}`, 'true')
+          }
+          window.dispatchEvent(new CustomEvent('hatchpen:reader-gate-cleared'))
+          window.dispatchEvent(new CustomEvent('hatchpen:onboarding-completed', { detail: { userId: user?.id } }))
+        }
+        window.dispatchEvent(new CustomEvent('hatchpen:profile-updated'))
+      }
       if (updatedProfile) {
         setAccountForm((prev) => ({
           ...prev,
@@ -874,6 +886,16 @@ function SettingsView({ isPreview = false }: { isPreview?: boolean }) {
       }
       clearClientRecCache()
       router.invalidate()
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('hatchpen_signup_source')
+        sessionStorage.removeItem('hatchpen_signup_source')
+        if (user?.id) {
+          localStorage.setItem(`hatchpen_onboarding_completed_${user.id}`, 'true')
+        }
+        window.dispatchEvent(new CustomEvent('hatchpen:reader-gate-cleared'))
+        window.dispatchEvent(new CustomEvent('hatchpen:onboarding-completed', { detail: { userId: user?.id } }))
+        window.dispatchEvent(new CustomEvent('hatchpen:profile-updated'))
+      }
       setPrivacyForm((prev) => ({
         ...prev,
         adultContentEnabled: readingPrefsForm.adultContentEnabled,

@@ -130,11 +130,13 @@ export default function OnboardingPage() {
         setDisplayName(initialName)
 
         // Restore verified status only if user explicitly verified a pen name in DB
-        if (
+        const hasDbVerifiedHandle = Boolean(
           existingProfile &&
           existingProfile.preferences?.username_verified &&
           existingProfile.preferences?.verified_username
-        ) {
+        )
+
+        if (hasDbVerifiedHandle && existingProfile?.preferences?.verified_username) {
           const verifiedHandle = existingProfile.preferences.verified_username
           setUsername(verifiedHandle)
           setUsernameVerification({
@@ -142,6 +144,10 @@ export default function OnboardingPage() {
             message: `@${verifiedHandle} is verified!`,
             verifiedHandle,
           })
+        } else if (search.step === 2) {
+          // Prevent direct bypass to Step 2 if handle is unverified
+          setStep(1)
+          navigate({ to: '/onboarding', search: { step: 1 }, replace: true })
         }
 
         // Restore saved genres
@@ -285,6 +291,14 @@ export default function OnboardingPage() {
       return
     }
 
+    const verifiedHandle = usernameVerification?.verifiedHandle || (usernameVerification?.available ? username.trim() : null)
+    if (!verifiedHandle) {
+      setErrorMessage('Please verify your pen name on Step 1 before completing your profile.')
+      setStep(1)
+      navigate({ to: '/onboarding', search: { step: 1 }, replace: true })
+      return
+    }
+
     setIsSubmitting(true)
     setErrorMessage(null)
 
@@ -293,8 +307,8 @@ export default function OnboardingPage() {
       const profile = await saveUserOnboardingServerFn({
         data: {
           clerkUserId: user.id,
-          username: (usernameVerification?.verifiedHandle || username).toLowerCase().trim(),
-          displayName: displayName.trim() || username,
+          username: verifiedHandle.toLowerCase().trim(),
+          displayName: displayName.trim() || verifiedHandle,
           avatarUrl: user.imageUrl || '/unisex-avatar.svg',
           email,
           pronouns: pronounOption.label || pronounOption.id,
