@@ -63,6 +63,21 @@ describe('Reader Gate Warning Banner Approach', () => {
     )
   })
 
+  it('ensures ReaderGateWarningBanner is sticky below navbar on desktop and non-sticky on mobile', () => {
+    assert.ok(
+      bannerTsx.includes('md:sticky md:top-14'),
+      'Banner must be sticky below 56px navbar on desktop'
+    )
+    assert.ok(
+      bannerTsx.includes('relative md:sticky'),
+      'Banner must be relative (non-sticky) on mobile view'
+    )
+    assert.ok(
+      bannerTsx.includes('w-full sm:w-auto'),
+      'Complete profile button must adapt cleanly to full-width on mobile'
+    )
+  })
+
   it('ensures __root.tsx mounts ReaderGateWarningBanner globally above main content', () => {
     assert.ok(
       rootRouteTsx.includes('ReaderGateWarningBanner'),

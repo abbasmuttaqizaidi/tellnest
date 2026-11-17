@@ -259,10 +259,6 @@ export default function Header({ serverAuthenticated, serverUser }: HeaderProps 
     return () => window.removeEventListener('scroll', handleScroll, { capture: true })
   }, [])
 
-  if (isReaderMode || isEditorMode) {
-    return null
-  }
-
   // Dual navigation styling:
   // 1. Public Home: Atmospheric ivory hero background with transparent top and frosted ivory/dark glass on scroll
   // 2. Logged-in / App: Clean monochrome black & white palette. Sticky top-0 in document flow (never overlaps content).
@@ -276,7 +272,8 @@ export default function Header({ serverAuthenticated, serverUser }: HeaderProps 
 
   return (
     <>
-      <header className={headerClasses}>
+      {!isReaderMode && !isEditorMode && (
+        <header className={headerClasses}>
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 gap-2 sm:gap-4">
         
         {/* Left: Brand Identity */}
@@ -714,6 +711,7 @@ export default function Header({ serverAuthenticated, serverUser }: HeaderProps 
         </div>
       </div>
     </header>
+    )}
 
     {/* Mobile Right Navigation Drawer */}
     <Drawer

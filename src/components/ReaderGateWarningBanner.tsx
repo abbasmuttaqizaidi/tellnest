@@ -129,24 +129,24 @@ export function ReaderGateWarningBanner({ serverAuthUser }: ReaderGateWarningBan
     <div
       role="region"
       aria-label="Account setup notice"
-      className="w-full bg-amber-500/10 dark:bg-amber-950/30 border-b border-amber-500/25 px-4 py-2.5 sm:py-2 transition-colors z-40 relative"
+      className="relative md:sticky md:top-14 z-20 w-full bg-amber-50/95 dark:bg-[#181207]/95 backdrop-blur-md border-b border-amber-200/80 dark:border-amber-800/40 px-4 py-3 sm:py-2 transition-all shadow-xs"
     >
-      <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 sm:gap-4">
+      <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
         {/* Warning Icon & Message (Strictly NO sparkles) */}
-        <div className="flex items-center gap-2.5 min-w-0">
-          <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-          <p className="text-xs sm:text-xs text-neutral-800 dark:text-neutral-200 font-medium leading-tight">
-            <span className="font-semibold text-amber-700 dark:text-amber-300">Account setup incomplete:</span>{' '}
+        <div className="flex items-start sm:items-center gap-2.5 min-w-0 flex-1">
+          <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5 sm:mt-0" />
+          <p className="text-xs text-neutral-800 dark:text-neutral-200 font-medium leading-relaxed sm:leading-tight">
+            <span className="font-semibold text-amber-800 dark:text-amber-300">Account setup incomplete:</span>{' '}
             Set your official pen name and select your reading genres to personalize your experience.
           </p>
         </div>
 
         {/* Single Action Button: Complete Profile */}
-        <div className="flex items-center shrink-0 self-end sm:self-auto">
+        <div className="flex items-center shrink-0 self-stretch sm:self-auto">
           <button
             type="button"
             onClick={handleOpenOnboarding}
-            className="inline-flex items-center px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white shadow-xs transition-colors cursor-pointer"
+            className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 sm:py-1.5 rounded-lg text-xs font-semibold bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs transition-colors cursor-pointer text-center"
           >
             <span>Complete Profile</span>
           </button>

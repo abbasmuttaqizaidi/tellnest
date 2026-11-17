@@ -21,6 +21,7 @@ import {
   Headphones,
   HelpCircle,
   ChevronDown,
+  Menu,
 } from 'lucide-react'
 import { ChapterAudioPlayer } from '../components/ChapterAudioPlayer'
 import { useChapterAudio } from '../lib/tts/useChapterAudio'
@@ -544,6 +545,8 @@ function ReaderPage() {
     isUserLoaded,
     openAuthModal,
     isAuthModalOpen,
+    mobileDrawerOpen,
+    setMobileDrawerOpen,
   } = useApp()
 
   const work = useMemo(() => {
@@ -1177,28 +1180,28 @@ function ReaderPage() {
           style={{ width: `${progressPercent}%` }}
         />
 
-        <div className="mx-auto flex h-10 max-w-4xl items-center justify-between px-3 sm:px-4">
+        <div className="mx-auto flex h-10 max-w-4xl items-center justify-between px-2.5 sm:px-4 gap-1.5 sm:gap-2">
           {/* Left: Back to Work */}
           <Link
             to="/works/$workId"
             params={{ workId: canonicalSlug }}
-            className="flex items-center gap-1.5 text-xs font-mono text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors no-underline py-1"
+            className="flex items-center gap-1 sm:gap-1.5 text-xs font-mono text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors no-underline py-1 shrink-0"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             <span className="hidden sm:inline truncate max-w-[180px]">{work.title}</span>
-            <span className="sm:hidden text-[11px]">Back</span>
+            <span className="sm:hidden text-[11px] font-medium">Back</span>
           </Link>
 
           {/* Center: Current Chapter Index indicator */}
-          <div className="text-center font-mono text-[11px] text-[var(--ink-muted)] truncate max-w-[220px] sm:max-w-none">
+          <div className="flex-1 min-w-0 text-center font-mono text-[11px] text-[var(--ink-muted)] truncate px-1 sm:px-2">
             <span className="font-semibold text-[var(--ink-primary)]">
               Ch. {chapter.number} of {work.publishedChaptersCount ?? work.chaptersCount}
             </span>
-            <span className="text-[var(--ink-faint)]"> • {Math.round(progressPercent)}% of story</span>
+            <span className="text-[var(--ink-faint)] hidden sm:inline"> • {Math.round(progressPercent)}% of story</span>
           </div>
 
-          {/* Right: Reading Display & Audio Reader Triggers */}
-          <div className="flex items-center gap-1 sm:gap-1.5">
+          {/* Right: Reading Display, Audio Reader & Mobile Navigation Menu */}
+          <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
             {/* Audio Reader (TTS) Trigger */}
             {audio.isSupported && (
               <button
@@ -1211,7 +1214,7 @@ function ReaderPage() {
                     audio.togglePlay()
                   }
                 }}
-                className={`flex h-9 w-9 sm:h-7 sm:w-7 items-center justify-center rounded transition-colors cursor-pointer min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 ${
+                className={`flex h-8 w-8 sm:h-7 sm:w-7 items-center justify-center rounded-md transition-colors cursor-pointer ${
                   isAudioOpen && audio.isPlaying && !audio.isPaused
                     ? 'text-emerald-500 bg-emerald-500/10'
                     : isAudioOpen
@@ -1230,8 +1233,9 @@ function ReaderPage() {
             )}
 
             <button
+              type="button"
               onClick={() => setShareModalOpen(true)}
-              className="flex h-9 w-9 sm:h-7 sm:w-7 items-center justify-center rounded text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0"
+              className="flex h-8 w-8 sm:h-7 sm:w-7 items-center justify-center rounded-md text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
               title="Share Chapter"
               aria-label="Share this chapter"
             >
@@ -1239,12 +1243,23 @@ function ReaderPage() {
             </button>
 
             <button
+              type="button"
               onClick={() => setSettingsOpen(true)}
-              className="flex h-9 w-9 sm:h-7 sm:w-7 items-center justify-center rounded text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0"
+              className="flex h-8 w-8 sm:h-7 sm:w-7 items-center justify-center rounded-md text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
               title="Typography & Display Settings"
               aria-label="Open typography and display settings"
             >
               <Settings className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setMobileDrawerOpen(!mobileDrawerOpen)}
+              className="flex h-8 w-8 sm:h-7 sm:w-7 items-center justify-center rounded-md text-[var(--ink-muted)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors cursor-pointer"
+              title="Navigation Menu"
+              aria-label="Toggle navigation menu"
+            >
+              <Menu className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
             </button>
           </div>
         </div>
