@@ -161,6 +161,9 @@ if (typeof window !== 'undefined') {
   window.addEventListener('hatchpen:logged-in', () => {
     clientAuthUserCache = null
   })
+  window.addEventListener('hatchpen:onboarding-completed', () => {
+    clientAuthUserCache = null
+  })
 }
 
 export const Route = createRootRoute({
@@ -176,6 +179,9 @@ export const Route = createRootRoute({
           clientAuthUserCache = null
         } else if (clientAuthUserCache && clientAuthUserCache.user?.isAuthenticated && !hasActiveSession) {
           // If client session is gone but cache thinks user is authenticated -> STALE! Bust it!
+          clientAuthUserCache = null
+        } else if (sessionStorage.getItem('hatchpen_just_completed_onboarding') === 'true') {
+          sessionStorage.removeItem('hatchpen_just_completed_onboarding')
           clientAuthUserCache = null
         }
 

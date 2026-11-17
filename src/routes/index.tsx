@@ -210,6 +210,7 @@ function HomePage() {
 
   // Check if onboarding is currently in progress or required for this user across devices
   const isCompletedMultiDevice =
+    (typeof window !== 'undefined' && sessionStorage.getItem('hatchpen_just_completed_onboarding') === 'true') ||
     (typeof window !== 'undefined' && user?.id && localStorage.getItem(`hatchpen_onboarding_completed_${user.id}`) === 'true') ||
     Boolean((user?.publicMetadata as any)?.onboardingCompleted) ||
     Boolean(loaderData?.authUser?.onboardingCompleted)

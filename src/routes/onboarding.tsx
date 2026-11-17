@@ -7,6 +7,7 @@ import { verifyUsernameAvailabilityServerFn } from '../server/settings'
 import { GLOBAL_CATEGORIES, GLOBAL_GENRES } from '../lib/taxonomy'
 import { generateMeta } from '../lib/seo'
 import { sanitizeInternalReturnUrl } from '../lib/authSession'
+import { clearClientAuthUserCache } from './__root'
 
 export { sanitizeInternalReturnUrl }
 
@@ -335,6 +336,7 @@ export default function OnboardingPage() {
       } catch {}
 
       if (typeof window !== 'undefined') {
+        sessionStorage.setItem('hatchpen_just_completed_onboarding', 'true')
         localStorage.setItem(`hatchpen_onboarding_completed_${user.id}`, 'true')
         localStorage.setItem(`hatchpen_new_voices_popup_dismissed_${user.id}`, 'true')
         sessionStorage.removeItem('hatchpen_signup_source')
@@ -343,6 +345,7 @@ export default function OnboardingPage() {
         window.dispatchEvent(new CustomEvent('hatchpen:reader-gate-cleared'))
       }
 
+      clearClientAuthUserCache()
       await router.invalidate()
 
       if (interestedInWriting) {

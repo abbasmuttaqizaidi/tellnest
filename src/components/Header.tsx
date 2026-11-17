@@ -209,6 +209,7 @@ export default function Header({ serverAuthenticated, serverUser }: HeaderProps 
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault()
+        if (isOnboardingRoute) return
         if (!isSignedIn) {
           openAuthModal(undefined, {
             canClose: true,
@@ -228,6 +229,7 @@ export default function Header({ serverAuthenticated, serverUser }: HeaderProps 
   const isReaderMode = currentPath.startsWith('/read/')
   const isEditorMode = currentPath.startsWith('/write/editor')
   const isWorksRoute = currentPath.startsWith('/works')
+  const isOnboardingRoute = currentPath.startsWith('/onboarding')
 
   const isHomePage = currentPath === '/'
   const search = (routerState.location.search || {}) as Record<string, any>
@@ -279,7 +281,14 @@ export default function Header({ serverAuthenticated, serverUser }: HeaderProps 
         
         {/* Left: Brand Identity */}
         <div className="flex items-center gap-4 lg:gap-8 flex-shrink-0">
-          <Link to="/" preload="intent" className="group flex items-center text-inherit no-underline flex-shrink-0 select-none">
+          <Link
+            to={isOnboardingRoute ? '/onboarding' : '/'}
+            preload="intent"
+            onClick={(e) => {
+              if (isOnboardingRoute) e.preventDefault()
+            }}
+            className={`group flex items-center text-inherit no-underline flex-shrink-0 select-none ${isOnboardingRoute ? 'cursor-default' : ''}`}
+          >
             {/* Desktop: Constant Full Wordmark */}
             <div className="hidden md:inline-flex items-center">
               <HatchpenLogo size="sm" variant="full" />
@@ -317,7 +326,7 @@ export default function Header({ serverAuthenticated, serverUser }: HeaderProps 
 
           {/* Primary Desktop Navigation */}
           {!isReaderMode && (
-            <nav className={`hidden ${isNavSearchOpen ? 'lg:flex' : 'md:flex'} items-center gap-1 text-[13px] font-medium text-[var(--ink-muted)]`}>
+            <nav className={`hidden ${isNavSearchOpen ? 'lg:flex' : 'md:flex'} items-center gap-1 text-[13px] font-medium text-[var(--ink-muted)] ${isOnboardingRoute ? 'pointer-events-none opacity-40 select-none' : ''}`}>
               {isSignedIn && (
                 <Link
                   to="/"
@@ -439,7 +448,7 @@ export default function Header({ serverAuthenticated, serverUser }: HeaderProps 
                 isNavSearchOpen
                   ? 'flex-1 max-w-xs sm:max-w-sm md:max-w-md w-full'
                   : 'flex-initial'
-              }`}
+              } ${isOnboardingRoute ? 'pointer-events-none opacity-40 select-none' : ''}`}
             >
               <OmniSearch
                 expandMode="responsive"
@@ -507,7 +516,7 @@ export default function Header({ serverAuthenticated, serverUser }: HeaderProps 
             <Link
               to="/write"
               preload="intent"
-              className={`${isNavSearchOpen ? 'hidden xl:inline-flex' : 'hidden sm:inline-flex'} items-center gap-1.5 rounded border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-3 py-1.5 text-xs font-medium text-[var(--accent-contrast)] hover:opacity-90 transition-opacity flex-shrink-0`}
+              className={`${isNavSearchOpen ? 'hidden xl:inline-flex' : 'hidden sm:inline-flex'} items-center gap-1.5 rounded border border-[var(--ink-primary)] bg-[var(--ink-primary)] px-3 py-1.5 text-xs font-medium text-[var(--accent-contrast)] hover:opacity-90 transition-opacity flex-shrink-0 ${isOnboardingRoute ? 'pointer-events-none opacity-40 select-none' : ''}`}
             >
               <PenTool className="h-3.5 w-3.5" />
               <span className="font-sans font-semibold tracking-wide">Studio</span>
@@ -519,7 +528,7 @@ export default function Header({ serverAuthenticated, serverUser }: HeaderProps 
             <Link
               to="/notifications"
               preload="intent"
-              className={`${isNavSearchOpen ? 'hidden md:flex' : 'hidden sm:flex'} relative h-8 w-8 items-center justify-center rounded border border-transparent text-[var(--ink-muted)] hover:border-[var(--border-subtle)] hover:text-[var(--ink-primary)] transition-colors flex-shrink-0`}
+              className={`${isNavSearchOpen ? 'hidden md:flex' : 'hidden sm:flex'} relative h-8 w-8 items-center justify-center rounded border border-transparent text-[var(--ink-muted)] hover:border-[var(--border-subtle)] hover:text-[var(--ink-primary)] transition-colors flex-shrink-0 ${isOnboardingRoute ? 'pointer-events-none opacity-40 select-none' : ''}`}
               title="Notifications"
             >
               <Bell className="h-4 w-4" />
@@ -548,7 +557,7 @@ export default function Header({ serverAuthenticated, serverUser }: HeaderProps 
           {isAuthResolving ? (
             <div className="hidden md:block h-8 w-8 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-subtle)] animate-pulse shrink-0" />
           ) : isSignedIn ? (
-            <div className="hidden md:block relative" ref={userMenuRef}>
+            <div className={`hidden md:block relative ${isOnboardingRoute ? 'pointer-events-none opacity-40 select-none' : ''}`} ref={userMenuRef}>
               <button
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
                 className="flex h-8 w-8 items-center justify-center rounded-full overflow-hidden focus:outline-none hover:ring-2 hover:ring-[var(--border-strong)] transition-all cursor-pointer border border-[var(--border-subtle)]"
@@ -692,8 +701,12 @@ export default function Header({ serverAuthenticated, serverUser }: HeaderProps 
 
           {/* Mobile Navigation Hamburger */}
           <button
-            onClick={() => setMobileDrawerOpen(!mobileDrawerOpen)}
-            className="md:hidden flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
+            onClick={() => {
+              if (isOnboardingRoute) return
+              setMobileDrawerOpen(!mobileDrawerOpen)
+            }}
+            disabled={isOnboardingRoute}
+            className={`md:hidden flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-subtle)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] hover:bg-[var(--bg-subtle)] transition-colors ${isOnboardingRoute ? 'pointer-events-none opacity-40 select-none' : ''}`}
             aria-label="Toggle mobile menu"
           >
             {mobileDrawerOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
