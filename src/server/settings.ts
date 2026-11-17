@@ -606,11 +606,28 @@ export async function executeCheckUsernameAvailability(deps: {
   if (deps.currentClerkUserId) {
     const { data: myProfile } = await admin
       .from('profiles')
-      .select('username')
+      .select('id, username, preferences')
       .eq('clerk_user_id', deps.currentClerkUserId)
       .maybeSingle()
 
     if (myProfile && myProfile.username?.toLowerCase() === normalized) {
+      // Persist verified handle in preferences so cross-device state is immediately restored
+      try {
+        const curPrefs = (myProfile.preferences && typeof myProfile.preferences === 'object') ? myProfile.preferences : {}
+        await admin
+          .from('profiles')
+          .update({
+            is_username_verified: true,
+            preferences: {
+              ...curPrefs,
+              username_verified: true,
+              verified_username: normalized,
+              username_verified_at: new Date().toISOString(),
+            },
+          })
+          .eq('clerk_user_id', deps.currentClerkUserId)
+      } catch {}
+
       return {
         available: true,
         normalized,
@@ -634,6 +651,22 @@ export async function executeCheckUsernameAvailability(deps: {
 
     if (profileWithUsername) {
       if (deps.currentClerkUserId && profileWithUsername.clerk_user_id === deps.currentClerkUserId) {
+        try {
+          const curPrefs = (profileWithUsername.preferences && typeof profileWithUsername.preferences === 'object') ? profileWithUsername.preferences : {}
+          await admin
+            .from('profiles')
+            .update({
+              is_username_verified: true,
+              preferences: {
+                ...curPrefs,
+                username_verified: true,
+                verified_username: normalized,
+                username_verified_at: new Date().toISOString(),
+              },
+            })
+            .eq('clerk_user_id', deps.currentClerkUserId)
+        } catch {}
+
         return {
           available: true,
           normalized,
@@ -1272,12 +1305,13 @@ export const updateAccountProfileServerFn = createServerFn({ method: 'POST' })
   })
 
 export const verifyUsernameAvailabilityServerFn = createServerFn({ method: 'POST' })
-  .validator((params: { username: string }) => params)
+  .validator((params: { username: string; currentUserId?: string | null }) => params)
   .handler(async ({ data }) => {
     const authState = await auth()
+    const currentClerkUserId = authState?.userId || data?.currentUserId || null
     return executeCheckUsernameAvailability({
       username: data.username,
-      currentClerkUserId: authState?.userId,
+      currentClerkUserId,
     })
   })
 

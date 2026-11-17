@@ -145,6 +145,22 @@ export default function OnboardingPage() {
             message: `@${verifiedHandle} is verified!`,
             verifiedHandle,
           })
+        } else if (defaultUser && validateUsernameFormat(defaultUser)) {
+          // Auto-verify prefilled handle against DB so user can smoothly continue upon accepting terms
+          verifyUsernameAvailabilityServerFn({
+            data: {
+              username: defaultUser,
+              currentUserId: user.id,
+            },
+          }).then((res) => {
+            if (res?.available) {
+              setUsernameVerification({
+                available: true,
+                message: `@${defaultUser} is verified!`,
+                verifiedHandle: defaultUser,
+              })
+            }
+          }).catch(() => {})
         } else if (search.step === 2) {
           // Prevent direct bypass to Step 2 if handle is unverified
           setStep(1)
@@ -234,7 +250,7 @@ export default function OnboardingPage() {
   }
 
   // Step 1: Proceed to Step 2
-  const handleContinueToStep2 = () => {
+  const handleContinueToStep2 = async () => {
     if (!username.trim()) {
       setErrorMessage('Please enter an official pen name.')
       return
@@ -245,14 +261,38 @@ export default function OnboardingPage() {
       return
     }
 
-    if (!usernameVerification?.available || usernameVerification.verifiedHandle !== username) {
-      setErrorMessage('Please verify your pen name availability before continuing.')
-      return
-    }
-
     if (!termsAccepted) {
       setErrorMessage('Please accept the Terms of Service and Privacy Policy to continue.')
       return
+    }
+
+    // Auto-verify on Continue click if not already verified
+    if (!usernameVerification?.available || usernameVerification.verifiedHandle !== username) {
+      setIsVerifyingUsername(true)
+      try {
+        const res = await verifyUsernameAvailabilityServerFn({
+          data: {
+            username: username.trim(),
+            currentUserId: user?.id,
+          },
+        })
+        if (!res?.available) {
+          setErrorMessage(res?.message || `@${username} is already taken. Try another name.`)
+          setIsVerifyingUsername(false)
+          return
+        }
+        setUsernameVerification({
+          available: true,
+          message: res.message || `@${username} is available!`,
+          verifiedHandle: username,
+        })
+      } catch {
+        setErrorMessage('Could not verify availability. Please try again.')
+        setIsVerifyingUsername(false)
+        return
+      } finally {
+        setIsVerifyingUsername(false)
+      }
     }
 
     setErrorMessage(null)
