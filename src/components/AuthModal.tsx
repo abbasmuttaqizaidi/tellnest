@@ -6,6 +6,7 @@ import { useApp } from '../context/AppContext'
 import { HatchpenLogo } from './HatchpenLogo'
 import { markClientSessionActive } from '../lib/authSession'
 import { useScrollLock } from '../lib/scrollLock'
+import { getUserOnboardingStatusServerFn } from '../server/authors'
 
 export function AuthModal() {
   const router = useRouter()
@@ -17,7 +18,7 @@ export function AuthModal() {
     authModalTitle,
     authModalReason,
   } = useApp()
-  const { isSignedIn } = useUser()
+  const { isSignedIn, user } = useUser()
   const clerk = useClerk()
   const { signIn } = useSignIn()
   const { signUp } = useSignUp()
@@ -44,14 +45,44 @@ export function AuthModal() {
     }
   }, [isAuthModalOpen, authReturnUrl])
 
-  // Automatically close modal when user successfully signs in
+  // Automatically close modal when user successfully signs in and route un-onboarded standard users
   useEffect(() => {
-    if (isSignedIn && isAuthModalOpen) {
+    if (isSignedIn && isAuthModalOpen && user) {
       markClientSessionActive()
       closeAuthModal(true)
       router.invalidate()
+
+      const checkOnboarding = async () => {
+        try {
+          const profile = await getUserOnboardingStatusServerFn({ data: user.id })
+          if (profile?.onboarding_completed) {
+            if (typeof window !== 'undefined') {
+              localStorage.setItem(`hatchpen_onboarding_completed_${user.id}`, 'true')
+            }
+            return
+          }
+
+          const prefs = (profile?.preferences as Record<string, any>) || {}
+          const signupSource =
+            (typeof window !== 'undefined'
+              ? sessionStorage.getItem('hatchpen_signup_source') || localStorage.getItem('hatchpen_signup_source')
+              : null) ||
+            prefs.signup_source ||
+            'standard'
+
+          if (signupSource === 'standard') {
+            const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/'
+            if (currentPath && currentPath !== '/' && currentPath !== '/onboarding' && typeof window !== 'undefined') {
+              sessionStorage.setItem('hatchpen_auth_return_url', currentPath)
+            }
+            router.navigate({ to: '/onboarding' })
+          }
+        } catch {}
+      }
+
+      checkOnboarding()
     }
-  }, [isSignedIn, isAuthModalOpen, closeAuthModal, router])
+  }, [isSignedIn, isAuthModalOpen, user, closeAuthModal, router])
 
   // Prevent background scrolling without layout shift
   useScrollLock(isAuthModalOpen)

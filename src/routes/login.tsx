@@ -5,6 +5,7 @@ import { Loader2, ArrowRight, BookOpen, PenTool, CheckCircle2, LogOut } from 'lu
 import { HatchpenLogo } from '../components/HatchpenLogo'
 import { generateMeta } from '../lib/seo'
 import { markClientSessionActive } from '../lib/authSession'
+import { getUserOnboardingStatusServerFn } from '../server/authors'
 
 interface LoginSearch {
   redirect_url?: string
@@ -66,9 +67,48 @@ export default function LoginPage() {
   useEffect(() => {
     if (isLoaded && isSignedIn && user) {
       markClientSessionActive()
-      if (hasExplicitDestination || isFormSubmittedRef.current) {
-        navigate({ to: targetPath as any, replace: true })
+
+      const checkOnboardingAndRedirect = async () => {
+        try {
+          const profile = await getUserOnboardingStatusServerFn({ data: user.id })
+          if (profile?.onboarding_completed) {
+            if (typeof window !== 'undefined') {
+              localStorage.setItem(`hatchpen_onboarding_completed_${user.id}`, 'true')
+            }
+            if (hasExplicitDestination || isFormSubmittedRef.current) {
+              navigate({ to: targetPath as any, replace: true })
+            }
+            return
+          }
+
+          // Un-onboarded user:
+          const prefs = (profile?.preferences as Record<string, any>) || {}
+          const signupSource =
+            (typeof window !== 'undefined'
+              ? sessionStorage.getItem('hatchpen_signup_source') || localStorage.getItem('hatchpen_signup_source')
+              : null) ||
+            prefs.signup_source ||
+            'standard'
+
+          if (signupSource === 'standard') {
+            if (targetPath && targetPath !== '/' && targetPath !== '/login' && typeof window !== 'undefined') {
+              sessionStorage.setItem('hatchpen_auth_return_url', targetPath)
+            }
+            navigate({ to: '/onboarding', replace: true })
+            return
+          }
+
+          if (hasExplicitDestination || isFormSubmittedRef.current) {
+            navigate({ to: targetPath as any, replace: true })
+          }
+        } catch {
+          if (hasExplicitDestination || isFormSubmittedRef.current) {
+            navigate({ to: targetPath as any, replace: true })
+          }
+        }
       }
+
+      checkOnboardingAndRedirect()
     }
   }, [isLoaded, isSignedIn, user, targetPath, hasExplicitDestination, navigate])
 

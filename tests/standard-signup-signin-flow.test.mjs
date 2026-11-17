@@ -9,6 +9,7 @@ describe('Standard Sign-Up & Sign-In Flow Invariants', () => {
   const loginTsx = fs.readFileSync(path.resolve(process.cwd(), 'src/routes/login.tsx'), 'utf8')
   const onboardingTsx = fs.readFileSync(path.resolve(process.cwd(), 'src/routes/onboarding.tsx'), 'utf8')
   const authModalTsx = fs.readFileSync(path.resolve(process.cwd(), 'src/components/AuthModal.tsx'), 'utf8')
+  const warningBannerTsx = fs.readFileSync(path.resolve(process.cwd(), 'src/components/ReaderGateWarningBanner.tsx'), 'utf8')
 
   it('ensures sso-callback resolves onboarding status from database ground truth to prevent false-positive bounces', () => {
     assert.ok(
@@ -67,6 +68,36 @@ describe('Standard Sign-Up & Sign-In Flow Invariants', () => {
     assert.ok(
       loginTsx.includes("localStorage.setItem('hatchpen_signup_source', 'standard')"),
       'login.tsx must initialize localStorage signup_source to standard'
+    )
+    assert.ok(
+      loginTsx.includes("navigate({ to: '/onboarding', replace: true })"),
+      'login.tsx must redirect un-onboarded standard users to /onboarding'
+    )
+  })
+
+  it('ensures AuthModal routes un-onboarded standard email registrations to /onboarding', () => {
+    assert.ok(
+      authModalTsx.includes('getUserOnboardingStatusServerFn'),
+      'AuthModal must query user onboarding status upon successful sign-in'
+    )
+    assert.ok(
+      authModalTsx.includes("router.navigate({ to: '/onboarding' })"),
+      'AuthModal must navigate un-onboarded standard users to /onboarding'
+    )
+    assert.ok(
+      authModalTsx.includes("sessionStorage.setItem('hatchpen_auth_return_url', currentPath)"),
+      'AuthModal must preserve deep-page path for post-onboarding return'
+    )
+  })
+
+  it('ensures ReaderGateWarningBanner preserves browsing path when opening onboarding', () => {
+    assert.ok(
+      warningBannerTsx.includes("sessionStorage.setItem('hatchpen_auth_return_url', pathname)"),
+      'ReaderGateWarningBanner must save current browsing pathname to hatchpen_auth_return_url'
+    )
+    assert.ok(
+      warningBannerTsx.includes("to: '/onboarding'"),
+      'ReaderGateWarningBanner must route to /onboarding'
     )
   })
 

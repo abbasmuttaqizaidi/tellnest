@@ -115,6 +115,9 @@ export function ReaderGateWarningBanner({ serverAuthUser }: ReaderGateWarningBan
   }
 
   const handleOpenOnboarding = () => {
+    if (typeof window !== 'undefined' && pathname && pathname !== '/onboarding' && pathname !== '/login') {
+      sessionStorage.setItem('hatchpen_auth_return_url', pathname)
+    }
     navigate({
       to: '/onboarding',
       search: { step: isUsernameVerified ? 2 : 1 },
