@@ -17,7 +17,7 @@ export const Route = createFileRoute('/sso-callback')({
 export default function SSOCallbackPage() {
   const router = useRouter()
   const navigate = useNavigate()
-  const { isLoaded, isSignedIn } = useUser()
+  const { isLoaded, isSignedIn, user } = useUser()
   const [progress, setProgress] = useState(25)
   const [statusText, setStatusText] = useState('Connecting to HatchPen...')
 
@@ -55,6 +55,19 @@ export default function SSOCallbackPage() {
 
   const getTargetDestination = () => {
     if (typeof window === 'undefined') return '/'
+
+    const signupSource =
+      sessionStorage.getItem('hatchpen_signup_source') || localStorage.getItem('hatchpen_signup_source')
+    const userId = user?.id
+    const isCompleted =
+      (userId && localStorage.getItem(`hatchpen_onboarding_completed_${userId}`) === 'true') ||
+      Boolean((user?.publicMetadata as any)?.onboardingCompleted)
+
+    // For standard un-onboarded sign-ups, redirect to /onboarding while preserving return destination
+    if (signupSource === 'standard' && !isCompleted) {
+      return '/onboarding'
+    }
+
     const saved = sessionStorage.getItem('hatchpen_auth_return_url')
     if (saved && saved.startsWith('/') && !saved.startsWith('/sso-callback')) {
       return saved

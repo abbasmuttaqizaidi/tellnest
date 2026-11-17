@@ -675,7 +675,12 @@ export default function Header({ serverAuthenticated, serverUser }: HeaderProps 
                 type="button"
                 onMouseEnter={preloadAuthModal}
                 onFocus={preloadAuthModal}
-                onClick={() => openAuthModal()}
+                onClick={() =>
+                  openAuthModal(undefined, {
+                    title: 'Create your HatchPen account',
+                    reason: 'Join our community of bold storytellers and avid readers.',
+                  })
+                }
                 className="inline-flex items-center gap-1.5 rounded-full bg-[#18181B] dark:bg-white text-white dark:text-[#18181B] px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-[13px] font-medium hover:opacity-90 transition-all shadow-xs cursor-pointer"
               >
                 <span className="sm:hidden">Join</span>

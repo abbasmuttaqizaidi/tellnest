@@ -322,7 +322,19 @@ export default function OnboardingPage() {
       if (interestedInWriting) {
         navigate({ to: '/write', replace: true })
       } else {
-        navigate({ to: '/', replace: true })
+        let returnUrl: string | null = null
+        if (typeof window !== 'undefined') {
+          const saved = sessionStorage.getItem('hatchpen_auth_return_url')
+          if (saved && saved.startsWith('/') && !saved.startsWith('/onboarding') && !saved.startsWith('/sso-callback') && saved !== '/') {
+            sessionStorage.removeItem('hatchpen_auth_return_url')
+            returnUrl = saved
+          }
+        }
+        if (returnUrl) {
+          navigate({ to: returnUrl as any, replace: true })
+        } else {
+          navigate({ to: '/', replace: true })
+        }
       }
     } catch (err: any) {
       console.error('[OnboardingPage] Failed to save onboarding:', err)

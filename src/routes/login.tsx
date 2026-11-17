@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
-import { useSignIn, useSignUp, useUser, useClerk } from '@clerk/react'
+import { useSignIn, useSignUp, useUser, useClerk, SignIn } from '@clerk/react'
 import { Loader2, ArrowRight, BookOpen, PenTool, CheckCircle2, LogOut } from 'lucide-react'
 import { HatchpenLogo } from '../components/HatchpenLogo'
 import { generateMeta } from '../lib/seo'
@@ -34,7 +34,18 @@ export default function LoginPage() {
   const { signIn } = useSignIn()
   const { signUp } = useSignUp()
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
+  const [showEmailForm, setShowEmailForm] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  // Automatically navigate to target destination once user is signed in
+  useEffect(() => {
+    if (isLoaded && isSignedIn && user) {
+      markClientSessionActive()
+      if (targetPath && targetPath !== '/login') {
+        navigate({ to: targetPath as any, replace: true })
+      }
+    }
+  }, [isLoaded, isSignedIn, user, targetPath, navigate])
 
   const sanitizeTargetPath = (url?: string | null): string => {
     if (!url) return '/'
@@ -254,6 +265,63 @@ export default function LoginPage() {
                 {isGoogleLoading ? 'Connecting to Google...' : 'Continue with Google'}
               </span>
             </button>
+
+            {/* Toggle for Email Sign In */}
+            <div className="relative py-1">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-[var(--border-subtle)]" />
+              </div>
+              <div className="relative flex justify-center text-[10px] uppercase font-mono tracking-wider">
+                <button
+                  type="button"
+                  onClick={() => setShowEmailForm(!showEmailForm)}
+                  className="bg-[var(--bg-surface)] px-2 text-[var(--ink-muted)] hover:text-[var(--ink-primary)] transition-colors cursor-pointer"
+                >
+                  {showEmailForm ? 'Hide email options' : 'or continue with email'}
+                </button>
+              </div>
+            </div>
+
+            {/* Collapsible Clerk Email Authentication Form */}
+            {showEmailForm && (
+              <div className="pt-1 animate-in fade-in duration-200">
+                <SignIn
+                  routing="virtual"
+                  fallbackRedirectUrl={targetPath}
+                  forceRedirectUrl={targetPath}
+                  signUpFallbackRedirectUrl={targetPath}
+                  signUpForceRedirectUrl={targetPath}
+                  appearance={{
+                    layout: {
+                      unsafe_disableDevelopmentModeWarnings: true,
+                    },
+                    elements: {
+                      header: 'hidden',
+                      headerTitle: 'hidden',
+                      headerSubtitle: 'hidden',
+                      footer: 'hidden',
+                      footerAction: '!text-xs !text-[var(--ink-secondary)] !mt-2 flex justify-center',
+                      footerActionText: '!text-xs !text-[var(--ink-secondary)]',
+                      footerActionLink: '!text-xs !text-[var(--ink-primary)] !font-semibold hover:!underline cursor-pointer',
+                      socialButtonsBlockButton: 'hidden',
+                      socialButtons: 'hidden',
+                      dividerRow: 'hidden',
+                      badge: 'hidden',
+                      rootBox: '!w-full !max-w-none !bg-transparent !shadow-none',
+                      cardBox: '!w-full !max-w-none !bg-transparent !shadow-none',
+                      card: '!w-full !max-w-none !bg-transparent !shadow-none !border-none !p-0',
+                      formButtonPrimary:
+                        '!bg-[var(--ink-primary)] !text-[var(--accent-contrast)] hover:!opacity-90 !text-xs !font-semibold !rounded-lg !py-2.5',
+                      formFieldInput:
+                        '!rounded-lg !border-[var(--border-strong)] !bg-[var(--bg-canvas)] !text-xs !text-[var(--ink-primary)]',
+                      formFieldLabel: '!text-xs !text-[var(--ink-secondary)] !font-medium',
+                      identityPreviewText: '!text-xs !text-[var(--ink-secondary)]',
+                      formResendCodeLink: '!text-xs !text-[var(--ink-primary)] hover:!underline',
+                    },
+                  }}
+                />
+              </div>
+            )}
 
             <div className="pt-4 border-t border-[var(--border-subtle)] text-center text-xs text-[var(--ink-muted)] space-y-2">
               <p>
