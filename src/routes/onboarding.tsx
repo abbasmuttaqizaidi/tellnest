@@ -6,6 +6,9 @@ import { saveUserOnboardingServerFn, getUserOnboardingStatusServerFn } from '../
 import { verifyUsernameAvailabilityServerFn } from '../server/settings'
 import { GLOBAL_CATEGORIES, GLOBAL_GENRES } from '../lib/taxonomy'
 import { generateMeta } from '../lib/seo'
+import { sanitizeInternalReturnUrl } from '../lib/authSession'
+
+export { sanitizeInternalReturnUrl }
 
 // Standard Pronouns List
 const PRONOUN_OPTIONS: SelectOption[] = [
@@ -102,9 +105,10 @@ export default function OnboardingPage() {
           let dest = '/'
           if (typeof window !== 'undefined') {
             const saved = sessionStorage.getItem('hatchpen_auth_return_url')
-            if (saved && saved.startsWith('/') && !saved.startsWith('/onboarding') && !saved.startsWith('/sso-callback') && saved !== '/') {
+            const sanitized = sanitizeInternalReturnUrl(saved)
+            if (sanitized) {
               sessionStorage.removeItem('hatchpen_auth_return_url')
-              dest = saved
+              dest = sanitized
             }
           }
           navigate({ to: dest as any, replace: true })
@@ -125,20 +129,19 @@ export default function OnboardingPage() {
           'Reader'
         setDisplayName(initialName)
 
-        // Restore verified status directly from DB if previously verified
+        // Restore verified status only if user explicitly verified a pen name in DB
         if (
           existingProfile &&
-          (existingProfile.is_username_verified || existingProfile.preferences?.username_verified)
+          existingProfile.preferences?.username_verified &&
+          existingProfile.preferences?.verified_username
         ) {
-          const verifiedHandle = existingProfile.preferences?.verified_username || defaultUser || existingProfile.username
-          if (verifiedHandle) {
-            setUsername(verifiedHandle)
-            setUsernameVerification({
-              available: true,
-              message: `@${verifiedHandle} is verified!`,
-              verifiedHandle,
-            })
-          }
+          const verifiedHandle = existingProfile.preferences.verified_username
+          setUsername(verifiedHandle)
+          setUsernameVerification({
+            available: true,
+            message: `@${verifiedHandle} is verified!`,
+            verifiedHandle,
+          })
         }
 
         // Restore saved genres
@@ -247,6 +250,7 @@ export default function OnboardingPage() {
 
     setErrorMessage(null)
     setStep(2)
+    navigate({ to: '/onboarding', search: { step: 2 } })
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -333,9 +337,10 @@ export default function OnboardingPage() {
         let returnUrl: string | null = null
         if (typeof window !== 'undefined') {
           const saved = sessionStorage.getItem('hatchpen_auth_return_url')
-          if (saved && saved.startsWith('/') && !saved.startsWith('/onboarding') && !saved.startsWith('/sso-callback') && saved !== '/') {
+          const sanitized = sanitizeInternalReturnUrl(saved)
+          if (sanitized) {
             sessionStorage.removeItem('hatchpen_auth_return_url')
-            returnUrl = saved
+            returnUrl = sanitized
           }
         }
         if (returnUrl) {
@@ -524,6 +529,19 @@ export default function OnboardingPage() {
         {/* STEP 2: Reading Preferences */}
         {step === 2 && (
           <div>
+            <div className="mb-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setStep(1)
+                  navigate({ to: '/onboarding', search: { step: 1 } })
+                  window.scrollTo({ top: 0, behavior: 'smooth' })
+                }}
+                className="text-xs text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 transition-colors inline-flex items-center gap-1 cursor-pointer font-medium"
+              >
+                <span>← Back to Personal Details</span>
+              </button>
+            </div>
             <h1 className="text-xl sm:text-2xl font-bold font-serif text-neutral-900 dark:text-neutral-100 text-center mb-1.5">
               Reading Preferences
             </h1>

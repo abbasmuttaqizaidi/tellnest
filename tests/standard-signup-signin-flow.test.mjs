@@ -2,6 +2,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
+import { sanitizeInternalReturnUrl } from '../src/lib/authSession.ts'
 
 describe('Standard Sign-Up & Sign-In Flow Invariants', () => {
   const ssoCallbackTsx = fs.readFileSync(path.resolve(process.cwd(), 'src/routes/sso-callback.tsx'), 'utf8')
@@ -113,6 +114,42 @@ describe('Standard Sign-Up & Sign-In Flow Invariants', () => {
     assert.ok(
       onboardingTsx.includes('navigate({ to: returnUrl as any, replace: true })'),
       'onboarding.tsx must navigate to return URL when available'
+    )
+  })
+
+  it('ensures sanitizeInternalReturnUrl blocks open-redirects, protocol-relative paths, and loops', () => {
+    assert.strictEqual(sanitizeInternalReturnUrl('https://malicious.com'), null)
+    assert.strictEqual(sanitizeInternalReturnUrl('//malicious.com'), null)
+    assert.strictEqual(sanitizeInternalReturnUrl('/\\malicious.com'), null)
+    assert.strictEqual(sanitizeInternalReturnUrl('/login'), null)
+    assert.strictEqual(sanitizeInternalReturnUrl('/onboarding'), null)
+    assert.strictEqual(sanitizeInternalReturnUrl('/onboarding?step=2'), null)
+    assert.strictEqual(sanitizeInternalReturnUrl('/sso-callback'), null)
+    assert.strictEqual(sanitizeInternalReturnUrl('/'), null)
+    assert.strictEqual(sanitizeInternalReturnUrl('/discover'), '/discover')
+    assert.strictEqual(sanitizeInternalReturnUrl('/works/my-story'), '/works/my-story')
+    assert.strictEqual(sanitizeInternalReturnUrl('/author/jane-doe'), '/author/jane-doe')
+  })
+
+  it('ensures onboarding Step 1 does NOT falsely pre-verify unverified email prefixes', () => {
+    assert.ok(
+      onboardingTsx.includes('existingProfile.preferences?.username_verified &&'),
+      'loadProfile must check preferences.username_verified before restoring verified badge'
+    )
+    assert.ok(
+      onboardingTsx.includes('existingProfile.preferences?.verified_username'),
+      'loadProfile must require explicitly verified pen name to set verification state'
+    )
+  })
+
+  it('ensures onboarding Step 2 synchronizes browser history and provides back navigation', () => {
+    assert.ok(
+      onboardingTsx.includes("navigate({ to: '/onboarding', search: { step: 2 } })"),
+      'handleContinueToStep2 must update router search params to step 2'
+    )
+    assert.ok(
+      onboardingTsx.includes('← Back to Personal Details'),
+      'Step 2 must provide a clear back button to Step 1'
     )
   })
 })

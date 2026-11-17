@@ -112,3 +112,23 @@ export function notifyClientLoggedOut(): void {
     window.dispatchEvent(new CustomEvent('hatchpen:logged-out'))
   } catch {}
 }
+
+/**
+ * Validates and sanitizes internal return URLs to prevent open redirects and redirect loops
+ */
+export function sanitizeInternalReturnUrl(url?: string | null): string | null {
+  if (!url || typeof url !== 'string') return null
+  const trimmed = url.trim()
+  if (!trimmed.startsWith('/') || trimmed.startsWith('//') || trimmed.includes('\\')) return null
+  if (
+    trimmed === '/' ||
+    trimmed === '/login' ||
+    trimmed === '/onboarding' ||
+    trimmed.startsWith('/login') ||
+    trimmed.startsWith('/onboarding') ||
+    trimmed.startsWith('/sso-callback')
+  ) {
+    return null
+  }
+  return trimmed
+}

@@ -3,7 +3,7 @@ import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
 import { AuthenticateWithRedirectCallback, useUser } from '@clerk/react'
 import { HatchpenLogo } from '../components/HatchpenLogo'
 import { generateMeta } from '../lib/seo'
-import { markClientSessionActive } from '../lib/authSession'
+import { markClientSessionActive, sanitizeInternalReturnUrl } from '../lib/authSession'
 import { getUserOnboardingStatusServerFn } from '../server/authors'
 
 export const Route = createFileRoute('/sso-callback')({
@@ -57,10 +57,8 @@ export default function SSOCallbackPage() {
   const getTargetDestination = () => {
     if (typeof window === 'undefined') return '/'
     const saved = sessionStorage.getItem('hatchpen_auth_return_url')
-    if (saved && saved.startsWith('/') && !saved.startsWith('/sso-callback')) {
-      return saved
-    }
-    return '/'
+    const sanitized = sanitizeInternalReturnUrl(saved)
+    return sanitized || '/'
   }
 
   const safeRedirect = (dest?: string) => {
@@ -100,7 +98,7 @@ export default function SSOCallbackPage() {
             }
             // Existing completed user: proceed directly to destination
             const saved = typeof window !== 'undefined' ? sessionStorage.getItem('hatchpen_auth_return_url') : null
-            const target = saved && saved.startsWith('/') && !saved.startsWith('/sso-callback') ? saved : '/'
+            const target = sanitizeInternalReturnUrl(saved) || '/'
             safeRedirect(target)
             return
           }
@@ -117,7 +115,7 @@ export default function SSOCallbackPage() {
           if (signupSource === 'reader_gate') {
             // Reader gate user gets to keep reading immediately
             const saved = typeof window !== 'undefined' ? sessionStorage.getItem('hatchpen_auth_return_url') : null
-            const target = saved && saved.startsWith('/') && !saved.startsWith('/sso-callback') ? saved : '/'
+            const target = sanitizeInternalReturnUrl(saved) || '/'
             safeRedirect(target)
             return
           }
