@@ -10,18 +10,22 @@ describe('Standard Sign-Up & Sign-In Flow Invariants', () => {
   const onboardingTsx = fs.readFileSync(path.resolve(process.cwd(), 'src/routes/onboarding.tsx'), 'utf8')
   const authModalTsx = fs.readFileSync(path.resolve(process.cwd(), 'src/components/AuthModal.tsx'), 'utf8')
 
-  it('ensures sso-callback redirects standard un-onboarded users to /onboarding while preserving return destination', () => {
+  it('ensures sso-callback resolves onboarding status from database ground truth to prevent false-positive bounces', () => {
     assert.ok(
-      ssoCallbackTsx.includes("if (signupSource === 'standard' && !isCompleted)"),
-      'sso-callback must check if standard user has not completed onboarding'
+      ssoCallbackTsx.includes('getUserOnboardingStatusServerFn'),
+      'sso-callback must query database onboarding status for the authenticated user'
     )
     assert.ok(
-      ssoCallbackTsx.includes("return '/onboarding'"),
-      'sso-callback must redirect un-onboarded standard users to /onboarding'
+      ssoCallbackTsx.includes('profile?.onboarding_completed'),
+      'sso-callback must inspect profile.onboarding_completed from database'
     )
     assert.ok(
-      ssoCallbackTsx.includes("sessionStorage.getItem('hatchpen_auth_return_url')"),
-      'sso-callback must preserve return URL for post-onboarding'
+      ssoCallbackTsx.includes("localStorage.setItem(`hatchpen_onboarding_completed_${user.id}`, 'true')"),
+      'sso-callback must cache verified completed status in localStorage'
+    )
+    assert.ok(
+      ssoCallbackTsx.includes("safeRedirect('/onboarding')"),
+      'sso-callback must route standard un-onboarded users to /onboarding'
     )
   })
 
@@ -51,7 +55,22 @@ describe('Standard Sign-Up & Sign-In Flow Invariants', () => {
     )
   })
 
-  it('ensures onboarding.tsx restores saved return URL upon successful profile completion', () => {
+  it('ensures login.tsx prevents dead-end redirect trap and resets signup source to standard', () => {
+    assert.ok(
+      loginTsx.includes('hasExplicitDestination || isFormSubmittedRef.current'),
+      'login.tsx must only auto-redirect if explicit return destination exists or active submission completed'
+    )
+    assert.ok(
+      loginTsx.includes("sessionStorage.setItem('hatchpen_signup_source', 'standard')"),
+      'login.tsx must initialize sessionStorage signup_source to standard'
+    )
+    assert.ok(
+      loginTsx.includes("localStorage.setItem('hatchpen_signup_source', 'standard')"),
+      'login.tsx must initialize localStorage signup_source to standard'
+    )
+  })
+
+  it('ensures onboarding.tsx restores saved return URL upon successful profile completion or early exit', () => {
     assert.ok(
       onboardingTsx.includes("sessionStorage.getItem('hatchpen_auth_return_url')"),
       'onboarding.tsx must check for saved auth return URL'

@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSignIn, useSignUp, useUser, useClerk, SignIn } from '@clerk/react'
 import { Loader2, ArrowRight, BookOpen, PenTool, CheckCircle2, LogOut } from 'lucide-react'
 import { HatchpenLogo } from '../components/HatchpenLogo'
@@ -36,16 +36,7 @@ export default function LoginPage() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const [showEmailForm, setShowEmailForm] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-
-  // Automatically navigate to target destination once user is signed in
-  useEffect(() => {
-    if (isLoaded && isSignedIn && user) {
-      markClientSessionActive()
-      if (targetPath && targetPath !== '/login') {
-        navigate({ to: targetPath as any, replace: true })
-      }
-    }
-  }, [isLoaded, isSignedIn, user, targetPath, navigate])
+  const isFormSubmittedRef = useRef(false)
 
   const sanitizeTargetPath = (url?: string | null): string => {
     if (!url) return '/'
@@ -67,7 +58,19 @@ export default function LoginPage() {
     return trimmed.startsWith('/') ? trimmed : `/${trimmed}`
   }
 
-  const targetPath = sanitizeTargetPath(search.redirect_url || search.returnUrl)
+  const rawRedirectUrl = search.redirect_url || search.returnUrl
+  const targetPath = sanitizeTargetPath(rawRedirectUrl)
+  const hasExplicitDestination = Boolean(rawRedirectUrl && targetPath !== '/')
+
+  // Navigate to target destination only when explicit returnUrl is provided or active submission just completed
+  useEffect(() => {
+    if (isLoaded && isSignedIn && user) {
+      markClientSessionActive()
+      if (hasExplicitDestination || isFormSubmittedRef.current) {
+        navigate({ to: targetPath as any, replace: true })
+      }
+    }
+  }, [isLoaded, isSignedIn, user, targetPath, hasExplicitDestination, navigate])
 
   const handleGoogleLogin = async () => {
     setIsGoogleLoading(true)
@@ -77,10 +80,13 @@ export default function LoginPage() {
     const redirectUrlComplete = new URL(targetPath, origin).toString()
 
     try {
+      isFormSubmittedRef.current = true
       if (typeof window !== 'undefined') {
         sessionStorage.removeItem('hatchpen_just_logged_out')
         sessionStorage.setItem('hatchpen_just_signed_up_google', 'true')
         sessionStorage.setItem('hatchpen_oauth_in_flight', 'true')
+        sessionStorage.setItem('hatchpen_signup_source', 'standard')
+        localStorage.setItem('hatchpen_signup_source', 'standard')
         if (targetPath && targetPath !== '/' && !targetPath.startsWith('/sso-callback')) {
           sessionStorage.setItem('hatchpen_auth_return_url', targetPath)
         }

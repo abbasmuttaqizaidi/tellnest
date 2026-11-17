@@ -99,7 +99,15 @@ export default function OnboardingPage() {
         
         // If already completed and user did not explicitly request step 2
         if (existingProfile?.onboarding_completed && !search.step) {
-          navigate({ to: '/', replace: true })
+          let dest = '/'
+          if (typeof window !== 'undefined') {
+            const saved = sessionStorage.getItem('hatchpen_auth_return_url')
+            if (saved && saved.startsWith('/') && !saved.startsWith('/onboarding') && !saved.startsWith('/sso-callback') && saved !== '/') {
+              sessionStorage.removeItem('hatchpen_auth_return_url')
+              dest = saved
+            }
+          }
+          navigate({ to: dest as any, replace: true })
           return
         }
 

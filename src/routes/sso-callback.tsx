@@ -4,6 +4,7 @@ import { AuthenticateWithRedirectCallback, useUser } from '@clerk/react'
 import { HatchpenLogo } from '../components/HatchpenLogo'
 import { generateMeta } from '../lib/seo'
 import { markClientSessionActive } from '../lib/authSession'
+import { getUserOnboardingStatusServerFn } from '../server/authors'
 
 export const Route = createFileRoute('/sso-callback')({
   head: () =>
@@ -95,15 +96,56 @@ export default function SSOCallbackPage() {
 
   // 4. Complete progress and trigger immediate transition as soon as Clerk confirms session
   useEffect(() => {
-    if (isLoaded && isSignedIn) {
+    if (isLoaded && isSignedIn && user) {
       setProgress(100)
       setStatusText('Ready. Opening your reading desk...')
 
       markClientSessionActive()
       router.invalidate()
-      safeRedirect()
+
+      // Resolve destination using DB ground-truth
+      const resolveAndRedirect = async () => {
+        try {
+          const profile = await getUserOnboardingStatusServerFn({ data: user.id })
+          if (profile?.onboarding_completed) {
+            if (typeof window !== 'undefined') {
+              localStorage.setItem(`hatchpen_onboarding_completed_${user.id}`, 'true')
+            }
+            // Existing completed user: proceed directly to destination
+            const saved = typeof window !== 'undefined' ? sessionStorage.getItem('hatchpen_auth_return_url') : null
+            const target = saved && saved.startsWith('/') && !saved.startsWith('/sso-callback') ? saved : '/'
+            safeRedirect(target)
+            return
+          }
+
+          // Incomplete profile:
+          const prefs = (profile?.preferences as Record<string, any>) || {}
+          const signupSource =
+            (typeof window !== 'undefined'
+              ? sessionStorage.getItem('hatchpen_signup_source') || localStorage.getItem('hatchpen_signup_source')
+              : null) ||
+            prefs.signup_source ||
+            'standard'
+
+          if (signupSource === 'reader_gate') {
+            // Reader gate user gets to keep reading immediately
+            const saved = typeof window !== 'undefined' ? sessionStorage.getItem('hatchpen_auth_return_url') : null
+            const target = saved && saved.startsWith('/') && !saved.startsWith('/sso-callback') ? saved : '/'
+            safeRedirect(target)
+            return
+          }
+
+          // Standard incomplete user must complete onboarding
+          safeRedirect('/onboarding')
+        } catch {
+          // Fallback if DB fetch fails
+          safeRedirect()
+        }
+      }
+
+      resolveAndRedirect()
     }
-  }, [isLoaded, isSignedIn, router])
+  }, [isLoaded, isSignedIn, user, router])
 
   // 5. Fallback guard: in case network or Clerk callback stalls, safely transition
   useEffect(() => {
