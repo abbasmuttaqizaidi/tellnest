@@ -56,7 +56,7 @@ export function ReaderGateWarningBanner({ serverAuthUser }: ReaderGateWarningBan
         const isCompleted = Boolean(p.onboarding_completed)
 
         setDbProfile({
-          signupSource: (prefs.signup_source as any) || (!isCompleted ? 'reader_gate' : 'standard'),
+          signupSource: prefs.signup_source === 'reader_gate' ? 'reader_gate' : 'standard',
           isUsernameVerified: isVerified,
           hasSelectedGenres: hasGenres,
           onboardingCompleted: isCompleted,
@@ -103,13 +103,13 @@ export function ReaderGateWarningBanner({ serverAuthUser }: ReaderGateWarningBan
   const hasSelectedGenres = Boolean(dbProfile?.hasSelectedGenres ?? serverAuthUser?.hasSelectedGenres)
   const onboardingCompleted = Boolean(dbProfile?.onboardingCompleted ?? serverAuthUser?.onboardingCompleted)
 
+  // Strictly identify reader_gate accounts; standard accounts never show ReaderGateWarningBanner
   const isReaderGate =
-    dbProfile?.signupSource === 'reader_gate' ||
-    serverAuthUser?.signupSource === 'reader_gate' ||
-    localSource === 'reader_gate' ||
-    (!onboardingCompleted && (!isUsernameVerified || !hasSelectedGenres))
+    dbProfile?.signupSource
+      ? dbProfile.signupSource === 'reader_gate'
+      : (serverAuthUser?.signupSource === 'reader_gate' || localSource === 'reader_gate')
 
-  // If user is fully setup (verified username, selected genres, completed onboarding), do not show banner
+  // If user is not reader_gate, OR user is fully setup (verified username, selected genres, completed onboarding), do not show banner
   if (!isReaderGate || (isUsernameVerified && hasSelectedGenres && onboardingCompleted)) {
     return null
   }

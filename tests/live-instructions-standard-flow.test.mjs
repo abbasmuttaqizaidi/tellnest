@@ -79,4 +79,28 @@ describe('Standard Sign-Up Flow — Strict live_instructions.md Compliance', () 
       'authors.ts must strictly keep reader_gate_converted false for standard users'
     )
   })
+
+  it('ensures server auth does NOT falsely fallback to reader_gate for un-onboarded users', () => {
+    const serverAuthTs = fs.readFileSync(path.resolve(process.cwd(), 'src/server/auth.ts'), 'utf8')
+    assert.ok(
+      serverAuthTs.includes("signupSource = pPrefs.signup_source === 'reader_gate' ? 'reader_gate' : 'standard'"),
+      'server/auth.ts must strictly default to standard signup_source unless explicitly reader_gate'
+    )
+    assert.ok(
+      !serverAuthTs.includes("!profile?.onboarding_completed && !profile?.is_username_verified ? 'reader_gate' : 'standard'"),
+      'server/auth.ts must NEVER falsely classify new un-onboarded users as reader_gate'
+    )
+  })
+
+  it('ensures ReaderGateWarningBanner strictly excludes standard accounts and never classifies un-onboarded standard users as reader_gate', () => {
+    const bannerTs = fs.readFileSync(path.resolve(process.cwd(), 'src/components/ReaderGateWarningBanner.tsx'), 'utf8')
+    assert.ok(
+      !bannerTs.includes('(!onboardingCompleted && (!isUsernameVerified || !hasSelectedGenres))'),
+      'ReaderGateWarningBanner must NEVER treat incomplete onboarding as reader_gate'
+    )
+    assert.ok(
+      !bannerTs.includes("(!isCompleted ? 'reader_gate' : 'standard')"),
+      'ReaderGateWarningBanner must not fallback to reader_gate for incomplete profiles'
+    )
+  })
 })

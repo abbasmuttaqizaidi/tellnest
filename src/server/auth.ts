@@ -43,9 +43,7 @@ export const getAuthUserServerFn = createServerFn({ method: 'GET' }).handler(
           avatarUrl = profile?.avatar_path || null
           displayName = profile?.display_name || null
           username = profile?.username || null
-          signupSource =
-            pPrefs.signup_source ||
-            (!profile?.onboarding_completed && !profile?.is_username_verified ? 'reader_gate' : 'standard')
+          signupSource = pPrefs.signup_source === 'reader_gate' ? 'reader_gate' : 'standard'
           isUsernameVerified = Boolean(profile?.is_username_verified ?? pPrefs.username_verified)
           hasSelectedGenres = Array.isArray(pPrefs.genres) && pPrefs.genres.length > 0
           readerGateConverted = Boolean(pPrefs.reader_gate_converted)
