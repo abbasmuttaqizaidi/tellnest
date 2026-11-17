@@ -103,11 +103,11 @@ export function ReaderGateWarningBanner({ serverAuthUser }: ReaderGateWarningBan
     return null
   }
 
-  const handleOpenStep = (stepNumber: 1 | 2) => {
+  const handleOpenOnboarding = () => {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(
         new CustomEvent('hatchpen:open-onboarding', {
-          detail: { step: stepNumber },
+          detail: { step: isUsernameVerified ? 2 : 1 },
         })
       )
     }
@@ -129,52 +129,15 @@ export function ReaderGateWarningBanner({ serverAuthUser }: ReaderGateWarningBan
           </p>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2 self-end sm:self-auto shrink-0 w-full sm:w-auto justify-end">
-          {/* Button 1: Verify Username */}
+        {/* Single Action Button: Complete Profile */}
+        <div className="flex items-center shrink-0 self-end sm:self-auto">
           <button
             type="button"
-            onClick={() => handleOpenStep(1)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-              isUsernameVerified
-                ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 cursor-default'
-                : 'bg-amber-600 hover:bg-amber-700 text-white shadow-sm'
-            }`}
+            onClick={handleOpenOnboarding}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white shadow-xs transition-colors cursor-pointer"
           >
-            {isUsernameVerified ? (
-              <>
-                <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                <span>Handle Verified</span>
-              </>
-            ) : (
-              <>
-                <span>Verify Username</span>
-                <ArrowRight className="w-3 h-3" />
-              </>
-            )}
-          </button>
-
-          {/* Button 2: Select Genres */}
-          <button
-            type="button"
-            onClick={() => handleOpenStep(2)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-              hasSelectedGenres
-                ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 cursor-default'
-                : 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-100 shadow-sm'
-            }`}
-          >
-            {hasSelectedGenres ? (
-              <>
-                <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                <span>Genres Selected</span>
-              </>
-            ) : (
-              <>
-                <span>Select Genres</span>
-                <ArrowRight className="w-3 h-3" />
-              </>
-            )}
+            <span>Complete Profile</span>
+            <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>

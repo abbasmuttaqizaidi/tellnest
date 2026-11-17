@@ -221,17 +221,24 @@ export function UserOnboardingModal({ authUser }: { authUser?: any } = {}) {
       // Restore verified status directly from DB if previously verified (Zero browser storage reliance)
       if (
         existingProfile &&
-        (existingProfile.is_username_verified || existingProfile.preferences?.username_verified) &&
-        existingProfile.preferences?.verified_username &&
-        existingProfile.preferences?.verified_username === (defaultUser || existingProfile.username)
+        (existingProfile.is_username_verified || existingProfile.preferences?.username_verified)
       ) {
-        const verifiedHandle = existingProfile.preferences?.verified_username || defaultUser
-        setUsername(verifiedHandle)
-        setUsernameVerification({
-          available: true,
-          message: `@${verifiedHandle} is available!`,
-          verifiedHandle,
-        })
+        const verifiedHandle = existingProfile.preferences?.verified_username || defaultUser || existingProfile.username
+        if (verifiedHandle) {
+          setUsername(verifiedHandle)
+          setUsernameVerification({
+            available: true,
+            message: `@${verifiedHandle} is verified!`,
+            verifiedHandle,
+          })
+        }
+      }
+
+      if (Array.isArray(existingProfile?.preferences?.genres) && existingProfile.preferences.genres.length > 0) {
+        const existingGenres = existingProfile.preferences.genres.map((g: any) =>
+          typeof g === 'string' ? { id: g, name: g } : g
+        )
+        setSelectedGenres(existingGenres)
       }
 
       const initialName =
@@ -411,6 +418,10 @@ export function UserOnboardingModal({ authUser }: { authUser?: any } = {}) {
   // Submission handler for Step 2
   const handleCompleteOnboarding = async () => {
     if (!user || isSubmitting) return
+    if (selectedGenres.length === 0) {
+      setErrorMessage('Please select at least 1 reading genre to personalize your reading feed.')
+      return
+    }
     if (selectedGenres.length > 5) {
       setErrorMessage('You may select a maximum of 5 genres.')
       return

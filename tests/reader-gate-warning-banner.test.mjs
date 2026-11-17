@@ -40,26 +40,18 @@ describe('Reader Gate Warning Banner Approach', () => {
     )
   })
 
-  it('ensures ReaderGateWarningBanner provides two action buttons for username and genres', () => {
+  it('ensures ReaderGateWarningBanner provides a single Complete Profile action button', () => {
     assert.ok(
-      bannerTsx.includes('Verify Username') || bannerTsx.includes('Handle Verified'),
-      'Banner must contain Verify Username button'
+      bannerTsx.includes('Complete Profile'),
+      'Banner must contain single "Complete Profile" button'
     )
     assert.ok(
-      bannerTsx.includes('Select Genres') || bannerTsx.includes('Genres Selected'),
-      'Banner must contain Select Genres button'
+      bannerTsx.includes('handleOpenOnboarding'),
+      'Banner must call handleOpenOnboarding'
     )
     assert.ok(
-      bannerTsx.includes("handleOpenStep(1)"),
-      'Verify Username button must invoke handleOpenStep(1)'
-    )
-    assert.ok(
-      bannerTsx.includes("handleOpenStep(2)"),
-      'Select Genres button must invoke handleOpenStep(2)'
-    )
-    assert.ok(
-      bannerTsx.includes("detail: { step: stepNumber }"),
-      'handleOpenStep must dispatch step detail in event'
+      bannerTsx.includes('detail: { step: isUsernameVerified ? 2 : 1 }'),
+      'handleOpenOnboarding must dispatch step 2 if username is already verified, else step 1'
     )
   })
 
