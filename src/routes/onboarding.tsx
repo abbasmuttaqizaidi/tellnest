@@ -278,14 +278,15 @@ export default function OnboardingPage() {
 
     try {
       const email = user.primaryEmailAddress?.emailAddress || ''
-      const res = await saveUserOnboardingServerFn({
+      const profile = await saveUserOnboardingServerFn({
         data: {
           clerkUserId: user.id,
           username: (usernameVerification?.verifiedHandle || username).toLowerCase().trim(),
           displayName: displayName.trim() || username,
+          avatarUrl: user.imageUrl || '/unisex-avatar.svg',
           email,
-          pronouns: pronounOption.label,
-          gender: genderOption.label,
+          pronouns: pronounOption.label || pronounOption.id,
+          gender: genderOption.label || genderOption.id,
           termsAccepted: true,
           genres: selectedGenres,
           interests: selectedGenres,
@@ -294,14 +295,22 @@ export default function OnboardingPage() {
         },
       })
 
-      if (!res?.success) {
-        setErrorMessage(res?.error || 'Failed to complete profile setup. Please try again.')
-        setIsSubmitting(false)
-        return
+      if (!profile || !profile.id) {
+        throw new Error('Failed to complete profile setup. Please try again.')
       }
+
+      // Update Clerk username if supported
+      try {
+        if (typeof (user as any).update === 'function') {
+          await (user as any).update({
+            username: (usernameVerification?.verifiedHandle || username).toLowerCase().trim(),
+          })
+        }
+      } catch {}
 
       if (typeof window !== 'undefined') {
         localStorage.setItem(`hatchpen_onboarding_completed_${user.id}`, 'true')
+        localStorage.setItem(`hatchpen_new_voices_popup_dismissed_${user.id}`, 'true')
         sessionStorage.removeItem('hatchpen_signup_source')
         window.dispatchEvent(new CustomEvent('hatchpen:onboarding-completed', { detail: { userId: user.id } }))
         window.dispatchEvent(new CustomEvent('hatchpen:reader-gate-cleared'))
