@@ -312,6 +312,7 @@ export default function OnboardingPage() {
         localStorage.setItem(`hatchpen_onboarding_completed_${user.id}`, 'true')
         localStorage.setItem(`hatchpen_new_voices_popup_dismissed_${user.id}`, 'true')
         sessionStorage.removeItem('hatchpen_signup_source')
+        localStorage.removeItem('hatchpen_signup_source')
         window.dispatchEvent(new CustomEvent('hatchpen:onboarding-completed', { detail: { userId: user.id } }))
         window.dispatchEvent(new CustomEvent('hatchpen:reader-gate-cleared'))
       }

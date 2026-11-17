@@ -108,7 +108,7 @@ export function ClerkSync() {
 
         const signupSource =
           (typeof window !== 'undefined'
-            ? (sessionStorage.getItem('hatchpen_signup_source') as 'reader_gate' | 'standard' | null)
+            ? ((sessionStorage.getItem('hatchpen_signup_source') || localStorage.getItem('hatchpen_signup_source')) as 'reader_gate' | 'standard' | null)
             : null) || 'standard'
 
         // Sync User into Supabase `profiles` table via server function (Service Role Key runs strictly on server)

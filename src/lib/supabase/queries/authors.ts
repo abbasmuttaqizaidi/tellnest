@@ -100,12 +100,35 @@ export async function syncClerkUserToProfile(params: {
   // 1. Check if user profile already exists
   const { data: existing } = await admin
     .from('profiles')
-    .select('id, clerk_user_id, username, display_name, avatar_path, bio, is_public, account_status, onboarding_completed, preferences')
+    .select('id, clerk_user_id, username, display_name, avatar_path, bio, is_public, account_status, onboarding_completed, is_username_verified, preferences')
     .eq('clerk_user_id', params.clerkUserId)
     .maybeSingle()
 
   if (existing) {
-    const isExistingReaderGate = (existing as any)?.preferences?.signup_source === 'reader_gate' && !existing.onboarding_completed
+    const existingPrefs = (existing.preferences as Record<string, any>) || {}
+    const isExistingReaderGate = existingPrefs.signup_source === 'reader_gate' && !existing.onboarding_completed
+
+    // If incoming signup source is reader_gate and profile has not completed onboarding, persist reader_gate into preferences
+    if (params.signupSource === 'reader_gate' && !existing.onboarding_completed && existingPrefs.signup_source !== 'reader_gate') {
+      const nextPrefs = {
+        ...existingPrefs,
+        signup_source: 'reader_gate',
+        reader_gate_converted: false,
+      }
+      await admin
+        .from('profiles')
+        .update({
+          preferences: nextPrefs,
+          is_username_verified: false,
+          onboarding_completed: false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existing.id)
+      existing.preferences = nextPrefs
+      existing.is_username_verified = false
+      existing.onboarding_completed = false
+    }
+
     // Self-healing: If Clerk metadata or client knows onboarding is completed, but DB says false, heal DB record
     // Strictly preserve incomplete onboarding status for deferred reader_gate accounts
     if (params.onboardingCompleted && !existing.onboarding_completed && !isExistingReaderGate && params.signupSource !== 'reader_gate') {

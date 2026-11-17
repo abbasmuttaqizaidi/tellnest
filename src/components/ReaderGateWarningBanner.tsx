@@ -51,11 +51,15 @@ export function ReaderGateWarningBanner({ serverAuthUser }: ReaderGateWarningBan
       const p = await getUserOnboardingStatusServerFn({ data: user.id })
       if (p) {
         const prefs = (p.preferences as Record<string, any>) || {}
+        const isVerified = Boolean(p.is_username_verified ?? prefs.username_verified)
+        const hasGenres = Array.isArray(prefs.genres) && prefs.genres.length > 0
+        const isCompleted = Boolean(p.onboarding_completed)
+
         setDbProfile({
-          signupSource: (prefs.signup_source as any) || (p.is_username_verified ? 'standard' : null),
-          isUsernameVerified: Boolean(p.is_username_verified ?? prefs.username_verified),
-          hasSelectedGenres: Array.isArray(prefs.genres) && prefs.genres.length > 0,
-          onboardingCompleted: Boolean(p.onboarding_completed),
+          signupSource: (prefs.signup_source as any) || (!isCompleted ? 'reader_gate' : 'standard'),
+          isUsernameVerified: isVerified,
+          hasSelectedGenres: hasGenres,
+          onboardingCompleted: isCompleted,
         })
       }
     } catch {}
@@ -90,17 +94,22 @@ export function ReaderGateWarningBanner({ serverAuthUser }: ReaderGateWarningBan
     return null
   }
 
-  const signupSource =
-    dbProfile?.signupSource ??
-    serverAuthUser?.signupSource ??
-    (typeof window !== 'undefined' ? (sessionStorage.getItem('hatchpen_signup_source') as any) : null)
+  const localSource =
+    typeof window !== 'undefined'
+      ? sessionStorage.getItem('hatchpen_signup_source') || localStorage.getItem('hatchpen_signup_source')
+      : null
 
-  const isReaderGate = signupSource === 'reader_gate'
   const isUsernameVerified = Boolean(dbProfile?.isUsernameVerified ?? serverAuthUser?.isUsernameVerified)
   const hasSelectedGenres = Boolean(dbProfile?.hasSelectedGenres ?? serverAuthUser?.hasSelectedGenres)
   const onboardingCompleted = Boolean(dbProfile?.onboardingCompleted ?? serverAuthUser?.onboardingCompleted)
 
-  // If user is standard or has finished both requirements, do not show banner
+  const isReaderGate =
+    dbProfile?.signupSource === 'reader_gate' ||
+    serverAuthUser?.signupSource === 'reader_gate' ||
+    localSource === 'reader_gate' ||
+    (!onboardingCompleted && (!isUsernameVerified || !hasSelectedGenres))
+
+  // If user is fully setup (verified username, selected genres, completed onboarding), do not show banner
   if (!isReaderGate || (isUsernameVerified && hasSelectedGenres && onboardingCompleted)) {
     return null
   }

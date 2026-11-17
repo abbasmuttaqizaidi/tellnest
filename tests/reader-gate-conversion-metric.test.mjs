@@ -16,8 +16,8 @@ describe('Reader Gate Conversion Metric (reader_gate_converted)', () => {
       'syncClerkUserToProfile must initialize reader_gate_converted to false by default'
     )
     assert.ok(
-      queriesAuthorsTs.includes("select('id, clerk_user_id, username, display_name, avatar_path, bio, is_public, account_status, onboarding_completed, preferences')"),
-      'Existing profile query must include preferences field'
+      queriesAuthorsTs.includes('preferences') && queriesAuthorsTs.includes('is_username_verified'),
+      'Existing profile query must include preferences and is_username_verified fields'
     )
   })
 

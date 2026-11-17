@@ -783,7 +783,7 @@ export async function getCachedProfileByClerkId(admin: any, clerkUserId: string)
   }
   const { data: profile } = await admin
     .from('profiles')
-    .select('id, clerk_user_id, username, display_name, preferences, avatar_path, onboarding_completed')
+    .select('id, clerk_user_id, username, display_name, preferences, avatar_path, onboarding_completed, is_username_verified')
     .eq('clerk_user_id', clerkUserId)
     .maybeSingle()
   if (profile) {
