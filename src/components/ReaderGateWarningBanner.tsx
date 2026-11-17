@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { useRouterState } from '@tanstack/react-router'
+import { useRouterState, useNavigate } from '@tanstack/react-router'
 import { useUser } from '@clerk/react'
-import { AlertCircle, Check, ArrowRight } from 'lucide-react'
+import { AlertCircle } from 'lucide-react'
 import { getUserOnboardingStatusServerFn } from '../server/authors'
 
 export interface ReaderGateWarningBannerProps {
@@ -17,14 +17,16 @@ export interface ReaderGateWarningBannerProps {
 
 export function ReaderGateWarningBanner({ serverAuthUser }: ReaderGateWarningBannerProps) {
   const routerState = useRouterState()
+  const navigate = useNavigate()
   const pathname = routerState.location.pathname
   const { isLoaded, isSignedIn, user } = useUser()
 
-  // 1. Route Exclusion: Strictly hide on all editor routes (/editor, /write/editor/*, /admin-work-editor/*)
-  const isEditorRoute =
+  // 1. Route Exclusion: Strictly hide on all editor routes (/editor, /write/editor/*, /admin-work-editor/*) and onboarding
+  const isExcludedRoute =
     pathname.includes('/editor') ||
     pathname.startsWith('/write/editor') ||
-    pathname.startsWith('/admin-work-editor')
+    pathname.startsWith('/admin-work-editor') ||
+    pathname.startsWith('/onboarding')
 
   const [dbProfile, setDbProfile] = useState<{
     signupSource: 'reader_gate' | 'standard' | null
@@ -80,7 +82,7 @@ export function ReaderGateWarningBanner({ serverAuthUser }: ReaderGateWarningBan
     }
   }, [refreshStatus])
 
-  if (isEditorRoute) {
+  if (isExcludedRoute) {
     return null
   }
 
@@ -104,13 +106,10 @@ export function ReaderGateWarningBanner({ serverAuthUser }: ReaderGateWarningBan
   }
 
   const handleOpenOnboarding = () => {
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(
-        new CustomEvent('hatchpen:open-onboarding', {
-          detail: { step: isUsernameVerified ? 2 : 1 },
-        })
-      )
-    }
+    navigate({
+      to: '/onboarding',
+      search: { step: isUsernameVerified ? 2 : 1 },
+    })
   }
 
   return (
@@ -134,10 +133,9 @@ export function ReaderGateWarningBanner({ serverAuthUser }: ReaderGateWarningBan
           <button
             type="button"
             onClick={handleOpenOnboarding}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white shadow-xs transition-colors cursor-pointer"
+            className="inline-flex items-center px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white shadow-xs transition-colors cursor-pointer"
           >
             <span>Complete Profile</span>
-            <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>

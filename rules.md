@@ -83,31 +83,34 @@
 ## 8. Locked Feature Specification: User Onboarding Flow (Immutable)
 
 **Status:** LOCKED / CANONICAL SPECIFICATION  
-**Scope:** `src/components/UserOnboardingModal.tsx`, `src/server/authors.ts`, `src/design-system/Modal.tsx`  
+**Scope:** `src/routes/onboarding.tsx`, `src/server/authors.ts`, `src/routes/__root.tsx`  
 **Rule:** No changes, refactorings, or modifications are allowed to this flow without explicit instruction from the product owner.
 
-### 8.1. Durability, Triggers & Incomplete State Protection
-- **Trigger**: Displayed automatically on the Home route (`/`) for any signed-in user where `profiles.onboarding_completed === false`.
-- **Dismissal Lock**: Modal cannot be dismissed or closed via backdrop click, Escape key, or close button (`showCloseButton={false}`, `closeOnBackdropClick={false}`).
-- **Durability Guarantee**: If a user abandons mid-way, closes the browser, shuts the tab, or refreshes, `onboarding_completed` remains strictly `false` in Supabase `profiles`. No local storage completion flag is set prematurely. The modal MUST reappear on subsequent visits until fully completed.
-- **Scroll Lock**: While open, both `document.documentElement` and `document.body` have `overflow: hidden`, wheel events on backdrop are intercepted, and modal content has `overscroll-behavior: contain`.
+### 8.1. Architecture, Triggers & Incomplete State Protection
+- **Full-Page Route**: Onboarding operates as a dedicated full-page route at `/onboarding` (replaces legacy popup modal).
+- **Navigation Bar Preserved**: The top Header (`<Header />`) is maintained and visible on the page.
+- **Center Alignment**: Onboarding card container (`max-w-lg w-full`) is vertically and horizontally centered with standard responsive padding.
+- **Strictly NO Icons**: Pure, minimalist editorial typography without icons in headings, steps, or buttons.
+- **Durability Guarantee**: If a user abandons mid-way, closes the browser, shuts the tab, or refreshes, `onboarding_completed` remains strictly `false` in Supabase `profiles`. No local storage completion flag is set prematurely.
+- **Signup Separation**:
+  - Standard signups with incomplete onboarding are routed to `/onboarding`.
+  - Chapter readers (`reader_gate`) are never interrupted during chapter reading; they are guided to `/onboarding` via the persistent Warning Banner.
 
-### 8.2. Step 1: Pen Name & Core Identity
+### 8.2. Step 1: Personal Details
+- **Heading**: "Personal Details".
 - **Display Name**: Prepopulated from Clerk or email prefix; editable.
-- **Unique Username**: Mandatory, 3–30 chars, lowercase letters/numbers/underscores only.
-  - Plaintext rules replaced with a sleek black circular exclamation badge (`bg-black text-white`).
-  - Tapping/clicking badge toggles an opaque, responsive tooltip (`bg-white dark:bg-[#111722] border border-[var(--border-strong)] shadow-2xl`) with click-outside and Escape handlers.
+- **Unique Username**: Mandatory, 3–30 chars, lowercase letters/numbers/underscores only (`^[a-z0-9_]{3,30}$`). Must be verified before proceeding.
 - **Pronouns & Gender**: Optional identity dropdowns.
-- **Terms Acceptance**: Mandatory checkbox with full modal review capability.
-- **Action Button**: Full-width `w-full` primary button ("Continue to Reading Feed").
+- **Terms Acceptance**: Mandatory checkbox for Terms of Service and Privacy Policy.
+- **Continue Button**: Full width of the card container (`w-full`), strictly contained within the centered container (never spans full screen width).
 
-### 8.3. Step 2: Reading Taxonomy & Writer Intent
-- **Default State**: Both Genres and Categories start completely empty (`[]`) by default, requiring active user selection.
-- **Favorite Genres**: Strictly capped at maximum 5 (0–5 allowed, no mandatory minimum).
-  - Counter format: `{selectedGenres.length}/5 selected` (or `5/5 selected (max)` when 5).
-  - Silent ceiling: Clicking beyond 5 is ignored silently without intrusive error banners; excess chips are dimmed.
-- **Preferred Categories**: Strictly capped at maximum 3 (0–3 allowed).
-  - Counter format: Simplified `{selectedCategories.length}/3 selected` (e.g., `2/3 selected`).
+### 8.3. Step 2: Reading Preferences & Completion
+- **Heading**: "Reading Preferences".
+- **Default State**: Starts empty (`[]`), requiring active user selection.
+- **Reading Genres**: Mandatory minimum 1, strictly capped at maximum 5. Silent ceiling ignores clicks beyond 5.
+- **Writer Intent**: Optional checkbox routing to `/write` upon completion.
+- **Action Buttons**: Full container width (`w-full`) "Complete Profile" button, with a "Back to Personal Details" button underneath.
+- **Transition**: Atomically completes onboarding, sets `signup_source = 'standard'`, sets `reader_gate_converted = true` for reader signups, invalidates router, and routes to `/` (or `/write`).
   - Silent ceiling: Clicking beyond 3 is ignored silently without error banners; excess chips are dimmed.
 - **Writer Intent Card ("I want to publish my own serialized stories on Hatchpen")**:
   - Highlights the 5-month New Voices Showcase priority spotlight.

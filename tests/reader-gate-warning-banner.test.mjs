@@ -10,7 +10,7 @@ describe('Reader Gate Warning Banner Approach', () => {
   const authorsServerTs = fs.readFileSync(path.resolve(process.cwd(), 'src/server/authors.ts'), 'utf8')
   const settingsServerTs = fs.readFileSync(path.resolve(process.cwd(), 'src/server/settings.ts'), 'utf8')
 
-  it('ensures ReaderGateWarningBanner strictly excludes all editor routes', () => {
+  it('ensures ReaderGateWarningBanner strictly excludes editor and onboarding routes', () => {
     assert.ok(
       bannerTsx.includes("pathname.includes('/editor')"),
       'Banner must check pathname.includes("/editor")'
@@ -20,8 +20,12 @@ describe('Reader Gate Warning Banner Approach', () => {
       'Banner must exclude /write/editor routes'
     )
     assert.ok(
-      bannerTsx.includes('if (isEditorRoute)'),
-      'Banner must return null on editor routes'
+      bannerTsx.includes("pathname.startsWith('/onboarding')"),
+      'Banner must exclude /onboarding route'
+    )
+    assert.ok(
+      bannerTsx.includes('if (isExcludedRoute)'),
+      'Banner must return null on excluded routes'
     )
   })
 
@@ -50,8 +54,12 @@ describe('Reader Gate Warning Banner Approach', () => {
       'Banner must call handleOpenOnboarding'
     )
     assert.ok(
-      bannerTsx.includes('detail: { step: isUsernameVerified ? 2 : 1 }'),
-      'handleOpenOnboarding must dispatch step 2 if username is already verified, else step 1'
+      bannerTsx.includes("to: '/onboarding'"),
+      'handleOpenOnboarding must navigate to /onboarding'
+    )
+    assert.ok(
+      bannerTsx.includes('search: { step: isUsernameVerified ? 2 : 1 }'),
+      'handleOpenOnboarding must pass step 2 if handle is verified, else step 1'
     )
   })
 
@@ -66,18 +74,15 @@ describe('Reader Gate Warning Banner Approach', () => {
     )
   })
 
-  it('ensures UserOnboardingModal does NOT auto-popup for reader_gate users and listens to open event', () => {
+  it('ensures onboarding page dispatches reader-gate-cleared event upon completion', () => {
+    const onboardingTsx = fs.readFileSync(path.resolve(process.cwd(), 'src/routes/onboarding.tsx'), 'utf8')
     assert.ok(
-      onboardingModalTsx.includes('if (isReaderSource)'),
-      'UserOnboardingModal must detect isReaderSource'
+      onboardingTsx.includes('hatchpen:reader-gate-cleared'),
+      'onboarding.tsx must dispatch hatchpen:reader-gate-cleared upon completion'
     )
     assert.ok(
-      onboardingModalTsx.includes("window.addEventListener('hatchpen:open-onboarding'"),
-      'UserOnboardingModal must listen for hatchpen:open-onboarding'
-    )
-    assert.ok(
-      onboardingModalTsx.includes('hatchpen:reader-gate-cleared'),
-      'UserOnboardingModal must dispatch hatchpen:reader-gate-cleared upon completion'
+      onboardingTsx.includes('hatchpen:onboarding-completed'),
+      'onboarding.tsx must dispatch hatchpen:onboarding-completed upon completion'
     )
   })
 

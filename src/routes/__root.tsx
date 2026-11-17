@@ -14,7 +14,6 @@ import { hasActiveClientSession } from '../lib/authSession'
 // Code-split heavy interactive modals so they are never bundled into the public SSR/CWV critical path
 const AuthModal = React.lazy(() => import('../components/AuthModal').then((m) => ({ default: m.AuthModal })))
 const PublicWriteModal = React.lazy(() => import('../components/PublicWriteModal').then((m) => ({ default: m.PublicWriteModal })))
-const UserOnboardingModal = React.lazy(() => import('../components/UserOnboardingModal').then((m) => ({ default: m.UserOnboardingModal })))
 const MobileContestAnnouncementModal = React.lazy(() => import('../components/MobileContestAnnouncementModal').then((m) => ({ default: m.MobileContestAnnouncementModal })))
 
 import appCss from '../styles.css?url'
@@ -463,10 +462,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <Suspense fallback={null}>
         <AuthModal />
         <PublicWriteModal />
-        {(Boolean(rootData?.isAuthenticated && !rootData?.authUser?.onboardingCompleted) ||
-          Boolean(!rootData?.authUser?.onboardingCompleted && typeof window !== 'undefined' && hasActiveClientSession())) && (
-          <UserOnboardingModal authUser={rootData?.authUser} />
-        )}
         <MobileContestAnnouncementModal />
       </Suspense>
       <Header

@@ -8,19 +8,19 @@ const ONBOARDING_MODAL_FILE_PATH = 'src/components/UserOnboardingModal.tsx'
 const INDEX_FILE_PATH = 'src/routes/index.tsx'
 const AUTH_MODAL_FILE_PATH = 'src/components/AuthModal.tsx'
 
-test('Regression Invariant 1: __root.tsx mounts UserOnboardingModal with client and server session resilience', () => {
+test('Regression Invariant 1: __root.tsx mounts ReaderGateWarningBanner with client and server session resilience', () => {
   const content = fs.readFileSync(ROOT_FILE_PATH, 'utf-8')
 
-  // UserOnboardingModal must support client session (hasActiveClientSession) as well as server session
+  // Support client session (hasActiveClientSession) as well as server session
   assert.ok(
     content.includes('hasActiveClientSession'),
-    'UserOnboardingModal must support reactive client session detection via hasActiveClientSession'
+    '__root.tsx must support reactive client session detection via hasActiveClientSession'
   )
 
-  // Must be mounted in Suspense with authUser prop
+  // Must mount ReaderGateWarningBanner with serverAuthUser prop
   assert.ok(
-    content.includes('<UserOnboardingModal authUser={rootData?.authUser} />'),
-    'UserOnboardingModal must be rendered inside Suspense'
+    content.includes('<ReaderGateWarningBanner serverAuthUser={rootData?.authUser} />'),
+    'ReaderGateWarningBanner must be rendered with serverAuthUser prop'
   )
 })
 

@@ -1,4 +1,4 @@
-import { createFileRoute, useRouter } from '@tanstack/react-router'
+import { createFileRoute, useRouter, useNavigate } from '@tanstack/react-router'
 import React from 'react'
 import { useUser, useClerk } from '@clerk/react'
 import { generateMeta } from '../lib/seo'
@@ -199,6 +199,7 @@ function HomePage() {
 
   // Hook 6: Self-healing synchronization for stale loaderData on home route transitions
   const router = useRouter()
+  const navigate = useNavigate()
   React.useEffect(() => {
     if (isUserLoaded && isSignedIn && !loaderData?.authUser?.isAuthenticated) {
       router.invalidate()
@@ -216,6 +217,18 @@ function HomePage() {
   const isPendingOnboarding =
     !isCompletedMultiDevice &&
     Boolean(isUserLoaded && isSignedIn)
+
+  // Hook 7: Standard un-onboarded user redirection to /onboarding full-page
+  React.useEffect(() => {
+    if (isUserLoaded && isSignedIn && isPendingOnboarding) {
+      const isReader =
+        loaderData?.authUser?.signupSource === 'reader_gate' ||
+        (typeof window !== 'undefined' && sessionStorage.getItem('hatchpen_signup_source') === 'reader_gate')
+      if (!isReader) {
+        navigate({ to: '/onboarding', replace: true })
+      }
+    }
+  }, [isUserLoaded, isSignedIn, isPendingOnboarding, loaderData?.authUser?.signupSource, navigate])
 
   // =========================================================================
   // ALL HOOKS HAVE BEEN EXECUTED. NOW EVALUATE VIEW BRANCHES SAFELY:
@@ -238,10 +251,15 @@ function HomePage() {
     return <PublicHome loaderData={loaderData} />
   }
 
-  // 3. User is actively completing onboarding modal:
-  // Render lightweight skeleton backdrop with ZERO background recommendation API calls!
+  // 3. User is actively completing onboarding:
+  // For standard signups with pending onboarding, render skeleton while redirecting to /onboarding
   if (isUserLoaded && isSignedIn && isPendingOnboarding) {
-    return <LoggedInHomeSkeleton />
+    const isReader =
+      loaderData?.authUser?.signupSource === 'reader_gate' ||
+      (typeof window !== 'undefined' && sessionStorage.getItem('hatchpen_signup_source') === 'reader_gate')
+    if (!isReader) {
+      return <LoggedInHomeSkeleton />
+    }
   }
 
   // 4. Definitively signed in by Clerk

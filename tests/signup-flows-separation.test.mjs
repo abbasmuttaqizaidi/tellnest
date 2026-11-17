@@ -58,14 +58,14 @@ describe('Two Separate Sign-Up Flows & Reader Username Flexibility', () => {
     )
   })
 
-  it('ensures __root.tsx mounts UserOnboardingModal with client session resilience and code splitting', () => {
+  it('ensures __root.tsx mounts ReaderGateWarningBanner with client session resilience and code splitting', () => {
     assert.ok(
       rootRouteTsx.includes('hasActiveClientSession'),
       '__root.tsx should check hasActiveClientSession for client hydration'
     )
     assert.ok(
-      rootRouteTsx.includes('<UserOnboardingModal authUser={rootData?.authUser} />'),
-      '__root.tsx should mount UserOnboardingModal in Suspense'
+      rootRouteTsx.includes('<ReaderGateWarningBanner serverAuthUser={rootData?.authUser} />'),
+      '__root.tsx should mount ReaderGateWarningBanner above main content'
     )
   })
 

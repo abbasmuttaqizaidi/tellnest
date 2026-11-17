@@ -31,10 +31,6 @@ test('Wattpad Architecture: __root.tsx code-splits modals using React.lazy', () 
     '__root.tsx must lazy-load PublicWriteModal via React.lazy'
   )
   assert.ok(
-    content.includes("React.lazy(() => import('../components/UserOnboardingModal')"),
-    '__root.tsx must lazy-load UserOnboardingModal via React.lazy'
-  )
-  assert.ok(
     content.includes("React.lazy(() => import('../components/MobileContestAnnouncementModal')"),
     '__root.tsx must lazy-load MobileContestAnnouncementModal via React.lazy'
   )
@@ -44,17 +40,13 @@ test('Wattpad Architecture: __root.tsx code-splits modals using React.lazy', () 
   )
 })
 
-test('Wattpad Architecture: UserOnboardingModal and ClerkSync are conditionally mounted', () => {
+test('Wattpad Architecture: ClerkSync is conditionally mounted only for authenticated users', () => {
   const rootPath = path.resolve('src/routes/__root.tsx')
   const content = fs.readFileSync(rootPath, 'utf8')
 
   assert.ok(
     content.includes('Boolean(rootData?.isAuthenticated) && <ClerkSync />'),
     'ClerkSync must strictly mount only when user is authenticated'
-  )
-  assert.ok(
-    content.includes('Boolean(rootData?.isAuthenticated && !rootData?.authUser?.onboardingCompleted)'),
-    'UserOnboardingModal must strictly mount only when authenticated user has not completed onboarding'
   )
 })
 

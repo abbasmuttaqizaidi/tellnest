@@ -6,101 +6,88 @@ import path from 'node:path'
 /**
  * ==============================================================================
  * Regression & Invariant Lock Test Suite: User Onboarding Flow
- * Reference: Section 8 in rules.md
+ * Reference: Section 8 in rules.md (Full-Page /onboarding Route Architecture)
  * 
  * Verifies that:
  * 1. Step 1 Username validation rules & terms acceptance invariants are locked.
- * 2. Step 2 Genre limits (min 3, max 5) and Category limits (max 3) are strictly enforced.
- * 3. Default state starts completely empty ([] for both genres and categories).
+ * 2. Step 2 Genre limits (min 1, max 5) are strictly enforced.
+ * 3. Default state starts completely empty ([] for genres).
  * 4. Drop-off durability invariant: incomplete onboarding leaves flag as false.
  * 5. Writer Intent ("interestedInWriting") contract correctly routes to /write vs /.
- * 6. Option 1 personalization transition screen and router invalidation are active.
- * 7. Source code inspection tests ensure no accidental drift or regression in UserOnboardingModal.tsx.
+ * 6. Center alignment and container-width button structure are strictly preserved.
+ * 7. Strictly no icons displayed in headings, steps, or buttons.
  * ==============================================================================
  */
 
-const MODAL_FILE_PATH = path.resolve('src/components/UserOnboardingModal.tsx')
+const ONBOARDING_ROUTE_PATH = path.resolve('src/routes/onboarding.tsx')
 const AUTHORS_SERVER_PATH = path.resolve('src/server/authors.ts')
 const RULES_PATH = path.resolve('rules.md')
-const MODAL_COMPONENT_PATH = path.resolve('src/design-system/Modal.tsx')
 
 // ── Invariant 1: Source Code Structure & Anti-Tamper Locks ────────────────────
 
-test('Onboarding Lock: rules.md Section 8 exists and defines immutable specification', () => {
+test('Onboarding Lock: rules.md Section 8 exists and defines full-page specification', () => {
   const content = fs.readFileSync(RULES_PATH, 'utf-8')
   assert.ok(
     content.includes('## 8. Locked Feature Specification: User Onboarding Flow (Immutable)'),
     'rules.md must contain locked Section 8'
   )
   assert.ok(
-    content.includes('8.1. Durability, Triggers & Incomplete State Protection'),
-    'rules.md must specify durability & triggers'
+    content.includes('8.1. Architecture, Triggers & Incomplete State Protection'),
+    'rules.md must specify architecture & triggers'
   )
   assert.ok(
-    content.includes('8.2. Step 1: Pen Name & Core Identity'),
-    'rules.md must specify Step 1 username & tooltip requirements'
+    content.includes('8.2. Step 1: Personal Details'),
+    'rules.md must specify Step 1 Personal Details requirements'
   )
   assert.ok(
-    content.includes('8.3. Step 2: Reading Taxonomy & Writer Intent'),
-    'rules.md must specify min 3, max 5 genres and max 3 categories'
-  )
-})
-
-test('Onboarding Lock: UserOnboardingModal.tsx contains top-level LOCKED docstring', () => {
-  const content = fs.readFileSync(MODAL_FILE_PATH, 'utf-8')
-  assert.ok(
-    content.includes('LOCKED SPECIFICATION: User Onboarding Modal Flow'),
-    'UserOnboardingModal.tsx must contain explicit LOCKED SPECIFICATION docstring'
-  )
-  assert.ok(
-    content.includes('DO NOT MODIFY OR REFACTOR THIS FLOW WITHOUT EXPLICIT PERMISSION'),
-    'UserOnboardingModal.tsx must warn future developers/agents not to modify without permission'
+    content.includes('8.3. Step 2: Reading Preferences & Completion'),
+    'rules.md must specify Step 2 reading preferences & completion'
   )
 })
 
-test('Onboarding Lock: Modal cannot be bypassed or dismissed accidentally', () => {
-  const content = fs.readFileSync(MODAL_FILE_PATH, 'utf-8')
+test('Onboarding Lock: onboarding.tsx defines full-page route with centered layout and container-width button', () => {
+  const content = fs.readFileSync(ONBOARDING_ROUTE_PATH, 'utf-8')
   assert.ok(
-    content.includes('showCloseButton={false}'),
-    'UserOnboardingModal must enforce showCloseButton={false}'
+    content.includes("createFileRoute('/onboarding')"),
+    'onboarding.tsx must define /onboarding route'
   )
   assert.ok(
-    content.includes('closeOnBackdropClick={false}'),
-    'UserOnboardingModal must enforce closeOnBackdropClick={false}'
+    content.includes('max-w-lg mx-auto'),
+    'onboarding.tsx must center-align form container with max-w-lg'
+  )
+  assert.ok(
+    content.includes('w-full'),
+    'Continue button must be full width of container'
   )
 })
 
-test('Onboarding Lock: Background scroll is locked on desktop and mobile', () => {
-  const content = fs.readFileSync(MODAL_COMPONENT_PATH, 'utf-8')
+test('Onboarding Lock: Strictly NO icons in headings, steps, or buttons', () => {
+  const content = fs.readFileSync(ONBOARDING_ROUTE_PATH, 'utf-8')
   assert.ok(
-    content.includes("document.body.style.overflow = 'hidden'"),
-    'Modal must set body overflow to hidden'
+    !content.includes('Sparkles'),
+    'onboarding.tsx must strictly NOT contain any Sparkles icon'
   )
   assert.ok(
-    content.includes("document.documentElement.style.overflow = 'hidden'"),
-    'Modal must set documentElement (html) overflow to hidden for desktop'
+    !content.includes('PenLine') && !content.includes('PenTool'),
+    'onboarding.tsx must not contain pen icons'
   )
   assert.ok(
-    content.includes("preventBackdropScroll"),
-    'Modal must intercept wheel scrolling to protect desktop background'
+    content.includes('Personal Details'),
+    'Step 1 must have plain text Personal Details heading'
   )
   assert.ok(
-    content.includes("overscroll-contain"),
-    'Modal content must contain overscroll to prevent scroll chaining'
+    content.includes('Reading Preferences'),
+    'Step 2 must have plain text Reading Preferences heading'
   )
 })
 
 // ── Invariant 2: Default State Invariant (Zero Pre-selection) ──────────────────
 
-test('Onboarding Lock: Genres and Categories MUST start as empty arrays ([])', () => {
-  const content = fs.readFileSync(MODAL_FILE_PATH, 'utf-8')
+test('Onboarding Lock: Genres MUST start as empty array ([])', () => {
+  const content = fs.readFileSync(ONBOARDING_ROUTE_PATH, 'utf-8')
   assert.ok(
     content.includes("const [selectedGenres, setSelectedGenres] = useState<Array<{ id: string; name: string }>>([])"),
     'selectedGenres must initialize to empty array []'
-  )
-  assert.ok(
-    content.includes("const [selectedCategories, setSelectedCategories] = useState<Array<{ id: string; name: string }>>([])"),
-    'selectedCategories must initialize to empty array []'
   )
 })
 
@@ -125,17 +112,13 @@ test('Onboarding Logic: Username validation strictly enforces 3-30 letters/numbe
   assert.strictEqual(regex.test('julian-thorne'), false, 'Hyphen must be rejected')
 })
 
-test('Onboarding Logic: Step 2 limits strictly enforce max 5 genres and max 3 categories', () => {
-  const content = fs.readFileSync(MODAL_FILE_PATH, 'utf-8')
+test('Onboarding Logic: Step 2 limits strictly enforce max 5 genres', () => {
+  const content = fs.readFileSync(ONBOARDING_ROUTE_PATH, 'utf-8')
   
   // Verify Step 2 valid definition
   assert.ok(
-    content.includes('selectedGenres.length <= 5'),
+    content.includes('selectedGenres.length > 5'),
     'Validation requires at most 5 genres'
-  )
-  assert.ok(
-    content.includes('selectedCategories.length <= 3'),
-    'Validation requires at most 3 categories'
   )
 
   // Pure logic simulation of toggleGenre
@@ -153,7 +136,7 @@ test('Onboarding Logic: Step 2 limits strictly enforce max 5 genres and max 3 ca
   genres = simulateToggleGenre(genres, { id: 'g1', name: 'G1' })
   genres = simulateToggleGenre(genres, { id: 'g2', name: 'G2' })
   genres = simulateToggleGenre(genres, { id: 'g3', name: 'G3' })
-  assert.strictEqual(genres.length, 3, 'Valid minimum reached')
+  assert.strictEqual(genres.length, 3, 'Valid count')
 
   genres = simulateToggleGenre(genres, { id: 'g4', name: 'G4' })
   genres = simulateToggleGenre(genres, { id: 'g5', name: 'G5' })
@@ -168,66 +151,21 @@ test('Onboarding Logic: Step 2 limits strictly enforce max 5 genres and max 3 ca
   assert.strictEqual(genres.length, 4, 'Deselection works')
 })
 
-test('Onboarding Logic: Step 2 Category limits strictly enforce max 3', () => {
-  const simulateToggleCategory = (current, cat) => {
-    const exists = current.some((c) => c.id === cat.id)
-    if (exists) return current.filter((c) => c.id !== cat.id)
-    if (current.length >= 3) return current // Silent ceiling
-    return [...current, cat]
-  }
-
-  let categories = []
-  categories = simulateToggleCategory(categories, { id: 'c1', name: 'C1' })
-  categories = simulateToggleCategory(categories, { id: 'c2', name: 'C2' })
-  categories = simulateToggleCategory(categories, { id: 'c3', name: 'C3' })
-  assert.strictEqual(categories.length, 3, 'Maximum of 3 categories reached')
-
-  // Attempt to add a 4th category: MUST be ignored
-  categories = simulateToggleCategory(categories, { id: 'c4', name: 'C4' })
-  assert.strictEqual(categories.length, 3, '4th category must be rejected by ceiling')
-})
-
-// ── Invariant 4: Option 1 Transition Screen & Router Refresh ──────────────────
-
-test('Onboarding Lock: Option 1 1.3s transition screen and router invalidation are active', () => {
-  const content = fs.readFileSync(MODAL_FILE_PATH, 'utf-8')
-  assert.ok(
-    content.includes('setIsPersonalizing(true)'),
-    'Must trigger isPersonalizing state upon saving'
-  )
-  assert.ok(
-    content.includes('await router.invalidate()'),
-    'Must invalidate router queries to refresh recommendations'
-  )
-  assert.ok(
-    content.includes('setTimeout(resolve, 1300)'),
-    'Must show 1.3-second curation animation'
-  )
-  assert.ok(
-    content.includes('Personalizing Your Reading Sanctuary'),
-    'Must render personalizing reading sanctuary heading for readers'
-  )
-  assert.ok(
-    content.includes('Setting Up Your Writer Studio'),
-    'Must render setting up writer studio heading for writers'
-  )
-})
-
-// ── Invariant 5: Writer Intent Routing Contract ───────────────────────────────
+// ── Invariant 4: Writer Intent Routing Contract ───────────────────────────────
 
 test('Onboarding Lock: Writer Intent checkbox routes to /write vs /', () => {
-  const content = fs.readFileSync(MODAL_FILE_PATH, 'utf-8')
+  const content = fs.readFileSync(ONBOARDING_ROUTE_PATH, 'utf-8')
   assert.ok(
-    content.includes("navigate({ to: '/write' })"),
+    content.includes("navigate({ to: '/write', replace: true })"),
     'Must route to /write if interestedInWriting is true'
   )
   assert.ok(
-    content.includes("navigate({ to: '/' })"),
+    content.includes("navigate({ to: '/', replace: true })"),
     'Must route to / if interestedInWriting is false'
   )
 })
 
-// ── Invariant 6: Server Persistence Contract ──────────────────────────────────
+// ── Invariant 5: Server Persistence Contract ──────────────────────────────────
 
 test('Onboarding Lock: Server function atomically saves preferences and onboarding_completed', () => {
   const content = fs.readFileSync(AUTHORS_SERVER_PATH, 'utf-8')
@@ -251,27 +189,27 @@ test('Onboarding Lock: Server function atomically saves preferences and onboardi
     content.includes('genres: data.genres'),
     'saveUserOnboardingServerFn must persist genres'
   )
-  assert.ok(
-    content.includes('categories: data.categories'),
-    'saveUserOnboardingServerFn must persist categories'
-  )
 })
 
-// ── Invariant 7: Terms Acceptance & Step 1 Verification Gate ─────────────────
+// ── Invariant 6: Terms Acceptance & Step 1 Verification Gate ─────────────────
 
 test('Onboarding Lock: Continue button disabled without terms, and unverified username blocks Step 2', () => {
-  const content = fs.readFileSync(MODAL_FILE_PATH, 'utf-8')
+  const content = fs.readFileSync(ONBOARDING_ROUTE_PATH, 'utf-8')
   assert.ok(
-    content.includes('disabled={!termsAccepted || isVerifyingUsername}'),
-    'Continue button must be disabled until terms are accepted'
+    content.includes('disabled={!isStep1Valid}'),
+    'Continue button must be disabled until isStep1Valid is true'
   )
   assert.ok(
-    content.includes("setErrorMessage('Please verify your username before proceeding to Step 2.')"),
-    'Must display top banner error if user tries to continue without verifying username'
+    content.includes('termsAccepted'),
+    'isStep1Valid requires termsAccepted'
+  )
+  assert.ok(
+    content.includes('usernameVerification?.available'),
+    'isStep1Valid requires verified available username'
   )
 })
 
-// ── Invariant 8: DB Persistence of Username Verification ──────────────────────
+// ── Invariant 7: DB Persistence of Username Verification ──────────────────────
 
 test('Onboarding Lock: Username verification flag is saved directly in DB, not browser storage', () => {
   const settingsContent = fs.readFileSync(path.resolve('src/server/settings.ts'), 'utf-8')
