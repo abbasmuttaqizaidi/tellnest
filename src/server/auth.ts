@@ -8,6 +8,9 @@ export interface ServerAuthState {
   avatarUrl?: string | null
   displayName?: string | null
   username?: string | null
+  signupSource?: 'reader_gate' | 'standard' | null
+  isUsernameVerified?: boolean
+  hasSelectedGenres?: boolean
 }
 
 /**
@@ -23,6 +26,9 @@ export const getAuthUserServerFn = createServerFn({ method: 'GET' }).handler(
       let avatarUrl: string | null = null
       let displayName: string | null = null
       let username: string | null = null
+      let signupSource: 'reader_gate' | 'standard' | null = null
+      let isUsernameVerified = false
+      let hasSelectedGenres = false
 
       if (userId) {
         try {
@@ -30,10 +36,14 @@ export const getAuthUserServerFn = createServerFn({ method: 'GET' }).handler(
           const { getCachedProfileByClerkId } = await import('./authors')
           const admin = createAdminClient()
           const profile = await getCachedProfileByClerkId(admin, userId)
+          const pPrefs = (profile?.preferences as Record<string, any>) || {}
           onboardingCompleted = profile?.onboarding_completed === true
           avatarUrl = profile?.avatar_path || null
           displayName = profile?.display_name || null
           username = profile?.username || null
+          signupSource = pPrefs.signup_source || 'standard'
+          isUsernameVerified = Boolean(profile?.is_username_verified ?? pPrefs.username_verified)
+          hasSelectedGenres = Array.isArray(pPrefs.genres) && pPrefs.genres.length > 0
         } catch {}
       }
 
@@ -43,6 +53,9 @@ export const getAuthUserServerFn = createServerFn({ method: 'GET' }).handler(
         onboardingCompleted,
         hasAvatar: Boolean(avatarUrl),
         username,
+        signupSource,
+        isUsernameVerified,
+        hasSelectedGenres,
       })
       return {
         userId,
@@ -51,6 +64,9 @@ export const getAuthUserServerFn = createServerFn({ method: 'GET' }).handler(
         avatarUrl,
         displayName,
         username,
+        signupSource,
+        isUsernameVerified,
+        hasSelectedGenres,
       }
     } catch (e: any) {
       console.error('[getAuthUserServerFn] Server Auth FAILED:', e?.message || e)

@@ -255,7 +255,18 @@ export function UserOnboardingModal({ authUser }: { authUser?: any } = {}) {
         } catch {}
       }
 
-      // Open onboarding modal for new / incomplete user
+      // For reader_gate users, DO NOT auto-open modal! They are guided via the persistent Warning Banner.
+      if (isReaderSource) {
+        setIsOpen(false)
+        setIsOnboardingActive(false)
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('hatchpen_onboarding_active')
+          window.dispatchEvent(new CustomEvent('hatchpen:onboarding-active', { detail: { active: false } }))
+        }
+        return
+      }
+
+      // Open onboarding modal for new / incomplete standard user
       setIsOpen(true)
       setIsOnboardingActive(true)
       if (typeof window !== 'undefined') {
@@ -278,6 +289,25 @@ export function UserOnboardingModal({ authUser }: { authUser?: any } = {}) {
       }
     }
   }, [isLoaded, isSignedIn, user, authUser?.onboardingCompleted, pathname])
+
+  // Programmatic listener: opens modal on step 1 (Verify Username) or step 2 (Select Genres) from ReaderGateWarningBanner
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const handleOpenOnboarding = (e: any) => {
+      const targetStep = e?.detail?.step === 2 ? 2 : 1
+      setStep(targetStep)
+      setIsOpen(true)
+      setIsOnboardingActive(true)
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('hatchpen_onboarding_active', 'true')
+        window.dispatchEvent(new CustomEvent('hatchpen:onboarding-active', { detail: { active: true } }))
+      }
+    }
+    window.addEventListener('hatchpen:open-onboarding', handleOpenOnboarding)
+    return () => {
+      window.removeEventListener('hatchpen:open-onboarding', handleOpenOnboarding)
+    }
+  }, [])
 
   const isUsernameVerified =
     Boolean(usernameVerification?.available) &&
@@ -440,6 +470,7 @@ export function UserOnboardingModal({ authUser }: { authUser?: any } = {}) {
         } catch {}
         window.dispatchEvent(new CustomEvent('hatchpen:onboarding-active', { detail: { active: false } }))
         window.dispatchEvent(new CustomEvent('hatchpen:onboarding-completed'))
+        window.dispatchEvent(new CustomEvent('hatchpen:reader-gate-cleared'))
       }
 
       // Enter Option 1: Smooth 1.2s personalization transition screen
@@ -496,7 +527,14 @@ export function UserOnboardingModal({ authUser }: { authUser?: any } = {}) {
       <Modal
         isOpen={isOpen}
         onClose={() => {
-          // Strict onboarding modal: keep open until onboarding completes
+          if (isReaderSignup) {
+            setIsOpen(false)
+            setIsOnboardingActive(false)
+            if (typeof window !== 'undefined') {
+              sessionStorage.removeItem('hatchpen_onboarding_active')
+              window.dispatchEvent(new CustomEvent('hatchpen:onboarding-active', { detail: { active: false } }))
+            }
+          }
         }}
         showCloseButton={false}
         closeOnBackdropClick={false}

@@ -472,8 +472,10 @@ export async function executeUpdateAccountProfile(deps: {
         username_verified_at: new Date().toISOString(),
         username_last_changed_at: new Date().toISOString(),
       }
-      if (nextPrefs.signup_source === 'reader_gate') {
-        delete nextPrefs.signup_source
+      const hasGenres = Array.isArray(currentPrefs.genres) && currentPrefs.genres.length > 0
+      if (nextPrefs.signup_source === 'reader_gate' && hasGenres) {
+        nextPrefs.signup_source = 'standard'
+        updates.onboarding_completed = true
       }
       updates.preferences = nextPrefs
     }
@@ -781,6 +783,15 @@ export async function executeUpdateReadingPreferences(deps: {
   const lang = String(deps.data.preferredLanguage || 'en').trim().toLowerCase().slice(0, 10)
   const adultEnabled = Boolean(deps.data.adultContentEnabled)
 
+  const isUsernameVerified = Boolean(
+    profile.is_username_verified ||
+    currentPrefs.username_verified ||
+    (currentPrefs.username_verified_at && currentPrefs.signup_source !== 'reader_gate')
+  )
+  const isReaderGate = currentPrefs.signup_source === 'reader_gate'
+  const hasGenres = cleanGenres.length > 0
+  const isCompleteSetup = isReaderGate && isUsernameVerified && hasGenres
+
   const updatedPrefs = {
     ...currentPrefs,
     genres: cleanGenres,
@@ -788,6 +799,7 @@ export async function executeUpdateReadingPreferences(deps: {
     categories: cleanCategories,
     preferred_language: lang,
     adult_content_enabled: adultEnabled,
+    ...(isCompleteSetup ? { signup_source: 'standard' } : {}),
   }
 
   // 1. Update profiles table JSONB
@@ -795,6 +807,7 @@ export async function executeUpdateReadingPreferences(deps: {
     .from('profiles')
     .update({
       preferences: updatedPrefs,
+      ...(isCompleteSetup ? { onboarding_completed: true } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq('id', profile.id)

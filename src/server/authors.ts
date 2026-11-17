@@ -196,9 +196,8 @@ export const saveUserOnboardingServerFn = createServerFn({ method: 'POST' })
       username_last_changed_at: new Date().toISOString(),
     }
 
-    if (preferencesPayload.signup_source === 'reader_gate') {
-      delete preferencesPayload.signup_source
-    }
+    // Transition reader_gate users to platform default standard account upon completing onboarding
+    preferencesPayload.signup_source = 'standard'
 
     // Tareeqa B: Send Welcome Email via Resend on onboarding completion if not sent yet
     const alreadySentWelcome = Boolean(currentPrefs.welcomeEmailSent)

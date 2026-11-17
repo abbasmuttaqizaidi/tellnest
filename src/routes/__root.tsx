@@ -5,6 +5,7 @@ import Header from '../components/Header'
 import Footer from '../components/Footer'
 import Toast from '../components/Toast'
 import { ClerkSync } from '../components/ClerkSync'
+import { ReaderGateWarningBanner } from '../components/ReaderGateWarningBanner'
 import { InspectletTracker } from '../components/InspectletTracker'
 import { AppProvider } from '../context/AppContext'
 import { getAuthUserServerFn } from '../server/auth'
@@ -472,6 +473,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         serverAuthenticated={Boolean(rootData?.isAuthenticated)}
         serverUser={rootData?.authUser}
       />
+      <ReaderGateWarningBanner serverAuthUser={rootData?.authUser} />
       <main className="flex-1 w-full max-w-full bg-[var(--bg-canvas)]">
         {children}
       </main>
